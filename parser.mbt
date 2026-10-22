@@ -100,7 +100,7 @@ priv struct ParseContinuation {
   reused_subtrees : Int32
   work : Array[Branch]
   paused : Array[Branch]
-  visited : Map[BranchKey, (Int32, Int32, Array[Derivation])]
+  visited : Map[BranchKey, (Int32, Int32, Array[Entry])]
   best : (Node, Int32, Int32)?
   steps : Int32
   furthest : Int32
@@ -490,7 +490,7 @@ fn Parser::parse_source(
     ]
   }
   let paused : Array[Branch] = continuation.map(c => c.paused).unwrap_or([])
-  let visited : Map[BranchKey, (Int32, Int32, Array[Derivation])] = continuation
+  let visited : Map[BranchKey, (Int32, Int32, Array[Entry])] = continuation
     .map(c => c.visited)
     .unwrap_or(Map([]))
   let mut best : (Node, Int32, Int32)? = match continuation {
@@ -603,14 +603,28 @@ fn Parser::parse_source(
             dynamic > branch.dynamic ||
             (
               dynamic == branch.dynamic &&
-              compare_derivations(self.language, previous, derivations) <= 0
+              (
+                (
+                  self.language.states[branch.states.last().unwrap()].actions
+                  .get(token.symbol)
+                  .unwrap_or([])
+                  .any(a => a is Shift(_)) &&
+                  equivalent_top_link(previous, branch.entries)
+                ) ||
+                compare_derivations(
+                  self.language,
+                  previous.map(e => e.node.data.derivation),
+                  derivations,
+                ) <=
+                0
+              )
             )
           )
         )
       ) {
       continue
     }
-    visited[key] = (branch.cost, branch.dynamic, derivations)
+    visited[key] = (branch.cost, branch.dynamic, branch.entries)
     let state = branch.states.last().unwrap()
     if branch.status == Active &&
       work.is_empty() &&
@@ -697,10 +711,21 @@ fn Parser::parse_source(
       // Missing tokens are useful only when their shift enables a reduction on
       // the actual lookahead; arbitrary chains fabricate complete statements.
       if branch.insertions == 0 && branch.status == Preparing {
-        for (expected, actions) in self.language.states[state].actions {
+        let expected_tokens = self.language.states[state].actions
+          .keys()
+          .to_array()
+        expected_tokens.sort_by((a, b) => {
+          symbol_order(self.language, a).compare(symbol_order(self.language, b))
+        })
+        let mut inserted = false
+        for expected in expected_tokens {
+          if inserted {
+            break
+          }
           if expected == 0 {
             continue
           }
+          let actions = self.language.states[state].actions[expected]
           for action in actions {
             if action is Shift(next) &&
               next != state &&
@@ -722,6 +747,8 @@ fn Parser::parse_source(
                 errors: branch.errors + 1,
                 insertions: 1,
               })
+              inserted = true
+              break
             }
           }
         }
@@ -937,7 +964,7 @@ fn Parser::parse_source(
                 branch.status != Active,
             )
             is Some(reduced) {
-            work.push(reduced)
+            work.insert(0, reduced)
           }
         Accept =>
           if branch.extras.is_empty() &&

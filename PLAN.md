@@ -539,3 +539,13 @@ script passes 250 native / 249 JS / 249 Wasm GC tests and all CLI checks. The
 public matrix remains JSON 6/6, C 85/85, JavaScript 115/116, Go 64/67. All seven
 concrete second-audit findings now have fixes and regression coverage, while
 broader changed-range, GLR, API, CLI, and performance coverage remains open.
+
+Public JavaScript now passes all 116 corpus cases; Go reaches 65/67 with only
+two malformed-input recovery cases remaining. Live equivalent stack links keep
+the first derivation before a shift, with shared prefix/leading-node checks;
+completed trees still use hierarchical comparison. Reductions complete before
+other queued versions advance. Missing-token recovery considers tokens in
+extraction order and keeps the first viable insertion, matching upstream's
+selection. Focused C-oracle regressions cover nested await/call ambiguity and
+missing punctuation versus an external semicolon. The complete check script
+passes 252 native / 251 JS / 251 Wasm GC tests and CLI smoke checks.

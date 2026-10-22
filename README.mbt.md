@@ -148,10 +148,10 @@ unchanged upstream corpora:
 | --- | --- |
 | JSON v0.24.8 | 6 / 6 |
 | C v0.24.2 | 85 / 85 |
-| JavaScript v0.25.0, with a MoonBit scanner | 115 / 116 |
-| Go v0.25.0 | 64 / 67 |
+| JavaScript v0.25.0, with a MoonBit scanner | 116 / 116 |
+| Go v0.25.0 | 65 / 67 |
 
-The remaining public cases involve ambiguous derivation selection and recovery.
+The remaining public cases involve recovery around malformed Go input.
 They remain failures in the matrix, and the audit exits nonzero.
 
 Remaining compatibility work includes ambiguous-forest incremental reuse,
