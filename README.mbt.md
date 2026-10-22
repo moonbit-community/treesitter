@@ -168,19 +168,20 @@ unchanged upstream corpora:
 | JavaScript v0.25.0, with a MoonBit scanner | 116 / 116 |
 | Go v0.25.0 | 67 / 67 |
 | Regex v0.25.0 | 37 / 37 |
+| Rust v0.24.2, with a MoonBit scanner | 151 / 151 |
 
-All 12 shipped query files pass compilation against the generated tables.
+All 15 shipped query files pass compilation against the generated tables.
 The nine C/JavaScript highlight and tag fixture files also pass all 90 position
 assertions, including local-variable classification and JavaScript injection.
 The development assertion reader supports these ASCII fixtures and rejects
 non-ASCII input pending upstream-compatible grapheme-column handling.
-All 311 corpus cases pass. These include malformed-input recovery cases;
+All 462 corpus cases pass. These include malformed-input recovery cases;
 the audit exits nonzero for any corpus, query, annotation, or fuzz failure.
 CI runs this pinned public matrix in a separate Ubuntu job alongside the
 portable-library and CLI checks on Linux and macOS. Corpus, query compilation,
 and query execution results are reported separately in the audit's JSON output.
 The audit also runs two seeded fuzz iterations per corpus case, with up to two
-edits and their inverses, and reports those checks separately: 1,866 checks pass.
+edits and their inverses, and reports those checks separately: 2,772 checks pass.
 Ten upstream example files (878 KB in total, including jQuery and Go's runtime)
 also match named-tree hashes frozen from the pinned C reference. The audit runs
 only the MoonBit implementation; `python3 tools/freeze_public_examples.py`
@@ -188,13 +189,9 @@ reproduces the reference hashes as a separate development check requiring `cc`.
 The hashes cover named trees; byte ranges, anonymous nodes, and edit behavior
 are exercised by the other suites.
 
-Rust v0.24.2 is also tracked as a candidate, using the pure MoonBit scanner in
-`examples/rust/scanner.mbtx`. It passes 150/151 corpus cases, all three shipped
-queries, and 906 edit/undo checks. The longer malformed macro-body recovery tree still
-differs from upstream. Run
-`python3 tools/audit_grammars.py --fetch --manifest tools/grammar_candidates.json`
-to reproduce this failure; the command exits nonzero. Rust is not yet part of
-the passing CI matrix, and this failure remains part of the release gate.
+Rust's pure MoonBit scanner is in `examples/rust/scanner.mbtx`. Its full corpus,
+including the malformed macro-body recovery cases, now runs in the default CI
+matrix. Use `python3 tools/audit_grammars.py --fetch rust` to run it separately.
 
 Remaining compatibility work includes ambiguous-forest incremental reuse,
 incremental optimization for encoded/included-range inputs, broader upstream API

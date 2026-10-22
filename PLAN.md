@@ -857,3 +857,9 @@ checks pass 288 native / 280 JS / 280 Wasm GC. The 1,153-edit JSON differential
 remains 187 differing C S-expression pairs / 40 differing ranges, with zero
 incremental/fresh mismatches or parser errors. General GSS optimization, the
 remaining differential gaps and the other compatibility milestones remain open.
+
+Rust's unchanged pinned manifest entry has moved into the default public CI
+matrix. The now-empty candidate manifest was removed; select the Rust suite
+with `python3 tools/audit_grammars.py --fetch rust`. README totals now include
+all six passing grammars. Hosted CI, the final Codex CLI ultra review, repository
+creation and publication remain pending the full compatibility gate.
