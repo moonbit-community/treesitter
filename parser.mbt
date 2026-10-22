@@ -28,6 +28,7 @@ pub fn Parser::new(
 
 ///|
 priv struct Lexeme {
+  unexpected : Int32?
   symbol : Int32
   start : Int32
   end : Int32
@@ -569,6 +570,7 @@ fn Parser::parse_source(
               work.push({
                 ..branch,
                 lookahead: Some({
+                  unexpected: None,
                   symbol: expected,
                   start: token.start,
                   end: token.start,
@@ -679,7 +681,7 @@ fn Parser::parse_source(
           state,
           state,
           unexpected?=if token.symbol < 0 {
-            Some(@lex.decode(source, token.start).0)
+            Some(token.unexpected.unwrap_or(@lex.decode(source, token.start).0))
           } else {
             None
           },

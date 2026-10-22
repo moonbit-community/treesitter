@@ -217,13 +217,13 @@ fn Dfa::step(self : Dfa, state : Int32, cp : Int32) -> Int32? {
 ///|
 /// Returns the longest matching end position, including an empty match when
 /// the expression is nullable. Invalid UTF-8 consumes one byte as U+FFFD.
-pub fn Dfa::match_prefix(
+pub fn Dfa::scan_prefix(
   self : Dfa,
   input : Bytes,
   start~ : Int32 = 0,
-) -> Int32? {
+) -> (Int32?, Int32) {
   if start < 0 || start > input.length() {
-    return None
+    return (None, start)
   }
   let mut offset = start
   let mut state = 0
@@ -241,5 +241,15 @@ pub fn Dfa::match_prefix(
       accepted = Some(offset)
     }
   }
-  accepted
+  (accepted, offset)
+}
+
+///|
+/// Return the longest matching end offset, or None when no prefix matches.
+pub fn Dfa::match_prefix(
+  self : Dfa,
+  input : Bytes,
+  start~ : Int32 = 0,
+) -> Int32? {
+  self.scan_prefix(input, start~).0
 }

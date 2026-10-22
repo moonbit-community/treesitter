@@ -210,10 +210,11 @@ pub fn Node::text(self : Node, source : Bytes) -> String {
 }
 
 ///|
-fn Node::write_sexp(self : Node, output : StringBuilder) -> Unit {
+fn Node::write_sexp(self : Node, output : StringBuilder, fields : Bool) -> Unit {
   if self.data.unexpected is Some(code) {
     output.write_string("(UNEXPECTED '")
     match code {
+      0 => output.write_string("\\0")
       10 => output.write_string("\\n")
       13 => output.write_string("\\r")
       9 => output.write_string("\\t")
@@ -241,20 +242,20 @@ fn Node::write_sexp(self : Node, output : StringBuilder) -> Unit {
   for (field, child) in self.data.children.entries() {
     if child.is_named() || child.is_missing() || child.is_error() {
       output.write_char(' ')
-      if field is Some(name) {
+      if fields && field is Some(name) {
         output.write_string(name)
         output.write_string(": ")
       }
-      child.write_sexp(output)
+      child.write_sexp(output, fields)
     }
   }
   output.write_char(')')
 }
 
 ///|
-pub fn Node::to_sexp(self : Node) -> String {
+pub fn Node::to_sexp(self : Node, fields~ : Bool = true) -> String {
   let output = StringBuilder()
-  self.write_sexp(output)
+  self.write_sexp(output, fields)
   output.to_string()
 }
 

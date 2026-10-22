@@ -108,6 +108,7 @@ fn Parser::lex(
             pending,
             scanner_state,
             lookahead: Some({
+              unexpected: None,
               symbol,
               start,
               end,
@@ -209,6 +210,7 @@ fn Parser::lex(
             pending,
             scanner_state,
             lookahead: Some({
+              unexpected: None,
               symbol: token.symbol,
               start: offset,
               end,
@@ -218,10 +220,37 @@ fn Parser::lex(
           }
         }
       None => {
-        let end = if offset == input.length() {
+        let mut end = if offset == input.length() {
           offset
         } else {
           offset + @lex.decode(input, offset).1
+        }
+        let mut failure = offset
+        for token in self.language.tokens {
+          if !token.immediate {
+            failure = Int32::max(
+              failure,
+              token.lexer.scan_prefix(input, start=offset).1,
+            )
+          }
+        }
+        end = Int32::max(end, failure)
+        let unexpected = if failure == input.length() {
+          0
+        } else {
+          @lex.decode(input, failure).0
+        }
+        // A lexical error spans the invalid run up to the next recognizable
+        // token. Preserve the first failing code point, including EOF after
+        // a partial token such as `nul`.
+        while end < input.length() {
+          if self.language.tokens.any(t => {
+              !t.immediate &&
+              t.lexer.match_prefix(input, start=end).unwrap_or(end) > end
+            }) {
+            break
+          }
+          end += @lex.decode(input, end).1
         }
         return {
           ..branch,
@@ -229,6 +258,7 @@ fn Parser::lex(
           pending,
           scanner_state,
           lookahead: Some({
+            unexpected: Some(unexpected),
             symbol: if offset == input.length() {
               0
             } else {

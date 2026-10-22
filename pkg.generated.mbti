@@ -76,7 +76,7 @@ pub fn Node::start_position(Self) -> Point
 pub fn Node::supertypes(Self) -> Array[String]
 pub fn Node::symbol(Self) -> Int32
 pub fn Node::text(Self, Bytes) -> String
-pub fn Node::to_sexp(Self) -> String
+pub fn Node::to_sexp(Self, fields? : Bool) -> String
 pub fn Node::walk(Self) -> TreeCursor
 
 pub struct Parser {

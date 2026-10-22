@@ -151,7 +151,7 @@ pub fn run(
     let actual = if case.cst {
       render_cst(root, case.input)
     } else {
-      root.to_sexp()
+      root.to_sexp(fields=has_fields(case.expected))
     }
     {
       name: case.name,
@@ -167,4 +167,26 @@ pub fn run(
       },
     }
   })
+}
+
+///|
+fn has_fields(source : String) -> Bool {
+  let mut quote : Char? = None
+  let mut escaped = false
+  for char in source {
+    if quote is Some(delimiter) {
+      if escaped {
+        escaped = false
+      } else if char == '\\' {
+        escaped = true
+      } else if char == delimiter {
+        quote = None
+      }
+    } else if char == '"' || char == '\'' {
+      quote = Some(char)
+    } else if char == ':' {
+      return true
+    }
+  }
+  false
 }
