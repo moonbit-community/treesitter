@@ -1,0 +1,5 @@
+This project ports Tree-sitter to MoonBit.
+Reference: https://github.com/tree-sitter/tree-sitter
+Baseline: 4a412a01a0147d0f50bf7e749572fa632d1ab203 (0.28.0)
+Tree-sitter is Copyright (c) 2018-2024 Max Brunsfeld and contributors,
+distributed under the MIT license in LICENSE.
