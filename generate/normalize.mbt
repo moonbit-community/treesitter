@@ -476,6 +476,14 @@ fn normalize(
   max_productions : Int32,
 ) -> (Builder, Int32, Array[Int32]) raise {
   grammar.validate()
+  // Inline rules do not produce nodes. Upstream drops these supertype entries
+  // while retaining the inline rule (used by the public Go grammar).
+  let grammar = {
+    ..grammar,
+    supertypes: grammar.supertypes.filter(name => {
+      !grammar.inline_rules.contains(name)
+    }),
+  }
   let builder : Builder = {
     grammar,
     symbols: [],
@@ -494,9 +502,6 @@ fn normalize(
   for i, (name, rule) in grammar.rules {
     if grammar.supertypes.contains(name) && lexical(rule) {
       raise InvalidGrammar("terminal rule '\{name}' cannot be a supertype")
-    }
-    if grammar.supertypes.contains(name) && grammar.inline_rules.contains(name) {
-      raise InvalidGrammar("supertype '\{name}' cannot be inlined")
     }
     let id = if i != 0 &&
       lexical(rule) &&

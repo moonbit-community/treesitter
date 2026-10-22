@@ -490,3 +490,12 @@ wrapper. Token identity now removes plain token wrappers, and syntax retention
 uses lexical occurrence counts. Two focused regressions cover shared strings
 and named patterns. The complete check script passes 240 native / 239 JS / 239
 Wasm GC tests and CLI smoke checks; the expanded public matrix is being rerun.
+
+The pinned public matrix now includes Go v0.25.0. Its first generation attempt
+identified overly strict validation of a rule listed as both inline and a
+supertype: upstream drops that supertype entry and keeps the inline rule. The
+port now does the same, with cross-target regression coverage. Go generates
+15,481 states and passes 64/67 corpus cases; reserved-keyword recovery, string
+literals, and generic calls remain to investigate. Latest public results are
+JSON 6/6, C 85/85, JavaScript 115/116, Go 64/67. Upstream itself passes all 116
+JavaScript parse cases, confirming the remaining await/identifier discrepancy.

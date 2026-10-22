@@ -532,7 +532,7 @@ pub fn generate(
     start,
     extras,
     word_token?=grammar.word.map(name => builder.names[name]),
-    supertypes=grammar.supertypes.map(name => builder.names[name]),
+    supertypes=builder.grammar.supertypes.map(name => builder.names[name]),
     externals=builder.externals,
   )
 }
