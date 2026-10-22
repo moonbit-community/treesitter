@@ -4,9 +4,12 @@
       "name": "json",
       "scope": "source.json",
       "path": ".",
-      "file-types": ["json"],
+      "file-types": [
+        "json"
+      ],
       "highlights": "highlights.scm",
-      "injection-regex": "^json$"
+      "injection-regex": "^json$",
+      "tags": "tags.scm"
     }
   ],
   "metadata": {

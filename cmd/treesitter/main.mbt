@@ -53,7 +53,7 @@ async fn run() -> Unit {
     "--version" | "version" => println("treesitter.mbt 0.1.0")
     "--help" | "help" =>
       println(
-        "treesitter generate <grammar.mbtx|json> <language.json> | parse [language.json] <source> | parse --cst <language.json> <source> | test <language.json> <corpus-file-or-directory> | query|highlight|tags <language.json> <query.scm> <source> | languages [config.json] | init-config <path> | emit <language.json> <language.mbt> | node-types <language.json> <node-types.json> | grammar-json <grammar.mbtx>",
+        "treesitter generate <grammar.mbtx|json> <language.json> | parse [language.json] <source> | highlight|tags <source> | parse --cst <language.json> <source> | test <language.json> <corpus-file-or-directory> | query|highlight|tags <language.json> <query.scm> <source> | languages [config.json] | init-config <path> | emit <language.json> <language.mbt> | node-types <language.json> <node-types.json> | grammar-json <grammar.mbtx>",
       )
     "languages" if args.length() <= 3 => {
       let directories = @loader.parser_directories(path?=args.get(2))
@@ -74,7 +74,7 @@ async fn run() -> Unit {
       }
       write_file(args[2], "{\"parser-directories\": []}\n")
     }
-    "parse" if args.length() == 3 => {
+    "parse" | "highlight" | "tags" if args.length() == 3 => {
       let source = @fs.read_file(args[2]).binary()
       let locations = @loader.discover(
         [current_dir] + @loader.parser_directories(),
@@ -91,9 +91,22 @@ async fn run() -> Unit {
         .search_by(l => physical_equal(l.grammar, grammar))
         .unwrap()]
       let tree = @ts.Parser::new(location.language(root)).parse(source)
-      println(tree.root_node().to_sexp())
-      if tree.root_node().has_error() {
-        raise Usage("source contains syntax errors")
+      match args[1] {
+        "highlight" => println(configured_html(location, locations, tree, root))
+        "tags" => {
+          let config = @tags.Configuration::new(
+            tree.language,
+            location.queries("tags"),
+            locals=location.queries("locals"),
+          )
+          print_tags(config.generate(tree))
+        }
+        _ => {
+          println(tree.root_node().to_sexp())
+          if tree.root_node().has_error() {
+            raise Usage("source contains syntax errors")
+          }
+        }
       }
     }
     "parse" if args.length() == 5 && args[2] == "--cst" => {
@@ -145,18 +158,7 @@ async fn run() -> Unit {
         )
       } else if args[1] == "tags" {
         let config = @tags.Configuration::new(language, query_source)
-        for tag in config.generate(tree) {
-          println(
-            Json::object({
-              "name": Json(tag.name),
-              "kind": Json(tag.syntax_type),
-              "definition": Json(tag.is_definition),
-              "range": Json(tag.range),
-              "name_range": Json(tag.name_range),
-              "docs": Json(tag.docs),
-            }).stringify(),
-          )
-        }
+        print_tags(config.generate(tree))
       } else {
         let query = @query.Query::new(language, query_source)
         for matched in query.matches(tree.root_node(), tree.source) {
