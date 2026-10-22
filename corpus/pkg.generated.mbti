@@ -11,6 +11,8 @@ pub fn normalize_sexp(String) -> String
 
 pub fn parse(String) -> Array[Case] raise CorpusError
 
+pub fn render_cst(@treesitter.Node, String) -> String
+
 pub fn run(@language.Language, Array[Case], scanner? : @treesitter.ExternalScanner) -> Array[Result] raise
 
 // Errors
@@ -25,6 +27,7 @@ pub(all) struct Case {
   expected : String
   skip : Bool
   error : Bool
+  cst : Bool
 }
 
 pub(all) struct Result {

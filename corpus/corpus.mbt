@@ -5,6 +5,7 @@ pub(all) struct Case {
   expected : String
   skip : Bool
   error : Bool
+  cst : Bool
 }
 
 ///|
@@ -42,12 +43,15 @@ pub fn parse(source : String) -> Array[Case] raise CorpusError {
     let names = []
     let mut skip = false
     let mut error = false
+    let mut cst = false
     while i < lines.length() && !delimiter(lines[i], '=') {
       let line = lines[i].trim().to_owned()
       if line == ":skip" {
         skip = true
       } else if line == ":error" {
         error = true
+      } else if line == ":cst" {
+        cst = true
       } else if line.has_prefix(":") {
         raise InvalidCorpus("unsupported corpus mode: \{line}")
       } else if line != "" {
@@ -73,7 +77,7 @@ pub fn parse(source : String) -> Array[Case] raise CorpusError {
       i += 1
     }
     let expected = lines[expected_start:i].join("\n").trim().to_owned()
-    cases.push({ name: names.join(" "), input, expected, skip, error, })
+    cases.push({ name: names.join(" "), input, expected, skip, error, cst, })
   }
   cases
 }
@@ -86,7 +90,19 @@ pub fn normalize_sexp(source : String) -> String {
   let mut escaped = false
   let mut space = false
   let mut last = '('
+  let mut comment = false
   for c in source {
+    if comment {
+      if c == '\n' {
+        comment = false
+        space = true
+      }
+      continue
+    }
+    if !quoted && c == ';' {
+      comment = true
+      continue
+    }
     if quoted {
       out.write_char(c)
       if escaped {
@@ -132,7 +148,11 @@ pub fn run(
       }
     }
     let root = parser.parse_string(case.input).root_node()
-    let actual = root.to_sexp()
+    let actual = if case.cst {
+      render_cst(root, case.input)
+    } else {
+      root.to_sexp()
+    }
     {
       name: case.name,
       skipped: false,
@@ -140,6 +160,8 @@ pub fn run(
       actual,
       passed: if case.error {
         root.has_error()
+      } else if case.cst {
+        actual.trim().to_owned() == case.expected.trim().to_owned()
       } else {
         normalize_sexp(actual) == normalize_sexp(case.expected)
       },

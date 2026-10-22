@@ -853,3 +853,17 @@ test "upstream utf16_surrogate_oob" {
     )
   }
 }
+
+///|
+test "upstream basic_cst" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"basic_cst","rules":{"document":{"type":"SYMBOL","name":"assignment"},"assignment":{"type":"SEQ","members":[{"type":"FIELD","name":"name","content":{"type":"SYMBOL","name":"identifier"}},{"type":"STRING","value":"="},{"type":"FIELD","name":"value","content":{"type":"SYMBOL","name":"number"}}]},"identifier":{"type":"PATTERN","value":"[a-z]+"},"number":{"type":"PATTERN","value":"[0-9]+"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "==================\nBasic CST rendering\n:cst\n==================\nanswer = 42\n---\n\n0:0  - 0:11   document\n0:0  - 0:11     assignment\n0:0  - 0:6        name: identifier `answer`\n0:7  - 0:8        \"=\"\n0:9  - 0:11       value: number `42`\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="basic_cst: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}

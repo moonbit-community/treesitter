@@ -312,3 +312,10 @@ parent, combined content and child exclusion, intersect parent included ranges,
 and enforce a recursion limit. Highlight spans remain in original UTF-8 source
 coordinates and are clipped to disjoint injection ranges. Cross-target regression
 coverage includes combined content separated by host-language delimiters.
+
+### Corpus CST mode
+
+The corpus reader now accepts :cst and ignores s-expression comments outside
+strings. A portable CST renderer includes anonymous tokens, fields, ranges and
+leaf text. The pinned basic_cst fixture passes unchanged. The complete current
+suite contains 122 passing tests on native, JavaScript and Wasm GC.

@@ -1,4 +1,5 @@
 import {
   "bobzhang/treesitter" @ts,
   "bobzhang/treesitter/language",
+  "moonbitlang/core/encoding/utf8",
 }
