@@ -1,5 +1,5 @@
 ///|
-pub suberror QueryError {
+pub(all) suberror QueryError {
   InvalidQuery(Int32, String)
   MatchLimit
   Cancelled

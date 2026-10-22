@@ -1,0 +1,35 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/treesitter/highlight"
+
+import {
+  "bobzhang/treesitter",
+  "bobzhang/treesitter/language",
+  "bobzhang/treesitter/query",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Configuration {
+  language : @language.Language
+  // private fields
+}
+pub fn Configuration::highlight(Self, @treesitter.Tree, cancelled? : () -> Bool) -> Array[Event] raise @query.QueryError
+pub fn Configuration::html(Self, @treesitter.Tree) -> String raise @query.QueryError
+pub fn Configuration::new(@language.Language, String, names? : Array[String]) -> Self raise @query.QueryError
+
+pub(all) enum Event {
+  Start(String)
+  End
+  Source(Int32, Int32)
+} derive(Eq, @debug.Debug)
+pub fn Event::equal(Self, Self) -> Bool
+pub fn Event::not_equal(Self, Self) -> Bool
+pub fn Event::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+
+// Traits

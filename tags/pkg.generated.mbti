@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/treesitter/tags"
+
+import {
+  "bobzhang/treesitter",
+  "bobzhang/treesitter/language",
+  "bobzhang/treesitter/query",
+}
+
+// Values
+
+// Errors
+pub suberror TagsError {
+  InvalidCapture(String)
+}
+
+// Types and methods
+pub struct Configuration {
+  language : @language.Language
+  // private fields
+}
+pub fn Configuration::generate(Self, @treesitter.Tree, cancelled? : () -> Bool) -> Array[Tag] raise @query.QueryError
+pub fn Configuration::new(@language.Language, String) -> Self raise
+
+pub(all) struct Tag {
+  name : String
+  syntax_type : String
+  is_definition : Bool
+  range : @treesitter.Range
+  name_range : @treesitter.Range
+  docs : String?
+}
+
+// Type aliases
+
+// Traits

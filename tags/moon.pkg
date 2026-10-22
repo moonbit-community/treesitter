@@ -1,0 +1,10 @@
+import {
+  "bobzhang/treesitter" @ts,
+  "bobzhang/treesitter/language",
+  "bobzhang/treesitter/query",
+}
+
+import {
+  "bobzhang/treesitter/grammar",
+  "bobzhang/treesitter/generate",
+} for "test"

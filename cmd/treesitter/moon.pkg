@@ -4,6 +4,9 @@ import {
   "bobzhang/treesitter/generate",
   "bobzhang/treesitter/loader",
   "bobzhang/treesitter/corpus",
+  "bobzhang/treesitter/query",
+  "bobzhang/treesitter/highlight",
+  "bobzhang/treesitter/tags",
   "moonbitlang/async/fs",
   "moonbitlang/core/env",
 }

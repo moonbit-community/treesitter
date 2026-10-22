@@ -1,0 +1,11 @@
+import {
+  "bobzhang/treesitter" @ts,
+  "bobzhang/treesitter/language",
+  "bobzhang/treesitter/query",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/debug",
+}
+
+import {
+  "bobzhang/treesitter/examples/arithmetic",
+} for "test"

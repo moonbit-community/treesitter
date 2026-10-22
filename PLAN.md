@@ -175,3 +175,11 @@ byte range and point range against fresh parses. Candidate reuse is deliberately
 disabled for tables with GLR conflicts until reusable parse forests are available;
 reusing only a previous winning derivation could change dynamic precedence.
 Node IDs are advanced before accepting a tree produced by another parser.
+
+### Highlighting and tags checkpoint
+
+Added balanced highlight events, dotted capture-name configuration, HTML escaping,
+and query-driven definitions/references with names, source ranges and documentation
+captures. CLI commands `query`, `highlight` and `tags` now exercise these packages.
+Locals, language injections and documentation transformation directives remain
+open. These additions and included-range work pass 69 tests on all three targets.
