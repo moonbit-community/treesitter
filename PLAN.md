@@ -649,3 +649,11 @@ does, while retaining text/property filtering and documentation directives.
 The complete check script passes 271 native / 268 JS / 268 Wasm GC tests.
 Executing the unchanged public C/JavaScript highlight and tag fixtures now
 passes all 90 position assertions across nine files.
+
+The public grammar audit now executes those highlight/tag fixtures through the
+native CLI, with isolated discovery configuration and unchanged upstream query
+files. It checks comments returned by the query engine, decodes highlighted HTML
+while verifying source preservation, and validates tag name ranges. Its ASCII
+position-comment reader rejects non-ASCII input explicitly; general Unicode
+grapheme-column assertion support remains open. CI treats fixture failures as
+failures separately from corpus and query-compilation counts.

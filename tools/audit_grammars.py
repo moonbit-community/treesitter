@@ -13,6 +13,8 @@ import subprocess
 import sys
 import time
 
+from audit_query_fixtures import audit as audit_query_fixtures
+
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "_build/grammar-matrix"
 MANIFEST = json.loads((ROOT / "tools/grammar_matrix.json").read_text())
@@ -101,6 +103,11 @@ def main():
                 if any(q["exit_code"] != 0 for q in query_results):
                     result["status"] = ("query-failed" if result["status"] == "passed"
                                         else "corpus-and-query-failed")
+                result["query_fixtures"] = audit_query_fixtures(
+                    ROOT, OUT, entry, repo, table, cli)
+                if result["query_fixtures"]["fail"]:
+                    result["status"] = ("query-fixtures-failed" if result["status"] == "passed"
+                                        else result["status"] + "-and-query-fixtures-failed")
         except (OSError, RuntimeError, subprocess.SubprocessError) as error:
             result.update(status="setup-failed", error=str(error))
         result["seconds"] = round(time.monotonic() - start, 2)
