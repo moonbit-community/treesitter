@@ -41,6 +41,8 @@ pub(all) enum Action {
   Shift(Int32)
   Reduce(Int32)
   Accept
+  EnterExtra(Int32)
+  AcceptExtra
 } derive(Debug, Eq, ToJson, @json.FromJson)
 
 ///|
@@ -167,7 +169,7 @@ pub fn Language::validate(self : Language) -> Unit raise LanguageError {
       }
       for action in actions {
         match action {
-          Shift(state) =>
+          Shift(state) | EnterExtra(state) =>
             if state < 0 || state >= self.states.length() {
               invalid("invalid shift target")
             }
@@ -176,6 +178,7 @@ pub fn Language::validate(self : Language) -> Unit raise LanguageError {
               invalid("invalid reduction")
             }
           Accept => if symbol != 0 { invalid("accept action must use EOF") }
+          AcceptExtra => ()
         }
       }
     }
@@ -189,9 +192,8 @@ pub fn Language::validate(self : Language) -> Unit raise LanguageError {
     }
   }
   for symbol in self.extras {
-    if !self.tokens.any(t => t.symbol == symbol) &&
-      !self.externals.contains(symbol) {
-      invalid("extra is not a lexical token")
+    if symbol <= 0 || symbol >= count {
+      invalid("invalid extra symbol")
     }
   }
 }

@@ -173,7 +173,8 @@ fn reuse_candidates(
   }
   let pending = [old_tree.root]
   while pending.pop() is Some(node) {
-    if !node.has_changes() &&
+    if !node.is_extra() &&
+      !node.has_changes() &&
       !node.has_error() &&
       !old_tree.language.symbols[node.symbol()].terminal &&
       node.end_byte() > node.start_byte() &&

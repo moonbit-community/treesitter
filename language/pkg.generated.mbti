@@ -20,6 +20,8 @@ pub(all) enum Action {
   Shift(Int32)
   Reduce(Int32)
   Accept
+  EnterExtra(Int32)
+  AcceptExtra
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub fn Action::equal(Self, Self) -> Bool
 #deprecated

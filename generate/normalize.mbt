@@ -1,7 +1,6 @@
 ///|
 pub suberror GenerateError {
   InvalidGrammar(String)
-  Unsupported(String)
   Conflict(Int32, String, Array[String])
   ResourceLimit(String)
 } derive(Debug)
@@ -475,13 +474,7 @@ fn normalize(
   let extras = []
   for extra in grammar.extras {
     let id = match extra {
-      Symbol(name) => {
-        let id = builder.names[name]
-        if !builder.symbols[id].terminal {
-          raise Unsupported("nonterminal extras")
-        }
-        id
-      }
+      Symbol(name) => builder.names[name]
       _ => builder.token(extra)
     }
     extras.push(id)

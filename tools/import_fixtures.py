@@ -20,7 +20,7 @@ names = ['associativity_left','associativity_right','aliases_in_root','aliased_r
          'aliased_inlined_rules', 'inlined_aliased_rules', 'nested_inlined_rules',
          'precedence_on_single_child_missing', 'precedence_on_single_child_negative',
          'precedence_on_single_child_positive', 'precedence_on_subsequence',
-         'unused_rules', 'lexical_conflicts_due_to_state_merging', 'terminal_supertype', 'external_extra_tokens', 'epsilon_external_extra_tokens', 'external_unicode_column_alignment', 'epsilon_external_tokens', 'external_and_internal_anonymous_tokens']
+         'unused_rules', 'lexical_conflicts_due_to_state_merging', 'terminal_supertype', 'external_extra_tokens', 'epsilon_external_extra_tokens', 'external_unicode_column_alignment', 'epsilon_external_tokens', 'external_and_internal_anonymous_tokens', 'extra_non_terminals', 'extra_non_terminals_with_shared_rules', 'field_lookup_through_hidden_nodes']
 parts=['// Ported from Tree-sitter '+expected+'. See LICENSE.\n']
 for name in names:
     fixture=root/'test/fixtures/test_grammars'/name

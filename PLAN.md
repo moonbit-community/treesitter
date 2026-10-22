@@ -255,3 +255,20 @@ longest-match lexical semantics, and a nesting limit. Expectations for nested
 folding and scoped flags are ported from the pinned upstream lexer tests. Other
 flags and complete regex diagnostics remain open. `tools/check.sh` passes all
 89 tests on three backends and reproduces both committed mbtx-generated factories.
+
+### Nonterminal extras checkpoint
+
+Nonterminal extras now have canonical LR entry states and independent runtime
+frames, preserving surrounding stacks, fields and serialized scanner state.
+Nested extras share ordinary grammar rules; hidden extra children do not inherit
+unrelated surrounding fields. The upstream `extra_non_terminals`,
+`extra_non_terminals_with_shared_rules` and `field_lookup_through_hidden_nodes`
+corpora pass unchanged. 92 tests pass on native, JS and Wasm GC.
+
+### Completion and release requirements
+
+After closing the remaining compatibility gaps, run Codex CLI with ultra reasoning
+for an independent review, address actionable findings and rerun validation.
+Then create `moonbit-community/treesitter`, use `moonbit-community/treesitter` as
+the module name, configure CI and a release publishing workflow, and publish to
+mooncakes.io. These release actions were explicitly requested by the user.

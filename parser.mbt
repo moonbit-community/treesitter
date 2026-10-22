@@ -42,7 +42,28 @@ priv struct Entry {
 }
 
 ///|
+priv struct ExtraFrame {
+  states : Array[Int32]
+  entries : Array[Entry]
+  pending : Array[Node]
+  start : Int32
+}
+
+///|
+priv struct BranchKey {
+  states : Array[Int32]
+  offset : Int32
+  symbol : Int32
+  missing : Bool
+  insertions : Int32
+  scanner_state : Bytes
+  next_scanner_state : Bytes?
+  extras : Array[(Array[Int32], Int32)]
+} derive(Eq, Hash)
+
+///|
 priv struct Branch {
+  extras : Array[ExtraFrame]
   states : Array[Int32]
   entries : Array[Entry]
   offset : Int32
@@ -337,6 +358,7 @@ fn Parser::parse_source(
   let work : Array[Branch] = [
     {
       states: [0],
+      extras: [],
       entries: [],
       offset: 0,
       pending: [],
@@ -347,10 +369,7 @@ fn Parser::parse_source(
       scanner_state: b"",
     },
   ]
-  let visited : Map[
-    (Array[Int32], Int32, Int32, Bool, Int32, Bytes, Bytes?),
-    (Int32, Int32),
-  ] = Map([])
+  let visited : Map[BranchKey, (Int32, Int32)] = Map([])
   let mut best : (Node, Int32, Int32)? = None
   let mut steps = 0
   let mut furthest = 0
@@ -378,22 +397,25 @@ fn Parser::parse_source(
     }
     let token = branch.lookahead.unwrap()
     furthest = Int32::max(furthest, branch.offset)
-    let key = (
-      branch.states,
-      branch.offset,
-      token.symbol,
-      token.missing,
-      branch.insertions,
-      branch.scanner_state,
-      token.scanner_state,
-    )
+    let key : BranchKey = {
+      states: branch.states,
+      offset: branch.offset,
+      symbol: token.symbol,
+      missing: token.missing,
+      insertions: branch.insertions,
+      scanner_state: branch.scanner_state,
+      next_scanner_state: token.scanner_state,
+      extras: branch.extras.map(f => (f.states, f.start)),
+    }
     if visited.get(key) is Some((cost, dynamic)) &&
       (cost < branch.cost || (cost == branch.cost && dynamic >= branch.dynamic)) {
       continue
     }
     visited[key] = (branch.cost, branch.dynamic)
     let state = branch.states.last().unwrap()
-    if !token.missing && reusable.get((branch.offset, state)) is Some(candidate) {
+    if branch.extras.is_empty() &&
+      !token.missing &&
+      reusable.get((branch.offset, state)) is Some(candidate) {
       let node = reset_origin(candidate)
       reused_subtrees += 1
       work.push({
@@ -409,7 +431,13 @@ fn Parser::parse_source(
     }
     let actions = self.language.states[state].actions
       .get(token.symbol)
-      .unwrap_or([])
+      .unwrap_or(
+        if !branch.extras.is_empty() && token.symbol < 0 {
+          self.language.states[state].actions.get(0).unwrap_or([])
+        } else {
+          []
+        },
+      )
     if actions.is_empty() {
       // Recovery is bounded and never inserts EOF. Try insertion at this
       // position and deletion independently, preserving visible ERROR nodes.
@@ -455,6 +483,38 @@ fn Parser::parse_source(
     }
     for action in actions {
       match action {
+        EnterExtra(next) => {
+          if branch.extras.length() >= 128 {
+            raise ParseLimit("nested extra limit exceeded")
+          }
+          let frame : ExtraFrame = {
+            states: branch.states,
+            entries: branch.entries,
+            pending: branch.pending,
+            start: branch.offset,
+          }
+          work.push({
+            ..branch,
+            states: [next],
+            entries: [],
+            pending: [],
+            extras: branch.extras + [frame],
+          })
+        }
+        AcceptExtra =>
+          if branch.extras.last() is Some(frame) &&
+            self.finish(branch, lines) is Some(node) &&
+            node.end_byte() > frame.start {
+            work.push({
+              ..branch,
+              states: frame.states,
+              entries: frame.entries,
+              pending: frame.pending + [node.as_extra()],
+              offset: node.end_byte(),
+              lookahead: None,
+              extras: branch.extras[:branch.extras.length() - 1].to_owned(),
+            })
+          }
         Shift(next) => {
           let node = self.node(
             token.symbol,
@@ -488,7 +548,8 @@ fn Parser::parse_source(
             work.push(reduced)
           }
         Accept =>
-          if self.finish(branch, lines) is Some(root) {
+          if branch.extras.is_empty() &&
+            self.finish(branch, lines) is Some(root) {
             let replace = match best {
               None => true
               Some((_, cost, dynamic)) =>

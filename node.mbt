@@ -252,3 +252,17 @@ fn Node::renamed(self : Node, name : String, named : Bool) -> Node {
 pub fn Node::supertypes(self : Node) -> Array[String] {
   self.data.supertypes.copy()
 }
+
+///|
+fn Node::as_extra(self : Node) -> Node {
+  let children = if self.data.visible {
+    self.data.children
+  } else {
+    child_entries(
+      self.data.children
+      .entries()
+      .map(c => (c.0, { data: { ..c.1.data, extra: true, }, })),
+    )
+  }
+  { data: { ..self.data, extra: true, children, }, }
+}

@@ -125,7 +125,7 @@ fn resolve_actions(
   items : Array[Item],
   first : Array[Map[Int32, Bool]],
 ) -> Array[@language.Action] raise GenerateError {
-  if actions.length() <= 1 {
+  if actions.length() <= 1 || actions.any(a => a is AcceptExtra) {
     return actions
   }
   let mut reductions : Array[Int32] = []
@@ -205,7 +205,7 @@ fn resolve_actions(
         for name in shift_names.keys() {
           involved[name] = true
         }
-      Accept => ()
+      Accept | AcceptExtra | EnterExtra(_) => ()
     }
   }
   let names = involved.keys().to_array()
@@ -286,6 +286,20 @@ pub fn generate(
     associativity: 0,
     dynamic_precedence: 0,
   })
+  let extra_roots : Array[(Int32, Int32)] = []
+  for extra in extras {
+    if !builder.symbols[extra].terminal {
+      let lhs = builder.symbol("_extra_start\{extra}", false, false, false)
+      let pid = builder.productions.length()
+      let step = { ..builder.productions[aug_id].steps[0], symbol: extra, }
+      builder.productions.push({
+        ..builder.productions[aug_id],
+        lhs,
+        steps: [step],
+      })
+      extra_roots.push((extra, pid))
+    }
+  }
   let (first, nullable) = first_sets(builder)
   for id, symbol in builder.symbols {
     if nullable[id] && id != start && id != augmented {
@@ -313,6 +327,27 @@ pub fn generate(
   let states = [initial]
   let ids : Map[Array[Item], Int32] = Map([])
   ids[initial] = 0
+  let extra_states : Array[(Int32, Int32)] = []
+  for (symbol, pid) in extra_roots {
+    let seeds = []
+    for token, meta in builder.symbols {
+      if meta.terminal {
+        seeds.push(Item::{
+          production: pid,
+          dot: 0,
+          lookahead: token,
+          reserved_lookahead: 0,
+        })
+      }
+    }
+    let state = close_items(
+      seeds, builder, first, nullable, by_lhs, reserved_first,
+    )
+    let id = states.length()
+    states.push(state)
+    ids[state] = id
+    extra_states.push((symbol, id))
+  }
   let rows : Array[@language.ParseState] = []
   let mut index = 0
   while index < states.length() {
@@ -337,6 +372,8 @@ pub fn generate(
         .push({ ..item, dot: item.dot + 1, })
       } else if item.production == aug_id {
         add(0, Accept)
+      } else if extra_roots.any(p => p.1 == item.production) {
+        add(item.lookahead, AcceptExtra)
       } else {
         add(item.lookahead, Reduce(item.production))
       }
@@ -376,6 +413,14 @@ pub fn generate(
         items,
         first,
       )
+    }
+    let ordinary = actions.keys().to_array()
+    for (extra, target) in extra_states {
+      for token in first[extra].keys() {
+        if !ordinary.contains(token) {
+          add(token, EnterExtra(target))
+        }
+      }
     }
     let mut reserved = 0
     if grammar.word is Some(name) {

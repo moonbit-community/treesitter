@@ -15,7 +15,6 @@ pub fn generate(@grammar.Grammar, max_states? : Int32, max_productions? : Int32)
 // Errors
 pub suberror GenerateError {
   InvalidGrammar(String)
-  Unsupported(String)
   Conflict(Int32, String, Array[String])
   ResourceLimit(String)
 } derive(@debug.Debug)
