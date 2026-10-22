@@ -1,0 +1,7 @@
+import {
+  "bobzhang/treesitter/language",
+}
+
+import {
+  "bobzhang/treesitter" @ts,
+} for "test"

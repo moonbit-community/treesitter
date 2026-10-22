@@ -1,0 +1,12 @@
+import {
+  "bobzhang/treesitter" @ts,
+  "moonbitlang/async",
+  "bobzhang/treesitter/generate",
+  "bobzhang/treesitter/loader",
+  "moonbitlang/async/fs",
+  "moonbitlang/core/env",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "+native"

@@ -123,3 +123,15 @@ fresh/incremental agreement, newline relocation, consecutive edits, and fallback
 when source changes without edits or languages differ. 23 tests pass on all
 three targets. This is conservative reuse, not yet upstream's full reuse and
 changed-range algorithms; included ranges and external scanner states remain.
+
+### mbtx and language artifact checkpoint
+
+A native MoonBit loader now executes local unpublished mbtx grammars in an
+isolated temporary workspace, preserving source line numbers and cleaning up
+afterward. No publishing or global registry changes are needed. The CLI supports
+`grammar-json`, `generate`, `parse`, and `emit`. A versioned, validated language
+JSON format carries precompiled lexer/parse tables; generated MoonBit factories
+load those tables without the generator. The mbtx arithmetic example has been
+executed end to end and its emitted factory is tested on all three backends.
+The CLI's filesystem/process support uses moonbitlang/async 0.20.2. Core parser,
+lexer, generator, and query packages do not import that dependency.

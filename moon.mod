@@ -5,3 +5,7 @@ version = "0.1.0"
 license = "MIT"
 
 description = "A pure MoonBit port of Tree-sitter, with mbtx grammar definitions."
+
+import {
+  "moonbitlang/async@0.20.2",
+}

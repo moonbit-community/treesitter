@@ -1,0 +1,9 @@
+import {
+  "bobzhang/treesitter/grammar",
+  "bobzhang/treesitter/language",
+  "bobzhang/treesitter/mbtx",
+  "moonbitlang/async/fs",
+  "moonbitlang/async/process",
+}
+
+supported_targets = "+native"

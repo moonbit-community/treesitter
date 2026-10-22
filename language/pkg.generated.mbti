@@ -4,6 +4,7 @@ package "bobzhang/treesitter/language"
 import {
   "bobzhang/treesitter/lex",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -19,9 +20,13 @@ pub(all) enum Action {
   Shift(Int32)
   Reduce(Int32)
   Accept
-} derive(Eq, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub fn Action::equal(Self, Self) -> Bool
+#deprecated
+pub fn Action::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 pub fn Action::not_equal(Self, Self) -> Bool
+#deprecated
+pub fn Action::to_json(Self) -> Json
 pub fn Action::to_repr(Self) -> @debug.Repr
 
 pub struct Language {
@@ -34,12 +39,17 @@ pub struct Language {
   extras : Array[Int32]
 } derive(Eq, @debug.Debug)
 pub fn Language::equal(Self, Self) -> Bool
+pub fn Language::from_json(Json) -> Self raise
 pub fn Language::lookahead(Self, Int32) -> Array[Int32]
 pub fn Language::new(String, Array[Symbol], Array[Token], Array[Production], Array[ParseState], Int32, Array[Int32]) -> Self raise LanguageError
 pub fn Language::not_equal(Self, Self) -> Bool
+pub fn Language::parse(StringView) -> Self raise
 pub fn Language::symbol_id(Self, String, named? : Bool) -> Int32?
+#deprecated
+pub fn Language::to_json(Self) -> Json
 pub fn Language::to_repr(Self) -> @debug.Repr
 pub fn Language::validate(Self) -> Unit raise LanguageError
+pub impl ToJson for Language
 
 pub(all) struct ParseState {
   actions : Map[Int32, Array[Action]]
@@ -55,9 +65,13 @@ pub(all) struct Production {
   precedence : Int32
   associativity : Int32
   dynamic_precedence : Int32
-} derive(Eq, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub fn Production::equal(Self, Self) -> Bool
+#deprecated
+pub fn Production::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 pub fn Production::not_equal(Self, Self) -> Bool
+#deprecated
+pub fn Production::to_json(Self) -> Json
 pub fn Production::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Step {
@@ -66,9 +80,13 @@ pub(all) struct Step {
   rename : (String, Bool)?
   precedence : Int32
   associativity : Int32
-} derive(Eq, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub fn Step::equal(Self, Self) -> Bool
+#deprecated
+pub fn Step::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 pub fn Step::not_equal(Self, Self) -> Bool
+#deprecated
+pub fn Step::to_json(Self) -> Json
 pub fn Step::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Symbol {
@@ -76,9 +94,13 @@ pub(all) struct Symbol {
   named : Bool
   visible : Bool
   terminal : Bool
-} derive(Eq, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub fn Symbol::equal(Self, Self) -> Bool
+#deprecated
+pub fn Symbol::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 pub fn Symbol::not_equal(Self, Self) -> Bool
+#deprecated
+pub fn Symbol::to_json(Self) -> Json
 pub fn Symbol::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Token {
@@ -87,9 +109,13 @@ pub(all) struct Token {
   precedence : Int32
   immediate : Bool
   literal : Bool
-} derive(Eq, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub fn Token::equal(Self, Self) -> Bool
+#deprecated
+pub fn Token::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 pub fn Token::not_equal(Self, Self) -> Bool
+#deprecated
+pub fn Token::to_json(Self) -> Json
 pub fn Token::to_repr(Self) -> @debug.Repr
 
 // Type aliases

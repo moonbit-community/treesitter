@@ -1,4 +1,5 @@
 import {
+  "moonbitlang/core/json",
   "bobzhang/treesitter/lex",
   "moonbitlang/core/debug",
 }

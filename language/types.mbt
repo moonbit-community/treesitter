@@ -4,7 +4,7 @@ pub(all) struct Symbol {
   named : Bool
   visible : Bool
   terminal : Bool
-} derive(Debug, Eq)
+} derive(Debug, Eq, ToJson, @json.FromJson)
 
 ///|
 pub(all) struct Token {
@@ -13,7 +13,7 @@ pub(all) struct Token {
   precedence : Int32
   immediate : Bool
   literal : Bool
-} derive(Debug, Eq)
+} derive(Debug, Eq, ToJson, @json.FromJson)
 
 ///|
 pub(all) struct Step {
@@ -22,7 +22,7 @@ pub(all) struct Step {
   rename : (String, Bool)?
   precedence : Int32
   associativity : Int32
-} derive(Debug, Eq)
+} derive(Debug, Eq, ToJson, @json.FromJson)
 
 ///|
 pub(all) struct Production {
@@ -31,14 +31,14 @@ pub(all) struct Production {
   precedence : Int32
   associativity : Int32
   dynamic_precedence : Int32
-} derive(Debug, Eq)
+} derive(Debug, Eq, ToJson, @json.FromJson)
 
 ///|
 pub(all) enum Action {
   Shift(Int32)
   Reduce(Int32)
   Accept
-} derive(Debug, Eq)
+} derive(Debug, Eq, ToJson, @json.FromJson)
 
 ///|
 pub(all) struct ParseState {

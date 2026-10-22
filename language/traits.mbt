@@ -42,3 +42,43 @@ pub extend Language with @debug.Debug::{to_repr}
 
 ///|
 pub extend LanguageError with @debug.Debug::{to_repr}
+
+///|
+#deprecated
+pub extend Symbol with ToJson::{to_json}
+
+///|
+#deprecated
+pub extend Symbol with @json.FromJson::{from_json}
+
+///|
+#deprecated
+pub extend Token with ToJson::{to_json}
+
+///|
+#deprecated
+pub extend Token with @json.FromJson::{from_json}
+
+///|
+#deprecated
+pub extend Step with ToJson::{to_json}
+
+///|
+#deprecated
+pub extend Step with @json.FromJson::{from_json}
+
+///|
+#deprecated
+pub extend Production with ToJson::{to_json}
+
+///|
+#deprecated
+pub extend Production with @json.FromJson::{from_json}
+
+///|
+#deprecated
+pub extend Action with ToJson::{to_json}
+
+///|
+#deprecated
+pub extend Action with @json.FromJson::{from_json}

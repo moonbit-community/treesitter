@@ -8,6 +8,8 @@ import {
 }
 
 // Values
+pub fn emit(@language.Language) -> String
+
 pub fn generate(@grammar.Grammar, max_states? : Int32, max_productions? : Int32) -> @language.Language raise
 
 // Errors
