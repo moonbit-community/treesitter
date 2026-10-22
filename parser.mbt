@@ -80,10 +80,19 @@ priv struct BranchKey {
   scanner_state : Bytes
   next_scanner_state : Bytes?
   extras : Array[(Array[Int32], Int32)]
+  histories : Array[Array[Int32]]
 } derive(Eq, Hash)
 
 ///|
+priv struct RecoveryHistory {
+  states : Array[Int32]
+  entries : Array[Entry]
+  dynamic : Int32
+}
+
+///|
 priv struct Branch {
+  histories : Array[RecoveryHistory]
   round : Int32
   recovery_versions : Int32
   status : BranchStatus
@@ -507,6 +516,7 @@ fn Parser::parse_source(
   } else {
     [
       {
+        histories: [],
         status: Active,
         round: 0,
         recovery_versions: 0,
@@ -670,6 +680,20 @@ fn Parser::parse_source(
         "lookahead symbol:\{symbol} start:\{token.start} end:\{token.end}",
       )
     }
+    let preparing = branch.status == Preparing &&
+      !token.missing &&
+      !self.language.states[branch.states.last().unwrap()].actions.contains(
+        token.symbol,
+      )
+    let branch = if preparing {
+      let (prepared, inserted) = self.prepare_recovery(
+        branch, lines, max_branches,
+      )
+      work.append(inserted)
+      prepared
+    } else {
+      branch
+    }
     furthest = Int32::max(furthest, branch.offset)
     let key : BranchKey = {
       status: branch.status,
@@ -682,6 +706,7 @@ fn Parser::parse_source(
       scanner_state: branch.scanner_state,
       next_scanner_state: token.scanner_state,
       extras: branch.extras.map(f => (f.states, f.start)),
+      histories: branch.histories.map(h => h.states),
     }
     let derivations = branch.entries.map(e => e.node.data.derivation)
     if visited.get(key) is Some((cost, dynamic, previous)) &&
@@ -750,20 +775,6 @@ fn Parser::parse_source(
           []
         },
       )
-    if branch.status == Recovering && !actions.is_empty() {
-      work.push({
-        ..branch,
-        status: Active,
-        recovery_versions: 0,
-        pending: branch.pending.map(n => {
-          if n.data.error_repeat {
-            { data: { ..n.data, error_repeat: false, extra: true, }, }
-          } else {
-            n
-          }
-        }),
-      })
-    }
     if actions.is_empty() || branch.status == Recovering {
       if branch.status == Active && !token.missing {
         paused.push(branch)
@@ -773,132 +784,9 @@ fn Parser::parse_source(
       if token.missing {
         continue
       }
-      // Completed productions may reduce before recovery even when the current
-      // lookahead is invalid. This preserves the last valid syntactic units.
-      let reductions : Map[Int32, Bool] = Map([])
-      let mut reduced_any = false
-      let mut can_shift = false
-      for (lookahead, actions) in self.language.states[state].actions {
-        if branch.status != Preparing {
-          break
-        }
-        // EOF-only and empty reductions do not preserve consumed syntax while
-        // searching for a recovery point (process_candidate_recovery_actions).
-        if lookahead == 0 {
-          continue
-        }
-        for action in actions {
-          if action is Shift(_) {
-            can_shift = true
-          }
-          if action is Reduce(pid) &&
-            !self.language.productions[pid].steps.is_empty() &&
-            !reductions.contains(pid) &&
-            (
-              self.language.productions[pid].requires_eof != Some(true) ||
-              token.symbol == 0
-            ) {
-            reductions[pid] = true
-            if self.reduce(branch, pid, lines) is Some(reduced) {
-              work.push(reduced)
-              reduced_any = true
-            }
-          }
-        }
-      }
-      if reduced_any && !can_shift {
-        continue
-      }
-      // Missing tokens are useful only when their shift enables a reduction on
-      // the actual lookahead; arbitrary chains fabricate complete statements.
-      if branch.insertions == 0 && branch.status == Preparing {
-        let expected_tokens = self.language.states[state].actions
-          .keys()
-          .to_array()
-        expected_tokens.sort_by((a, b) => {
-          symbol_order(self.language, a).compare(symbol_order(self.language, b))
-        })
-        let mut inserted = false
-        for expected in expected_tokens {
-          if inserted {
-            break
-          }
-          if expected == 0 {
-            continue
-          }
-          let actions = self.language.states[state].actions[expected]
-          for action in actions {
-            if action is Shift(next) &&
-              next != state &&
-              self.language.states[next].actions
-              .get(token.symbol)
-              .unwrap_or([])
-              .any(a => a is Reduce(_)) &&
-              self.can_resume_after_missing(
-                branch.states + [next],
-                token.symbol,
-                max_branches,
-              ) {
-              work.push({
-                ..branch,
-                lookahead: Some({
-                  dependency_end: token.dependency_end,
-                  unexpected: None,
-                  symbol: expected,
-                  start: token.start,
-                  end: token.start,
-                  missing: true,
-                  scanner_state: None,
-                }),
-                errors: branch.errors + 1,
-                insertions: 1,
-              })
-              inserted = true
-              if self.logger is Some(log) {
-                log(
-                  Parse,
-                  "insert_missing symbol:\{self.language.symbols[expected].name} state:\{state}",
-                )
-              }
-              break
-            }
-          }
-        }
-      }
-      // Recover to an earlier stack state, retaining discarded syntax in one
-      // ERROR subtree. Contextual lexing resumes at the same input position.
-      let mut did_recover = !actions.is_empty()
-      for index = branch.entries.length() - 1; index >= 0; index = index - 1 {
-        // The current state has already resumed above when it accepts the
-        // token. Recovery chooses only the first viable state in the summary.
-        if did_recover {
-          break
-        }
-        let previous = branch.states[index]
-        if !self.language.states[previous].actions.contains(token.symbol) {
-          continue
-        }
-        let pending = self.recover_pending(branch, index, lines)
-        if self.logger is Some(log) {
-          log(
-            Parse,
-            "recover state:\{previous} depth:\{branch.entries.length() - index}",
-          )
-        }
-        did_recover = true
-        work.push({
-          ..branch,
-          recovery_versions: 0,
-          status: Active,
-          states: branch.states[:index + 1].to_owned(),
-          entries: branch.entries[:index].to_owned(),
-          pending,
-          lookahead: None,
-          errors: branch.errors + 1,
-          insertions: 0,
-        })
-        break
-      }
+      let recovered = self.recover_history(branch, token, lines)
+      let did_recover = !recovered.is_empty()
+      work.append(recovered)
       if token.symbol == 0 && branch.extras.is_empty() && branch.insertions < 3 {
         // A damaged nonterminal can still complete an enclosing production.
         // Keep its consumed input as ERROR instead of inventing named syntax.
@@ -924,6 +812,8 @@ fn Parser::parse_source(
             let error = self.error_pending([], discarded, lines, previous)[0]
             work.push({
               ..branch,
+              histories: [],
+              status: Active,
               states: branch.states[:index + 1].to_owned() + [next],
               entries: branch.entries[:index].to_owned() +
               [{ node: error, leading: [], }],
@@ -988,7 +878,7 @@ fn Parser::parse_source(
           scanner_state: token.scanner_state.unwrap_or(branch.scanner_state),
           insertions: 0,
         }
-        if branch.status == Preparing {
+        if preparing {
           // handle_error runs while condensing the previous round. Its first
           // skipped token must not advance the next round's byte frontier.
           work.insert(0, skipped_branch)

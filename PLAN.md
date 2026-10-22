@@ -840,3 +840,20 @@ probe remains at 187 differing C S-expression pairs and 40 differing ranges,
 with zero incremental/fresh mismatches or parser errors. Compaction alone leaves
 Rust at 150/151; retaining competing recovery histories with these tables is the
 next investigation. The full-port/review/publication gate remains open.
+
+Potential reductions now retain their alternative stack histories on one
+recovering version instead of scheduling them as separate competing versions.
+Recovery searches those histories breadth first and preserves alternative paths
+to the first viable state. Nonterminal-extra entry shifts retain the unreduced
+history, and missing-token validation runs against each prepared stack. The
+existing version and recovery-depth bounds still apply. This resolves Rust's
+`Longer json macro contents` without changing its frozen expected tree.
+
+Rust now passes 151/151 corpora, three query compilations and 906 edit/undo
+checks. The five-grammar matrix remains fully passing, giving 462 corpus cases,
+15 query files and 2,772 edit/undo checks across the six grammars, plus the
+existing 90 annotations and ten large named-tree comparisons. Full portable/CLI
+checks pass 288 native / 280 JS / 280 Wasm GC. The 1,153-edit JSON differential
+remains 187 differing C S-expression pairs / 40 differing ranges, with zero
+incremental/fresh mismatches or parser errors. General GSS optimization, the
+remaining differential gaps and the other compatibility milestones remain open.

@@ -60,6 +60,8 @@ fn Parser::condense_round(
         other.insertions == branch.insertions &&
         other.errors == branch.errors &&
         other.states == branch.states &&
+        other.histories.map(h => h.states) ==
+        branch.histories.map(h => h.states) &&
         other.offset == branch.offset &&
         other.scanner_state == branch.scanner_state &&
         other.lookahead == branch.lookahead &&
