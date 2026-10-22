@@ -8,6 +8,7 @@ priv struct Derivation {
 
 ///|
 priv struct NodeData {
+  continuation : (Lexeme, Array[Node], Int32)?
   fragile : Bool
   derivation : Derivation
   dependency_end : Int32

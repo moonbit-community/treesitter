@@ -802,3 +802,22 @@ ten large named-tree comparisons. The remaining Rust trace first diverges at the
 `{` following `"src":`: C tries a retained pre-reduction string state before
 recovering farther down the stack; the flat histories instead admit a nested
 block. This is the next concrete history-preservation regression to resolve.
+
+### Recovery continuations and compacted states
+
+The latest trace separates two causes: the canonical Rust string-completion
+state lacks the `{` reduction available in C's compacted table, and potential
+reductions discard histories needed later in recovery. Preserving histories
+alone did not improve the canonical-table result, so that experiment was
+reverted before implementing compatible-state compaction.
+
+That work exposed two independent runtime defects. Missing-token candidates now
+require a reduction path that actually shifts the real non-EOF lookahead; an
+initial reduction alone is insufficient. EOF candidates retain their existing
+completion behavior. This fixes the frozen `error_recovery_loop` tree with
+compacted tables. Incremental reuse now retains the reduction's cached lookahead,
+trailing extras and offset, translating them when a subtree moves. Re-lexing
+after a reused JavaScript method body had interpreted `finally` as a keyword
+instead of the already-recognized property identifier, even after a no-op edit.
+The pinned JavaScript edit audit reproduces that regression. A focused test
+covers shifted trailing comments and invalidation of their dependencies.

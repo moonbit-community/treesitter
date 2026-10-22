@@ -188,6 +188,7 @@ fn Parser::node(
   {
     data: {
       id,
+      continuation: None,
       fragile: fragile || children.fragile,
       derivation: {
         symbol,
@@ -331,6 +332,14 @@ fn Parser::reduce(
     scan_after=branch.scanner_state,
   )
   let entries = branch.entries[:index].to_owned()
+  let node = {
+    data: {
+      ..node.data,
+      continuation: branch.lookahead.map(token => {
+        (token, branch.pending, branch.offset)
+      }),
+    },
+  }
   entries.push({ node, leading, })
   let states = branch.states[:index + 1].to_owned()
   states.push(next_state)
@@ -714,15 +723,19 @@ fn Parser::parse_source(
       !token.missing &&
       reusable.get((branch.offset, state)) is Some(candidate) &&
       candidate.data.scan_before == branch.scanner_state {
-      let node = reset_origin(candidate)
+      let node = reset_origin(candidate, lines)
+      let (lookahead, pending, offset) = match node.data.continuation {
+        Some((token, pending, offset)) => (Some(token), pending, offset)
+        None => (None, [], node.end_byte())
+      }
       reused_subtrees += 1
       advance({
         ..branch,
         states: branch.states + [node.next_parse_state()],
         entries: branch.entries + [{ node, leading: branch.pending, }],
-        pending: [],
-        offset: node.end_byte(),
-        lookahead: None,
+        pending,
+        offset,
+        lookahead,
         scanner_state: node.data.scan_after,
         dynamic: branch.dynamic + node.data.dynamic_score,
       })
@@ -820,7 +833,12 @@ fn Parser::parse_source(
               self.language.states[next].actions
               .get(token.symbol)
               .unwrap_or([])
-              .any(a => a is Reduce(_)) {
+              .any(a => a is Reduce(_)) &&
+              self.can_resume_after_missing(
+                branch.states + [next],
+                token.symbol,
+                max_branches,
+              ) {
               work.push({
                 ..branch,
                 lookahead: Some({

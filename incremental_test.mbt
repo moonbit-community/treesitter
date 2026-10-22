@@ -19,6 +19,65 @@ fn statements() -> @language.Language raise {
 }
 
 ///|
+test "reused reduction lookahead retains shifted trailing comments" {
+  let language = @generate.generate(
+    @grammar.Grammar::new(
+      "lookahead_extras",
+      [
+        ("document", Repeat(Symbol("statement"))),
+        (
+          "statement",
+          Seq([
+            Symbol("identifier"),
+            Literal("="),
+            Symbol("number"),
+            Literal(";"),
+          ]),
+        ),
+        ("identifier", @grammar.pattern("[a-z]+")),
+        ("number", @grammar.pattern("[0-9]+")),
+        ("comment", @grammar.pattern("//[^\n]*")),
+      ],
+      extras=[@grammar.pattern("\\s"), Symbol("comment")],
+    ),
+  )
+  let parser = @treesitter.Parser::new(language)
+  let original = b"a=1;b=2;//note\nc=3;"
+  let old = parser.parse(original)
+  old.edit({
+    start_byte: 0,
+    old_end_byte: 0,
+    new_end_byte: 1,
+    start_point: { row: 0, column: 0, },
+    old_end_point: { row: 0, column: 0, },
+    new_end_point: { row: 1, column: 0, },
+  })
+  let source = b"\na=1;b=2;//note\nc=3;"
+  let next = parser.parse(source, old_tree=old)
+  let fresh = parser.parse(source)
+  assert_true(next.reused_subtrees > 0)
+  compare_nodes(next.root_node(), fresh.root_node())
+  assert_eq(
+    next.root_node().to_sexp(),
+    "(document (statement (identifier) (number)) (statement (identifier) (number)) (comment) (statement (identifier) (number)))",
+  )
+  // A change inside the remembered lookahead dependency invalidates reuse.
+  next.edit({
+    start_byte: 9,
+    old_end_byte: 16,
+    new_end_byte: 19,
+    start_point: { row: 1, column: 8, },
+    old_end_point: { row: 2, column: 0, },
+    new_end_point: { row: 2, column: 0, },
+  })
+  let changed = b"\na=1;b=2;//changed\nc=3;"
+  compare_nodes(
+    parser.parse(changed, old_tree=next).root_node(),
+    parser.parse(changed).root_node(),
+  )
+}
+
+///|
 test "incremental parsing reuses suffix subtrees and agrees with a fresh parse" {
   let parser = @treesitter.Parser::new(statements())
   let old = parser.parse_string("a=1; b=2; c=3; d=4;")

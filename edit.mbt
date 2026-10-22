@@ -138,7 +138,7 @@ pub fn Tree::copy(self : Tree) -> Tree {
 }
 
 ///|
-fn reset_origin(node : Node) -> Node {
+fn reset_origin(node : Node, lines : Array[Int32]) -> Node {
   if node.data.origin_start == node.start_byte() &&
     node.data.origin_end == node.end_byte() {
     return node
@@ -151,8 +151,53 @@ fn reset_origin(node : Node) -> Node {
       node.data.origin_start,
       origin_start: node.start_byte(),
       origin_end: node.end_byte(),
+      continuation: node.data.continuation.map(context => {
+        let (token, pending, offset) = context
+        let delta = node.start_byte() - node.data.origin_start
+        (
+          {
+            ..token,
+            start: token.start + delta,
+            end: token.end + delta,
+            dependency_end: token.dependency_end + delta,
+          },
+          pending.map(n => restore_lookahead_extra(n, delta, lines)),
+          offset + delta,
+        )
+      }),
       children: child_entries(
-        node.data.children.entries().map(c => (c.0, reset_origin(c.1))),
+        node.data.children.entries().map(c => (c.0, reset_origin(c.1, lines))),
+      ),
+    },
+  }
+}
+
+///|
+// The cached trailing extras retain their original coordinates. They are not
+// children of this subtree and therefore were not visited by Tree::edit.
+fn restore_lookahead_extra(
+  node : Node,
+  delta : Int32,
+  lines : Array[Int32],
+) -> Node {
+  let start = node.start_byte() + delta
+  let end = node.end_byte() + delta
+  {
+    data: {
+      ..node.data,
+      changed: false,
+      continuation: None,
+      start_byte: start,
+      end_byte: end,
+      start_point: point_at(lines, start),
+      end_point: point_at(lines, end),
+      origin_start: start,
+      origin_end: end,
+      dependency_end: node.data.dependency_end + delta,
+      children: child_entries(
+        node.data.children
+        .entries()
+        .map(c => (c.0, restore_lookahead_extra(c.1, delta, lines))),
       ),
     },
   }
@@ -174,6 +219,7 @@ fn reuse_candidates(
       !node.is_extra() &&
       !node.has_changes() &&
       !node.has_error() &&
+      !node.data.continuation.map(c => c.0.missing).unwrap_or(false) &&
       !old_tree.language.symbols[node.symbol()].terminal &&
       node.end_byte() > node.start_byte() &&
       node.start_byte() >= 0 &&
