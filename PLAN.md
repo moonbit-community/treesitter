@@ -719,3 +719,13 @@ The development-only reference helper verifies clean revisions and reproduces
 the hashes without rewriting committed expectations. CI parses with MoonBit and
 compares those hashes; output, errors and elapsed time are retained separately.
 This is correctness evidence on larger files, not a comparative performance claim.
+
+Query repetitions now require the next concrete sibling, matching upstream's
+loop-back semantics; anonymous commas stop a number run unless the query matches
+the separators. Corrected a prior test expectation that incorrectly grouped
+numbers across commas, using a freshly compiled pinned C query oracle. Thirty
+query tests pass on all targets; highlight/tag unit tests and all 90 public
+annotation assertions remain passing. Further probes expose open query work:
+top-level quantifiers are not parsed, and repeated sibling groups with optional
+separators still differ in path selection from upstream. Keep these in the query
+compatibility gate rather than treating the passing public queries as full parity.

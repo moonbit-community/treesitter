@@ -162,21 +162,17 @@ fn match_children(
         while runs.pop() is Some((next, count, accumulated)) {
           budget.tick()
           stops.push((next, count, accumulated))
-          for j in next..<parent.child_count() {
-            let sibling = parent.child(j).unwrap()
+          if next < parent.child_count() {
             if spec.field is None ||
-              spec.field == parent.field_name_for_child(j) {
-              let found = match_at(spec.pattern, parent, j, budget)
+              spec.field == parent.field_name_for_child(next) {
+              // Repetition requires the next concrete sibling. An anchor can
+              // skip anonymous nodes, but a quantifier's loop-back cannot.
+              let found = match_at(spec.pattern, parent, next, budget)
               for (additional, after) in found {
                 if after > next {
                   runs.push((after, count + 1, accumulated + additional))
                 }
               }
-              if !found.is_empty() || sibling.is_named() {
-                break
-              }
-            } else if sibling.is_named() {
-              break
             }
           }
         }

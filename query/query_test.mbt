@@ -446,14 +446,39 @@ test "anonymous groups and parent captures follow tree order" {
 }
 
 ///|
-test "quantified query patterns enumerate separate runs" {
+test "quantified query patterns stop at anonymous siblings" {
   let tree = list_fixture("[1,2,true,3,4]")
   let query = @query.Query::new(tree.language, "(array (number)+ @n)")
   let matches = query.matches(tree.root_node(), tree.source)
   assert_eq(matches.map(m => m.captures.map(c => c.node.text(tree.source))), [
-    ["1", "2"],
-    ["3", "4"],
+    ["1"],
+    ["2"],
+    ["3"],
+    ["4"],
   ])
+}
+
+///|
+// Frozen against the pinned C query engine with tree-sitter-json v0.24.8.
+test "repeated alternatives stop at punctuation before a following anchor" {
+  let tree = list_fixture("[1,2,true,3,4]")
+  let query = @query.Query::new(tree.language, "(array [(number) (true)]+ @n)")
+  assert_eq(
+    query
+    .matches(tree.root_node(), tree.source)
+    .map(m => m.captures.map(c => c.node.text(tree.source))),
+    [["1"], ["2"], ["true"], ["3"], ["4"]],
+  )
+  let query = @query.Query::new(
+    tree.language,
+    "(array (number)+ @n . (true) @t)",
+  )
+  assert_eq(
+    query
+    .matches(tree.root_node(), tree.source)
+    .map(m => m.captures.map(c => c.node.text(tree.source))),
+    [["2", "true"]],
+  )
 }
 
 ///|
