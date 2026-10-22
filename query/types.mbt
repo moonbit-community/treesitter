@@ -18,6 +18,7 @@ priv enum Pattern {
 
 ///|
 priv struct NodePattern {
+  start_byte : Int32
   kind : String?
   supertype : String?
   named : Bool?
@@ -29,6 +30,7 @@ priv struct NodePattern {
 
 ///|
 priv struct Child {
+  start_byte : Int32
   pattern : Pattern
   field : String?
   anchor : Bool

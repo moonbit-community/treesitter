@@ -78,21 +78,42 @@ fn validate_structure(
       }
     Group(children, _) =>
       for child in children {
-        validate_structure(schema, child.pattern, offset)
+        validate_structure(schema, child.pattern, child.start_byte)
       }
     Node(node) => {
+      if node.supertype is Some(name) &&
+        node.kind is Some(_) &&
+        schema_entry(schema, name, Some(true)) is Some(super_entry) &&
+        super_entry.get("subtypes") is Some(Array(types)) &&
+        !allows_kind(schema, types, pattern, []) {
+        raise InvalidQuery(
+          node.start_byte,
+          "node is not a subtype of '\{name}'",
+        )
+      }
       let entry = match node.kind {
         Some(kind) => schema_entry(schema, kind, node.named)
         None => None
       }
+      let field_counts : Map[String, Int32] = Map([])
       for child in node.children {
-        validate_structure(schema, child.pattern, offset)
+        validate_structure(schema, child.pattern, child.start_byte)
         if entry is Some(entry) && !entry.contains("subtypes") {
           let fields = match entry.get("fields") {
             Some(Object(fields)) => fields
             _ => Map([])
           }
           if child.field is Some(field) {
+            let count = field_counts.get(field).unwrap_or(0) + child.min
+            field_counts[field] = count
+            if count > 1 &&
+              fields.get(field) is Some(Object(info)) &&
+              info.get("multiple") == Some(Json(false)) {
+              raise InvalidQuery(
+                child.start_byte,
+                "field '\{field}' has only one child",
+              )
+            }
             if !fields.contains(field) ||
               !allows_kind(
                 schema,
@@ -101,7 +122,7 @@ fn validate_structure(
                 [],
               ) {
               raise InvalidQuery(
-                offset,
+                child.start_byte,
                 "impossible child for field '\{field}'",
               )
             }
@@ -122,7 +143,7 @@ fn validate_structure(
             if named_constraint(child.pattern) &&
               !allows_kind(schema, types, child.pattern, []) {
               raise InvalidQuery(
-                offset,
+                child.start_byte,
                 "impossible named child for '\{node.kind.unwrap()}'",
               )
             }

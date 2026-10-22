@@ -47,3 +47,31 @@ test "supertype queries follow actual hidden reductions" {
     _ => fail("accepted non-supertype path")
   }
 }
+
+///|
+test "supertype paths require membership rather than only valid names" {
+  let language = @generate.generate(
+    @grammar.Grammar::new(
+      "subtype_validation",
+      [
+        ("document", Seq([Symbol("expression"), Symbol("statement")])),
+        ("expression", Symbol("identifier")),
+        ("statement", Symbol("number")),
+        ("identifier", @grammar.pattern("[a-z]+")),
+        ("number", @grammar.pattern("[0-9]+")),
+      ],
+      supertypes=["expression", "statement"],
+    ),
+  )
+  for
+    source in [
+      "(expression/number)", "(statement/identifier)", "(statement/expression)",
+    ] {
+    try @query.Query::new(language, source) catch {
+      InvalidQuery(offset, _) => assert_eq(offset, 0)
+      e => fail("unexpected query error: \{@debug.Repr(e)}")
+    } noraise {
+      _ => fail("accepted invalid subtype: \{source}")
+    }
+  }
+}

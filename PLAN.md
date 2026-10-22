@@ -468,3 +468,10 @@ also exposed stale recovery dominance entries: when paused competitors are
 removed, their visited configurations must no longer suppress the resumed stack.
 Resetting that recovery epoch fixes a reproducible NoParse on malformed input.
 All checks pass: 234 native / 233 JS / 233 Wasm GC plus CLI scanner compilation.
+
+Query validation rejects anchors at group edges, duplicate required occurrences
+of a single-valued field, and supertype paths whose subtype is not a member.
+Structural/node/field diagnostics now retain source byte offsets, including
+queries with UTF-8 comments. Eighteen query tests pass on native, JS, and Wasm GC;
+the complete native suite passes 236 tests. Sequence validation beyond these
+schema constraints remains in the broader upstream API audit.

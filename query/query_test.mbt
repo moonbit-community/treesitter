@@ -377,3 +377,34 @@ test "capture cursors restrict captures and cancel between results" {
   }
   assert_true(cancelled)
 }
+
+///|
+test "group edges and single-valued fields are rejected at their source offsets" {
+  let tree = fixture()
+  let invalid = [
+    ("\"unknown\"", 1),
+    ("(unknown)", 1),
+    ("(assignment wrong: (identifier))", 12),
+    ("(assignment !wrong)", 13),
+    (";é\n(identifier (number))", 16),
+    ("((_) .)", 5),
+    ("(document ((_)+ .)? (_))", 16),
+    ("(assignment name: (number))", 12),
+    ("(identifier (identifier))", 12),
+    ("(assignment name: (identifier) name: (identifier))", 31),
+  ]
+  for (source, expected) in invalid {
+    try @query.Query::new(tree.language, source) catch {
+      InvalidQuery(offset, _) => assert_eq(offset, expected, msg=source)
+      e => fail("unexpected query error: \{@debug.Repr(e)}")
+    } noraise {
+      _ => fail("accepted impossible query: \{source}")
+    }
+  }
+  for
+    source in [
+      "((_) . (_))", "(document (_) (_) .)", "(assignment name: (identifier)? name: (identifier))",
+    ] {
+    ignore(@query.Query::new(tree.language, source))
+  }
+}

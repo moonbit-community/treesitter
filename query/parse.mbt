@@ -227,6 +227,7 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
   if depth > 128 {
     raise self.error("query nesting limit exceeded")
   }
+  let start_byte = self.tokens.get(self.pos).map(t => t.offset).unwrap_or(0)
   let mut pattern = match self.take() {
     Punct('[') => {
       let alternatives = []
@@ -239,8 +240,9 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
       Either(alternatives)
     }
     Quoted(kind) => {
-      self.check_kind(kind, false)
+      self.check_kind(kind, false, start_byte + 1)
       Node({
+        start_byte,
         kind: Some(kind),
         supertype: None,
         named: Some(false),
@@ -252,6 +254,7 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
     }
     Word("_") =>
       Node({
+        start_byte,
         kind: None,
         supertype: None,
         named: None,
@@ -264,17 +267,22 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
       if self.tokens.get(self.pos) is Some({ kind: Punct('(' | '['), .. }) {
         let children = []
         let mut anchor = false
+        let mut anchor_byte = 0
         while !self.punct(')') {
           if self.is_predicate() {
             self.predicate()
             continue
           }
           if self.punct('.') {
+            anchor_byte = self.tokens[self.pos - 1].offset
             anchor = true
             continue
           }
           children.push(self.child(depth + 1, None, anchor))
           anchor = false
+        }
+        if anchor {
+          raise InvalidQuery(anchor_byte, "anchor at group edge")
         }
         if children.length() == 1 &&
           children[0].min == 1 &&
@@ -319,7 +327,7 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
           !self.language.supertypes.any(id => {
             self.language.symbols[id].name == name
           }) {
-          raise self.error("unknown supertype '\{name}'")
+          raise InvalidQuery(start_byte, "unknown supertype '\{name}'")
         }
         let kind = if parts.length() == 2 {
           parts[1].to_owned()
@@ -329,7 +337,12 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
           kind
         }
         if kind != "_" && kind != "ERROR" {
-          self.check_kind(kind, !anonymous_missing)
+          self.check_kind(
+            kind,
+            !anonymous_missing,
+            self.tokens[self.pos - 1].offset +
+            (if anonymous_missing { 1 } else { 0 }),
+          )
         }
         let children = []
         let absent_fields = []
@@ -341,7 +354,7 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
           }
           if self.punct('!') {
             let name = self.word()
-            self.check_field(name)
+            self.check_field(name, self.tokens[self.pos - 1].offset)
             absent_fields.push(name)
             continue
           }
@@ -349,6 +362,10 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
             self.predicate()
             continue
           }
+          let child_start = self.tokens
+            .get(self.pos)
+            .map(t => t.offset)
+            .unwrap_or(start_byte)
           let field = if self.tokens.get(self.pos)
             is Some({ kind: Word(name), .. }) &&
             self.tokens.get(self.pos + 1) is Some({ kind: Punct(':'), .. }) {
@@ -357,10 +374,13 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
           } else {
             None
           }
-          children.push(self.child(depth + 1, field, anchor))
+          children.push(
+            self.child(depth + 1, field, anchor, start_byte=child_start),
+          )
           anchor = false
         }
         Node({
+          start_byte,
           supertype,
           kind: if kind == "_" {
             None
@@ -400,13 +420,14 @@ fn Reader::check_kind(
   self : Reader,
   name : String,
   named : Bool,
+  offset : Int32,
 ) -> Unit raise QueryError {
   let exists = self.language.symbols.any(s => s.name == name && s.named == named) ||
     self.language.productions.any(p => {
       p.steps.any(s => s.rename == Some((name, named)))
     })
   if !exists {
-    raise self.error("unknown node type '\{name}'")
+    raise InvalidQuery(offset, "unknown node type '\{name}'")
   }
 }
 
@@ -455,9 +476,13 @@ pub fn Query::new(
 }
 
 ///|
-fn Reader::check_field(self : Reader, name : String) -> Unit raise QueryError {
+fn Reader::check_field(
+  self : Reader,
+  name : String,
+  offset : Int32,
+) -> Unit raise QueryError {
   if !self.language.productions.any(p => p.steps.any(s => s.field == Some(name))) {
-    raise self.error("unknown field '\{name}'")
+    raise InvalidQuery(offset, "unknown field '\{name}'")
   }
 }
 
@@ -495,7 +520,14 @@ fn Reader::child(
   depth : Int32,
   field : String?,
   anchor : Bool,
+  start_byte? : Int32,
 ) -> Child raise QueryError {
+  let start_byte = start_byte.unwrap_or_else(() => {
+    self.tokens.get(self.pos).map(t => t.offset).unwrap_or(0)
+  })
+  if field is Some(name) {
+    self.check_field(name, start_byte)
+  }
   let mut pattern = self.pattern(depth)
   let (min, max) = if self.punct('?') {
     (0, Some(1))
@@ -518,8 +550,5 @@ fn Reader::child(
     }
     pattern = Capture(pattern, name)
   }
-  if field is Some(name) {
-    self.check_field(name)
-  }
-  { pattern, field, anchor, min, max, }
+  { start_byte, pattern, field, anchor, min, max, }
 }
