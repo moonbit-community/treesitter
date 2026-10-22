@@ -83,6 +83,9 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
       }
     }
     for pattern_index, pattern in self.query.patterns {
+      if self.query.disabled_patterns.contains(pattern_index) {
+        continue
+      }
       for captures in match_pattern(pattern.pattern, node, self.budget) {
         if !predicates_match(
             pattern.predicates,
@@ -106,7 +109,14 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
         let directives = pattern.predicates
           .filter(p => p.name.has_suffix("!") && p.name != "#set!")
           .map(p => Directive::{ name: p.name, args: p.args.copy(), })
-        self.pending.push({ pattern_index, captures, properties, directives, })
+        self.pending.push({
+          pattern_index,
+          captures: captures.filter(c => {
+            !self.query.disabled_captures.contains(c.name)
+          }),
+          properties,
+          directives,
+        })
       }
     }
   }

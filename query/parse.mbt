@@ -7,6 +7,7 @@ priv enum TokenKind {
 
 ///|
 priv struct Token {
+  end_offset : Int32
   kind : TokenKind
   offset : Int32
 }
@@ -97,7 +98,7 @@ fn tokenize(source : String) -> Array[Token] raise QueryError {
       Word(String::from_array(chars[start:i]))
     }
     offset += @utf8.encode(String::from_array(chars[start:i])).length()
-    result.push({ kind, offset: start_offset, })
+    result.push({ kind, offset: start_offset, end_offset: offset, })
   }
   result
 }
@@ -422,9 +423,15 @@ pub fn Query::new(
     predicates: [],
   }
   let patterns = []
+  let schema = match language.node_types() {
+    Array(items) => items
+    _ => []
+  }
   while reader.pos < reader.tokens.length() {
     reader.predicates = []
+    let start_byte = reader.tokens[reader.pos].offset
     let pattern = reader.pattern(0)
+    validate_structure(schema, pattern, start_byte)
     for predicate in reader.predicates {
       for arg in predicate.args {
         if arg is Capture(name) && !pattern_captures(pattern).contains(name) {
@@ -432,9 +439,19 @@ pub fn Query::new(
         }
       }
     }
-    patterns.push({ pattern, predicates: reader.predicates, })
+    patterns.push({
+      pattern,
+      predicates: reader.predicates,
+      start_byte,
+      end_byte: reader.tokens[reader.pos - 1].end_offset,
+    })
   }
-  { patterns, capture_names: reader.captures, }
+  {
+    patterns,
+    capture_names: reader.captures,
+    disabled_patterns: Map([]),
+    disabled_captures: Map([]),
+  }
 }
 
 ///|

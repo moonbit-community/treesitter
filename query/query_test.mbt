@@ -276,3 +276,104 @@ test "predicate regex anchors are scoped within alternatives" {
     ["bob"],
   )
 }
+
+///|
+test "capture cursors interleave captures from enclosing and nested matches" {
+  let language = @generate.generate(
+    @grammar.Grammar::new("words", [
+      ("document", Repeat(Symbol("word"))),
+      ("word", @grammar.pattern("[a-z]+")),
+    ]),
+  )
+  let tree = @ts.Parser::new(language).parse_string("alice bob carol")
+  let query = @query.Query::new(
+    language, "(document (word) @nested) @root\n(word) @leaf",
+  )
+  let cursor = query.capture_cursor(tree.root_node(), tree.source)
+  let result = []
+  while cursor.next_capture() is Some((matched, index)) {
+    let capture = matched.captures[index]
+    result.push((capture.name, capture.node.start_byte()))
+  }
+  assert_eq(result, [
+    ("root", 0),
+    ("root", 0),
+    ("root", 0),
+    ("nested", 0),
+    ("leaf", 0),
+    ("nested", 6),
+    ("leaf", 6),
+    ("nested", 10),
+    ("leaf", 10),
+  ])
+}
+
+///|
+test "pattern ranges and disabled captures preserve predicate inputs" {
+  let tree = fixture()
+  let query = @query.Query::new(
+    tree.language,
+    "  (identifier) @name\n(number) @value",
+  )
+  assert_eq(query.pattern_range(0), Some((2, 20)))
+  assert_true(query.disable_pattern(1))
+  assert_eq(query.captures(tree.root_node(), tree.source).length(), 3)
+  assert_true(query.disable_capture("name"))
+  assert_eq(query.captures(tree.root_node(), tree.source).length(), 0)
+  assert_false(query.disable_pattern(-1))
+  assert_false(query.disable_capture("unknown"))
+  let filtered = @query.Query::new(
+    tree.language,
+    "((identifier) @name (#eq? @name \"bob\"))",
+  )
+  assert_true(filtered.disable_capture("name"))
+  assert_eq(filtered.matches(tree.root_node(), tree.source).length(), 1)
+}
+
+///|
+test "query construction rejects impossible named children and field types" {
+  let tree = fixture()
+  for
+    source in [
+      "(identifier (number))", "(assignment name: (number))", "(number name: (identifier))",
+    ] {
+    let rejected = try {
+      ignore(@query.Query::new(tree.language, source))
+      false
+    } catch {
+      InvalidQuery(_, _) => true
+      _ => false
+    }
+    assert_true(rejected, msg=source)
+  }
+  ignore(@query.Query::new(tree.language, "(assignment (identifier) (number))"))
+}
+
+///|
+test "capture cursors restrict captures and cancel between results" {
+  let tree = fixture()
+  let query = @query.Query::new(tree.language, "(identifier) @name")
+  let ranged = query.capture_cursor(
+    tree.root_node(),
+    tree.source,
+    start_byte=5,
+    end_byte=8,
+  )
+  let item = ranged.next_capture().unwrap()
+  assert_eq(item.0.captures[item.1].node.text(tree.source), "bob")
+  assert_true(ranged.next_capture() is None)
+  let mut stop = false
+  let cursor = query.capture_cursor(tree.root_node(), tree.source, cancelled=() => {
+    return stop
+  })
+  assert_true(cursor.next_capture() is Some(_))
+  stop = true
+  let cancelled = try {
+    ignore(cursor.next_capture())
+    false
+  } catch {
+    Cancelled => true
+    _ => false
+  }
+  assert_true(cancelled)
+}
