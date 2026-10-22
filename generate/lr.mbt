@@ -129,6 +129,7 @@ fn resolve_actions(
   actions : Array[@language.Action],
   items : Array[Item],
   first : Array[Map[Int32, Bool]],
+  auxiliary_context : Map[String, Array[String]],
 ) -> Array[@language.Action] raise GenerateError {
   if actions.length() <= 1 || actions.any(a => a is AcceptExtra) {
     return actions
@@ -213,8 +214,31 @@ fn resolve_actions(
       Accept | AcceptExtra | EnterExtra(_) => ()
     }
   }
-  let names = involved.keys().to_array()
-  if builder.grammar.conflicts.any(group => names.all(n => group.contains(n))) {
+  let raw_names = involved.keys().to_array()
+  let is_auxiliary = (name : String) => {
+    builder.repeats.values().any(id => builder.symbols[id].name == name)
+  }
+  if raw_names.length() == 1 &&
+    is_auxiliary(raw_names[0]) &&
+    remaining.any(a => a is Shift(_)) {
+    return remaining
+  }
+  let names : Array[String] = []
+  for name in raw_names {
+    let parents = if is_auxiliary(name) {
+      auxiliary_context.get(name).unwrap_or([name])
+    } else {
+      [name]
+    }
+    for parent in parents {
+      if !names.contains(parent) {
+        names.push(parent)
+      }
+    }
+  }
+  if builder.grammar.conflicts.any(group => {
+      group.length() == names.length() && names.all(n => group.contains(n))
+    }) {
     return remaining
   }
   names.sort()
@@ -331,6 +355,11 @@ pub fn generate(
     reserved_first,
   )
   let states = [initial]
+  let contexts : Array[Map[String, Array[String]]] = [Map([])]
+  let auxiliaries : Map[Int32, Bool] = Map([])
+  for id in builder.repeats.values() {
+    auxiliaries[id] = true
+  }
   let ids : Map[Array[Item], Int32] = Map([])
   ids[initial] = 0
   let extra_states : Array[(Int32, Int32)] = []
@@ -351,6 +380,7 @@ pub fn generate(
     )
     let id = states.length()
     states.push(state)
+    contexts.push(Map([]))
     ids[state] = id
     extra_states.push((symbol, id))
   }
@@ -361,6 +391,22 @@ pub fn generate(
       raise ResourceLimit("LR state limit exceeded")
     }
     let items = states[index]
+    let auxiliary_context = contexts[index].copy()
+    let uses : Map[Int32, Array[String]] = Map([])
+    for item in items {
+      let production = builder.productions[item.production]
+      if production.steps.get(item.dot) is Some(step) &&
+        auxiliaries.contains(step.symbol) {
+        let parents = uses.get_or_init(step.symbol, () => [])
+        let name = builder.symbols[production.lhs].name
+        if !auxiliaries.contains(production.lhs) && !parents.contains(name) {
+          parents.push(name)
+        }
+      }
+    }
+    for (id, parents) in uses {
+      auxiliary_context[builder.symbols[id].name] = parents
+    }
     let transitions : Map[Int32, Array[Item]] = Map([])
     let actions : Map[Int32, Array[@language.Action]] = Map([])
     let gotos : Map[Int32, Int32] = Map([])
@@ -400,6 +446,7 @@ pub fn generate(
         None => {
           let id = states.length()
           states.push(next)
+          contexts.push(auxiliary_context)
           ids[next] = id
           id
         }
@@ -418,6 +465,7 @@ pub fn generate(
         actions[token],
         items,
         first,
+        auxiliary_context,
       )
     }
     let ordinary = actions.keys().to_array()

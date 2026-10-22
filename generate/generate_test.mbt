@@ -96,3 +96,29 @@ test "supertypes reject terminal and multiple visible children" {
     }
   }
 }
+
+///|
+test "conflicts inside shared repeats use the enclosing grammar rule names" {
+  let grammar = @grammar.Grammar::new(
+    "repeat_context",
+    [
+      (
+        "document",
+        Choice([
+          Seq([Symbol("declaration"), Literal("a")]),
+          Seq([Symbol("attributed"), Literal("b")]),
+        ]),
+      ),
+      ("declaration", Seq([Repeat(Symbol("modifier")), Symbol("identifier")])),
+      ("attributed", Seq([Repeat(Symbol("attribute")), Symbol("identifier")])),
+      ("modifier", Symbol("attribute")),
+      ("attribute", Literal("@")),
+      ("identifier", Literal("x")),
+    ],
+    conflicts=[["modifier", "attributed"]],
+  )
+  let language = @generate.generate(grammar)
+  assert_true(
+    language.states.any(s => s.actions.values().any(a => a.length() > 1)),
+  )
+}
