@@ -774,3 +774,31 @@ quote tokens lost their default alias in the port, understating skipped-token
 costs; the isolated alias fix above corrects that independently. Remaining
 recovery work includes merging an earlier ERROR when recovering across syntax
 that follows it, and preserving alternative histories without premature pruning.
+
+Recovery now keeps extras before a popped stack entry outside its new ERROR,
+folds an immediately preceding ERROR into the new error's children, and stops
+searching deeper once the current state accepts the lookahead. Potential
+recovery reductions exclude EOF-only lookaheads and empty productions, matching
+the C runtime. This prevents nested document roots from appearing in recovery
+errors. Two frozen C regression tests cover repeated damage, intervening comments,
+and premature root reduction. Full checks pass 284 native / 276 JS / 276 Wasm GC
+and CLI smoke checks. Rust improves to 150/151: the short `Json macro contents`
+case now matches, its prefix case remains passing, and only `Longer json macro
+contents` fails. All three Rust query files and 906 edit checks still pass.
+
+Comparing the 1,153 JSON edits with an isolated build of the preceding commit
+finds 49 newly matching C tree pairs and zero newly differing tree pairs or
+changed ranges among previously matching cases. There are now 187 differing
+S-expression pairs and 40 range differences among matching named trees (two are
+on newly matching trees); incremental/fresh comparisons still have zero failures.
+A separate pre-existing tie-selection gap remains for `a 1 @ a 2 @ a 3;` in the
+small `document = repeat(statement)`, `statement = 'a' number ';'` grammar: C keeps
+the final statement outside ERROR, while the port keeps the first statement's
+prefix. It is not included as a passing regression or evidence of full parity.
+
+The full five-grammar matrix remains passing after these recovery changes:
+311 corpus cases, 12 query files, 90 annotations, 1,866 edit/undo checks, and all
+ten large named-tree comparisons. The remaining Rust trace first diverges at the
+`{` following `"src":`: C tries a retained pre-reduction string state before
+recovering farther down the stack; the flat histories instead admit a nested
+block. This is the next concrete history-preservation regression to resolve.

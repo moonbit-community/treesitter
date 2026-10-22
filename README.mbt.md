@@ -187,12 +187,12 @@ The hashes cover named trees; byte ranges, anonymous nodes, and edit behavior
 are exercised by the other suites.
 
 Rust v0.24.2 is also tracked as a candidate, using the pure MoonBit scanner in
-`examples/rust/scanner.mbtx`. It passes 149/151 corpus cases, all three shipped
-queries, and 906 edit/undo checks. Two malformed macro-body recovery trees still
-differ from upstream. Run
+`examples/rust/scanner.mbtx`. It passes 150/151 corpus cases, all three shipped
+queries, and 906 edit/undo checks. The longer malformed macro-body recovery tree still
+differs from upstream. Run
 `python3 tools/audit_grammars.py --fetch --manifest tools/grammar_candidates.json`
-to reproduce these failures; the command exits nonzero. Rust is not yet part of
-the passing CI matrix, and these failures remain part of the release gate.
+to reproduce this failure; the command exits nonzero. Rust is not yet part of
+the passing CI matrix, and this failure remains part of the release gate.
 
 Remaining compatibility work includes ambiguous-forest incremental reuse,
 incremental optimization for encoded/included-range inputs, broader upstream API

@@ -765,15 +765,21 @@ fn Parser::parse_source(
       let reductions : Map[Int32, Bool] = Map([])
       let mut reduced_any = false
       let mut can_shift = false
-      for actions in self.language.states[state].actions.values() {
+      for (lookahead, actions) in self.language.states[state].actions {
         if branch.status != Preparing {
           break
+        }
+        // EOF-only and empty reductions do not preserve consumed syntax while
+        // searching for a recovery point (process_candidate_recovery_actions).
+        if lookahead == 0 {
+          continue
         }
         for action in actions {
           if action is Shift(_) {
             can_shift = true
           }
           if action is Reduce(pid) &&
+            !self.language.productions[pid].steps.is_empty() &&
             !reductions.contains(pid) &&
             (
               self.language.productions[pid].requires_eof != Some(true) ||
@@ -845,23 +851,16 @@ fn Parser::parse_source(
       // ERROR subtree. Contextual lexing resumes at the same input position.
       let mut did_recover = !actions.is_empty()
       for index = branch.entries.length() - 1; index >= 0; index = index - 1 {
+        // The current state has already resumed above when it accepts the
+        // token. Recovery chooses only the first viable state in the summary.
+        if did_recover {
+          break
+        }
         let previous = branch.states[index]
         if !self.language.states[previous].actions.contains(token.symbol) {
           continue
         }
-        let discarded = []
-        for entry in branch.entries[index:] {
-          discarded.append(entry.leading)
-          discarded.push(entry.node)
-        }
-        discarded.append(branch.pending)
-        let pending = self.error_pending(
-          [],
-          discarded,
-          lines,
-          previous,
-          preserve_trailing_extras=true,
-        )
+        let pending = self.recover_pending(branch, index, lines)
         if self.logger is Some(log) {
           log(
             Parse,
