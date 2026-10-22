@@ -16,6 +16,7 @@ pub struct Parser {
   priv mut next_id : Int32
   priv scanner : ExternalScanner?
   priv mut suspended : ParseContinuation?
+  priv mut projection : Projection?
 }
 
 ///|
@@ -24,7 +25,7 @@ pub fn Parser::new(
   scanner? : ExternalScanner,
 ) -> Parser raise @language.LanguageError {
   language.validate()
-  { language, next_id: 0, scanner, suspended: None, }
+  { language, next_id: 0, scanner, suspended: None, projection: None, }
 }
 
 ///|
@@ -138,21 +139,30 @@ fn Parser::node(
     self.language.symbols[symbol]
   }
   let children = child_list(children)
+  let error_extent = match self.projection {
+    Some(p) => {
+      let first = p.starts[start]
+      let last = if start == end { first } else { p.ends[end] }
+      500 +
+      last -
+      first +
+      30 * (point_at(p.lines, last).row - point_at(p.lines, first).row)
+    }
+    None =>
+      500 +
+      end -
+      start +
+      30 * (point_at(lines, end).row - point_at(lines, start).row)
+  }
   let mut error_cost = children.error_cost
   if missing {
     error_cost += 610
   }
   if symbol < 0 {
-    error_cost += 500 +
-      end -
-      start +
-      30 * (point_at(lines, end).row - point_at(lines, start).row)
+    error_cost += error_extent
     for (_, child) in children.entries() {
       if child.data.error_repeat {
-        error_cost -= 500 +
-          child.end_byte() -
-          child.start_byte() +
-          30 * (child.end_position().row - child.start_position().row)
+        error_cost -= child.data.error_extent
       } else if !child.is_extra() &&
         !(child.is_error() && child.child_count() == 0) {
         error_cost += 100
@@ -164,6 +174,7 @@ fn Parser::node(
       id,
       encoding: Utf8,
       error_cost,
+      error_extent,
       error_repeat,
       unexpected,
       changed: false,
@@ -387,6 +398,7 @@ fn Parser::parse_source(
     raise Cancelled
   }
   self.suspended = None
+  self.projection = projection
   if !self.language.externals.is_empty() && self.scanner is None {
     raise ScannerError("language requires an external scanner")
   }
@@ -890,6 +902,7 @@ fn Parser::parse_source(
       }
     }
   }
+  self.projection = None
   match best {
     Some((root, _, _)) =>
       {
@@ -985,6 +998,7 @@ fn branch_error_cost(branch : Branch) -> Int32 {
 /// Discard a suspended parse before starting unrelated work.
 pub fn Parser::reset(self : Parser) -> Unit {
   self.suspended = None
+  self.projection = None
 }
 
 ///|

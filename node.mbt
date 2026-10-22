@@ -3,6 +3,7 @@ priv struct NodeData {
   encoding : InputEncoding
   id : Int32
   error_repeat : Bool
+  error_extent : Int32
   error_cost : Int32
   unexpected : Int32?
   changed : Bool
