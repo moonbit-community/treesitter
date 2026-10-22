@@ -9,10 +9,12 @@ fn better_token(
     candidate.precedence > previous.precedence
   } else if end != previous_end {
     end > previous_end
+  } else if candidate.literal != previous.literal {
+    // Upstream implicit precedence: literal contributes 2, immediate adds 1.
+    // A literal therefore wins even against an immediate regular expression.
+    candidate.literal
   } else if candidate.immediate != previous.immediate {
     candidate.immediate
-  } else if candidate.literal != previous.literal {
-    candidate.literal
   } else {
     // Tokens are in grammar extraction order; keep the first equal match.
     false

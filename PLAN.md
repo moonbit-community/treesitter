@@ -657,3 +657,9 @@ while verifying source preservation, and validates tag name ranges. Its ASCII
 position-comment reader rejects non-ASCII input explicitly; general Unicode
 grapheme-column assertion support remains open. CI treats fixture failures as
 failures separately from corpus and query-compilation counts.
+
+Fixed implicit lexical precedence: after explicit precedence and longest match,
+a literal outranks an immediate pattern (upstream weights literal=2,
+immediate=1). A C-oracle fixture confirms equal-length selection and that a
+longer immediate match still wins. The full check script passes 272 native /
+269 JS / 269 Wasm GC tests and all CLI smoke checks.

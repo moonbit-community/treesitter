@@ -44,3 +44,25 @@ test "inner lexical precedence can extend past a higher completion" {
     "(document (a))",
   )
 }
+
+///|
+// Upstream implicit precedence is 2 for a literal plus 1 for immediate.
+// It breaks equal-length ties after explicit precedence and longest match.
+test "literal tokens outrank immediate patterns at equal length" {
+  let language = @generate.generate(
+    @grammar.Grammar::new("implicit_lexical", [
+      ("document", Choice([Symbol("literal"), Symbol("pattern")])),
+      ("literal", Literal("x")),
+      ("pattern", ImmediateToken(@grammar.pattern("[a-z]+"))),
+    ]),
+  )
+  let parser = @treesitter.Parser::new(language)
+  assert_eq(
+    parser.parse_string("x").root_node().to_sexp(),
+    "(document (literal))",
+  )
+  assert_eq(
+    parser.parse_string("xy").root_node().to_sexp(),
+    "(document (pattern))",
+  )
+}
