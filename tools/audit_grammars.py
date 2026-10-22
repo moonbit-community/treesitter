@@ -15,6 +15,7 @@ import sys
 import time
 
 from audit_query_fixtures import audit as audit_query_fixtures
+from audit_examples import audit as audit_examples
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "_build/grammar-matrix"
@@ -123,6 +124,10 @@ def main():
                 if fuzz_code or not summary:
                     result["status"] = ("fuzz-failed" if result["status"] == "passed"
                                         else result["status"] + "-and-fuzz-failed")
+                result["example_trees"] = audit_examples(ROOT, OUT, entry, repo, table, prefix)
+                if result["example_trees"]["fail"]:
+                    result["status"] = ("examples-failed" if result["status"] == "passed"
+                                        else result["status"] + "-and-examples-failed")
         except (OSError, RuntimeError, subprocess.SubprocessError) as error:
             result.update(status="setup-failed", error=str(error))
         result["seconds"] = round(time.monotonic() - start, 2)

@@ -179,6 +179,12 @@ portable-library and CLI checks on Linux and macOS. Corpus, query compilation,
 and query execution results are reported separately in the audit's JSON output.
 The audit also runs two seeded fuzz iterations per corpus case, with up to two
 edits and their inverses, and reports those checks separately: 1,866 checks pass.
+Ten upstream example files (878 KB in total, including jQuery and Go's runtime)
+also match named-tree hashes frozen from the pinned C reference. The audit runs
+only the MoonBit implementation; `python3 tools/freeze_public_examples.py`
+reproduces the reference hashes as a separate development check requiring `cc`.
+The hashes cover named trees; byte ranges, anonymous nodes, and edit behavior
+are exercised by the other suites.
 
 Remaining compatibility work includes ambiguous-forest incremental reuse,
 incremental optimization for encoded/included-range inputs, broader upstream API

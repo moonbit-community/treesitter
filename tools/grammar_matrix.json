@@ -9,25 +9,73 @@
     "name": "c",
     "repository": "https://github.com/tree-sitter/tree-sitter-c.git",
     "version": "v0.24.2",
-    "revision": "b780e47fc780ddc8da13afa35a3f4ed5c157823d"
+    "revision": "b780e47fc780ddc8da13afa35a3f4ed5c157823d",
+    "examples": [
+      {
+        "path": "examples/cluster.c",
+        "sexp_sha256": "cb8ffd397eff6b04f004eefe853bdbf4f0d2700db3706f313e24cf8e27572c07"
+      },
+      {
+        "path": "examples/malloc.c",
+        "sexp_sha256": "d8502a6ac1b39fe1a5af878815d8e92ea18fdc052f6fe5398d895fca93216c89"
+      },
+      {
+        "path": "examples/parser.c",
+        "sexp_sha256": "565827e660cb09f08ba07be2346decc9954c286ed787f42ddff17b780fd33f3a"
+      }
+    ]
   },
   {
     "name": "javascript",
     "repository": "https://github.com/tree-sitter/tree-sitter-javascript.git",
     "version": "v0.25.0",
     "revision": "44c892e0be055ac465d5eeddae6d3e194424e7de",
-    "scanner": "examples/javascript/scanner.mbtx"
+    "scanner": "examples/javascript/scanner.mbtx",
+    "examples": [
+      {
+        "path": "examples/jquery.js",
+        "sexp_sha256": "d880d093af193053cc73b68d085cda52209f907dc3a5c6263f456da7f233dc15"
+      },
+      {
+        "path": "examples/text-editor-component.js",
+        "sexp_sha256": "77c157d16acd265b66070564b0172433e5c3642d6a5663ff6a7ded80c5e331b2"
+      }
+    ]
   },
   {
     "name": "go",
     "repository": "https://github.com/tree-sitter/tree-sitter-go.git",
     "version": "v0.25.0",
-    "revision": "1547678a9da59885853f5f5cc8a99cc203fa2e2c"
+    "revision": "1547678a9da59885853f5f5cc8a99cc203fa2e2c",
+    "examples": [
+      {
+        "path": "examples/letter_test.go",
+        "sexp_sha256": "08e561434f0e553368d3712c882a05c7f0a1d985f9730212264689ba3e082e41"
+      },
+      {
+        "path": "examples/no_newline_at_eof.go",
+        "sexp_sha256": "86d3c000394e389ed413dd3e414d475951404e8fabc2d05438c0c1282a892c95"
+      },
+      {
+        "path": "examples/proc.go",
+        "sexp_sha256": "ae7ba6e6ad8f682fc365ff380bfddab41e03f81b8870d7dda49585f1ff3f2557"
+      },
+      {
+        "path": "examples/value.go",
+        "sexp_sha256": "45272df4eba836953cd69059218ae8fea0c89ce610ff61a6c62500f510c6f67e"
+      }
+    ]
   },
   {
     "name": "regex",
     "repository": "https://github.com/tree-sitter/tree-sitter-regex.git",
     "version": "v0.25.0",
-    "revision": "b2ac15e27fce703d2f37a79ccd94a5c0cbe9720b"
+    "revision": "b2ac15e27fce703d2f37a79ccd94a5c0cbe9720b",
+    "examples": [
+      {
+        "path": "examples/url.regex",
+        "sexp_sha256": "24362f6ab04aa9731af494ec9c42e458ab95c30a5c37e1a0b093f869a2d93b49"
+      }
+    ]
   }
 ]

@@ -711,3 +711,11 @@ including callback and encoded input; explicit positive budgets and cancellation
 remain available, and negative budgets are rejected. The jQuery named tree now
 matches the pinned C runtime exactly. Full checks remain 278 native / 270 JS /
 270 Wasm GC, including the explicit-limit regression.
+
+Added ten unchanged public example files to the matrix, totaling 877,693 bytes.
+All named S-expressions match hashes from the pinned C runtime and pinned grammar
+parsers, including the 247,351-byte jQuery and 216,674-byte C cluster sources.
+The development-only reference helper verifies clean revisions and reproduces
+the hashes without rewriting committed expectations. CI parses with MoonBit and
+compares those hashes; output, errors and elapsed time are retained separately.
+This is correctness evidence on larger files, not a comparative performance claim.
