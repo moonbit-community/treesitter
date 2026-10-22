@@ -78,6 +78,7 @@ Upstream `grammar.json` is accepted as a migration input.
 | `parse` | `[language.json] source` | Named-node s-expression; fails on syntax errors |
 | `test` | `language.json corpus-file-or-directory` | Corpus results; fails on mismatches |
 | `query` | `language.json query.scm source` | Capture JSON lines |
+| `query --check` | `language.json query.scm` | Validate query syntax and grammar references |
 | `highlight` | `language.json highlights.scm source` | Escaped HTML spans |
 | `tags` | `language.json tags.scm source` | Definition/reference JSON lines |
 
@@ -116,7 +117,7 @@ for applications that compile their registry once into a custom executable.
 | `mbtx`, `loader`, `cli` | Script execution, discovery, and native commands |
 
 Byte offsets and `Point.column` count bytes in the input encoding. UTF-8 is the
-default; `parse_encoded` also accepts UTF-16 LE and BE. External scanners' `get_column`
+default; `parse_encoded` also accepts UTF-16 LE/BE and stateless custom decoders. External scanners' `get_column`
 counts Unicode scalar values, following Tree-sitter's scanner API. Input edits
 update a tree's coordinates before passing it as `old_tree` to `Parser.parse`.
 Trees and node handles preserve their existing structure through persistent
@@ -149,10 +150,12 @@ unchanged upstream corpora:
 | JSON v0.24.8 | 6 / 6 |
 | C v0.24.2 | 85 / 85 |
 | JavaScript v0.25.0, with a MoonBit scanner | 116 / 116 |
-| Go v0.25.0 | 65 / 67 |
+| Go v0.25.0 | 66 / 67 |
 
-The remaining public cases involve recovery around malformed Go input.
-They remain failures in the matrix, and the audit exits nonzero.
+All 11 shipped query files also pass compilation against the generated tables.
+This checks query syntax and grammar references, not highlight/tag execution.
+The remaining public corpus case involves recovery around a malformed Go
+reserved keyword. It remains a failure in the matrix, and the audit exits nonzero.
 
 Remaining compatibility work includes ambiguous-forest incremental reuse,
 incremental optimization for encoded/included-range inputs, broader upstream API

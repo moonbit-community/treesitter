@@ -595,3 +595,10 @@ smoke checks. The stable public grammar matrix is JSON 6/6, C 85/85,
 JavaScript 116/116, Go 66/67. An experimental paused-stack pruning change made
 Go 67/67 but regressed upstream error_recovery_loop; it was reverted. Proper
 stack-round scheduling remains required rather than a token-shift shortcut.
+
+The pinned grammar audit now compiles every shipped .scm query file using the
+new `query --check` CLI mode, without needing source input or an external scanner.
+All 11 files pass (JSON 1, C 2, JavaScript 6, Go 2). Compilation and corpus counts
+are reported separately, with any failure keeping the audit nonzero. This does
+not yet validate annotated highlight/tag execution fixtures. The stable corpus
+counts remain 6/6, 85/85, 116/116, and 66/67 respectively.

@@ -13,6 +13,7 @@ moon run cmd/treesitter --target native -- emit _build/json.language.json _build
 cmp _build/arithmetic.mbt examples/arithmetic/language.mbt
 cmp _build/json.mbt examples/json/language.mbt
 moon run cmd/treesitter --target native -- parse _build/json.language.json examples/json/sample.json
+moon run cmd/treesitter --target native -- query --check _build/json.language.json examples/json/highlights.scm
 moon run cmd/treesitter --target native -- highlight _build/json.language.json examples/json/highlights.scm examples/json/sample.json > _build/json.html
 tree_sitter_root=$PWD
 (

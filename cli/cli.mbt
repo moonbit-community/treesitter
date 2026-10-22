@@ -78,7 +78,7 @@ async fn dispatch(
     "--version" | "version" => println("treesitter.mbt 0.1.0")
     "--help" | "help" =>
       println(
-        "treesitter [--scanner scanner.mbtx] generate <grammar.mbtx|json> <language.json> | parse [language.json] <source> | highlight|tags <source> | parse --cst <language.json> <source> | test <language.json> <corpus-file-or-directory> | query|highlight|tags <language.json> <query.scm> <source> | languages [config.json] | init-config <path> | emit <language.json> <language.mbt> | node-types <language.json> <node-types.json> | grammar-json <grammar.mbtx>",
+        "treesitter [--scanner scanner.mbtx] generate <grammar.mbtx|json> <language.json> | parse [language.json] <source> | highlight|tags <source> | parse --cst <language.json> <source> | test <language.json> <corpus-file-or-directory> | query|highlight|tags <language.json> <query.scm> <source> | query --check <language.json> <query.scm> | languages [config.json] | init-config <path> | emit <language.json> <language.mbt> | node-types <language.json> <node-types.json> | grammar-json <grammar.mbtx>",
       )
     "languages" if args.length() <= 3 => {
       let directories = @loader.parser_directories(path?=args.get(2))
@@ -167,6 +167,11 @@ async fn dispatch(
       if tree.root_node().has_error() {
         raise Usage("source contains syntax errors")
       }
+    }
+    "query" if args.length() == 5 && args[2] == "--check" => {
+      let language = @loader.load_language(args[3])
+      let query = @query.Query::new(language, @fs.read_file(args[4]).text())
+      println("Compiled query: \{query.pattern_count()} patterns")
     }
     "query" | "highlight" | "tags" if args.length() == 5 => {
       let language = @loader.load_language(args[2])

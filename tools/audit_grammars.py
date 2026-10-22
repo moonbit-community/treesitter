@@ -3,7 +3,7 @@
 Usage: python3 tools/audit_grammars.py [--fetch] [json c javascript go]
 Clones live under .repos; generated tables, complete logs and results.json live
 under _build/grammar-matrix. No JavaScript or C grammar code is executed: the
-upstream grammar JSON is input to the MoonBit generator, and external scanners
+upstream grammar JSON and query files are input to the MoonBit compilers, and external scanners
 are compiled from the checked-in MoonBit translations.
 """
 import argparse
@@ -86,6 +86,21 @@ def main():
                               and counts["fail"] == 0 else "corpus-failed", exit_code=code,
                               counts=counts, failures=[line[5:] for line in lines
                                                       if line.startswith("FAIL ")])
+                query_results = []
+                for query in sorted((repo / "queries").glob("*.scm")):
+                    query_code = run_logged(
+                        [str(cli), "query", "--check", str(table), str(query)],
+                        OUT / (name + "-query-" + query.stem + ".log"), 60)
+                    query_results.append({"file": str(query.relative_to(repo)),
+                                          "exit_code": query_code})
+                result["query_compilation"] = {
+                    "pass": sum(q["exit_code"] == 0 for q in query_results),
+                    "fail": sum(q["exit_code"] != 0 for q in query_results),
+                    "files": query_results,
+                }
+                if any(q["exit_code"] != 0 for q in query_results):
+                    result["status"] = ("query-failed" if result["status"] == "passed"
+                                        else "corpus-and-query-failed")
         except (OSError, RuntimeError, subprocess.SubprocessError) as error:
             result.update(status="setup-failed", error=str(error))
         result["seconds"] = round(time.monotonic() - start, 2)
