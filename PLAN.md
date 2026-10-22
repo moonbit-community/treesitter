@@ -729,3 +729,12 @@ annotation assertions remain passing. Further probes expose open query work:
 top-level quantifiers are not parsed, and repeated sibling groups with optional
 separators still differ in path selection from upstream. Keep these in the query
 compatibility gate rather than treating the passing public queries as full parity.
+
+Rust v0.24.2 exposed a recovery-vocabulary bug: synthetic lookaheads used to
+complete structured comments made every token appear lexically coincident.
+LR items now retain the provenance of those lookaheads, and recovery-token
+analysis excludes synthetic completion contexts while retaining real shifts
+and grammar lookaheads. A small C-oracle regression checks both the excluded
+greedy token and the recovered tree, alongside valid comments and macro input.
+Full checks pass 280 native / 272 JS / 272 Wasm GC. This resolves Rust's malformed
+string-prefix case; two malformed macro-body recovery cases remain different.

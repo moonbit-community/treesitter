@@ -4,6 +4,7 @@ priv struct Item {
   dot : Int32
   lookahead : Int32
   reserved_lookahead : Int32
+  extra_lookahead : Bool
 } derive(Eq, Hash, Compare)
 
 ///|
@@ -135,6 +136,7 @@ fn close_items(
             dot: 0,
             lookahead,
             reserved_lookahead: reserved,
+            extra_lookahead: false,
           })
         }
       }
@@ -150,6 +152,7 @@ fn close_items(
             item.lookahead
           },
           reserved_lookahead: item.reserved_lookahead,
+          extra_lookahead: !step.eof && item.extra_lookahead,
         })
       }
     }
@@ -387,7 +390,13 @@ pub fn generate(
   // Intern only kernels. Closures are temporary; retaining them duplicates all
   // the productions reachable from each kernel and overwhelms larger grammars.
   let initial = [
-    { production: aug_id, dot: 0, lookahead: 0, reserved_lookahead: 0, },
+    {
+      production: aug_id,
+      dot: 0,
+      lookahead: 0,
+      reserved_lookahead: 0,
+      extra_lookahead: false,
+    },
   ]
   let states = [initial]
   let contexts : Array[Map[String, Array[String]]] = [Map([])]
@@ -407,6 +416,7 @@ pub fn generate(
           dot: 0,
           lookahead: token,
           reserved_lookahead: 0,
+          extra_lookahead: true,
         })
       }
     }
@@ -419,6 +429,7 @@ pub fn generate(
     extra_states.push((symbol, id))
   }
   let rows : Array[@language.ParseState] = []
+  let lexical_contexts : Array[Array[Int32]] = []
   let mut index = 0
   while index < states.length() {
     if states.length() > max_states {
@@ -443,6 +454,7 @@ pub fn generate(
     }
     let transitions : Map[Int32, Array[Item]] = Map([])
     let actions : Map[Int32, Array[@language.Action]] = Map([])
+    let lexical_context : Map[Int32, Bool] = Map([])
     let gotos : Map[Int32, Int32] = Map([])
     fn add(token, action) {
       let list = actions.get_or_init(token, () => [])
@@ -462,6 +474,9 @@ pub fn generate(
         add(item.lookahead, AcceptExtra)
       } else if p.requires_eof != Some(true) || item.lookahead == 0 {
         add(item.lookahead, Reduce(item.production))
+        if !item.extra_lookahead {
+          lexical_context[item.lookahead] = true
+        }
       }
     }
     let symbols = transitions.keys().to_array()
@@ -481,6 +496,7 @@ pub fn generate(
       }
       if builder.symbols[symbol].terminal {
         add(symbol, Shift(target))
+        lexical_context[symbol] = true
       } else {
         gotos[symbol] = target
       }
@@ -501,6 +517,7 @@ pub fn generate(
       for token in first[extra].keys() {
         if !ordinary.contains(token) {
           add(token, EnterExtra(target))
+          lexical_context[token] = true
         }
       }
     }
@@ -521,6 +538,10 @@ pub fn generate(
       gotos,
       reserved_words: builder.reserved_sets[reserved],
     })
+    // Extra completion is represented by all terminal lookaheads in our table,
+    // but these stand for upstream's single end-of-extra marker. They are not
+    // tokens that actually compete in a lexical context.
+    lexical_contexts.push(lexical_context.keys().to_array())
     index += 1
   }
   @language.Language::new(
@@ -534,6 +555,8 @@ pub fn generate(
     word_token?=grammar.word.map(name => builder.names[name]),
     supertypes=builder.grammar.supertypes.map(name => builder.names[name]),
     externals=builder.externals,
-    recovery_tokens=builder.recovery_tokens(rows, extras, first, nullable),
+    recovery_tokens=builder.recovery_tokens(
+      lexical_contexts, extras, first, nullable,
+    ),
   )
 }

@@ -1,7 +1,7 @@
 ///|
 fn Builder::recovery_tokens(
   self : Builder,
-  rows : Array[@language.ParseState],
+  contexts : Array[Array[Int32]],
   extras : Array[Int32],
   first : Array[Map[Int32, Bool]],
   nullable : Array[Bool],
@@ -93,9 +93,9 @@ fn Builder::recovery_tokens(
   let coincident = Array::make(n * n, false)
   let without_word = Array::make(n * n, false)
   let visited_rows : Map[(Array[Int32], Bool), Bool] = Map([])
-  for row in rows {
-    let indices = row.actions
-      .keys()
+  for context in contexts {
+    let indices = context
+      .iter()
       .filter_map(id => token_indices.get(id))
       .to_array()
     // Runtime rows store extras separately; upstream has explicit extra shifts
@@ -106,7 +106,7 @@ fn Builder::recovery_tokens(
       }
     }
     indices.sort()
-    let has_word = word is Some(id) && row.actions.contains(id)
+    let has_word = word is Some(id) && context.contains(id)
     if !visited_rows.contains((indices, has_word)) {
       visited_rows[(indices, has_word)] = true
       for i in indices {
