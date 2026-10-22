@@ -450,3 +450,12 @@ matches exactly; each case also compares incremental and fresh trees. The
 reference regeneration helper is tools/import_changed_ranges.py. The full check
 script passes 233 native / 232 JS / 232 Wasm GC tests. Broader language/error and
 included-range differential coverage remains part of the compatibility gate.
+
+The native command runner is now a reusable `cli` package. The executable accepts
+`--scanner scanner.mbtx` before a command, compiling a public language-name scanner
+registry into an isolated MoonBit workspace. The registry is used for parsing,
+corpus tests, query/tag input, root highlighting, and injected languages. The
+quoted-language example exercises compilation and parsing in tools/check.sh.
+Native type checking and native interface inspection are included in CI checks.
+The full script passes (233 native / 232 JS / 232 Wasm GC tests plus all CLI smoke
+checks). README compatibility notes now reflect current implementation status.

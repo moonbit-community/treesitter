@@ -2,9 +2,11 @@
 async fn configured_highlights(
   location : @loader.GrammarLocation,
   language : @language.Language,
+  scanners : (String) -> @ts.ExternalScanner?,
 ) -> @highlight.Configuration {
   @highlight.Configuration::new(
     language,
+    scanner?=scanners(language.name),
     location.queries("highlights"),
     locals=location.queries("locals"),
     injections=location.queries("injections"),
@@ -17,8 +19,9 @@ async fn configured_html(
   locations : Array[@loader.GrammarLocation],
   tree : @ts.Tree,
   root : String,
+  scanners : (String) -> @ts.ExternalScanner?,
 ) -> String {
-  let config = configured_highlights(location, tree.language)
+  let config = configured_highlights(location, tree.language, scanners)
   let loaded : Map[String, @highlight.Configuration] = Map([])
   let absent : Map[String, Bool] = Map([])
   // Injection callbacks are synchronous. Resolve only languages requested by
@@ -44,7 +47,11 @@ async fn configured_html(
           let next = locations[locations
             .search_by(l => physical_equal(l.grammar, grammar))
             .unwrap()]
-          loaded[name] = configured_highlights(next, next.language(root))
+          loaded[name] = configured_highlights(
+            next,
+            next.language(root),
+            scanners,
+          )
         }
         None => absent[name] = true
       }

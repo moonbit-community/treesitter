@@ -1,0 +1,18 @@
+import {
+  "bobzhang/treesitter" @ts,
+  "bobzhang/treesitter/grammar",
+  "bobzhang/treesitter/language",
+  "bobzhang/treesitter/lex",
+  "bobzhang/treesitter/generate",
+  "bobzhang/treesitter/loader",
+  "bobzhang/treesitter/config",
+  "bobzhang/treesitter/corpus",
+  "bobzhang/treesitter/query",
+  "bobzhang/treesitter/highlight",
+  "bobzhang/treesitter/tags",
+  "moonbitlang/async/fs",
+  "moonbitlang/core/env",
+  "moonbitlang/core/encoding/utf8",
+}
+
+supported_targets = "+native"

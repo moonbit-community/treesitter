@@ -1,0 +1,23 @@
+///|
+import {
+  "bobzhang/treesitter/grammar",
+}
+
+///|
+fn main raise {
+  println(
+    Json(
+      @grammar.Grammar::new(
+        "quoted",
+        [
+          (
+            "document",
+            Seq([Symbol("open"), Symbol("content"), Symbol("close")]),
+          ),
+        ],
+        externals=[Symbol("open"), Symbol("content"), Symbol("close")],
+        extras=[],
+      ),
+    ).stringify(),
+  )
+}

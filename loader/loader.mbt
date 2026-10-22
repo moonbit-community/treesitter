@@ -62,3 +62,49 @@ pub async fn load_language(path : String) -> @language.Language {
 async fn write_file(path : String, content : String) -> Unit {
   @fs.write_file(path, content, create_mode=CreateOrTruncate)
 }
+
+///|
+/// Compile a MoonBit scanner registry with the CLI and run a command. The mbtx
+/// file defines `pub fn scanner(language : String) -> @ts.ExternalScanner?`; it can
+/// return different scanners for the root language and injected languages.
+pub async fn run_scanner(
+  path : String,
+  module_root : String,
+  args : Array[String],
+  current_dir~ : String,
+) -> Int32 {
+  let (imports, body) = @mbtx.prepare(@fs.read_file(path).text())
+  let root = @fs.realpath(module_root)
+  let temp = @fs.tmpdir(prefix="treesitter-scanner-")
+  defer @fs.rmdir(temp, recursive=true)
+  @fs.mkdir("\{temp}/script")
+  @fs.mkdir("\{temp}/script/driver")
+  write_file(
+    "\{temp}/moon.work",
+    "members = [\"script\", \{Json(root).stringify()}]\n",
+  )
+  write_file(
+    "\{temp}/script/moon.mod",
+    "name = \"treesitter/local_scanner\"\nimport { \"bobzhang/treesitter@0.1.0\", \"moonbitlang/async@0.20.2\" }\n",
+  )
+  write_file(
+    "\{temp}/script/moon.pkg",
+    "\{imports}\nsupported_targets = \"+native\"\n",
+  )
+  write_file(
+    "\{temp}/script/driver/moon.pkg",
+    "import { \"treesitter/local_scanner\" @registry, \"bobzhang/treesitter/cli\", \"moonbitlang/async\" }\noptions(\"is-main\": true)\nsupported_targets = \"+native\"\n",
+  )
+  write_file("\{temp}/script/scanner.mbt", body)
+  write_file(
+    "\{temp}/script/driver/main.mbt",
+    "async fn main {\n  @cli.run(\{Json(args).stringify()}, scanners=@registry.scanner, module_root=\{Json(root).stringify()}, current_dir=\{Json(current_dir).stringify()})\n}\n",
+  )
+  @process.run(
+    "moon",
+    ["run", "--target", "native", "driver"],
+    cwd="\{temp}/script",
+    stdout=@stdio.stdout,
+    stderr=@stdio.stderr,
+  )
+}

@@ -2,6 +2,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 moon check --warn-list +unnecessary_annotation
+moon check --target native --warn-list +unnecessary_annotation
 moon test --target native
 moon test --target js
 moon test --target wasm-gc
@@ -21,5 +22,8 @@ tree_sitter_root=$PWD
 )
 cmp _build/json.html _build/configured-highlight.html
 test -s _build/configured-tags.jsonl
+moon run cmd/treesitter --target native -- generate examples/quoted/grammar.mbtx _build/quoted.language.json
+moon run cmd/treesitter --target native -- --scanner examples/quoted/scanner.mbtx parse _build/quoted.language.json examples/quoted/sample.txt > _build/quoted.sexp
+cmp _build/quoted.sexp examples/quoted/expected.sexp
 moon fmt --check
-moon fmt --check examples/grammar.mbtx examples/json/grammar.mbtx
+moon fmt --check examples/grammar.mbtx examples/json/grammar.mbtx examples/quoted/grammar.mbtx examples/quoted/scanner.mbtx

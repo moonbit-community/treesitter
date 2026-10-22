@@ -72,15 +72,33 @@ Upstream `grammar.json` is accepted as a migration input.
 | `grammar-json` | `grammar.mbtx` | Grammar JSON on stdout |
 | `generate` | `grammar.mbtx\|grammar.json output.json` | Compiled language tables |
 | `emit` | `language.json output.mbt` | MoonBit language factory |
-| `parse` | `language.json source` | Named-node s-expression; fails on syntax errors |
-| `test` | `language.json corpus.txt` | Corpus results; fails on mismatches |
+| `node-types` | `language.json output.json` | Node and field schemas |
+| `languages` | `[config.json]` | Discovered language configurations |
+| `init-config` | `output.json` | Initial parser-directory configuration |
+| `parse` | `[language.json] source` | Named-node s-expression; fails on syntax errors |
+| `test` | `language.json corpus-file-or-directory` | Corpus results; fails on mismatches |
 | `query` | `language.json query.scm source` | Capture JSON lines |
 | `highlight` | `language.json highlights.scm source` | Escaped HTML spans |
 | `tags` | `language.json tags.scm source` | Definition/reference JSON lines |
 
 All commands use `moon run cmd/treesitter --target native -- COMMAND ...`.
-A custom executable must supply MoonBit external scanners; the stock JSON CLI
-cannot load native scanner libraries or dynamically link scanner code.
+`parse`, `highlight`, and `tags` also accept a source path alone and select a
+language using discovered `tree-sitter.json` files and parser directories.
+`parse --cst language.json source` prints the concrete tree with byte locations.
+
+Use `--scanner scanner.mbtx` before a command to compile a pure MoonBit scanner
+registry with the CLI. The registry exports
+`pub fn scanner(language : String) -> @ts.ExternalScanner?`; returning scanners
+by language name also supports highlighting injections. See
+[the quoted-language example](examples/quoted/scanner.mbtx):
+
+```sh
+moon run cmd/treesitter --target native -- generate examples/quoted/grammar.mbtx _build/quoted.language.json
+moon run cmd/treesitter --target native -- --scanner examples/quoted/scanner.mbtx parse _build/quoted.language.json examples/quoted/sample.txt
+```
+
+The native `cli` package exposes the same command runner and scanner callback
+for applications that compile their registry once into a custom executable.
 
 ## Library packages
 
@@ -95,9 +113,10 @@ cannot load native scanner libraries or dynamically link scanner code.
 | `highlight` | Highlight events and HTML |
 | `tags` | Definitions, references and documentation captures |
 | `corpus` | Corpus reading and verification |
-| `mbtx`, `loader` | Import prelude handling and native grammar execution |
+| `mbtx`, `loader`, `cli` | Script execution, discovery, and native commands |
 
-Byte offsets and `Point.column` use UTF-8 bytes. External scanners' `get_column`
+Byte offsets and `Point.column` count bytes in the input encoding. UTF-8 is the
+default; `parse_encoded` also accepts UTF-16 LE and BE. External scanners' `get_column`
 counts Unicode scalar values, following Tree-sitter's scanner API. Input edits
 update a tree's coordinates before passing it as `old_tree` to `Parser.parse`.
 Trees and node handles preserve their existing structure through persistent
@@ -114,19 +133,22 @@ See [scanner_test.mbt](scanner_test.mbt) and
 
 Implemented paths include numeric/named/dynamic precedence, associativity,
 declared GLR conflicts, inlining, fields, aliases, hidden supertypes, word tokens,
-reserved contexts, immediate tokens, external scanners, included ranges and
-conservative incremental parsing. Queries cover structural captures, fields,
-anchors, alternatives, quantifiers, supertype paths and common text predicates.
+reserved contexts, immediate tokens, external scanners, and nonterminal extras.
+Runtime support includes recovery, cancellation/resumption, UTF-8 input callbacks,
+UTF-16, included ranges, scanner snapshots, edits, subtree reuse, and changed ranges.
+Queries include groups, quantifiers, ordered capture cursors, structural validation,
+text/property predicates, and cancellation. Highlighting supports locals and nested
+injections; tags support documentation and scope-aware name classification.
 
-Important remaining work:
+The pinned fixture suite, all 85 C v0.24.2 corpus cases, and 229 frozen JSON
+changed-range edits pass. C and JavaScript v0.25.0 grammars both generate tables;
+JavaScript's scanner-backed corpus has not yet been verified.
 
-- Upstream-equivalent recovery, parse forests and incremental reuse. Current
-  reuse is conservative and disabled for ambiguous or external-scanner languages.
-  Changed ranges are a structural approximation; included ranges currently reparse.
-- Nonterminal extras, remaining regex flags/diagnostics and generator optimization.
-- Full query quantifier/group semantics, streaming cursors and property predicates.
-- Highlight locals/injections, complete tag directives, loader discovery/config,
-  CLI parity, full upstream regressions and performance targets.
+Remaining compatibility work includes ambiguous-forest incremental reuse,
+incremental optimization for encoded/included-range inputs, broader upstream API
+and query regressions, performance comparisons, and one optional-child difference
+in node schema metadata. Ambiguous languages currently reparse to preserve dynamic
+precedence. The release gate and final ultra review remain open in [PLAN.md](PLAN.md).
 
 Unsupported grammar/query features fail explicitly where recognized. Error-tree
 shape and subtle query semantics may differ. The frozen suite is a selected
@@ -140,7 +162,7 @@ sh tools/check.sh
 
 This checks warnings, native/JS/Wasm GC tests, executes both mbtx grammars,
 regenerates their factories into `_build`, checks them against committed sources,
-and runs the JSON CLI example. `moon fmt` and `moon info` maintain formatting
+and runs JSON discovery/highlighting and the compiled MoonBit scanner example. `moon fmt` and `moon info` maintain formatting
 and generated public interfaces. Run `moon bench benchmarks --target native --release`
 for fresh-parse scaling and incremental-edit measurements. These are local
 baselines, not a performance comparison with upstream Tree-sitter.
