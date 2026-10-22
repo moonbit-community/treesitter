@@ -1,5 +1,6 @@
 ///|
 priv struct NodeData {
+  encoding : InputEncoding
   id : Int32
   error_repeat : Bool
   error_cost : Int32
@@ -206,7 +207,7 @@ pub fn Node::descendant_for_byte_range(
 
 ///|
 pub fn Node::text(self : Node, source : Bytes) -> String {
-  @utf8.decode_lossy(source[self.start_byte():self.end_byte()])
+  input_text(source[self.start_byte():self.end_byte()], self.data.encoding)
 }
 
 ///|

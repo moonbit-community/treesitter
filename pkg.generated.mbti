@@ -41,6 +41,15 @@ pub fn InputEdit::equal(Self, Self) -> Bool
 pub fn InputEdit::not_equal(Self, Self) -> Bool
 pub fn InputEdit::to_repr(Self) -> @debug.Repr
 
+pub(all) enum InputEncoding {
+  Utf8
+  Utf16LE
+  Utf16BE
+} derive(Eq, @debug.Debug)
+pub fn InputEncoding::equal(Self, Self) -> Bool
+pub fn InputEncoding::not_equal(Self, Self) -> Bool
+pub fn InputEncoding::to_repr(Self) -> @debug.Repr
+
 pub struct Node {
   // private fields
 }
@@ -86,6 +95,7 @@ pub struct Parser {
 pub fn Parser::has_pending_parse(Self) -> Bool
 pub fn Parser::new(@language.Language, scanner? : ExternalScanner) -> Self raise @language.LanguageError
 pub fn Parser::parse(Self, Bytes, old_tree? : Tree, included_ranges? : Array[Range], max_steps? : Int32, max_branches? : Int32, max_errors? : Int32, cancelled? : () -> Bool) -> Tree raise ParseError
+pub fn Parser::parse_encoded(Self, Bytes, InputEncoding, old_tree? : Tree, included_ranges? : Array[Range], max_steps? : Int32, max_branches? : Int32, max_errors? : Int32, cancelled? : () -> Bool) -> Tree raise ParseError
 pub fn Parser::parse_string(Self, String) -> Tree raise ParseError
 pub fn Parser::parse_with(Self, (Int32, Point) -> Bytes, old_tree? : Tree, included_ranges? : Array[Range], max_input_bytes? : Int32, max_steps? : Int32, max_branches? : Int32, max_errors? : Int32, cancelled? : () -> Bool) -> Tree raise ParseError
 pub fn Parser::reset(Self) -> Unit
@@ -145,12 +155,15 @@ pub fn Tree::changed_ranges(Self, Self) -> Array[Range]
 pub fn Tree::copy(Self) -> Self
 pub fn Tree::cursor_at(Self, Node) -> TreeCursor?
 pub fn Tree::edit(Self, InputEdit) -> Unit raise EditError
+pub fn Tree::encoding(Self) -> InputEncoding
 pub fn Tree::external_scanner_state(Self) -> Bytes
 pub fn Tree::included_ranges(Self) -> Array[Range]
 pub fn Tree::next_sibling(Self, Node, named? : Bool) -> Node?
 pub fn Tree::parent(Self, Node) -> Node?
+pub fn Tree::point_at(Self, Int32) -> Point
 pub fn Tree::previous_sibling(Self, Node, named? : Bool) -> Node?
 pub fn Tree::root_node(Self) -> Node
+pub fn Tree::text(Self, Int32, Int32) -> String
 pub fn Tree::walk(Self) -> TreeCursor
 
 pub struct TreeCursor {

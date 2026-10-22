@@ -162,6 +162,7 @@ fn Parser::node(
   {
     data: {
       id,
+      encoding: Utf8,
       error_cost,
       error_repeat,
       unexpected,
@@ -397,6 +398,7 @@ fn Parser::parse_source(
   } else {
     match old_tree {
       Some(tree) if physical_equal(tree.language, self.language) &&
+        tree.encoding() == Utf8 &&
         tree.source_ranges.is_empty() &&
         same_scanner(tree.scanner, self.scanner) => {
         self.next_id = Int32::max(self.next_id, tree.root.id() + 1)
@@ -1021,6 +1023,7 @@ pub fn Parser::resume_parse(
           projection.starts,
           projection.ends,
           projection.lines,
+          encoding=projection.encoding,
         ),
         source: projection.source,
         edited_length: projection.source.length(),

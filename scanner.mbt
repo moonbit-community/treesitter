@@ -21,6 +21,7 @@ pub fn ExternalScanner::new(
 
 ///|
 priv struct Projection {
+  encoding : InputEncoding
   ranges : Array[Range]
   source : Bytes
   starts : Array[Int32]
@@ -88,15 +89,21 @@ pub fn ScannerInput::get_column(self : ScannerInput) -> Int32 {
     None => (self.source, self.offset, self.lines)
     Some(p) => (p.source, p.starts[self.offset], p.lines)
   }
-  scalar_column(source, offset, lines)
+  let encoding = self.projection.map(p => p.encoding).unwrap_or(Utf8)
+  scalar_column(source, offset, lines, encoding~)
 }
 
 ///|
-fn scalar_column(source : Bytes, offset : Int32, lines : Array[Int32]) -> Int32 {
+fn scalar_column(
+  source : Bytes,
+  offset : Int32,
+  lines : Array[Int32],
+  encoding~ : InputEncoding = Utf8,
+) -> Int32 {
   let mut cursor = offset - point_at(lines, offset).column
   let mut column = 0
   while cursor < offset {
-    cursor += @lex.decode(source, cursor).1
+    cursor += decode_input_codepoint(source, cursor, encoding).1
     column += 1
   }
   column

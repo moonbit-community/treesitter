@@ -221,8 +221,9 @@ fn Configuration::collect(
         merged.push(range)
       }
     }
-    let injected = @ts.Parser::new(config.language, scanner?=config.scanner).parse(
+    let injected = @ts.Parser::new(config.language, scanner?=config.scanner).parse_encoded(
       tree.source,
+      tree.encoding(),
       included_ranges=merged,
       cancelled~,
     )
@@ -341,26 +342,10 @@ pub fn Configuration::html(
     match event {
       Start(name) => output.write_string("<span class=\"\{escape(name)}\">")
       End => output.write_string("</span>")
-      Source(start, end) =>
-        output.write_string(escape(@utf8.decode_lossy(tree.source[start:end])))
+      Source(start, end) => output.write_string(escape(tree.text(start, end)))
     }
   }
   output.to_string()
-}
-
-///|
-fn point(source : Bytes, end : Int32) -> @ts.Point {
-  let mut row = 0
-  let mut column = 0
-  for i in 0..<end {
-    if source[i] == 10 {
-      row += 1
-      column = 0
-    } else {
-      column += 1
-    }
-  }
-  { row, column, }
 }
 
 ///|
@@ -375,8 +360,8 @@ fn append_range(
     ranges.push({
       start_byte: start,
       end_byte: end,
-      start_point: point(tree.source, start),
-      end_point: point(tree.source, end),
+      start_point: tree.point_at(start),
+      end_point: tree.point_at(end),
     })
   } else {
     for range in included {
@@ -386,8 +371,8 @@ fn append_range(
         ranges.push({
           start_byte: start,
           end_byte: end,
-          start_point: point(tree.source, start),
-          end_point: point(tree.source, end),
+          start_point: tree.point_at(start),
+          end_point: tree.point_at(end),
         })
       }
     }

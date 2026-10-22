@@ -114,3 +114,37 @@ test "recognized highlight names match dotted components in any position" {
   )
   assert_eq(config.html(tree), "<span class=\"constant.builtin\">1</span>")
 }
+
+///|
+test "UTF-16 injected highlights retain source byte coordinates and decoded HTML" {
+  let host = @generate.generate(
+    @grammar.Grammar::new("host", [
+      ("document", Seq([Literal("<"), Symbol("code"), Literal(">")])),
+      ("code", @grammar.pattern("[a-z]+")),
+    ]),
+  )
+  let guest = @generate.generate(
+    @grammar.Grammar::new("guest", [
+      ("document", Symbol("word")),
+      ("word", @grammar.pattern("[a-z]+")),
+    ]),
+  )
+  let config = @highlight.Configuration::new(
+    host,
+    "",
+    injections="((code) @injection.content (#set! injection.language \"guest\"))",
+  )
+  let injected = @highlight.Configuration::new(guest, "(word) @variable")
+  let source : Bytes = [60, 0, 102, 0, 111, 0, 111, 0, 62, 0]
+  let tree = @ts.Parser::new(host).parse_encoded(source, Utf16LE)
+  assert_eq(
+    config.html(tree, injection=name => {
+      if name == "guest" {
+        Some(injected)
+      } else {
+        None
+      }
+    }),
+    "&lt;<span class=\"variable\">foo</span>&gt;",
+  )
+}

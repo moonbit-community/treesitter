@@ -403,3 +403,12 @@ Ambiguous tables still conservatively reparse. Cancellation saves the actual par
 stacks, lookahead, recovery competition and budgets. resume_parse continues them;
 reset discards them, and parse starts fresh. Included-range resumes restore source
 coordinates. Native: 221 tests pass; runtime and query changes pass JS/Wasm GC.
+
+### Encoded input
+
+Added UTF-16 little/big endian input with source-byte offsets/point columns,
+malformed-surrogate progress, cross-range decoding, scanner Unicode columns,
+node/tree text decoding and projected resume state. UTF-16 injection highlighting
+uses the same encoding and renders decoded HTML. Unchanged encoded trees can be
+reused as a whole; edited encoded ranges currently reparse. Native: 225 tests;
+43 runtime/highlight tests pass on JS and Wasm GC.

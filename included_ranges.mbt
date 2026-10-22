@@ -9,6 +9,7 @@ fn project_node(
   starts : Array[Int32],
   ends : Array[Int32],
   lines : Array[Int32],
+  encoding~ : InputEncoding = Utf8,
 ) -> Node {
   let start_byte = starts[node.start_byte()]
   let end_byte = if node.start_byte() == node.end_byte() {
@@ -19,6 +20,7 @@ fn project_node(
   {
     data: {
       ..node.data,
+      encoding,
       start_byte,
       end_byte,
       origin_start: start_byte,
@@ -28,7 +30,7 @@ fn project_node(
       children: child_entries(
         node.data.children
         .entries()
-        .map(c => (c.0, project_node(c.1, starts, ends, lines))),
+        .map(c => (c.0, project_node(c.1, starts, ends, lines, encoding~))),
       ),
     },
   }
@@ -85,7 +87,14 @@ fn Parser::parse_ranges(
   let parsed = self.parse_source(
     Bytes::from_array(bytes),
     max_steps~,
-    projection=Some({ source, starts, ends, lines, ranges: ranges.copy(), }),
+    projection=Some({
+      source,
+      starts,
+      ends,
+      lines,
+      ranges: ranges.copy(),
+      encoding: Utf8,
+    }),
     max_branches~,
     max_errors~,
     cancelled~,
