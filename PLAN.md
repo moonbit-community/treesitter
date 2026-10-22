@@ -633,3 +633,10 @@ This remains a selected compatibility baseline, not proof of a complete port.
 The CI workflow now fetches the four pinned public grammar revisions and runs
 their complete corpus/query compilation matrix in a separate Ubuntu job. The
 same command passes locally; hosted execution awaits repository creation.
+
+Public JavaScript tag execution exposed an optional-prefix query bug: a later
+documented function suppressed an earlier function with no comments. Skipped
+optional prefixes now coexist with populated matches for different captures,
+while populated alternatives dominate their own empty alternatives. Frozen
+C-query examples cover both sibling groups and child patterns. All 29 query
+tests pass on native, JS and Wasm GC.

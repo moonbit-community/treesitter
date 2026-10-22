@@ -203,12 +203,12 @@ fn match_children(
       break
     }
   }
-  if result.is_empty() && spec.min == 0 {
+  if spec.min == 0 {
     let children = children.copy()
     if pi + 1 < children.length() {
       children[pi + 1] = { ..children[pi + 1], anchor: spec.anchor, }
     }
-    match_children(
+    let skipped = match_children(
       children,
       trailing_anchor,
       parent,
@@ -217,9 +217,26 @@ fn match_children(
       captures,
       budget,
     )
-  } else {
-    result
+    if result.is_empty() {
+      return skipped
+    }
+    // An optional prefix can be absent before one sibling and present before
+    // another. Keep both matches, while preferring the populated alternative
+    // when it contains all the captures of an otherwise identical match.
+    for candidate in skipped {
+      if !result.any(existing => {
+          candidate.0.all(capture => {
+            existing.0.any(other => {
+              other.name == capture.name && other.node.id() == capture.node.id()
+            })
+          })
+        }) {
+        result.push(candidate)
+      }
+    }
+    result.sort_by_key(item => item.1)
   }
+  result
 }
 
 ///|

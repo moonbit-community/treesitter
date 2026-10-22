@@ -457,6 +457,26 @@ test "quantified query patterns enumerate separate runs" {
 }
 
 ///|
+// Frozen C-query behavior, also exercised by JavaScript's public tags query:
+// a leading function without documentation must survive later documented ones.
+test "optional prefixes can be absent and present in separate matches" {
+  let tree = list_fixture("[true,word,true]")
+  for
+    source in [
+      "(array (string)* @s . (true) @t)", "((string)* @s . (true) @t)", "(array (string)? @s (true) @t)",
+    ] {
+    let query = @query.Query::new(tree.language, source)
+    assert_eq(
+      query
+      .matches(tree.root_node(), tree.source)
+      .map(m => m.captures.map(c => c.node.text(tree.source))),
+      [["true"], ["word", "true"]],
+      msg=source,
+    )
+  }
+}
+
+///|
 test "anchors survive a skipped optional predecessor in the correct direction" {
   let tree = list_fixture("[1,true]")
   let after = @query.Query::new(
