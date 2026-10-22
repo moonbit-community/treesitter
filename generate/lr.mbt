@@ -546,7 +546,7 @@ pub fn generate(
   }
   @language.Language::new(
     grammar.name,
-    builder.symbols,
+    builder.aliased_symbols(extras),
     builder.tokens,
     builder.productions,
     rows,

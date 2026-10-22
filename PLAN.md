@@ -758,3 +758,19 @@ and version condensation, with the existing 1,153-edit differential probe and
 all six public grammars as checks. The five-grammar audit remains fully passing
 after the generator fix (311 corpora / 12 queries / 90 annotations / 1,866 edits /
 10 full-source named trees).
+
+Default aliases now apply to a symbol's public identity before a successful
+parent reduction, including inside ERROR nodes. The generator selects the most
+frequent alias (first occurrence breaks ties), excludes unaliased uses and extras,
+and computes frequencies before inline expansion. Frozen C regressions cover
+named and anonymous tokens, context-specific overrides, extras, serialization,
+and inline rules. Full checks pass 282 native / 274 JS / 274 Wasm GC tests and
+CLI smoke checks. Regenerated Rust remains 149/151 with all three query files
+and 906 edit checks passing; its two malformed macro cases remain open.
+
+A broader recovery-history experiment was reverted after introducing a JSON
+changed-range regression. Instrumenting the C reference showed that hidden raw
+quote tokens lost their default alias in the port, understating skipped-token
+costs; the isolated alias fix above corrects that independently. Remaining
+recovery work includes merging an earlier ERROR when recovering across syntax
+that follows it, and preserving alternative histories without premature pruning.
