@@ -86,3 +86,38 @@ fn CharSet::case_fold(self : CharSet) -> CharSet {
   }
   CharSet::new(ranges)
 }
+
+///|
+pub fn CharSet::intersection(self : CharSet, other : CharSet) -> CharSet {
+  let ranges = []
+  let mut a = 0
+  let mut b = 0
+  while a < self.ranges.length() && b < other.ranges.length() {
+    let (alo, ahi) = self.ranges[a]
+    let (blo, bhi) = other.ranges[b]
+    let lo = Int32::max(alo, blo)
+    let hi = Int32::min(ahi, bhi)
+    if lo <= hi {
+      ranges.push((lo, hi))
+    }
+    if ahi < bhi {
+      a += 1
+    } else {
+      b += 1
+    }
+  }
+  { ranges, }
+}
+
+///|
+pub fn CharSet::difference(self : CharSet, other : CharSet) -> CharSet {
+  self.intersection(other.complement())
+}
+
+///|
+pub fn CharSet::symmetric_difference(
+  self : CharSet,
+  other : CharSet,
+) -> CharSet {
+  self.difference(other).union(other.difference(self))
+}

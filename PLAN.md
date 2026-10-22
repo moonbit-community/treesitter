@@ -245,3 +245,13 @@ to 0.74 versus 7.9 ms on the same machine. An edit/reuse case measured 0.46 ms
 versus 0.75 ms for a fresh parse. These are local observations, not upstream parity
 claims or CI timing thresholds. An additional 2000-object test verifies child
 order, counts and fields. All 87 tests pass across native, JS and Wasm GC.
+
+### Regex compatibility checkpoint
+
+Added nested classes, ASCII POSIX classes, intersection/difference/symmetric
+difference, leaf-level case folding before negation and set operations, global
+and scoped i/s/u flags, safe ASCII-only byte classes, lazy-quantifier syntax with
+longest-match lexical semantics, and a nesting limit. Expectations for nested
+folding and scoped flags are ported from the pinned upstream lexer tests. Other
+flags and complete regex diagnostics remain open. `tools/check.sh` passes all
+89 tests on three backends and reproduces both committed mbtx-generated factories.

@@ -25,8 +25,10 @@ pub extend RegexError with @debug.Debug::{to_repr}
 priv struct Reader {
   chars : Array[Char]
   mut pos : Int32
-  insensitive : Bool
-  dotall : Bool
+  mut insensitive : Bool
+  mut dotall : Bool
+  mut unicode : Bool
+  mut depth : Int32
 }
 
 ///|
@@ -69,6 +71,8 @@ pub fn parse(pattern : String, flags~ : String = "") -> Expr raise RegexError {
     pos: 0,
     insensitive: flags.contains("i"),
     dotall: flags.contains("s"),
+    unicode: true,
+    depth: 0,
   }
   let expr = reader.alternative()
   if reader.peek() != None {
@@ -141,7 +145,8 @@ fn Reader::sequence(self : Reader) -> Expr raise RegexError {
       _ => expr
     }
     if self.peek() == Some('?') {
-      raise InvalidRegex(self.pos, "lazy quantifiers are not supported")
+      // The lexical DFA always selects the longest match, as upstream does.
+      self.pos += 1
     }
     items.push(repeated)
   }
@@ -172,24 +177,12 @@ fn Reader::number(self : Reader) -> Int32 raise RegexError {
 ///|
 fn Reader::atom(self : Reader) -> Expr raise RegexError {
   match self.take() {
-    '(' => {
-      if self.peek() == Some('?') {
-        self.pos += 1
-        if self.take() != ':' {
-          raise InvalidRegex(
-            self.pos,
-            "lookaround and inline flags are not supported",
-          )
-        }
-      }
-      let expr = self.alternative()
-      if self.take() != ')' {
-        raise InvalidRegex(self.pos, "expected ')' ")
-      }
-      expr
-    }
+    '(' => self.group()
     '[' => Chars(self.character_class())
-    '.' =>
+    '.' => {
+      if !self.unicode {
+        raise InvalidRegex(self.pos, "non-ASCII byte classes are not supported")
+      }
       Chars(
         if self.dotall {
           CharSet::new([(0, 0x10ffff)])
@@ -197,7 +190,8 @@ fn Reader::atom(self : Reader) -> Expr raise RegexError {
           CharSet::new([(10, 10)]).complement()
         },
       )
-    '\\' => Chars(self.fold(self.escape()))
+    }
+    '\\' => Chars(self.check_ascii(self.fold(self.escape())))
     '^' | '$' =>
       raise InvalidRegex(
         self.pos - 1,
@@ -211,7 +205,18 @@ fn Reader::atom(self : Reader) -> Expr raise RegexError {
 
 ///|
 fn Reader::fold(self : Reader, chars : CharSet) -> CharSet {
-  if self.insensitive {
+  if self.insensitive && !self.unicode {
+    let ranges = chars.ranges.copy()
+    for code in 65..<91 {
+      if chars.contains(code) {
+        ranges.push((code + 32, code + 32))
+      }
+      if chars.contains(code + 32) {
+        ranges.push((code, code))
+      }
+    }
+    CharSet::new(ranges)
+  } else if self.insensitive {
     chars.case_fold()
   } else {
     chars
@@ -237,9 +242,21 @@ fn Reader::hex(self : Reader, count : Int32) -> Int32 raise RegexError {
 ///|
 fn Reader::escape(self : Reader) -> CharSet raise RegexError {
   let c = self.take()
-  let digits = unicode_digits()
-  let word = unicode_word()
-  let whitespace = unicode_space()
+  let digits = if self.unicode {
+    unicode_digits()
+  } else {
+    CharSet::new([(48, 57)])
+  }
+  let word = if self.unicode {
+    unicode_word()
+  } else {
+    CharSet::new([(48, 57), (65, 90), (95, 95), (97, 122)])
+  }
+  let whitespace = if self.unicode {
+    unicode_space()
+  } else {
+    CharSet::new([(9, 13), (32, 32)])
+  }
   let codepoint = match c {
     'd' => return digits
     'D' => return digits.complement()
@@ -274,6 +291,9 @@ fn Reader::escape(self : Reader) -> CharSet raise RegexError {
         self.hex(4)
       }
     'p' | 'P' => {
+      if !self.unicode {
+        raise InvalidRegex(self.pos, "Unicode properties require Unicode mode")
+      }
       let name = StringBuilder()
       if self.peek() == Some('{') {
         self.pos += 1
@@ -304,66 +324,4 @@ fn Reader::escape(self : Reader) -> CharSet raise RegexError {
     raise InvalidRegex(self.pos, "escape is not a Unicode scalar")
   }
   CharSet::new([(codepoint, codepoint)])
-}
-
-///|
-fn Reader::class_item(self : Reader) -> CharSet raise RegexError {
-  let c = self.take()
-  if c == '[' {
-    raise InvalidRegex(
-      self.pos - 1,
-      "nested character classes are not yet supported",
-    )
-  }
-  if (c == '&' || c == '-' || c == '~') && self.peek() == Some(c) {
-    raise InvalidRegex(
-      self.pos - 1,
-      "character class set operations are not yet supported",
-    )
-  }
-  if c == '\\' {
-    self.escape()
-  } else {
-    CharSet::new([(c.to_int(), c.to_int())])
-  }
-}
-
-///|
-fn Reader::character_class(self : Reader) -> CharSet raise RegexError {
-  let negative = self.peek() == Some('^')
-  if negative {
-    self.pos += 1
-  }
-  let mut chars = CharSet::new([])
-  while self.peek() != Some(']') {
-    let first = self.class_item()
-    if self.peek() == Some('-') && self.chars.get(self.pos + 1) != Some(']') {
-      self.pos += 1
-      let last = self.class_item()
-      if first.ranges.length() != 1 ||
-        last.ranges.length() != 1 ||
-        first.ranges[0].0 != first.ranges[0].1 ||
-        last.ranges[0].0 != last.ranges[0].1 {
-        raise InvalidRegex(
-          self.pos,
-          "range endpoints must be single characters",
-        )
-      }
-      let lo = first.ranges[0].0
-      let hi = last.ranges[0].0
-      if lo > hi {
-        raise InvalidRegex(self.pos, "reversed character range")
-      }
-      chars = chars.union(CharSet::new([(lo, hi)]))
-    } else {
-      chars = chars.union(first)
-    }
-  }
-  self.pos += 1
-  chars = self.fold(chars)
-  if negative {
-    chars.complement()
-  } else {
-    chars
-  }
 }

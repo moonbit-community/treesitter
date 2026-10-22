@@ -123,7 +123,7 @@ Important remaining work:
 - Upstream-equivalent recovery, parse forests and incremental reuse. Current
   reuse is conservative and disabled for ambiguous or external-scanner languages.
   Changed ranges are a structural approximation; included ranges currently reparse.
-- Nonterminal extras, complete regex flag/class algebra and generator optimization.
+- Nonterminal extras, remaining regex flags/diagnostics and generator optimization.
 - Full query quantifier/group semantics, streaming cursors and property predicates.
 - Highlight locals/injections, complete tag directives, loader discovery/config,
   CLI parity, full upstream regressions and performance targets.

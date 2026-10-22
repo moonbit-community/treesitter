@@ -48,7 +48,7 @@ test "invalid regexes fail without panicking or hanging" {
   for
     pattern in [
       "[", "(", "[z-a]", "a{3,2}", "a{1001}", "(?=x)", "\\1", "\\u{d800}", "\\p{NotAProperty}",
-      "*", "a*?",
+      "*", "(?i-:a)", "(?ii:a)", "(?-u:[é])",
     ] {
     try @lex.parse(pattern) catch {
       InvalidRegex(_, _) => ()
@@ -74,4 +74,52 @@ test "character set normalization and scalar complement" {
   assert_true(chars.complement().contains(0x10ffff))
   assert_false(chars.complement().contains(0xd800))
   assert_eq(chars.complement().complement(), chars)
+}
+
+///|
+test "upstream leaf folding precedes nested class algebra" {
+  // From crates/generate/src/prepare_grammar/expand_tokens.rs at the pinned
+  // upstream revision: preserve its nested-set and scoped-flag expectations.
+  for
+    (pattern, accepted, rejected) in [
+      ("[^[a-c]]", "d", "aAC"),
+      ("[[a-z]--[b-d]]", "aA", "bB"),
+      ("[[a-z]&&[b-d]]", "bB", "eE"),
+      ("[[a-c]~~[b-d]]", "aAdD", "bBcC"),
+    ] {
+    let lexer = @lex.compile(@lex.parse(pattern, flags="i"))
+    for c in accepted {
+      assert_eq(lexer.match_prefix(@utf8.encode(c.to_string())), Some(1))
+    }
+    for c in rejected {
+      assert_eq(lexer.match_prefix(@utf8.encode(c.to_string())), None)
+    }
+  }
+  let lexer = @lex.compile(@lex.parse("(?i)a(?-i)b"))
+  assert_eq(lexer.match_prefix(b"ab"), Some(2))
+  assert_eq(lexer.match_prefix(b"Ab"), Some(2))
+  assert_eq(lexer.match_prefix(b"aB"), None)
+}
+
+///|
+test "scoped flags restore groups and ASCII classes remain distinct" {
+  let lexer = @lex.compile(@lex.parse("(?i:a(?-i:b))c"))
+  assert_eq(lexer.match_prefix(b"Abc"), Some(3))
+  assert_eq(lexer.match_prefix(b"ABc"), None)
+  assert_eq(lexer.match_prefix(b"AbC"), None)
+  assert_eq(@lex.compile(@lex.parse("(?s:.)x")).match_prefix(b"\nx"), Some(2))
+  let digits = @lex.compile(@lex.parse("(?-u:\\d)+"))
+  assert_eq(digits.match_prefix(b"123"), Some(3))
+  assert_eq(digits.match_prefix(@utf8.encode("١")), None)
+  let ascii = @lex.compile(@lex.parse("[[:alpha:]--[x]]+"))
+  assert_eq(ascii.match_prefix(b"abcx"), Some(3))
+  assert_eq(ascii.match_prefix(@utf8.encode("é")), None)
+  assert_eq(@lex.compile(@lex.parse("[]]+?")).match_prefix(b"]]]"), Some(3))
+  assert_eq(@lex.compile(@lex.parse("a*?b")).match_prefix(b"aaab"), Some(4))
+  let deep = "(".repeat(130) + "x" + ")".repeat(130)
+  try @lex.parse(deep) catch {
+    InvalidRegex(_, _) => ()
+  } noraise {
+    _ => fail("accepted unbounded nesting")
+  }
 }
