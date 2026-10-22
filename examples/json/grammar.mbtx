@@ -1,0 +1,71 @@
+///|
+import {
+  "bobzhang/treesitter/grammar",
+}
+
+///|
+fn main raise {
+  let string_char = @grammar.Rule::Choice([
+    @grammar.pattern("[^\"\\\\\\x00-\\x1f]+"),
+    Seq([
+      Literal("\\"),
+      Choice([
+        @grammar.pattern("[\"\\\\/bfnrt]"),
+        Seq([Literal("u"), @grammar.pattern("[0-9a-fA-F]{4}")]),
+      ]),
+    ]),
+  ])
+  let grammar = @grammar.Grammar::new(
+    "json",
+    [
+      ("document", Symbol("_value")),
+      (
+        "_value",
+        Choice([
+          Symbol("object"),
+          Symbol("array"),
+          Symbol("string"),
+          Symbol("number"),
+          Literal("true"),
+          Literal("false"),
+          Literal("null"),
+        ]),
+      ),
+      (
+        "object",
+        Seq([
+          Literal("{"),
+          @grammar.sep(Symbol("pair"), Literal(",")),
+          Literal("}"),
+        ]),
+      ),
+      (
+        "pair",
+        Seq([
+          Field("key", Symbol("string")),
+          Literal(":"),
+          Field("value", Symbol("_value")),
+        ]),
+      ),
+      (
+        "array",
+        Seq([
+          Literal("["),
+          @grammar.sep(Symbol("_value"), Literal(",")),
+          Literal("]"),
+        ]),
+      ),
+      (
+        "string",
+        Token(Seq([Literal("\""), Repeat(string_char), Literal("\"")])),
+      ),
+      (
+        "number",
+        @grammar.pattern("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?"),
+      ),
+    ],
+    extras=[@grammar.pattern("[ \\t\\r\\n]+")],
+  )
+  grammar.validate()
+  println(Json(grammar).stringify(indent=2))
+}

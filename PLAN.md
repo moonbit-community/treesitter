@@ -21,7 +21,7 @@ small coherent changes after the relevant checks pass. Keep this plan updated
 with concrete evidence and remaining compatibility gaps.
 
 - [x] 0. Establish the source baseline, project, and implementation plan.
-- [ ] 1. Grammar frontend: typed rules, mbtx execution, grammar JSON round trip,
+- [x] 1. Grammar frontend: typed rules, mbtx execution, grammar JSON round trip,
       validation and actionable diagnostics. Cover every upstream rule variant
       and explicitly reject unsupported options until their implementation.
 - [ ] 2. Lexical generator: Unicode scalar sets, regex parsing, NFA construction,
@@ -66,9 +66,10 @@ silently update expected output to match a divergent implementation.
 
 ## Progress and known gaps
 
-Planning baseline only. No runtime or compatibility claims yet. The upstream
-runtime alone contains approximately 15,000 lines of C; full completion means
-all milestones and the compatibility gate, not merely parsing one language.
+The grammar frontend is complete. Compiler, runtime, query and tooling packages
+have working, tested implementations; their full compatibility milestones remain
+open. The checkpoints below are chronological: later entries supersede earlier
+feature gaps. Full completion requires every milestone and the compatibility gate.
 
 ### Grammar frontend checkpoint
 
@@ -224,3 +225,13 @@ lookahead, allowing property names that are reserved globally. Portable tables
 carry the resulting per-state sets. Regression tests cover both accepted and
 rejected identifiers and reduction boundaries; 83 tests pass on all backends.
 Full upstream reserved-word corpus parity still depends on error recovery.
+
+### Reproducible examples checkpoint
+
+Added a complete mbtx JSON grammar, generated factory, nested Unicode/escape and
+invalid-input tests, query highlights, executable README example, and a single
+`tools/check.sh` verification command. The emitter now produces formatted syntax
+without deprecation warnings. The script checks all 86 tests on native/JS/Wasm GC,
+executes both mbtx grammars, compares regenerated factories byte-for-byte, and
+smoke-tests parse/highlight commands. No reference checkout is needed for this
+normal validation path. Full port completion remains open as detailed above.
