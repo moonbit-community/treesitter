@@ -373,9 +373,6 @@ fn normalize(
   if !grammar.reserved.is_empty() {
     raise Unsupported("reserved word contexts")
   }
-  if !grammar.supertypes.is_empty() {
-    raise Unsupported("supertype metadata")
-  }
   let builder : Builder = {
     grammar,
     symbols: [],
@@ -388,10 +385,21 @@ fn normalize(
   }
   ignore(builder.symbol("end", false, false, true))
   for i, (name, rule) in grammar.rules {
+    if grammar.supertypes.contains(name) && lexical(rule) {
+      raise InvalidGrammar("terminal rule '\{name}' cannot be a supertype")
+    }
+    if grammar.supertypes.contains(name) && grammar.inline_rules.contains(name) {
+      raise InvalidGrammar("supertype '\{name}' cannot be inlined")
+    }
     let id = if i != 0 && lexical(rule) {
       builder.token(rule, name~)
     } else {
-      builder.symbol(name, true, !name.has_prefix("_"), false)
+      builder.symbol(
+        name,
+        true,
+        !name.has_prefix("_") && !grammar.supertypes.contains(name),
+        false,
+      )
     }
     builder.names[name] = id
   }
@@ -410,6 +418,7 @@ fn normalize(
       builder.emit(lhs, builder.expand(rule, neutral, []))
     }
   }
+  builder.validate_supertypes()
   let extras = []
   for extra in grammar.extras {
     let id = match extra {

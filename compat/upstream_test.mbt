@@ -357,3 +357,16 @@ test "upstream lexical_conflicts_due_to_state_merging" {
     )
   }
 }
+
+///|
+test "upstream rejection terminal_supertype" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"terminal_supertype","rules":{"source_file":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"B"},{"type":"SYMBOL","name":"A"}]},"lineComment":{"type":"PATTERN","value":";;.*"},"lineComment2":{"type":"PATTERN","value":"##.*"},"A":{"type":"PATTERN","value":"xyz"},"C":{"type":"STRING","value":"xyz"},"B":{"type":"SEQ","members":[{"type":"STRING","value":"abc"},{"type":"SYMBOL","name":"C"}]}},"extras":[{"type":"SYMBOL","name":"lineComment"},{"type":"SYMBOL","name":"lineComment2"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":["A"],"reserved":{}}
+  let grammar = @grammar.Grammar::parse(grammar)
+  try @generate.generate(grammar) catch {
+    @generate.InvalidGrammar(_) => ()
+    error => fail("unexpected error: \{error}")
+  } noraise {
+    _ => fail("accepted an upstream conflict fixture")
+  }
+}

@@ -18,6 +18,7 @@ priv enum Pattern {
 ///|
 priv struct NodePattern {
   kind : String?
+  supertype : String?
   named : Bool?
   missing : Bool
   children : Array[Child]

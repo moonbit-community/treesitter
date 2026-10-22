@@ -36,6 +36,9 @@ fn match_pattern(
       result
     }
     Node(p) => {
+      if p.supertype is Some(name) && !node.supertypes().contains(name) {
+        return []
+      }
       if p.kind is Some(kind) && kind != node.kind() {
         return []
       }

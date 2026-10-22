@@ -82,6 +82,7 @@ fn Parser::node(
       origin_start: start,
       origin_end: end,
       dynamic_score,
+      supertypes: [],
       symbol,
       kind: meta.name,
       named: meta.named,
@@ -279,6 +280,19 @@ fn Parser::reduce(
       None => entry.node
     }
     append_visible(children, child, step.field)
+  }
+  if self.language.supertypes.contains(production.lhs) {
+    let name = self.language.symbols[production.lhs].name
+    for i, (field, child) in children {
+      if !child.is_extra() {
+        children[i] = (
+          field,
+          {
+            data: { ..child.data, supertypes: child.data.supertypes + [name], },
+          },
+        )
+      }
+    }
   }
   let start = if count == 0 {
     branch.offset

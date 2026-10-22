@@ -60,6 +60,7 @@ pub struct Language {
   start_symbol : Int32
   extras : Array[Int32]
   word_token : Int32?
+  supertypes : Array[Int32]
 } derive(Debug, Eq)
 
 ///|
@@ -77,6 +78,7 @@ pub fn Language::new(
   start_symbol : Int32,
   extras : Array[Int32],
   word_token? : Int32,
+  supertypes~ : Array[Int32] = [],
 ) -> Language raise LanguageError {
   let language : Language = {
     name,
@@ -87,6 +89,7 @@ pub fn Language::new(
     start_symbol,
     extras,
     word_token,
+    supertypes,
   }
   language.validate()
   language
@@ -111,6 +114,14 @@ pub fn Language::validate(self : Language) -> Unit raise LanguageError {
   }
   if self.word_token is Some(id) && !self.tokens.any(t => t.symbol == id) {
     invalid("word symbol must be a lexical token")
+  }
+  for id in self.supertypes {
+    if id <= 0 ||
+      id >= count ||
+      self.symbols[id].terminal ||
+      self.symbols[id].visible {
+      invalid("supertypes must be hidden nonterminal symbols")
+    }
   }
   for token in self.tokens {
     if token.symbol <= 0 ||

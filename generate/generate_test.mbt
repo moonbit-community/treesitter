@@ -76,3 +76,24 @@ test "nonproductive and nullable repeated grammars fail" {
     }
   }
 }
+
+///|
+test "supertypes reject terminal and multiple visible children" {
+  for rule in [@grammar.pattern("[a-z]+"), Seq([Symbol("a"), Symbol("a")])] {
+    let grammar = @grammar.Grammar::new(
+      "invalid",
+      [
+        ("document", Symbol("category")),
+        ("category", rule),
+        ("a", Literal("a")),
+      ],
+      supertypes=["category"],
+    )
+    try @generate.generate(grammar) catch {
+      @generate.InvalidGrammar(_) => ()
+      error => fail("unexpected: \{error}")
+    } noraise {
+      _ => fail("accepted invalid supertype")
+    }
+  }
+}

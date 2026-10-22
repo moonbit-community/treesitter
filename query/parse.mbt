@@ -234,6 +234,7 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
       self.check_kind(kind, false)
       Node({
         kind: Some(kind),
+        supertype: None,
         named: Some(false),
         missing: false,
         children: [],
@@ -244,6 +245,7 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
     Word("_") =>
       Node({
         kind: None,
+        supertype: None,
         named: None,
         missing: false,
         children: [],
@@ -270,6 +272,32 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
               }
             _ => "_"
           }
+        } else {
+          kind
+        }
+        let parts = kind.split("/").to_array()
+        let supertype = if parts.length() == 2 {
+          Some(parts[0].to_owned())
+        } else if self.language.supertypes.any(id => {
+            self.language.symbols[id].name == kind
+          }) {
+          Some(kind)
+        } else {
+          None
+        }
+        if parts.length() > 2 {
+          raise self.error("invalid supertype pattern")
+        }
+        if supertype is Some(name) &&
+          !self.language.supertypes.any(id => {
+            self.language.symbols[id].name == name
+          }) {
+          raise self.error("unknown supertype '\{name}'")
+        }
+        let kind = if parts.length() == 2 {
+          parts[1].to_owned()
+        } else if supertype is Some(_) {
+          "_"
         } else {
           kind
         }
@@ -331,6 +359,7 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
           anchor = false
         }
         Node({
+          supertype,
           kind: if kind == "_" {
             None
           } else {

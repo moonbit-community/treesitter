@@ -20,7 +20,7 @@ names = ['associativity_left','associativity_right','aliases_in_root','aliased_r
          'aliased_inlined_rules', 'inlined_aliased_rules', 'nested_inlined_rules',
          'precedence_on_single_child_missing', 'precedence_on_single_child_negative',
          'precedence_on_single_child_positive', 'precedence_on_subsequence',
-         'unused_rules', 'lexical_conflicts_due_to_state_merging']
+         'unused_rules', 'lexical_conflicts_due_to_state_merging', 'terminal_supertype']
 parts=['// Ported from Tree-sitter '+expected+'. See LICENSE.\n']
 for name in names:
     fixture=root/'test/fixtures/test_grammars'/name
@@ -30,7 +30,8 @@ for name in names:
     corpus=(fixture/'corpus.txt').open(newline='').read() if (fixture/'corpus.txt').exists() else ''
     def multiline(s): return '\n'.join('    #|'+line for line in s.splitlines())
     if (fixture/'expected_error.txt').exists():
-        parts.append(f'\n///|\ntest "upstream rejection {name}" {{\n  let grammar =\n{multiline(grammar)}\n  let grammar = @grammar.Grammar::parse(grammar)\n  try @generate.generate(grammar) catch {{\n    @generate.Conflict(_, _, _) => ()\n    error => fail("unexpected error: \\{{error}}")\n  }} noraise {{ _ => fail("accepted an upstream conflict fixture") }}\n}}\n')
+        error_pattern = 'InvalidGrammar(_)' if name == 'terminal_supertype' else 'Conflict(_, _, _)'
+        parts.append(f'\n///|\ntest "upstream rejection {name}" {{\n  let grammar =\n{multiline(grammar)}\n  let grammar = @grammar.Grammar::parse(grammar)\n  try @generate.generate(grammar) catch {{\n    @generate.{error_pattern} => ()\n    error => fail("unexpected error: \\{{error}}")\n  }} noraise {{ _ => fail("accepted an upstream conflict fixture") }}\n}}\n')
     elif not re.search(r'^-{3,}\r?$', corpus, re.M):
         parts.append(f'\n///|\ntest "upstream generation {name}" {{\n  // Upstream supplies no corpus expectations for this grammar.\n  let grammar =\n{multiline(grammar)}\n  let language = @generate.generate(@grammar.Grammar::parse(grammar))\n  language.validate()\n}}\n')
     else:

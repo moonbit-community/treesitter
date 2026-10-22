@@ -5,6 +5,7 @@ priv struct NodeData {
   origin_start : Int32
   origin_end : Int32
   dynamic_score : Int32
+  supertypes : Array[String]
   symbol : Int32
   kind : String
   named : Bool
@@ -244,4 +245,10 @@ pub fn Node::to_sexp(self : Node) -> String {
 ///|
 fn Node::renamed(self : Node, name : String, named : Bool) -> Node {
   { data: { ..self.data, kind: name, named, visible: true, }, }
+}
+
+///|
+/// Hidden supertype categories on this node's actual parse path.
+pub fn Node::supertypes(self : Node) -> Array[String] {
+  self.data.supertypes.copy()
 }

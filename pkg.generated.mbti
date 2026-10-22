@@ -63,6 +63,7 @@ pub fn Node::parse_state(Self) -> Int32
 pub fn Node::range(Self) -> Range
 pub fn Node::start_byte(Self) -> Int32
 pub fn Node::start_position(Self) -> Point
+pub fn Node::supertypes(Self) -> Array[String]
 pub fn Node::symbol(Self) -> Int32
 pub fn Node::text(Self, Bytes) -> String
 pub fn Node::to_sexp(Self) -> String

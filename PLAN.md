@@ -192,3 +192,13 @@ range boundaries. Trees retain and edit their included ranges. This path reparse
 rather than applying ordinary subtree reuse to projected coordinates. Regression
 coverage checks disjoint lines, tokens spanning gaps, invalid ranges and cache
 isolation; 69 tests pass on native, JS and Wasm GC.
+
+### Supertype checkpoint
+
+The generator validates hidden supertype categories and the runtime retains their
+actual reduction paths. Queries support `(supertype)` and `(supertype/subtype)`;
+identically named concrete nodes outside that category do not match accidentally.
+Supertype metadata survives language serialization. Terminal and multi-child
+supertypes are rejected, including the pinned upstream terminal-supertype fixture.
+72 tests pass across all backends. The upstream hidden-field/supertype fixture also
+uses nonterminal extras, so it remains outside the passing compatibility set.
