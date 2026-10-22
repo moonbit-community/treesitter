@@ -17,6 +17,7 @@ pub(all) struct Token {
 
 ///|
 pub(all) struct Step {
+  reserved_set : Int32?
   symbol : Int32
   field : String?
   rename : (String, Bool)?
@@ -44,6 +45,7 @@ pub(all) enum Action {
 
 ///|
 pub(all) struct ParseState {
+  reserved_words : Array[Int32]
   actions : Map[Int32, Array[Action]]
   gotos : Map[Int32, Int32]
 } derive(Debug, Eq)
@@ -154,6 +156,11 @@ pub fn Language::validate(self : Language) -> Unit raise LanguageError {
     }
   }
   for row in self.states {
+    for symbol in row.reserved_words {
+      if !self.tokens.any(t => t.symbol == symbol) {
+        invalid("reserved word is not a lexical token")
+      }
+    }
     for symbol, actions in row.actions {
       if symbol < 0 || symbol >= count || !self.symbols[symbol].terminal {
         invalid("invalid action symbol")

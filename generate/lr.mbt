@@ -3,6 +3,7 @@ priv struct Item {
   production : Int32
   dot : Int32
   lookahead : Int32
+  reserved_lookahead : Int32
 } derive(Eq, Hash, Compare)
 
 ///|
@@ -49,6 +50,7 @@ fn close_items(
   first : Array[Map[Int32, Bool]],
   nullable : Array[Bool],
   by_lhs : Array[Array[Int32]],
+  reserved_first : Array[Int32],
 ) -> Array[Item] {
   let seen : Map[Item, Bool] = Map([])
   let result = []
@@ -70,12 +72,19 @@ fn close_items(
     if builder.symbols[symbol].terminal {
       continue
     }
-    let lookaheads : Map[Int32, Bool] = Map([])
+    let lookaheads : Map[Int32, Int32] = Map([])
     let mut empty = true
     for i in (item.dot + 1)..<production.steps.length() {
       let next = production.steps[i].symbol
       for token in first[next].keys() {
-        lookaheads[token] = true
+        lookaheads[token] = Int32::max(
+          lookaheads.get(token).unwrap_or(0),
+          if builder.grammar.word is Some(word) && next == builder.names[word] {
+            production.steps[i].reserved_set.unwrap_or(0)
+          } else {
+            reserved_first[next]
+          },
+        )
       }
       if !nullable[next] {
         empty = false
@@ -83,11 +92,19 @@ fn close_items(
       }
     }
     if empty {
-      lookaheads[item.lookahead] = true
+      lookaheads[item.lookahead] = Int32::max(
+        lookaheads.get(item.lookahead).unwrap_or(0),
+        item.reserved_lookahead,
+      )
     }
     for pid in by_lhs[symbol] {
       for lookahead in lookaheads.keys() {
-        let next : Item = { production: pid, dot: 0, lookahead, }
+        let next : Item = {
+          production: pid,
+          dot: 0,
+          lookahead,
+          reserved_lookahead: lookaheads[lookahead],
+        }
         if !seen.contains(next) {
           seen[next] = true
           result.push(next)
@@ -256,6 +273,7 @@ pub fn generate(
     steps: [
       {
         symbol: start,
+        reserved_set: None,
         field: None,
         rename: None,
         precedence: 0,
@@ -283,12 +301,14 @@ pub fn generate(
   for id, p in builder.productions {
     by_lhs[p.lhs].push(id)
   }
+  let reserved_first = reserved_first_sets(builder, first, nullable)
   let initial = close_items(
-    [{ production: aug_id, dot: 0, lookahead: 0, }],
+    [{ production: aug_id, dot: 0, lookahead: 0, reserved_lookahead: 0, }],
     builder,
     first,
     nullable,
     by_lhs,
+    reserved_first,
   )
   let states = [initial]
   let ids : Map[Array[Item], Int32] = Map([])
@@ -330,6 +350,7 @@ pub fn generate(
         first,
         nullable,
         by_lhs,
+        reserved_first,
       )
       let target = match ids.get(next) {
         Some(id) => id
@@ -356,7 +377,23 @@ pub fn generate(
         first,
       )
     }
-    rows.push({ actions, gotos, })
+    let mut reserved = 0
+    if grammar.word is Some(name) {
+      let word = builder.names[name]
+      for item in items {
+        let p = builder.productions[item.production]
+        if p.steps.get(item.dot) is Some(step) && step.symbol == word {
+          reserved = Int32::max(reserved, step.reserved_set.unwrap_or(0))
+        } else if item.dot == p.steps.length() && item.lookahead == word {
+          reserved = Int32::max(reserved, item.reserved_lookahead)
+        }
+      }
+    }
+    rows.push({
+      actions,
+      gotos,
+      reserved_words: builder.reserved_sets[reserved],
+    })
     index += 1
   }
   @language.Language::new(

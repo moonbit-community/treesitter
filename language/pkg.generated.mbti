@@ -55,6 +55,7 @@ pub fn Language::validate(Self) -> Unit raise LanguageError
 pub impl ToJson for Language
 
 pub(all) struct ParseState {
+  reserved_words : Array[Int32]
   actions : Map[Int32, Array[Action]]
   gotos : Map[Int32, Int32]
 } derive(Eq, @debug.Debug)
@@ -79,6 +80,7 @@ pub fn Production::to_json(Self) -> Json
 pub fn Production::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Step {
+  reserved_set : Int32?
   symbol : Int32
   field : String?
   rename : (String, Bool)?

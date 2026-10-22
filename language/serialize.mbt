@@ -1,5 +1,6 @@
 ///|
 priv struct EncodedState {
+  reserved_words : Array[Int32]?
   actions : Array[(Int32, Array[Action])]
   gotos : Array[(Int32, Int32)]
 } derive(ToJson, @json.FromJson)
@@ -39,7 +40,7 @@ pub impl ToJson for Language with fn to_json(self) {
       actions.sort_by_key(p => p.0)
       let gotos = s.gotos.iter().to_array()
       gotos.sort_by_key(p => p.0)
-      { actions, gotos, }
+      { actions, gotos, reserved_words: Some(s.reserved_words), }
     }),
   }
   Json(encoded)
@@ -82,7 +83,11 @@ pub fn Language::from_json(value : Json) -> Language raise {
       gotos.length() != row.gotos.length() {
       raise InvalidLanguage("duplicate table keys")
     }
-    ParseState::{ actions, gotos, }
+    ParseState::{
+      actions,
+      gotos,
+      reserved_words: row.reserved_words.unwrap_or([]),
+    }
   })
   Language::new(
     decoded.name,

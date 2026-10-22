@@ -149,6 +149,18 @@ fn Parser::lex(
         }
       }
     }
+    if best is Some((token, end)) &&
+      self.language.word_token == Some(token.symbol) {
+      for reserved in self.language.states[state].reserved_words {
+        for keyword in self.language.tokens {
+          if keyword.symbol == reserved &&
+            keyword.lexer.match_prefix(input, start=offset) == Some(end) {
+            best = Some((keyword, end))
+            break
+          }
+        }
+      }
+    }
     match best {
       Some((token, end)) =>
         if self.language.extras.contains(token.symbol) &&

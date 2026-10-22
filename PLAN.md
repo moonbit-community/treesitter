@@ -215,3 +215,12 @@ until scanner lookahead dependencies can be verified. Five upstream scanner
 fixtures are ported without changing their corpus expectations. 81 tests pass on
 all three targets. Native scanner libraries are never loaded; scanners must be
 written in MoonBit and supplied to the runtime.
+
+### Reserved words checkpoint
+
+Reserved keyword sets now affect lexical selection only when the word token would
+otherwise win. Context overrides survive normalization, LR closure and reduction
+lookahead, allowing property names that are reserved globally. Portable tables
+carry the resulting per-state sets. Regression tests cover both accepted and
+rejected identifiers and reduction boundaries; 83 tests pass on all backends.
+Full upstream reserved-word corpus parity still depends on error recovery.

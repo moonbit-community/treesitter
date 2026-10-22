@@ -11,6 +11,7 @@ pub extend GenerateError with @debug.Debug::{to_repr}
 
 ///|
 priv struct Context {
+  reserved_set : Int32
   precedence : Int32
   precedence_name : String?
   associativity : Int32
@@ -39,6 +40,8 @@ priv struct Builder {
   repeats : Map[String, Int32]
   max_productions : Int32
   externals : Array[Int32]
+  reserved_sets : Array[Array[Int32]]
+  reserved_names : Map[String, Int32]
 }
 
 ///|
@@ -167,6 +170,7 @@ fn single(symbol : Int32, context : Context) -> Array[Alternative] {
       steps: [
         {
           symbol,
+          reserved_set: Some(context.reserved_set),
           field: context.field,
           rename: context.rename,
           precedence: context.precedence,
@@ -277,6 +281,7 @@ fn Builder::expand(
           )
           self.repeats[key] = id
           let neutral : Context = {
+            reserved_set: 0,
             precedence: 0,
             precedence_name: None,
             associativity: 0,
@@ -358,7 +363,12 @@ fn Builder::expand(
         },
         inlines,
       )
-    Reserved(_, _) => raise Unsupported("reserved word contexts")
+    Reserved(name, child) =>
+      self.expand(
+        child,
+        { ..context, reserved_set: self.reserved_names[name], },
+        inlines,
+      )
   }
 }
 
@@ -368,9 +378,6 @@ fn normalize(
   max_productions : Int32,
 ) -> (Builder, Int32, Array[Int32]) raise {
   grammar.validate()
-  if !grammar.reserved.is_empty() {
-    raise Unsupported("reserved word contexts")
-  }
   let builder : Builder = {
     grammar,
     symbols: [],
@@ -380,6 +387,8 @@ fn normalize(
     token_ids: Map([]),
     repeats: Map([]),
     externals: [],
+    reserved_sets: [],
+    reserved_names: Map([]),
     max_productions,
   }
   ignore(builder.symbol("end", false, false, true))
@@ -423,8 +432,32 @@ fn normalize(
     }
     builder.externals.push(id)
   }
+  let contexts = grammar.reserved
+    .keys()
+    .filter(name => name != "global")
+    .to_array()
+  contexts.sort()
+  contexts.insert(0, "global")
+  for name in contexts {
+    let tokens = []
+    for rule in grammar.reserved.get(name).unwrap_or([]) {
+      let id = match rule {
+        Symbol(name) => builder.names[name]
+        _ => builder.token(rule)
+      }
+      if !builder.tokens.any(t => t.symbol == id) {
+        raise InvalidGrammar("reserved words must be lexical tokens")
+      }
+      if !tokens.contains(id) {
+        tokens.push(id)
+      }
+    }
+    builder.reserved_names[name] = builder.reserved_sets.length()
+    builder.reserved_sets.push(tokens)
+  }
   let start = builder.names[grammar.rules[0].0]
   let neutral : Context = {
+    reserved_set: 0,
     precedence: 0,
     precedence_name: None,
     associativity: 0,
