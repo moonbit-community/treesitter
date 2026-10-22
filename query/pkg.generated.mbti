@@ -32,6 +32,7 @@ pub struct CaptureCursor {
   // private fields
 }
 pub fn CaptureCursor::next_capture(Self) -> (Match, Int32)? raise QueryError
+pub fn CaptureCursor::remove_match(Self, Int32) -> Unit
 
 pub struct Cursor {
   // private fields
@@ -51,6 +52,7 @@ pub fn Locals::is_local(Self, @treesitter.Node) -> Bool
 pub fn Locals::new(Query, @treesitter.Tree) -> Self raise QueryError
 
 pub(all) struct Match {
+  id : Int32
   pattern_index : Int32
   captures : Array[Capture]
   properties : Map[String, String]
@@ -58,19 +60,32 @@ pub(all) struct Match {
 }
 pub fn Match::texts(Self, String, Bytes) -> Array[String] raise QueryError
 
+pub(all) enum Quantifier {
+  Zero
+  ZeroOrOne
+  ZeroOrMore
+  One
+  OneOrMore
+} derive(Eq, @debug.Debug)
+pub fn Quantifier::equal(Self, Self) -> Bool
+pub fn Quantifier::not_equal(Self, Self) -> Bool
+pub fn Quantifier::to_repr(Self) -> @debug.Repr
+
 pub struct Query {
   capture_names : Array[String]
   // private fields
 }
-pub fn Query::capture_cursor(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, start_point? : @treesitter.Point, end_point? : @treesitter.Point, max_start_depth? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> CaptureCursor
+pub fn Query::capture_cursor(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, containing_byte_range? : (Int32, Int32), containing_point_range? : (@treesitter.Point, @treesitter.Point), start_point? : @treesitter.Point, end_point? : @treesitter.Point, max_start_depth? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> CaptureCursor
+pub fn Query::capture_quantifier(Self, Int32, Int32) -> Quantifier?
 pub fn Query::captures(Self, @treesitter.Node, Bytes) -> Array[Capture] raise QueryError
-pub fn Query::cursor(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, start_point? : @treesitter.Point, end_point? : @treesitter.Point, max_start_depth? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> Cursor
+pub fn Query::cursor(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, containing_byte_range? : (Int32, Int32), containing_point_range? : (@treesitter.Point, @treesitter.Point), start_point? : @treesitter.Point, end_point? : @treesitter.Point, max_start_depth? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> Cursor
 pub fn Query::disable_capture(Self, String) -> Bool
 pub fn Query::disable_pattern(Self, Int32) -> Bool
-pub fn Query::matches(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> Array[Match] raise QueryError
+pub fn Query::matches(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, containing_byte_range? : (Int32, Int32), containing_point_range? : (@treesitter.Point, @treesitter.Point), max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> Array[Match] raise QueryError
 pub fn Query::new(@language.Language, String) -> Self raise QueryError
 pub fn Query::pattern_count(Self) -> Int32
 pub fn Query::pattern_range(Self, Int32) -> (Int32, Int32)?
+pub fn Query::predicates(Self, Int32) -> Array[Directive]?
 
 // Type aliases
 

@@ -15,6 +15,8 @@ pub fn Query::capture_cursor(
   source : Bytes,
   start_byte~ : Int32 = 0,
   end_byte~ : Int32 = 2147483647,
+  containing_byte_range? : (Int32, Int32),
+  containing_point_range? : (@ts.Point, @ts.Point),
   start_point? : @ts.Point,
   end_point? : @ts.Point,
   max_start_depth~ : Int32 = 2147483647,
@@ -30,6 +32,8 @@ pub fn Query::capture_cursor(
       source,
       start_byte~,
       end_byte~,
+      containing_byte_range?,
+      containing_point_range?,
       start_point?,
       end_point?,
       max_start_depth~,
@@ -101,6 +105,18 @@ pub fn CaptureCursor::next_capture(
           self.pending.push((matched, index))
         }
       None => self.exhausted = true
+    }
+  }
+}
+
+///|
+/// Suppress the remaining captures of a match returned by this cursor.
+/// Match IDs are local to one cursor. Removing an unknown or exhausted match
+/// has no effect on other matches, including matches of the same pattern.
+pub fn CaptureCursor::remove_match(self : CaptureCursor, id : Int32) -> Unit {
+  for i = self.pending.length() - 1; i >= 0; i = i - 1 {
+    if self.pending[i].0.id == id {
+      ignore(self.pending.remove(i))
     }
   }
 }

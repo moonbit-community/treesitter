@@ -81,6 +81,7 @@ pub(all) struct Directive {
 
 ///|
 pub(all) struct Match {
+  id : Int32
   pattern_index : Int32
   captures : Array[Capture]
   properties : Map[String, String]

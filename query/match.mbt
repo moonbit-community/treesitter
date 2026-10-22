@@ -3,6 +3,8 @@ priv struct Budget {
   mut steps : Int32
   limit : Int32
   cancelled : () -> Bool
+  containing_byte_range : (Int32, Int32)?
+  containing_point_range : (@ts.Point, @ts.Point)?
 }
 
 ///|
@@ -42,6 +44,14 @@ fn match_pattern(
     Group(children, trailing) =>
       match_children(children, trailing, node, 0, 0, [], budget).map(m => m.0)
     Node(p) => {
+      if budget.containing_byte_range is Some((start, end)) &&
+        (node.start_byte() < start || node.end_byte() > end) {
+        return []
+      }
+      if budget.containing_point_range is Some((start, end)) &&
+        (node.start_position() < start || node.end_position() > end) {
+        return []
+      }
       if p.supertype is Some(name) && !node.supertypes().contains(name) {
         return []
       }
@@ -350,6 +360,8 @@ pub fn Query::matches(
   source : Bytes,
   start_byte~ : Int32 = 0,
   end_byte~ : Int32 = 2147483647,
+  containing_byte_range? : (Int32, Int32),
+  containing_point_range? : (@ts.Point, @ts.Point),
   max_steps~ : Int32 = 100000,
   max_matches~ : Int32 = 10000,
   cancelled~ : () -> Bool = () => false,
@@ -361,6 +373,8 @@ pub fn Query::matches(
     source,
     start_byte~,
     end_byte~,
+    containing_byte_range?,
+    containing_point_range?,
     max_steps~,
     max_matches~,
     cancelled~,

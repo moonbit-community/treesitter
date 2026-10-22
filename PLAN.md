@@ -584,3 +584,14 @@ constructing ERROR and reattaches them afterward, matching parser.c's
 recover_to_state. A C-reference fixture checks both comment placement and the
 error's byte extent. This fixes the comment placement in the second half of the
 remaining Go case, while its first competing parse still needs scheduling work.
+
+Query API coverage now includes capture quantifiers (sequence/alternative/
+repetition algebra), predicate/directive inspection, cursor-local match IDs,
+and removal of a match's remaining captures. Byte/point containing ranges
+constrain all matched nodes, including uncaptured roots and sibling groups,
+and can be combined with intersecting ranges. Zero end coordinates are treated
+as unbounded. All checks pass: 266 native / 265 JS / 265 Wasm GC tests and CLI
+smoke checks. The stable public grammar matrix is JSON 6/6, C 85/85,
+JavaScript 116/116, Go 66/67. An experimental paused-stack pruning change made
+Go 67/67 but regressed upstream error_recovery_loop; it was reverted. Proper
+stack-round scheduling remains required rather than a token-shift shortcut.

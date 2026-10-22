@@ -15,17 +15,23 @@ pub struct Cursor {
   priv max_depth : Int32
   priv max_matches : Int32
   priv mut match_count : Int32
+  priv mut next_id : Int32
   priv property : (String, String?, @ts.Node?) -> Bool
   priv predicate : ((String, Array[Argument], Array[Capture], Bytes) -> Bool)?
 }
 
 ///|
+/// Execute lazily within intersecting byte/point ranges. Optional containing
+/// ranges additionally require every matched node (even an uncaptured root)
+/// to lie fully inside them. A zero end byte or point denotes an unbounded end.
 pub fn Query::cursor(
   self : Query,
   root : @ts.Node,
   source : Bytes,
   start_byte~ : Int32 = 0,
   end_byte~ : Int32 = 2147483647,
+  containing_byte_range? : (Int32, Int32),
+  containing_point_range? : (@ts.Point, @ts.Point),
   start_point? : @ts.Point,
   end_point? : @ts.Point,
   max_start_depth~ : Int32 = 2147483647,
@@ -41,14 +47,40 @@ pub fn Query::cursor(
     nodes: [(root, 0)],
     pending: [],
     pending_index: 0,
-    budget: { steps: 0, limit: max_steps, cancelled, },
+    budget: {
+      steps: 0,
+      limit: max_steps,
+      cancelled,
+      containing_byte_range: containing_byte_range.map(range => {
+        (range.0, if range.1 == 0 { 2147483647 } else { range.1 })
+      }),
+      containing_point_range: containing_point_range.map(range => {
+        (
+          range.0,
+          if range.1 == { row: 0, column: 0, } {
+            { row: 2147483647, column: 2147483647, }
+          } else {
+            range.1
+          },
+        )
+      }),
+    },
     start_byte,
-    end_byte,
+    end_byte: if end_byte == 0 {
+      2147483647
+    } else {
+      end_byte
+    },
     start_point,
-    end_point,
+    end_point: if end_point == Some({ row: 0, column: 0, }) {
+      None
+    } else {
+      end_point
+    },
     max_depth: max_start_depth,
     max_matches,
     match_count: 0,
+    next_id: 0,
     property,
     predicate,
   }
@@ -110,6 +142,7 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
           .filter(p => p.name.has_suffix("!") && p.name != "#set!")
           .map(p => Directive::{ name: p.name, args: p.args.copy(), })
         self.pending.push({
+          id: self.next_id,
           pattern_index,
           captures: captures.filter(c => {
             !self.query.disabled_captures.contains(c.name)
@@ -117,6 +150,7 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
           properties,
           directives,
         })
+        self.next_id += 1
       }
     }
   }
