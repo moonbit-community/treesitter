@@ -677,3 +677,13 @@ Some range discrepancies arise from different anonymous punctuation inside
 recovery trees, rather than range comparison itself. An experiment coalescing
 more recovery paths reduced the range differences but introduced new tree-shape
 regressions; it was reverted. Preserving competing stack histories remains open.
+
+Grammar/scanner workspaces now discover the runtime checkout through the
+provided directory or executable ancestors, checking the module name rather
+than treating an arbitrary grammar project as the runtime. With no checkout,
+the workspace retains only its script and uses the versioned registry import.
+Native tests cover nested projects, unrelated manifests, file paths and the
+registry workspace shape. CLI smoke tests generate mbtx and load a scanner from
+an unrelated directory without TREESITTER_MBT_ROOT. Full checks pass 275 native /
+270 JS / 270 Wasm GC; installing and resolving the actual published module must
+still be verified at release, after the community namespace is applied.

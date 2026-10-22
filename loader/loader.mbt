@@ -4,23 +4,21 @@ pub suberror LoadError {
 }
 
 ///|
-/// Run a local unpublished grammar script in an isolated MoonBit workspace.
+/// Run a grammar script in an isolated MoonBit workspace.
 /// The script is executed as ordinary MoonBit code, with no grammar evaluator.
-/// `module_root` must be this library's checkout. No source file is modified.
+/// `module_root` is a checkout hint. Search its ancestors and the executable's
+/// ancestors for this module; otherwise resolve the version from the registry.
+/// No source file is modified.
 pub async fn run_grammar(
   path : String,
   module_root : String,
 ) -> @grammar.Grammar {
   let source = @fs.read_file(path).text()
   let (imports, body) = @mbtx.prepare(source)
-  let root = @fs.realpath(module_root)
   let temp = @fs.tmpdir(prefix="treesitter-mbtx-")
   defer @fs.rmdir(temp, recursive=true)
   @fs.mkdir("\{temp}/script")
-  write_file(
-    "\{temp}/moon.work",
-    "members = [\"script\", \{Json(root).stringify()}]\n",
-  )
+  ignore(prepare_workspace(temp, module_root))
   write_file(
     "\{temp}/script/moon.mod",
     "name = \"treesitter/local_grammar\"\nimport { \"bobzhang/treesitter@0.1.0\" }\n",
@@ -74,15 +72,11 @@ pub async fn run_scanner(
   current_dir~ : String,
 ) -> Int32 {
   let (imports, body) = @mbtx.prepare(@fs.read_file(path).text())
-  let root = @fs.realpath(module_root)
   let temp = @fs.tmpdir(prefix="treesitter-scanner-")
   defer @fs.rmdir(temp, recursive=true)
   @fs.mkdir("\{temp}/script")
   @fs.mkdir("\{temp}/script/driver")
-  write_file(
-    "\{temp}/moon.work",
-    "members = [\"script\", \{Json(root).stringify()}]\n",
-  )
+  let root = prepare_workspace(temp, module_root).unwrap_or(module_root)
   write_file(
     "\{temp}/script/moon.mod",
     "name = \"treesitter/local_scanner\"\nimport { \"bobzhang/treesitter@0.1.0\", \"moonbitlang/async@0.20.2\" }\n",

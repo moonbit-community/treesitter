@@ -21,12 +21,14 @@ moon run cmd/treesitter --target native -- parse _build/json.language.json examp
 moon run cmd/treesitter --target native -- highlight _build/json.language.json examples/json/highlights.scm examples/json/sample.json
 ```
 
-The local loader executes the mbtx program with `moon run` inside a temporary
-workspace that imports this checkout. This supports unpublished local packages.
+The loader executes the mbtx program with `moon run` inside a temporary
+workspace. It locates this checkout through the working directory or executable
+ancestors, supporting unpublished local development from another directory.
+When no checkout is available, it uses the versioned registry dependency; that
+installation path becomes available after this module is published.
 A grammar program writes exactly one grammar JSON object to stdout; send any
 other diagnostics to stderr. Grammar programs execute with the permissions of
-the invoking process. `TREESITTER_MBT_ROOT` can identify this checkout when running
-the command from another directory.
+the invoking process. `TREESITTER_MBT_ROOT` supplies an explicit checkout hint.
 
 See [examples/grammar.mbtx](examples/grammar.mbtx) for arithmetic and
 [examples/json/grammar.mbtx](examples/json/grammar.mbtx) for nested JSON with

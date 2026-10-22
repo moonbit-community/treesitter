@@ -23,8 +23,9 @@ moon run cmd/treesitter --target native -- highlight _build/json.language.json e
 tree_sitter_root=$PWD
 (
   cd examples/json
-  TREESITTER_MBT_ROOT="$tree_sitter_root" "$tree_sitter_root/_build/native/debug/build/cmd/treesitter/treesitter.exe" highlight sample.json > "$tree_sitter_root/_build/configured-highlight.html"
-  TREESITTER_MBT_ROOT="$tree_sitter_root" "$tree_sitter_root/_build/native/debug/build/cmd/treesitter/treesitter.exe" tags sample.json > "$tree_sitter_root/_build/configured-tags.jsonl"
+  unset TREESITTER_MBT_ROOT
+  "$tree_sitter_root/_build/native/debug/build/cmd/treesitter/treesitter.exe" highlight sample.json > "$tree_sitter_root/_build/configured-highlight.html"
+  "$tree_sitter_root/_build/native/debug/build/cmd/treesitter/treesitter.exe" tags sample.json > "$tree_sitter_root/_build/configured-tags.jsonl"
 )
 cmp _build/json.html _build/configured-highlight.html
 test -s _build/configured-tags.jsonl
@@ -33,5 +34,12 @@ moon run cmd/treesitter --target native -- --scanner examples/quoted/scanner.mbt
 cmp _build/quoted.sexp examples/quoted/expected.sexp
 moon run cmd/treesitter --target native -- --scanner examples/quoted/scanner.mbtx init scanned "$grammar_init_dir/scanned"
 test -f "$grammar_init_dir/scanned/example.scanned"
+(
+  cd "$grammar_init_dir"
+  unset TREESITTER_MBT_ROOT
+  "$tree_sitter_root/_build/native/debug/build/cmd/treesitter/treesitter.exe" generate grammar.mbtx outside.language.json
+  "$tree_sitter_root/_build/native/debug/build/cmd/treesitter/treesitter.exe" --scanner "$tree_sitter_root/examples/quoted/scanner.mbtx" parse "$tree_sitter_root/_build/quoted.language.json" "$tree_sitter_root/examples/quoted/sample.txt" > outside-scanner.sexp
+  cmp outside-scanner.sexp "$tree_sitter_root/examples/quoted/expected.sexp"
+)
 moon fmt --check
 moon fmt --check examples/grammar.mbtx examples/json/grammar.mbtx examples/quoted/grammar.mbtx examples/quoted/scanner.mbtx examples/javascript/scanner.mbtx
