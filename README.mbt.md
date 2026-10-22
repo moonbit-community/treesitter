@@ -157,6 +157,8 @@ All 11 shipped query files also pass compilation against the generated tables.
 This checks query syntax and grammar references, not highlight/tag execution.
 All 274 corpus cases pass. These include malformed-input recovery cases;
 the audit exits nonzero for any corpus or query compilation failure.
+CI runs this pinned public matrix in a separate Ubuntu job alongside the
+portable-library and CLI checks on Linux and macOS.
 
 Remaining compatibility work includes ambiguous-forest incremental reuse,
 incremental optimization for encoded/included-range inputs, broader upstream API

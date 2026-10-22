@@ -36,3 +36,23 @@ jobs:
           moon info
           moon info --target native
           git diff --exit-code -- '*.mbti'
+  public-grammars:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install MoonBit
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --location https://cli.moonbitlang.com/install/unix.sh -o "$RUNNER_TEMP/install-moon.sh"
+          bash "$RUNNER_TEMP/install-moon.sh"
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - run: moon update
+      - name: Test pinned public corpora and compile their queries
+        run: python3 tools/audit_grammars.py --fetch
+      - name: Report compatibility results
+        if: always()
+        run: |
+          if test -f _build/grammar-matrix/results.json; then
+            cat _build/grammar-matrix/results.json
+          fi

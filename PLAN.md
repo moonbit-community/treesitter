@@ -629,3 +629,7 @@ the result and parse-step count. All checks pass: 269 native / 266 JS / 266
 Wasm GC and CLI smoke checks. The public corpus matrix is now entirely green:
 JSON 6/6, C 85/85, JavaScript 116/116, Go 67/67, plus 11 query compilations.
 This remains a selected compatibility baseline, not proof of a complete port.
+
+The CI workflow now fetches the four pinned public grammar revisions and runs
+their complete corpus/query compilation matrix in a separate Ubuntu job. The
+same command passes locally; hosted execution awaits repository creation.
