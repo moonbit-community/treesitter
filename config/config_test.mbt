@@ -31,3 +31,18 @@ test "grammar metadata selection and query paths" {
   assert_eq(config.grammars[0].highlights, ["queries/highlights.scm"])
   assert_eq(config.grammars[1].tags, ["a.scm", "b.scm"])
 }
+
+///|
+test "filename matching tries exact name then longest compound extension" {
+  let config = @config.Config::parse(
+    "{\"grammars\":[{\"name\":\"ts\",\"scope\":\"source.ts\",\"file-types\":[\"ts\"]},{\"name\":\"dts\",\"scope\":\"source.dts\",\"file-types\":[\"d.ts\"]}]}",
+  )
+  assert_eq(
+    @config.select(config.grammars, "file.d.ts", "").unwrap().name,
+    "dts",
+  )
+  assert_eq(
+    @config.select(config.grammars, "file.other.ts", "").unwrap().name,
+    "ts",
+  )
+}

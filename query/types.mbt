@@ -46,9 +46,7 @@ pub(all) enum Argument {
 priv struct Predicate {
   name : String
   args : Array[Argument]
-  regex : @lex.Dfa?
-  start_anchor : Bool
-  end_anchor : Bool
+  regex : @lex.Regex?
 }
 
 ///|

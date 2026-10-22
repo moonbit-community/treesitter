@@ -60,3 +60,21 @@ test "documentation groups strip prefixes and select adjacent comments" {
   assert_eq(tags.length(), 1)
   assert_eq(tags[0].docs, Some("first\nsecond"))
 }
+
+///|
+test "earlier tag pattern wins competing classifications for the same name" {
+  let language = @generate.generate(
+    @grammar.Grammar::new("one_word", [
+      ("root", Symbol("word")),
+      ("word", @grammar.pattern("[a-z]+")),
+    ]),
+  )
+  let tree = @ts.Parser::new(language).parse_string("name")
+  let config = @tags.Configuration::new(
+    language, "(word) @name @definition.function\n(word) @name @reference.call",
+  )
+  let tags = config.generate(tree)
+  assert_eq(tags.length(), 1)
+  assert_true(tags[0].is_definition)
+  assert_eq(tags[0].syntax_type, "function")
+}

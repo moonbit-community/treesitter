@@ -150,3 +150,17 @@ test "named capture groups have ordinary lexical group semantics" {
     }
   }
 }
+
+///|
+test "text regex assertions preserve alternation scope and ordered greediness" {
+  assert_eq(@lex.Regex::new("^foo|bar$").find(b"xxbar"), Some((2, 5)))
+  assert_eq(@lex.Regex::new("^(foo|bar)$").find(b"xxbar"), None)
+  assert_eq(@lex.Regex::new("foo|foobar").find(b"foobar"), Some((0, 3)))
+  assert_eq(@lex.Regex::new("a+").find(b"aaaa"), Some((0, 4)))
+  assert_eq(@lex.Regex::new("a+?").find(b"aaaa"), Some((0, 1)))
+  assert_eq(@lex.Regex::new("(?U:a+)").find(b"aaaa"), Some((0, 1)))
+  assert_eq(@lex.Regex::new("(?m:^b$)").find(b"a\nb\nc"), Some((2, 3)))
+  assert_eq(@lex.Regex::new("\\bbar\\b").find(b"foobar bar"), Some((7, 10)))
+  assert_eq(@lex.Regex::new("^a").find(b"aa", start=1), None)
+  assert_eq(@lex.Regex::new("a*").find(b"b"), Some((0, 0)))
+}

@@ -5,7 +5,10 @@ priv struct NfaState {
 }
 
 ///|
-fn state(states : Array[NfaState]) -> Int32 {
+fn state(states : Array[NfaState]) -> Int32 raise RegexError {
+  if states.length() >= 100000 {
+    raise InvalidRegex(0, "NFA state limit exceeded")
+  }
   let id = states.length()
   states.push({ edges: [], epsilon: [], })
   id
@@ -17,8 +20,24 @@ fn build(
   states : Array[NfaState],
   start : Int32,
   end : Int32,
-) -> Unit {
+) -> Unit raise RegexError {
   match expr {
+    Assert(_) =>
+      raise InvalidRegex(0, "assertions are not supported in lexical DFAs")
+    Repeat(child, min, max, _) => {
+      if min < 0 || min > 1000 || (max is Some(n) && (n < min || n > 1000)) {
+        raise InvalidRegex(0, "invalid repetition bounds")
+      }
+      let parts = Array::make(min, child)
+      match max {
+        None => parts.push(Many(child))
+        Some(n) =>
+          for _ in min..<n {
+            parts.push(Alt([child, Empty]))
+          }
+      }
+      build(Concat(parts), states, start, end)
+    }
     Empty => states[start].epsilon.push(end)
     Chars(chars) => states[start].edges.push((chars, end))
     Concat(parts) => {

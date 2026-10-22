@@ -1,10 +1,27 @@
 ///|
+pub(all) enum Assertion {
+  StartText
+  EndText
+  StartLine(Bool)
+  EndLine(Bool)
+  WordBoundary(Bool, Bool)
+} derive(Debug, Eq)
+
+///|
+pub extend Assertion with Eq::{equal, not_equal}
+
+///|
+pub extend Assertion with @debug.Debug::{to_repr}
+
+///|
 pub(all) enum Expr {
   Empty
   Chars(CharSet)
   Concat(Array[Expr])
   Alt(Array[Expr])
   Many(Expr)
+  Repeat(Expr, Int32, Int32?, Bool)
+  Assert(Assertion)
 } derive(Debug, Eq)
 
 ///|
@@ -30,6 +47,9 @@ priv struct Reader {
   mut unicode : Bool
   mut extended : Bool
   mut crlf : Bool
+  mut multiline : Bool
+  mut ungreedy : Bool
+  assertions : Bool
   mut depth : Int32
   capture_names : Map[String, Bool]
 }
@@ -77,7 +97,11 @@ pub fn literal(value : String) -> Expr {
 ///|
 /// Parse the regular subset accepted by the lexical generator. Unsupported
 /// assertions fail explicitly.
-pub fn parse(pattern : String, flags~ : String = "") -> Expr raise RegexError {
+pub fn parse(
+  pattern : String,
+  flags~ : String = "",
+  assertions~ : Bool = false,
+) -> Expr raise RegexError {
   for flag in flags {
     if !(flag is ('i' | 's' | 'u' | 'm' | 'x' | 'R' | 'U')) {
       raise InvalidRegex(0, "unsupported regex flag '\{flag}'")
@@ -91,6 +115,9 @@ pub fn parse(pattern : String, flags~ : String = "") -> Expr raise RegexError {
     unicode: true,
     extended: flags.contains("x"),
     crlf: flags.contains("R"),
+    multiline: flags.contains("m"),
+    ungreedy: flags.contains("U"),
+    assertions,
     depth: 0,
     capture_names: Map([]),
   }
@@ -120,18 +147,18 @@ fn Reader::sequence(self : Reader) -> Expr raise RegexError {
   let items = []
   while self.peek() is Some(c) && c != ')' && c != '|' {
     let expr = self.atom()
-    let repeated = match self.peek() {
+    let mut repeated = match self.peek() {
       Some('*') => {
         self.pos += 1
-        Many(expr)
+        Repeat(expr, 0, None, !self.ungreedy)
       }
       Some('+') => {
         self.pos += 1
-        Concat([expr, Many(expr)])
+        Repeat(expr, 1, None, !self.ungreedy)
       }
       Some('?') => {
         self.pos += 1
-        Alt([expr, Empty])
+        Repeat(expr, 0, Some(1), !self.ungreedy)
       }
       Some('{') => {
         self.pos += 1
@@ -152,21 +179,16 @@ fn Reader::sequence(self : Reader) -> Expr raise RegexError {
         if max is Some(n) && n < min {
           raise InvalidRegex(self.pos, "reversed repetition bounds")
         }
-        let parts = Array::make(min, expr)
-        match max {
-          None => parts.push(Many(expr))
-          Some(n) =>
-            for _ in min..<n {
-              parts.push(Alt([expr, Empty]))
-            }
-        }
-        Concat(parts)
+        Repeat(expr, min, max, !self.ungreedy)
       }
       _ => expr
     }
     if self.peek() == Some('?') {
-      // The lexical DFA always selects the longest match, as upstream does.
       self.pos += 1
+      repeated = match repeated {
+        Repeat(child, min, max, greedy) => Repeat(child, min, max, !greedy)
+        _ => raise InvalidRegex(self.pos, "unexpected quantifier")
+      }
     }
     items.push(repeated)
   }
@@ -217,12 +239,41 @@ fn Reader::atom(self : Reader) -> Expr raise RegexError {
         },
       )
     }
-    '\\' => Chars(self.check_ascii(self.fold(self.escape())))
-    '^' | '$' =>
-      raise InvalidRegex(
-        self.pos - 1,
-        "anchors are not supported in lexical rules",
-      )
+    '\\' =>
+      if self.assertions &&
+        self.chars.get(self.pos) is Some('A' | 'z' | 'b' | 'B' as c) {
+        self.pos += 1
+        Assert(
+          match c {
+            'A' => StartText
+            'z' => EndText
+            _ => WordBoundary(c == 'b', self.unicode)
+          },
+        )
+      } else {
+        Chars(self.check_ascii(self.fold(self.escape())))
+      }
+    '^' | '$' as c =>
+      if self.assertions {
+        Assert(
+          if c == '^' {
+            if self.multiline {
+              StartLine(self.crlf)
+            } else {
+              StartText
+            }
+          } else if self.multiline {
+            EndLine(self.crlf)
+          } else {
+            EndText
+          },
+        )
+      } else {
+        raise InvalidRegex(
+          self.pos - 1,
+          "anchors are not supported in lexical rules",
+        )
+      }
     '*' | '+' | '?' | '{' | '}' | ']' =>
       raise InvalidRegex(self.pos - 1, "unexpected regex metacharacter")
     c => Chars(self.fold(CharSet::new([(c.to_int(), c.to_int())])))

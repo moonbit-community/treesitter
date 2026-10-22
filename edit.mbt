@@ -61,6 +61,7 @@ fn edit_node(node : Node, edit : InputEdit) -> Node {
   } else {
     edit.new_end_byte
   }
+  let end_byte = Int32::max(start_byte, end_byte)
   let start_point = if data.start_byte >= edit.old_end_byte {
     shift_point(data.start_point, edit)
   } else if data.start_byte > edit.start_byte {
@@ -75,6 +76,7 @@ fn edit_node(node : Node, edit : InputEdit) -> Node {
   } else {
     edit.new_end_point
   }
+  let end_point = if end_point < start_point { start_point } else { end_point }
   {
     data: {
       ..data,

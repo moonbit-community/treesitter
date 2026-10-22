@@ -221,20 +221,15 @@ fn regex_matches(
   text : String,
   budget : Budget,
 ) -> Bool raise QueryError {
-  let input = @utf8.encode(text)
-  let regex = predicate.regex.unwrap()
-  let mut start = 0
-  for ;; {
-    budget.tick()
-    if regex.match_prefix(input, start~) is Some(end) &&
-      (!predicate.end_anchor || end == input.length()) {
-      return true
+  let result = predicate.regex
+    .unwrap()
+    .find(@utf8.encode(text), max_steps=budget.limit, tick=() => {
+      budget.steps += 1
+      budget.steps <= budget.limit && !(budget.cancelled)()
+    }) catch {
+      _ => if (budget.cancelled)() { raise Cancelled } else { raise MatchLimit }
     }
-    if predicate.start_anchor || start == input.length() {
-      return false
-    }
-    start += @lex.decode(input, start).1
-  }
+  result is Some(_)
 }
 
 ///|

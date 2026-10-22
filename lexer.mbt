@@ -81,7 +81,7 @@ fn Parser::lex(
             } else {
               zero_width_states.clear()
             }
-            if self.language.symbols[symbol].named {
+            if self.language.symbols[symbol].visible {
               pending.push(
                 self.node(
                   symbol,
@@ -161,11 +161,31 @@ fn Parser::lex(
         }
       }
     }
+    // Recovery lexing recognizes otherwise valid tokens outside this state's
+    // context, preserving token boundaries and names in skipped subtrees.
+    if best is None && offset < input.length() {
+      for token in self.language.tokens {
+        if token.immediate {
+          continue
+        }
+        if token.lexer.match_prefix(input, start=offset) is Some(end) &&
+          end > offset {
+          let replace = match best {
+            None => true
+            Some((previous, previous_end)) =>
+              better_token(token, end, previous, previous_end)
+          }
+          if replace {
+            best = Some((token, end))
+          }
+        }
+      }
+    }
     match best {
       Some((token, end)) =>
         if self.language.extras.contains(token.symbol) &&
           !valid.contains(token.symbol) {
-          if self.language.symbols[token.symbol].named {
+          if self.language.symbols[token.symbol].visible {
             pending.push(
               self.node(
                 token.symbol,

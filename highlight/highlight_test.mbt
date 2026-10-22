@@ -102,3 +102,15 @@ test "injection content uses original ranges and clips combined captures" {
     "`<span class=\"number\">1</span> <span class=\"operator\">+</span>` `<span class=\"number\">2</span>`",
   )
 }
+
+///|
+test "recognized highlight names match dotted components in any position" {
+  let language = @arithmetic.language()
+  let tree = @ts.Parser::new(language).parse_string("1")
+  let config = @highlight.Configuration::new(
+    language,
+    "(number) @constant.numeric.builtin",
+    names=["builtin", "constant.builtin"],
+  )
+  assert_eq(config.html(tree), "<span class=\"constant.builtin\">1</span>")
+}

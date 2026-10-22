@@ -26,6 +26,8 @@ fn Reader::group(self : Reader) -> Expr raise RegexError {
     self.unicode,
     self.extended,
     self.crlf,
+    self.multiline,
+    self.ungreedy,
   )
   if self.peek() == Some('?') {
     self.pos += 1
@@ -66,6 +68,8 @@ fn Reader::group(self : Reader) -> Expr raise RegexError {
       self.unicode = saved.2
       self.extended = saved.3
       self.crlf = saved.4
+      self.multiline = saved.5
+      self.ungreedy = saved.6
       self.depth -= 1
       return expr
     }
@@ -89,7 +93,8 @@ fn Reader::group(self : Reader) -> Expr raise RegexError {
           'u' => self.unicode = enabled
           'x' => self.extended = enabled
           'R' => self.crlf = enabled
-          'm' | 'U' => ()
+          'm' => self.multiline = enabled
+          'U' => self.ungreedy = enabled
           _ =>
             raise InvalidRegex(
               self.pos - 1,
@@ -122,6 +127,8 @@ fn Reader::group(self : Reader) -> Expr raise RegexError {
   self.unicode = saved.2
   self.extended = saved.3
   self.crlf = saved.4
+  self.multiline = saved.5
+  self.ungreedy = saved.6
   self.depth -= 1
   expr
 }

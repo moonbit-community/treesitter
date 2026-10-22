@@ -46,27 +46,27 @@ pub fn Match::texts(
 
 ///|
 fn strip_matches(text : String, pattern : String) -> String raise QueryError {
-  let start_anchor = pattern.has_prefix("^")
-  let end_anchor = pattern.has_suffix("$") && !pattern.has_suffix("\\$")
-  let first = if start_anchor { 1 } else { 0 }
-  let last = pattern.length() - (if end_anchor { 1 } else { 0 })
-  let pattern = pattern[first:last].to_owned()
-  let regex = @lex.compile(@lex.parse(pattern)) catch {
+  let regex = @lex.Regex::new(pattern) catch {
     _ => raise InvalidQuery(0, "invalid strip regex")
   }
   let source = @utf8.encode(text)
   let out = StringBuilder()
   let mut offset = 0
-  while offset < source.length() {
-    if (!start_anchor || offset == 0) &&
-      regex.match_prefix(source, start=offset) is Some(end) &&
-      end > offset &&
-      (!end_anchor || end == source.length()) {
-      offset = end
-    } else {
-      let end = offset + @lex.decode(source, offset).1
-      out.write_string(@utf8.decode_lossy(source[offset:end]))
-      offset = end
+  for ;; {
+    let found = regex.find(source, start=offset) catch { _ => raise MatchLimit }
+    guard found is Some((start, end)) else {
+      out.write_string(@utf8.decode_lossy(source[offset:]))
+      break
+    }
+    out.write_string(@utf8.decode_lossy(source[offset:start]))
+    offset = end
+    if end == start {
+      if offset == source.length() {
+        break
+      }
+      let next = offset + @lex.decode(source, offset).1
+      out.write_string(@utf8.decode_lossy(source[offset:next]))
+      offset = next
     }
   }
   out.to_string()

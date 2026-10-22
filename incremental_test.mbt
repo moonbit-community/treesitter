@@ -146,3 +146,26 @@ test "forty successive growth and shrink edits match every fresh node" {
     length = number.length()
   }
 }
+
+///|
+test "inserting into an empty root preserves a valid edited range" {
+  let language = @generate.generate(
+    @grammar.Grammar::new("empty_edit", [("root", Repeat(Literal("a")))]),
+  )
+  let parser = @treesitter.Parser::new(language)
+  let tree = parser.parse_string("")
+  tree.edit({
+    start_byte: 0,
+    old_end_byte: 0,
+    new_end_byte: 1,
+    start_point: { row: 0, column: 0, },
+    old_end_point: { row: 0, column: 0, },
+    new_end_point: { row: 0, column: 1, },
+  })
+  assert_eq(tree.root_node().start_byte(), 1)
+  assert_eq(tree.root_node().end_byte(), 1)
+  assert_eq(
+    parser.parse(b"a", old_tree=tree).root_node().to_sexp(),
+    parser.parse(b"a").root_node().to_sexp(),
+  )
+}

@@ -56,6 +56,7 @@ pub fn Configuration::generate(
     _,
     node,
   ) => key == "local" && node is Some(node) && locals.is_local(node))
+  matches.sort_by_key(m => m.pattern_index)
   let ignored = []
   for matched in matches {
     for capture in matched.captures {
@@ -64,7 +65,7 @@ pub fn Configuration::generate(
       }
     }
   }
-  let seen : Map[(Int32, Int32, String, Bool), Bool] = Map([])
+  let seen : Map[(Int32, Int32), Bool] = Map([])
   let tags = []
   for matched in matches {
     if cancelled() {
@@ -88,12 +89,7 @@ pub fn Configuration::generate(
           }) {
           continue
         }
-        let key = (
-          name.node.start_byte(),
-          name.node.end_byte(),
-          syntax_type,
-          definition,
-        )
+        let key = (name.node.start_byte(), name.node.end_byte())
         if seen.contains(key) {
           continue
         }

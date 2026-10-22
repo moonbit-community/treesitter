@@ -199,29 +199,19 @@ fn Reader::predicate(self : Reader) -> Unit raise QueryError {
   } else if !name.has_prefix("#") {
     raise self.error("invalid predicate name")
   }
-  let mut regex = None
-  let mut start_anchor = false
-  let mut end_anchor = false
-  if matching || name == "#strip!" {
+  let regex = if matching || name == "#strip!" {
     guard args[1] is Text(text) else {
-      raise self.error("match? requires a string regex")
+      raise self.error("regex predicate requires a string")
     }
-    let mut pattern = text
-    if pattern.has_prefix("^") {
-      start_anchor = true
-      pattern = pattern[1:].to_owned()
-    }
-    if pattern.has_suffix("$") && !pattern.has_suffix("\\$") {
-      end_anchor = true
-      pattern = pattern[:pattern.length() - 1].to_owned()
-    }
-    regex = Some(
-      @lex.compile(@lex.parse(pattern)) catch {
+    Some(
+      @lex.Regex::new(text) catch {
         _ => raise self.error("invalid predicate regex")
       },
     )
+  } else {
+    None
   }
-  self.predicates.push({ name, args, regex, start_anchor, end_anchor, })
+  self.predicates.push({ name, args, regex, })
 }
 
 ///|
@@ -297,6 +287,8 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
       } else {
         let kind = self.word()
         let missing = kind == "MISSING"
+        let anonymous_missing = missing &&
+          self.tokens.get(self.pos) is Some({ kind: Quoted(_), .. })
         let kind = if missing {
           match self.tokens.get(self.pos) {
             Some({ kind: Word(_) | Quoted(_), .. }) =>
@@ -336,7 +328,7 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
           kind
         }
         if kind != "_" && kind != "ERROR" {
-          self.check_kind(kind, true)
+          self.check_kind(kind, !anonymous_missing)
         }
         let children = []
         let absent_fields = []

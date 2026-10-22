@@ -112,16 +112,13 @@ fn Builder::token(
   let lexer = @lex.compile(expression(rule))
   let token_name = match name {
     Some(name) => name
-    None =>
-      match rule {
-        Literal(s) => s
-        _ => key
-      }
+    None => literal_name(rule).unwrap_or(key)
   }
   let symbol = self.symbol(
     token_name,
     name != None,
-    name is None || !token_name.has_prefix("_"),
+    (name is Some(_) && !token_name.has_prefix("_")) ||
+    (name is None && literal_token(rule)),
     true,
   )
   self.tokens.push({
@@ -255,12 +252,25 @@ fn Builder::expand(
           dynamic_precedence: 0,
         },
       ]
-      for item in items {
+      for index, item in items {
         let suffixes = self.expand(
           item,
           { ..context, dynamic_precedence: 0, },
           inlines,
         )
+        if index + 1 < items.length() {
+          for suffix in suffixes {
+            if !suffix.steps.is_empty() {
+              let last = suffix.steps.length() - 1
+              suffix.steps[last] = {
+                ..suffix.steps[last],
+                precedence: context.precedence,
+                precedence_name: context.precedence_name,
+                associativity: context.associativity,
+              }
+            }
+          }
+        }
         let next = []
         for prefix in result {
           for suffix in suffixes {
@@ -272,8 +282,10 @@ fn Builder::expand(
               precedence: suffix.precedence,
               precedence_name: suffix.precedence_name,
               associativity: suffix.associativity,
-              dynamic_precedence: prefix.dynamic_precedence +
-              suffix.dynamic_precedence,
+              dynamic_precedence: dynamic_precedence(
+                prefix.dynamic_precedence,
+                suffix.dynamic_precedence,
+              ),
             })
           }
         }
@@ -281,7 +293,10 @@ fn Builder::expand(
       }
       result.map(a => {
         ..a,
-        dynamic_precedence: a.dynamic_precedence + context.dynamic_precedence,
+        dynamic_precedence: dynamic_precedence(
+          context.dynamic_precedence,
+          a.dynamic_precedence,
+        ),
       })
     }
     Repeat(child) | Repeat1(child) => {
@@ -350,7 +365,14 @@ fn Builder::expand(
         inlines,
       )
     PrecDynamic(n, child) =>
-      self.expand(child, { ..context, dynamic_precedence: n, }, inlines)
+      self.expand(
+        child,
+        {
+          ..context,
+          dynamic_precedence: dynamic_precedence(context.dynamic_precedence, n),
+        },
+        inlines,
+      )
     Prec(Name(name), child) =>
       self.expand(
         child,
@@ -500,7 +522,15 @@ fn normalize(
   for extra in grammar.extras {
     let id = match extra {
       Symbol(name) => builder.names[name]
-      _ => builder.token(extra)
+      _ => {
+        let before = builder.symbols.length()
+        let id = builder.token(extra)
+        // Lexical extras absent from syntax are separators, not CST nodes.
+        if id >= before {
+          builder.symbols[id] = { ..builder.symbols[id], visible: false, }
+        }
+        id
+      }
     }
     extras.push(id)
   }
@@ -514,5 +544,25 @@ fn literal_token(rule : @grammar.Rule) -> Bool {
     Token(child) | ImmediateToken(child) | Prec(_, child) =>
       literal_token(child)
     _ => false
+  }
+}
+
+///|
+// A flattened production uses the metadata with greatest absolute dynamic
+// precedence; separate reductions still add their scores at runtime.
+fn dynamic_precedence(first : Int32, next : Int32) -> Int32 {
+  if next.to_int64().abs() > first.to_int64().abs() {
+    next
+  } else {
+    first
+  }
+}
+
+///|
+fn literal_name(rule : @grammar.Rule) -> String? {
+  match rule {
+    Literal(value) => Some(value)
+    Token(child) | ImmediateToken(child) | Prec(_, child) => literal_name(child)
+    _ => None
   }
 }

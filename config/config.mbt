@@ -122,27 +122,16 @@ pub fn Config::parse(source : String) -> Config raise ConfigError {
 
 ///|
 fn score(pattern : String, text : String) -> Int32 raise ConfigError {
-  let anchored_start = pattern.has_prefix("^")
-  let anchored_end = pattern.has_suffix("$") && !pattern.has_suffix("\\$")
-  let first = if anchored_start { 1 } else { 0 }
-  let last = pattern.length() - (if anchored_end { 1 } else { 0 })
-  let regex = @lex.compile(@lex.parse(pattern[first:last].to_owned())) catch {
+  let regex = @lex.Regex::new(pattern) catch {
     _ => raise InvalidConfig("invalid selection regex '\{pattern}'")
   }
-  let bytes = @utf8.encode(text)
-  let mut offset = 0
-  let mut best = -1
-  for ;; {
-    if regex.match_prefix(bytes, start=offset) is Some(end) &&
-      (!anchored_end || end == bytes.length()) {
-      best = Int32::max(best, end - offset)
-    }
-    if anchored_start || offset == bytes.length() {
-      break
-    }
-    offset += @lex.decode(bytes, offset).1
+  let found = regex.find(@utf8.encode(text)) catch {
+    _ => raise InvalidConfig("selection regex work limit exceeded")
   }
-  best
+  match found {
+    Some((start, end)) => end - start
+    None => -1
+  }
 }
 
 ///|
@@ -158,10 +147,15 @@ pub fn select(
     return grammars.filter(g => g.scope == scope).get(0)
   }
   let filename = filename.split("/").last().unwrap().to_owned()
-  let extension = filename.split(".").last().unwrap().to_owned()
-  let candidates = grammars.filter(g => {
-    g.file_types.contains(filename) || g.file_types.contains(extension)
-  })
+  let parts = filename.split(".").map(p => p.to_owned()).to_array()
+  let mut candidates = grammars.filter(g => g.file_types.contains(filename))
+  for i in 1..<parts.length() {
+    if !candidates.is_empty() {
+      break
+    }
+    let suffix = parts[i:].join(".")
+    candidates = grammars.filter(g => g.file_types.contains(suffix))
+  }
   if !candidates.is_empty() {
     let mut best = candidates[0]
     let mut best_score = -1

@@ -127,7 +127,7 @@ test "error recovery inserts missing tokens and retains skipped input" {
   assert_eq(missing.child(2).unwrap().start_byte(), 6)
   let unexpected = parser.parse_string("(@hello)").root_node()
   assert_true(unexpected.has_error())
-  assert_eq(unexpected.to_sexp(), "(root (ERROR) (word))")
+  assert_eq(unexpected.to_sexp(), "(root (ERROR (UNEXPECTED '@')) (word))")
 }
 
 ///|
@@ -200,5 +200,62 @@ test "named precedence preserves operator grouping" {
   assert_eq(
     parser.parse_string("1+2*3").root_node().to_sexp(),
     "(root (expression (sum (expression (number)) (expression (product (expression (number)) (expression (number)))))))",
+  )
+}
+
+///|
+test "dynamic precedence selects maximum magnitude inside each production" {
+  let language = @generate.generate(
+    @grammar.Grammar::new(
+      "dynamic_metadata",
+      [
+        ("document", Choice([Symbol("a"), Symbol("b")])),
+        (
+          "a",
+          Seq([
+            PrecDynamic(1, Literal("x")),
+            PrecDynamic(1, Literal("y")),
+            PrecDynamic(1, Literal("z")),
+          ]),
+        ),
+        ("b", PrecDynamic(2, Seq([Literal("x"), Literal("y"), Literal("z")]))),
+      ],
+      conflicts=[["a", "b"]],
+    ),
+  )
+  assert_eq(
+    @treesitter.Parser::new(language).parse_string("xyz").root_node().to_sexp(),
+    "(document (b))",
+  )
+}
+
+///|
+test "separator-only extras remain invisible" {
+  let language = @generate.generate(
+    @grammar.Grammar::new(
+      "anonymous_extras",
+      [
+        ("document", Repeat(Symbol("word"))),
+        ("word", @grammar.pattern("[a-z]+")),
+      ],
+      extras=[Literal(";"), @grammar.pattern("\\s")],
+    ),
+  )
+  let root = @treesitter.Parser::new(language).parse_string("a ; b").root_node()
+  assert_eq(root.children().map(n => n.kind()), ["word", "word"])
+}
+
+///|
+test "static precedence ends at a non-final annotated region" {
+  let language = @generate.generate(
+    @grammar.Grammar::new("region", [
+      ("document", Choice([Symbol("a"), Seq([Symbol("b"), Literal("y")])])),
+      ("a", Seq([Prec(Integer(2), Literal("x")), Literal("y")])),
+      ("b", Prec(Integer(1), Seq([Literal("x")]))),
+    ]),
+  )
+  assert_eq(
+    @treesitter.Parser::new(language).parse_string("xy").root_node().to_sexp(),
+    "(document (b))",
   )
 }

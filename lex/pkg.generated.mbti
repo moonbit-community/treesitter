@@ -13,7 +13,7 @@ pub fn decode(Bytes, Int32) -> (Int32, Int32)
 
 pub fn literal(String) -> Expr
 
-pub fn parse(String, flags? : String) -> Expr raise RegexError
+pub fn parse(String, flags? : String, assertions? : Bool) -> Expr raise RegexError
 
 // Errors
 pub suberror RegexError {
@@ -21,7 +21,23 @@ pub suberror RegexError {
 } derive(@debug.Debug)
 pub fn RegexError::to_repr(Self) -> @debug.Repr
 
+pub suberror SearchError {
+  SearchLimit
+  SearchCancelled
+}
+
 // Types and methods
+pub(all) enum Assertion {
+  StartText
+  EndText
+  StartLine(Bool)
+  EndLine(Bool)
+  WordBoundary(Bool, Bool)
+} derive(Eq, @debug.Debug)
+pub fn Assertion::equal(Self, Self) -> Bool
+pub fn Assertion::not_equal(Self, Self) -> Bool
+pub fn Assertion::to_repr(Self) -> @debug.Repr
+
 pub struct CharSet {
   ranges : Array[(Int32, Int32)]
 } derive(Eq, @debug.Debug)
@@ -58,10 +74,18 @@ pub(all) enum Expr {
   Concat(Array[Expr])
   Alt(Array[Expr])
   Many(Expr)
+  Repeat(Expr, Int32, Int32?, Bool)
+  Assert(Assertion)
 } derive(Eq, @debug.Debug)
 pub fn Expr::equal(Self, Self) -> Bool
 pub fn Expr::not_equal(Self, Self) -> Bool
 pub fn Expr::to_repr(Self) -> @debug.Repr
+
+pub struct Regex {
+  // private fields
+}
+pub fn Regex::find(Self, Bytes, start? : Int32, max_steps? : Int32, tick? : () -> Bool) -> (Int32, Int32)? raise SearchError
+pub fn Regex::new(String) -> Self raise RegexError
 
 // Type aliases
 

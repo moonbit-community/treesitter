@@ -249,3 +249,30 @@ test "query cursors are lazy and restrict starting depth and points" {
   )
   assert_true(bounded.next_match() is None)
 }
+
+///|
+test "MISSING patterns accept anonymous token names" {
+  let language = @generate.generate(
+    @grammar.Grammar::new("parens", [
+      ("document", Seq([Literal("("), Literal(")")])),
+    ]),
+  )
+  let tree = @ts.Parser::new(language).parse_string("(")
+  let query = @query.Query::new(language, "(MISSING \")\") @missing")
+  assert_eq(query.captures(tree.root_node(), tree.source).length(), 1)
+}
+
+///|
+test "predicate regex anchors are scoped within alternatives" {
+  let tree = fixture()
+  let query = @query.Query::new(
+    tree.language,
+    "((identifier) @id (#match? @id \"^no|ob$\"))",
+  )
+  assert_eq(
+    query
+    .captures(tree.root_node(), tree.source)
+    .map(c => c.node.text(tree.source)),
+    ["bob"],
+  )
+}

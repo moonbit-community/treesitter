@@ -52,8 +52,10 @@ fn Configuration::name(self : Configuration, capture : String) -> String? {
   }
   let mut best : String? = None
   for name in self.names {
-    if capture == name || capture.has_prefix(name + ".") {
-      if best is None || name.length() > best.unwrap().length() {
+    let parts = capture.split(".").map(p => p.to_owned()).to_array()
+    if name.split(".").all(p => parts.contains(p.to_owned())) {
+      if best is None ||
+        name.split(".").count() > best.unwrap().split(".").count() {
         best = Some(name)
       }
     }
