@@ -611,3 +611,10 @@ starts UNLICENSED until the grammar author chooses a license. Native tests cover
 name validation and overwrite refusal; tools/check.sh initializes a temporary
 project, compiles its mbtx grammar, and passes its corpus. The full script passes
 268 native / 265 JS / 265 Wasm GC tests and all smoke checks.
+
+Scanner command forwarding now compiles its driver into an isolated target
+directory and executes it in the original working directory. Arguments are no
+longer rewritten as absolute paths, which previously corrupted grammar names
+and could corrupt flag values. The full check script passes, including relative
+source/table paths and `--scanner ... init scanned <directory>`; all 268 native /
+265 JS / 265 Wasm GC tests remain green.

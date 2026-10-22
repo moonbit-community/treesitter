@@ -100,10 +100,23 @@ pub async fn run_scanner(
     "\{temp}/script/driver/main.mbt",
     "async fn main {\n  @cli.run(\{Json(args).stringify()}, scanners=@registry.scanner, module_root=\{Json(root).stringify()}, current_dir=\{Json(current_dir).stringify()})\n}\n",
   )
-  @process.run(
+  let (code, _, stderr) = @process.collect_output(
     "moon",
-    ["run", "--target", "native", "driver"],
+    ["build", "--target", "native", "--target-dir", "\{temp}/build", "driver"],
     cwd="\{temp}/script",
+  )
+  if code != 0 {
+    raise LoadFailure(
+      "scanner compilation failed (exit \{code}):\n\{stderr.text()}",
+    )
+  }
+  // Workspace builds qualify paths with the module name. Execute the compiled
+  // driver in the caller's directory so every argument keeps its original
+  // meaning, including non-path arguments and paths supplied by future flags.
+  @process.run(
+    "\{temp}/build/native/debug/build/treesitter/local_scanner/driver/driver.exe",
+    [],
+    cwd=current_dir,
     stdout=@stdio.stdout,
     stderr=@stdio.stderr,
   )

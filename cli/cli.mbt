@@ -60,11 +60,6 @@ async fn dispatch(
   }
   if args[1] == "--scanner" && args.length() >= 4 {
     let forwarded = [args[0]] + args[3:].to_owned()
-    for i in 2..<forwarded.length() {
-      if !forwarded[i].has_prefix("/") && !forwarded[i].has_prefix("--") {
-        forwarded[i] = "\{current_dir}/\{forwarded[i]}"
-      }
-    }
     let code = @loader.run_scanner(args[2], root, forwarded, current_dir~)
     if code != 0 {
       raise Usage("scanner command failed (exit \{code})")
