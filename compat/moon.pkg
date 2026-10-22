@@ -1,0 +1,5 @@
+import {
+  "bobzhang/treesitter/grammar",
+  "bobzhang/treesitter/generate",
+  "bobzhang/treesitter/corpus",
+} for "test"

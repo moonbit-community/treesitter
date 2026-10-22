@@ -1,0 +1,39 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/treesitter/corpus"
+
+import {
+  "bobzhang/treesitter/language",
+}
+
+// Values
+pub fn normalize_sexp(String) -> String
+
+pub fn parse(String) -> Array[Case] raise CorpusError
+
+pub fn run(@language.Language, Array[Case]) -> Array[Result] raise
+
+// Errors
+pub suberror CorpusError {
+  InvalidCorpus(String)
+}
+
+// Types and methods
+pub(all) struct Case {
+  name : String
+  input : String
+  expected : String
+  skip : Bool
+  error : Bool
+}
+
+pub(all) struct Result {
+  name : String
+  passed : Bool
+  skipped : Bool
+  expected : String
+  actual : String
+}
+
+// Type aliases
+
+// Traits

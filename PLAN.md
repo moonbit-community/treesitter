@@ -146,3 +146,14 @@ regressions are included. The suite is now 32 passing tests on native, JS and
 Wasm GC. Supertype patterns, grouped sibling patterns, custom property predicates,
 upstream-complete quantifier semantics, streaming cursors and injection predicates
 remain compatibility work; unsupported predicates currently fail explicitly.
+
+### Upstream corpus checkpoint
+
+Frozen 14 grammar fixture groups directly from the pinned upstream checkout,
+retaining expected corpus output. The development-only importer evaluates the
+reference JS DSL once; all committed tests execute with the MoonBit compiler
+and runtime. Fixed innermost field inheritance, immediate-token preference and
+shift/reduce precedence using the upstream active-item/FIRST-set algorithm.
+Added a portable corpus reader/runner and CLI `test` command. Whitespace-only
+inputs are preserved. 47 tests pass on native, JS and Wasm GC. This is a selected
+compatibility suite, not the complete upstream test matrix.

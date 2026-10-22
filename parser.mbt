@@ -110,6 +110,8 @@ fn better_token(
     candidate.precedence > previous.precedence
   } else if end != previous_end {
     end > previous_end
+  } else if candidate.immediate != previous.immediate {
+    candidate.immediate
   } else if candidate.literal != previous.literal {
     candidate.literal
   } else {
@@ -220,9 +222,9 @@ fn append_visible(
     for (inner_field, child) in node.data.children {
       output.push(
         (
-          match field {
-            Some(_) => field
-            None => inner_field
+          match inner_field {
+            Some(_) => inner_field
+            None => if child.is_extra() { None } else { field }
           },
           child,
         ),

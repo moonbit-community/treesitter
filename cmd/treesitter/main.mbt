@@ -37,6 +37,19 @@ async fn main {
         raise Usage("source contains syntax errors")
       }
     }
+    "test" if args.length() == 4 => {
+      let language = @loader.load_language(args[2])
+      let cases = @corpus.parse(@fs.read_file(args[3]).text())
+      let results = @corpus.run(language, cases)
+      for result in results {
+        let status = if result.skipped { "SKIP" } else if result.passed { "PASS" } else { "FAIL" }
+        println("\{status} \{result.name}")
+        if !result.passed {
+          println("expected: \{result.expected}\nactual: \{result.actual}")
+        }
+      }
+      if results.any(r => !r.passed) { raise Usage("corpus tests failed") }
+    }
     "emit" if args.length() == 4 =>
       write_file(args[3], @generate.emit(@loader.load_language(args[2])))
     _ => raise Usage("invalid command or arguments")

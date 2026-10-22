@@ -106,71 +106,77 @@ fn resolve_actions(
   token : Int32,
   actions : Array[@language.Action],
   items : Array[Item],
+  first : Array[Map[Int32, Bool]],
 ) -> Array[@language.Action] raise GenerateError {
   if actions.length() <= 1 {
     return actions
   }
-  let mut remaining = actions.copy()
-  let mut shift_precedence = -2147483648
-  for item in items {
-    let production = builder.productions[item.production]
-    if production.steps.get(item.dot) is Some(step) && step.symbol == token {
-      shift_precedence = Int32::max(shift_precedence, step.precedence)
-    }
-  }
-  let has_shift = remaining.any(a => a is Shift(_))
-  if has_shift {
-    let mut remove_shift = false
-    remaining = remaining.filter(action => {
-      match action {
-        Reduce(id) => {
-          let p = builder.productions[id]
-          if p.precedence > shift_precedence ||
-            (p.precedence == shift_precedence && p.associativity == -1) {
-            remove_shift = true
-            true
-          } else {
-            !(p.precedence < shift_precedence ||
-            (p.precedence == shift_precedence && p.associativity == 1))
-          }
-        }
-        _ => true
-      }
-    })
-    if remove_shift {
-      remaining = remaining.filter(a => !(a is Shift(_)))
-    }
-  }
-  let mut best_precedence = -2147483648
-  for action in remaining {
+  let mut best = -2147483648
+  for action in actions {
     if action is Reduce(id) {
-      best_precedence = Int32::max(
-        best_precedence,
-        builder.productions[id].precedence,
-      )
+      best = Int32::max(best, builder.productions[id].precedence)
     }
   }
-  remaining = remaining.filter(a => {
+  let mut remaining = actions.filter(a => {
     match a {
-      Reduce(id) => builder.productions[id].precedence == best_precedence
+      Reduce(id) => builder.productions[id].precedence == best
       _ => true
     }
   })
+  let shifts = []
+  let shift_names : Map[String, Bool] = Map([])
+  for item in items {
+    let p = builder.productions[item.production]
+    if item.dot > 0 &&
+      p.steps.get(item.dot) is Some(step) &&
+      first[step.symbol].contains(token) {
+      shifts.push(p.steps[item.dot - 1].precedence)
+      shift_names[builder.symbols[p.lhs].name] = true
+    }
+  }
+  if remaining.any(a => a is Shift(_)) {
+    let less = shifts.any(p => p < best)
+    let more = shifts.any(p => p > best)
+    let equal = shifts.any(p => p == best)
+    let reductions = remaining.filter_map(a => {
+      match a {
+        Reduce(id) => Some(builder.productions[id])
+        _ => None
+      }
+    })
+    let left = !reductions.is_empty() &&
+      reductions.all(p => p.associativity == -1)
+    let right = !reductions.is_empty() &&
+      reductions.all(p => p.associativity == 1)
+    if more && !less {
+      remaining = remaining.filter(a => !(a is Reduce(_)))
+    } else if less && !more {
+      if equal && right {
+        remaining = remaining.filter(a => !(a is Reduce(_)))
+      } else {
+        remaining = remaining.filter(a => !(a is Shift(_)))
+      }
+    } else if !less && !more {
+      if left {
+        remaining = remaining.filter(a => !(a is Shift(_)))
+      } else if right {
+        remaining = remaining.filter(a => !(a is Reduce(_)))
+      }
+    }
+  }
   if remaining.length() <= 1 {
     return remaining
   }
   let involved : Map[String, Bool] = Map([])
   for action in remaining {
-    if action is Reduce(id) {
-      involved[builder.symbols[builder.productions[id].lhs].name] = true
-    }
-    if action is Shift(_) {
-      for item in items {
-        let production = builder.productions[item.production]
-        if production.steps.get(item.dot) is Some(step) && step.symbol == token {
-          involved[builder.symbols[production.lhs].name] = true
+    match action {
+      Reduce(id) =>
+        involved[builder.symbols[builder.productions[id].lhs].name] = true
+      Shift(_) =>
+        for name in shift_names.keys() {
+          involved[name] = true
         }
-      }
+      Accept => ()
     }
   }
   let names = involved.keys().to_array()
@@ -295,6 +301,7 @@ pub fn generate(
         token,
         actions[token],
         items,
+        first,
       )
     }
     rows.push({ actions, gotos, })
