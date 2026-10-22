@@ -319,3 +319,12 @@ The corpus reader now accepts :cst and ignores s-expression comments outside
 strings. A portable CST renderer includes anonymous tokens, fields, ranges and
 leaf text. The pinned basic_cst fixture passes unchanged. The complete current
 suite contains 122 passing tests on native, JavaScript and Wasm GC.
+
+### Lazy query cursor and navigation
+
+Queries now expose a lazy match cursor with lifetime-wide work limits,
+cancellation between results, byte/point ranges and maximum starting depth.
+Tree navigation adds point descendants, named field lookup, preorder seeking,
+cursor copying/resetting, and tree-relative parent/sibling lookup. Tree lookup
+uses persistent node identity rather than parser-local numeric ids. Targeted
+runtime/query/lexer tests (44) pass on native, JavaScript and Wasm GC.

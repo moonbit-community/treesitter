@@ -356,47 +356,20 @@ pub fn Query::matches(
   property~ : (String, String?, @ts.Node?) -> Bool = (_, _, _) => false,
   predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool,
 ) -> Array[Match] raise QueryError {
-  let result : Array[Match] = []
-  let budget : Budget = { steps: 0, limit: max_steps, cancelled, }
-  let nodes = [root]
-  while nodes.pop() is Some(node) {
-    budget.tick()
-    if node.end_byte() < start_byte || node.start_byte() >= end_byte {
-      continue
-    }
-    for pattern_index, p in self.patterns {
-      for captures in match_pattern(p.pattern, node, budget) {
-        if predicates_match(
-            p.predicates,
-            captures,
-            source,
-            budget,
-            property,
-            predicate,
-          ) {
-          let properties : Map[String, String] = Map([])
-          for predicate in p.predicates {
-            if predicate.name == "#set!" && predicate.args[0] is Text(key) {
-              properties[key] = match predicate.args.get(1) {
-                Some(Text(value)) => value
-                _ => ""
-              }
-            }
-          }
-          if result.length() >= max_matches {
-            raise MatchLimit
-          }
-          let directives = p.predicates
-            .filter(p => p.name.has_suffix("!") && p.name != "#set!")
-            .map(p => Directive::{ name: p.name, args: p.args.copy(), })
-          result.push({ pattern_index, captures, properties, directives, })
-        }
-      }
-    }
-    let children = node.children()
-    for i = children.length() - 1; i >= 0; i = i - 1 {
-      nodes.push(children[i])
-    }
+  let cursor = self.cursor(
+    root,
+    source,
+    start_byte~,
+    end_byte~,
+    max_steps~,
+    max_matches~,
+    cancelled~,
+    property~,
+    predicate?,
+  )
+  let result = []
+  while cursor.next_match() is Some(matched) {
+    result.push(matched)
   }
   result
 }

@@ -49,10 +49,14 @@ pub fn Node::child_by_field_name(Self, String) -> Self?
 pub fn Node::child_count(Self) -> Int32
 pub fn Node::children(Self) -> Array[Self]
 pub fn Node::children_by_field_name(Self, String) -> Array[Self]
+pub fn Node::descendant_count(Self) -> Int32
 pub fn Node::descendant_for_byte_range(Self, Int32, Int32, named? : Bool) -> Self?
+pub fn Node::descendant_for_point_range(Self, Point, Point, named? : Bool) -> Self?
 pub fn Node::end_byte(Self) -> Int32
 pub fn Node::end_position(Self) -> Point
 pub fn Node::field_name_for_child(Self, Int32) -> String?
+pub fn Node::field_name_for_named_child(Self, Int32) -> String?
+pub fn Node::first_child_for_byte(Self, Int32, named? : Bool) -> Self?
 pub fn Node::has_changes(Self) -> Bool
 pub fn Node::has_error(Self) -> Bool
 pub fn Node::id(Self) -> Int32
@@ -135,9 +139,13 @@ pub struct Tree {
 }
 pub fn Tree::changed_ranges(Self, Self) -> Array[Range]
 pub fn Tree::copy(Self) -> Self
+pub fn Tree::cursor_at(Self, Node) -> TreeCursor?
 pub fn Tree::edit(Self, InputEdit) -> Unit raise EditError
 pub fn Tree::external_scanner_state(Self) -> Bytes
 pub fn Tree::included_ranges(Self) -> Array[Range]
+pub fn Tree::next_sibling(Self, Node, named? : Bool) -> Node?
+pub fn Tree::parent(Self, Node) -> Node?
+pub fn Tree::previous_sibling(Self, Node, named? : Bool) -> Node?
 pub fn Tree::root_node(Self) -> Node
 pub fn Tree::walk(Self) -> TreeCursor
 
@@ -146,15 +154,19 @@ pub struct TreeCursor {
 }
 pub fn TreeCursor::copy(Self) -> Self
 pub fn TreeCursor::depth(Self) -> Int32
+pub fn TreeCursor::descendant_index(Self) -> Int32
 pub fn TreeCursor::field_name(Self) -> String?
+pub fn TreeCursor::goto_descendant(Self, Int32) -> Bool
 pub fn TreeCursor::goto_first_child(Self) -> Bool
 pub fn TreeCursor::goto_first_child_for_byte(Self, Int32) -> Int32?
+pub fn TreeCursor::goto_first_child_for_point(Self, Point) -> Int32?
 pub fn TreeCursor::goto_last_child(Self) -> Bool
 pub fn TreeCursor::goto_next_sibling(Self) -> Bool
 pub fn TreeCursor::goto_parent(Self) -> Bool
 pub fn TreeCursor::goto_previous_sibling(Self) -> Bool
 pub fn TreeCursor::node(Self) -> Node
 pub fn TreeCursor::reset(Self, Node) -> Unit
+pub fn TreeCursor::reset_to(Self, Self) -> Unit
 
 // Type aliases
 

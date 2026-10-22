@@ -28,6 +28,11 @@ pub(all) struct Capture {
   node : @treesitter.Node
 }
 
+pub struct Cursor {
+  // private fields
+}
+pub fn Cursor::next_match(Self) -> Match? raise QueryError
+
 pub(all) struct Directive {
   name : String
   args : Array[Argument]
@@ -53,6 +58,7 @@ pub struct Query {
   // private fields
 }
 pub fn Query::captures(Self, @treesitter.Node, Bytes) -> Array[Capture] raise QueryError
+pub fn Query::cursor(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, start_point? : @treesitter.Point, end_point? : @treesitter.Point, max_start_depth? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> Cursor
 pub fn Query::matches(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> Array[Match] raise QueryError
 pub fn Query::new(@language.Language, String) -> Self raise QueryError
 pub fn Query::pattern_count(Self) -> Int32

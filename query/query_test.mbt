@@ -213,3 +213,39 @@ test "locals resolve nearest preceding definition and exclude initializer" {
   )
   assert_true(@query.Locals::new(isolated, tree).definition(ids[3]) is None)
 }
+
+///|
+test "query cursors are lazy and restrict starting depth and points" {
+  let tree = fixture()
+  let query = @query.Query::new(tree.language, "(identifier) @id")
+  let mut cancelled = false
+  let cursor = query.cursor(tree.root_node(), tree.source, cancelled=() => {
+    return cancelled
+  })
+  assert_eq(
+    cursor.next_match().unwrap().captures[0].node.text(tree.source),
+    "a",
+  )
+  cancelled = true
+  try cursor.next_match() catch {
+    Cancelled => ()
+    _ => fail("wrong error")
+  } noraise {
+    _ => fail("ignored cancellation between matches")
+  }
+  assert_true(
+    query.cursor(tree.root_node(), tree.source, max_start_depth=1).next_match()
+    is None,
+  )
+  let bounded = query.cursor(
+    tree.root_node(),
+    tree.source,
+    start_point={ row: 0, column: 5, },
+    end_point={ row: 0, column: 12, },
+  )
+  assert_eq(
+    bounded.next_match().unwrap().captures[0].node.text(tree.source),
+    "bob",
+  )
+  assert_true(bounded.next_match() is None)
+}
