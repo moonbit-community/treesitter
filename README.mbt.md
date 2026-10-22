@@ -140,15 +140,28 @@ Queries include groups, quantifiers, ordered capture cursors, structural validat
 text/property predicates, and cancellation. Highlighting supports locals and nested
 injections; tags support documentation and scope-aware name classification.
 
-The pinned fixture suite, all 85 C v0.24.2 corpus cases, and 229 frozen JSON
-changed-range edits pass. C and JavaScript v0.25.0 grammars both generate tables;
-JavaScript's scanner-backed corpus has not yet been verified.
+The pinned fixture suite, 229 frozen JSON changed-range edits, and 123 edited
+old-tree span cases pass. The public grammar matrix uses pinned revisions and
+unchanged upstream corpora:
+
+| Grammar | Corpus cases passing |
+| --- | --- |
+| JSON v0.24.8 | 6 / 6 |
+| C v0.24.2 | 85 / 85 |
+| JavaScript v0.25.0, with a MoonBit scanner | 115 / 116 |
+| Go v0.25.0 | 64 / 67 |
+
+The remaining public cases involve ambiguous derivation selection and recovery.
+They remain failures in the matrix, and the audit exits nonzero.
 
 Remaining compatibility work includes ambiguous-forest incremental reuse,
 incremental optimization for encoded/included-range inputs, broader upstream API
 and query regressions, performance comparisons, and one optional-child difference
-in node schema metadata. Ambiguous languages currently reparse to preserve dynamic
-precedence. The release gate and final ultra review remain open in [PLAN.md](PLAN.md).
+in node schema metadata. Deterministic regions can be reused in ambiguous
+languages; nodes built while branches compete are conservatively reparsed. The
+second ultra audit's seven concrete findings have regression fixes; broader
+changed-range discrepancies and missing CLI/API capabilities still prevent a
+full-port claim. The release gate remains open in [PLAN.md](PLAN.md).
 
 Unsupported grammar/query features fail explicitly where recognized. Error-tree
 shape and subtle query semantics may differ. The frozen suite is a selected
@@ -158,11 +171,16 @@ compatibility matrix, not the entire upstream test suite.
 
 ```sh
 sh tools/check.sh
+python3 tools/audit_grammars.py --fetch
 ```
 
 This checks warnings, native/JS/Wasm GC tests, executes both mbtx grammars,
 regenerates their factories into `_build`, checks them against committed sources,
-and runs JSON discovery/highlighting and the compiled MoonBit scanner example. `moon fmt` and `moon info` maintain formatting
+and runs JSON discovery/highlighting and the compiled MoonBit scanner example.
+The separate public grammar audit fetches only pinned commits into `.repos`,
+checks their tracked files, and writes tables, full logs, and `results.json` under
+`_build/grammar-matrix`. Grammar JSON is compiled by MoonBit; the JavaScript
+external scanner is also MoonBit. `moon fmt` and `moon info` maintain formatting
 and generated public interfaces. Run `moon bench benchmarks --target native --release`
 for fresh-parse scaling and incremental-edit measurements. These are local
 baselines, not a performance comparison with upstream Tree-sitter.

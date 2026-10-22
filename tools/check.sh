@@ -26,4 +26,4 @@ moon run cmd/treesitter --target native -- generate examples/quoted/grammar.mbtx
 moon run cmd/treesitter --target native -- --scanner examples/quoted/scanner.mbtx parse _build/quoted.language.json examples/quoted/sample.txt > _build/quoted.sexp
 cmp _build/quoted.sexp examples/quoted/expected.sexp
 moon fmt --check
-moon fmt --check examples/grammar.mbtx examples/json/grammar.mbtx examples/quoted/grammar.mbtx examples/quoted/scanner.mbtx
+moon fmt --check examples/grammar.mbtx examples/json/grammar.mbtx examples/quoted/grammar.mbtx examples/quoted/scanner.mbtx examples/javascript/scanner.mbtx
