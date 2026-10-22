@@ -1,0 +1,6 @@
+import {
+  "bobzhang/treesitter/grammar",
+  "bobzhang/treesitter/lex",
+  "bobzhang/treesitter/language",
+  "moonbitlang/core/debug",
+}

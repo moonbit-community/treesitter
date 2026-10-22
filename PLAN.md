@@ -90,3 +90,14 @@ DATA comes from the checksum-verified regex-syntax 0.8.11 pinned by upstream;
 its license and a development-only importer are included. No Rust is executed.
 Ten tests pass on native, JS, and Wasm GC. Remaining lexical work includes inline
 flags, class set operations, combined contextual automata and external scanners.
+
+### Parse-table checkpoint
+
+Implemented lexical extraction, repetition normalization, fields/aliases,
+inline expansion, nullable/FIRST analysis, canonical LR(1) item closure and
+state construction, numeric precedence/associativity, declared GLR conflicts,
+dynamic precedence metadata, deterministic table construction, resource limits,
+and language table validation. Four compiler tests bring the suite to 14 tests,
+passing on native, JS and Wasm GC. Named precedence, reserved contexts, word
+extraction, supertypes, external scanners and nonterminal extras are explicitly
+rejected pending implementation. Runtime integration is next.

@@ -1,0 +1,97 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/treesitter/language"
+
+import {
+  "bobzhang/treesitter/lex",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub suberror LanguageError {
+  InvalidLanguage(String)
+} derive(@debug.Debug)
+pub fn LanguageError::to_repr(Self) -> @debug.Repr
+
+// Types and methods
+pub(all) enum Action {
+  Shift(Int32)
+  Reduce(Int32)
+  Accept
+} derive(Eq, @debug.Debug)
+pub fn Action::equal(Self, Self) -> Bool
+pub fn Action::not_equal(Self, Self) -> Bool
+pub fn Action::to_repr(Self) -> @debug.Repr
+
+pub struct Language {
+  name : String
+  symbols : Array[Symbol]
+  tokens : Array[Token]
+  productions : Array[Production]
+  states : Array[ParseState]
+  start_symbol : Int32
+  extras : Array[Int32]
+} derive(Eq, @debug.Debug)
+pub fn Language::equal(Self, Self) -> Bool
+pub fn Language::lookahead(Self, Int32) -> Array[Int32]
+pub fn Language::new(String, Array[Symbol], Array[Token], Array[Production], Array[ParseState], Int32, Array[Int32]) -> Self raise LanguageError
+pub fn Language::not_equal(Self, Self) -> Bool
+pub fn Language::symbol_id(Self, String, named? : Bool) -> Int32?
+pub fn Language::to_repr(Self) -> @debug.Repr
+pub fn Language::validate(Self) -> Unit raise LanguageError
+
+pub(all) struct ParseState {
+  actions : Map[Int32, Array[Action]]
+  gotos : Map[Int32, Int32]
+} derive(Eq, @debug.Debug)
+pub fn ParseState::equal(Self, Self) -> Bool
+pub fn ParseState::not_equal(Self, Self) -> Bool
+pub fn ParseState::to_repr(Self) -> @debug.Repr
+
+pub(all) struct Production {
+  lhs : Int32
+  steps : Array[Step]
+  precedence : Int32
+  associativity : Int32
+  dynamic_precedence : Int32
+} derive(Eq, @debug.Debug)
+pub fn Production::equal(Self, Self) -> Bool
+pub fn Production::not_equal(Self, Self) -> Bool
+pub fn Production::to_repr(Self) -> @debug.Repr
+
+pub(all) struct Step {
+  symbol : Int32
+  field : String?
+  rename : (String, Bool)?
+  precedence : Int32
+  associativity : Int32
+} derive(Eq, @debug.Debug)
+pub fn Step::equal(Self, Self) -> Bool
+pub fn Step::not_equal(Self, Self) -> Bool
+pub fn Step::to_repr(Self) -> @debug.Repr
+
+pub(all) struct Symbol {
+  name : String
+  named : Bool
+  visible : Bool
+  terminal : Bool
+} derive(Eq, @debug.Debug)
+pub fn Symbol::equal(Self, Self) -> Bool
+pub fn Symbol::not_equal(Self, Self) -> Bool
+pub fn Symbol::to_repr(Self) -> @debug.Repr
+
+pub(all) struct Token {
+  symbol : Int32
+  lexer : @lex.Dfa
+  precedence : Int32
+  immediate : Bool
+  literal : Bool
+} derive(Eq, @debug.Debug)
+pub fn Token::equal(Self, Self) -> Bool
+pub fn Token::not_equal(Self, Self) -> Bool
+pub fn Token::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+
+// Traits
