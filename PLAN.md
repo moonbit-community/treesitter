@@ -697,3 +697,10 @@ ChaCha8 seed stream is local to this implementation. Full checks pass 278 native
 (10 iterations), and 510 C / 696 JavaScript / 402 Go checks (two iterations).
 The public audit now includes a bounded two-iteration run per case; it does not
 yet validate changed-range coverage or replace differential recovery testing.
+
+The combined four-grammar audit passes all 274 corpus cases, 11 query files,
+90 annotations and 1,644 bounded edit/undo checks. Added the public regex grammar
+at v0.25.0 (`b2ac15e27fce703d2f37a79ccd94a5c0cbe9720b`), using its unchanged
+grammar JSON, corpus and highlight query: all 37 cases, one query and 222
+edit/undo checks pass. The pinned five-grammar matrix therefore covers 311
+corpus cases, 12 query files, 90 annotations and 1,866 edit checks.

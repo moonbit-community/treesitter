@@ -1,6 +1,6 @@
 """Run pinned public grammar corpora through the pure MoonBit implementation.
 
-Usage: python3 tools/audit_grammars.py [--fetch] [json c javascript go]
+Usage: python3 tools/audit_grammars.py [--fetch] [json c javascript go regex]
 Clones live under .repos; generated tables, complete logs and results.json live
 under _build/grammar-matrix. No JavaScript or C grammar code is executed: the
 upstream grammar JSON and query files are input to the MoonBit compilers, and external scanners

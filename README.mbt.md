@@ -163,19 +163,20 @@ unchanged upstream corpora:
 | C v0.24.2 | 85 / 85 |
 | JavaScript v0.25.0, with a MoonBit scanner | 116 / 116 |
 | Go v0.25.0 | 67 / 67 |
+| Regex v0.25.0 | 37 / 37 |
 
-All 11 shipped query files pass compilation against the generated tables.
+All 12 shipped query files pass compilation against the generated tables.
 The nine C/JavaScript highlight and tag fixture files also pass all 90 position
 assertions, including local-variable classification and JavaScript injection.
 The development assertion reader supports these ASCII fixtures and rejects
 non-ASCII input pending upstream-compatible grapheme-column handling.
-All 274 corpus cases pass. These include malformed-input recovery cases;
-the audit exits nonzero for any corpus or query compilation failure.
+All 311 corpus cases pass. These include malformed-input recovery cases;
+the audit exits nonzero for any corpus, query, annotation, or fuzz failure.
 CI runs this pinned public matrix in a separate Ubuntu job alongside the
 portable-library and CLI checks on Linux and macOS. Corpus, query compilation,
 and query execution results are reported separately in the audit's JSON output.
 The audit also runs two seeded fuzz iterations per corpus case, with up to two
-edits and their inverses, and reports those checks separately.
+edits and their inverses, and reports those checks separately: 1,866 checks pass.
 
 Remaining compatibility work includes ambiguous-forest incremental reuse,
 incremental optimization for encoded/included-range inputs, broader upstream API
