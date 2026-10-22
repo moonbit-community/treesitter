@@ -663,3 +663,17 @@ a literal outranks an immediate pattern (upstream weights literal=2,
 immediate=1). A C-oracle fixture confirms equal-length selection and that a
 longer immediate match still wins. The full check script passes 272 native /
 269 JS / 269 Wasm GC tests and all CLI smoke checks.
+
+Accepted root extents now include EOF's skipped trailing input. Changed-range
+cursors represent trailing padding explicitly, preserving unchanged whitespace
+when the last syntax node is deleted. Four frozen C edit cases and a newline
+extent test pass; full checks pass 273 native / 270 JS / 270 Wasm GC. The public
+matrix remains 274/274 corpus cases, 11/11 query files, and 90/90 annotations.
+
+Replaying all 1,153 edit probes finds zero incremental/fresh node mismatches.
+There are 38 range discrepancies among cases with matching named S-expressions
+and 236 differing S-expression pairs (including error serialization differences).
+Some range discrepancies arise from different anonymous punctuation inside
+recovery trees, rather than range comparison itself. An experiment coalescing
+more recovery paths reduced the range differences but introduced new tree-shape
+regressions; it was reverted. Preserving competing stack histories remains open.

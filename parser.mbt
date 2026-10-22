@@ -351,7 +351,16 @@ fn Parser::finish(
   guard branch.entries.last() is Some(entry) else { return None }
   let root = entry.node
   if entry.leading.is_empty() && branch.pending.is_empty() {
-    return Some({ data: { ..root.data, scan_after: branch.scanner_state, }, })
+    // The accepted EOF includes skipped trailing input. It extends the root's
+    // extent without changing the final syntax child's range.
+    return Some({
+      data: {
+        ..root.data,
+        end_byte: Int32::max(root.end_byte(), branch.offset),
+        end_point: point_at(lines, Int32::max(root.end_byte(), branch.offset)),
+        scan_after: branch.scanner_state,
+      },
+    })
   }
   let children : Array[ChildPart] = []
   for extra in entry.leading {
@@ -362,7 +371,7 @@ fn Parser::finish(
     append_visible(children, extra, None)
   }
   let mut start = root.start_byte()
-  let mut end = root.end_byte()
+  let mut end = Int32::max(root.end_byte(), branch.offset)
   // Recovery can finish an empty root at EOF and attach an earlier ERROR as
   // pending syntax. The final root must enclose all attached children.
   for extra in entry.leading + branch.pending {

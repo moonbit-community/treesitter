@@ -3,6 +3,7 @@ priv struct ChangeEntry {
   node : Node
   index : Int32
   padding_start : Int32
+  trailing : Bool
 }
 
 ///|
@@ -13,7 +14,10 @@ priv struct ChangeCursor {
 
 ///|
 fn ChangeCursor::new(node : Node) -> ChangeCursor {
-  { stack: [{ node, index: 0, padding_start: 0, }], padding: false, }
+  {
+    stack: [{ node, index: 0, padding_start: 0, trailing: false, }],
+    padding: false,
+  }
 }
 
 ///|
@@ -23,11 +27,11 @@ fn ChangeCursor::depth(self : ChangeCursor) -> Int32 {
 
 ///|
 fn ChangeCursor::end(self : ChangeCursor) -> Int32 {
-  let node = self.stack.last().unwrap().node
-  if self.padding {
-    node.start_byte()
+  let entry = self.stack.last().unwrap()
+  if self.padding && !entry.trailing {
+    entry.node.start_byte()
   } else {
-    node.end_byte()
+    entry.node.end_byte()
   }
 }
 
@@ -45,11 +49,30 @@ fn ChangeCursor::descend(self : ChangeCursor, position : Int32) -> Bool {
   let mut left = entry.padding_start
   for index, child in entry.node.children() {
     if child.end_byte() > position {
-      self.stack.push({ node: child, index, padding_start: left, })
+      self.stack.push({
+        node: child,
+        index,
+        padding_start: left,
+        trailing: false,
+      })
       self.padding = child.start_byte() > position
       return true
     }
     left = child.end_byte()
+  }
+  if entry.node.child_count() > 0 &&
+    entry.node.end_byte() > position &&
+    left < entry.node.end_byte() {
+    // A parent's trailing padding has no child node to carry its extent.
+    // Represent it explicitly so it can align with the other cursor's padding.
+    self.stack.push({
+      node: entry.node,
+      index: entry.node.child_count(),
+      padding_start: left,
+      trailing: true,
+    })
+    self.padding = true
+    return true
   }
   false
 }
@@ -65,7 +88,11 @@ fn ChangeCursor::ascend(self : ChangeCursor) -> Unit {
 fn ChangeCursor::advance(self : ChangeCursor) -> Unit {
   if self.padding {
     self.padding = false
-    return
+    if self.stack.last().unwrap().trailing {
+      ignore(self.stack.pop())
+    } else {
+      return
+    }
   }
   while self.stack.pop() is Some(entry) {
     guard self.stack.last() is Some(parent) else { return }
@@ -74,8 +101,19 @@ fn ChangeCursor::advance(self : ChangeCursor) -> Unit {
         node,
         index: entry.index + 1,
         padding_start: entry.node.end_byte(),
+        trailing: false,
       })
       self.padding = node.start_byte() > entry.node.end_byte()
+      return
+    }
+    if entry.node.end_byte() < parent.node.end_byte() {
+      self.stack.push({
+        node: parent.node,
+        index: parent.node.child_count(),
+        padding_start: entry.node.end_byte(),
+        trailing: true,
+      })
+      self.padding = true
       return
     }
   }
