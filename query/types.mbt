@@ -94,6 +94,18 @@ pub fn Query::pattern_count(self : Query) -> Int32 {
 }
 
 ///|
+/// Copy a compiled query, including its current disabled patterns and captures.
+/// Subsequent changes to either query do not affect the other.
+pub fn Query::copy(self : Query) -> Query {
+  {
+    patterns: self.patterns.copy(),
+    capture_names: self.capture_names.copy(),
+    disabled_patterns: self.disabled_patterns.copy(),
+    disabled_captures: self.disabled_captures.copy(),
+  }
+}
+
+///|
 pub fn Query::disable_pattern(self : Query, index : Int32) -> Bool {
   if index < 0 || index >= self.patterns.length() {
     return false

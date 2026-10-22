@@ -78,6 +78,7 @@ pub struct Query {
 pub fn Query::capture_cursor(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, containing_byte_range? : (Int32, Int32), containing_point_range? : (@treesitter.Point, @treesitter.Point), start_point? : @treesitter.Point, end_point? : @treesitter.Point, max_start_depth? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> CaptureCursor
 pub fn Query::capture_quantifier(Self, Int32, Int32) -> Quantifier?
 pub fn Query::captures(Self, @treesitter.Node, Bytes) -> Array[Capture] raise QueryError
+pub fn Query::copy(Self) -> Self
 pub fn Query::cursor(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, containing_byte_range? : (Int32, Int32), containing_point_range? : (@treesitter.Point, @treesitter.Point), start_point? : @treesitter.Point, end_point? : @treesitter.Point, max_start_depth? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> Cursor
 pub fn Query::disable_capture(Self, String) -> Bool
 pub fn Query::disable_pattern(Self, Int32) -> Bool

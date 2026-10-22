@@ -863,3 +863,9 @@ matrix. The now-empty candidate manifest was removed; select the Rust suite
 with `python3 tools/audit_grammars.py --fetch rust`. README totals now include
 all six passing grammars. Hosted CI, the final Codex CLI ultra review, repository
 creation and publication remain pending the full compatibility gate.
+
+The public-query API now supports copying a compiled query with independent
+disabled-pattern, disabled-capture and capture-name state. Tests exercise copies
+made after disabling settings and subsequent changes on both objects. All 31
+query tests pass on native, JS and Wasm GC. Top-level query quantifiers and
+root/non-local/guaranteed-step analysis remain open.

@@ -1,4 +1,31 @@
 ///|
+test "query copies preserve settings and isolate subsequent changes" {
+  let tree = fixture()
+  let original = @query.Query::new(
+    tree.language,
+    "(identifier) @name (number) @value (assignment) @assignment",
+  )
+  assert_true(original.disable_capture("assignment"))
+  assert_true(original.disable_pattern(2))
+  let copied = original.copy()
+  assert_eq(copied.pattern_count(), 3)
+  assert_eq(copied.capture_names, original.capture_names)
+  for i in 0..<3 {
+    assert_eq(copied.pattern_range(i), original.pattern_range(i))
+  }
+  assert_true(copied.disable_pattern(0))
+  assert_true(original.disable_capture("value"))
+  let names = original.captures(tree.root_node(), tree.source)
+  let values = copied.captures(tree.root_node(), tree.source)
+  assert_eq(names.map(c => c.name), ["name", "name", "name"])
+  assert_eq(values.map(c => c.name), ["value", "value", "value"])
+  // The public capture-name array is also independent of the original query.
+  copied.capture_names.clear()
+  assert_eq(original.capture_names, ["name", "value", "assignment"])
+  assert_eq(original.copy().capture_names, original.capture_names)
+}
+
+///|
 test "capture quantifiers combine sequences alternatives and repetitions" {
   let tree = fixture()
   let query = @query.Query::new(
