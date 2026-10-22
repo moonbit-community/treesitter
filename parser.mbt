@@ -45,7 +45,7 @@ priv struct Lexeme {
   end : Int32
   missing : Bool
   scanner_state : Bytes?
-}
+} derive(Eq)
 
 ///|
 priv struct Entry {
@@ -84,6 +84,7 @@ priv struct BranchKey {
 
 ///|
 priv struct Branch {
+  round : Int32
   recovery_versions : Int32
   status : BranchStatus
   extras : Array[ExtraFrame]
@@ -101,6 +102,9 @@ priv struct Branch {
 
 ///|
 priv struct ParseContinuation {
+  frontier : Int32
+  yielded : Bool
+  round : Int32
   source : Bytes
   projection : Projection?
   lines : Array[Int32]
@@ -482,6 +486,7 @@ fn Parser::parse_source(
     [
       {
         status: Active,
+        round: 0,
         recovery_versions: 0,
         states: [0],
         extras: [],
@@ -507,7 +512,30 @@ fn Parser::parse_source(
   }
   let mut steps = continuation.map(c => c.steps).unwrap_or(0)
   let mut furthest = continuation.map(c => c.furthest).unwrap_or(0)
+  let mut round = continuation.map(c => c.round).unwrap_or(0)
+  let mut frontier = continuation.map(c => c.frontier).unwrap_or(0)
+  let mut yielded = continuation.map(c => c.yielded).unwrap_or(false)
+  // A round advances each version to the furthest byte reached so far. A
+  // version behind a long lexical token may take several steps to catch up.
+  fn advance(next : Branch) {
+    if next.offset > frontier || (yielded && next.offset == frontier) {
+      frontier = next.offset
+      yielded = true
+      work.push({ ..next, round: round + 1, })
+    } else {
+      work.insert(0, next)
+    }
+  }
   while !work.is_empty() || !paused.is_empty() {
+    if !work.is_empty() && work.all(branch => branch.round > round) {
+      if self.condense_round(work, paused) {
+        visited.clear()
+      }
+      yielded = false
+      round = work.fold(init=work[0].round, (value, branch) => {
+        Int32::min(value, branch.round)
+      })
+    }
     if work.is_empty() {
       let mut selected = paused[0]
       for candidate in paused[1:] {
@@ -530,10 +558,14 @@ fn Parser::parse_source(
           "resume offset:\{selected.offset} cost:\{selected.cost} versions:\{versions}",
         )
       }
+      round = selected.round
       work.push({ ..selected, status: Preparing, recovery_versions: versions, })
     }
     if cancelled() {
       self.suspended = Some({
+        frontier,
+        yielded,
+        round,
         source,
         projection,
         lines,
@@ -551,7 +583,9 @@ fn Parser::parse_source(
       })
       raise Cancelled
     }
-    let initial = work.remove(0)
+    let initial = work.remove(
+      work.search_by(branch => branch.round <= round).unwrap(),
+    )
     let initial = { ..initial, cost: branch_error_cost(initial), }
     if self.logger is Some(log) {
       log(
@@ -577,6 +611,9 @@ fn Parser::parse_source(
         Cancelled => {
           work.insert(0, initial)
           self.suspended = Some({
+            frontier,
+            yielded,
+            round,
             source,
             projection,
             lines,
@@ -666,7 +703,7 @@ fn Parser::parse_source(
       candidate.data.scan_before == branch.scanner_state {
       let node = reset_origin(candidate)
       reused_subtrees += 1
-      work.push({
+      advance({
         ..branch,
         states: branch.states + [node.next_parse_state()],
         entries: branch.entries + [{ node, leading: branch.pending, }],
@@ -704,6 +741,7 @@ fn Parser::parse_source(
     if actions.is_empty() || branch.status == Recovering {
       if branch.status == Active && !token.missing {
         paused.push(branch)
+        yielded = true
         continue
       }
       if token.missing {
@@ -885,10 +923,8 @@ fn Parser::parse_source(
       }
       if token.end > token.start &&
         !(did_recover &&
-        Int32::max(
-          branch.recovery_versions,
-          work.length() + paused.length() + 1,
-        ) >=
+        Int32::max(branch.recovery_versions, work.length() + paused.length()) +
+        1 >
         6) {
         let skipped = self.node(
           token.symbol,
@@ -904,7 +940,7 @@ fn Parser::parse_source(
             None
           },
         )
-        work.push({
+        let skipped_branch = {
           ..branch,
           recovery_versions: 0,
           status: Recovering,
@@ -921,7 +957,14 @@ fn Parser::parse_source(
           (if branch.pending.last() is Some(n) && n.is_error() { 0 } else { 1 }),
           scanner_state: token.scanner_state.unwrap_or(branch.scanner_state),
           insertions: 0,
-        })
+        }
+        if branch.status == Preparing {
+          // handle_error runs while condensing the previous round. Its first
+          // skipped token must not advance the next round's byte frontier.
+          work.insert(0, skipped_branch)
+        } else {
+          advance(skipped_branch)
+        }
       }
       continue
     }
@@ -989,7 +1032,7 @@ fn Parser::parse_source(
             scan_before=branch.scanner_state,
             scan_after=token.scanner_state.unwrap_or(branch.scanner_state),
           )
-          work.push({
+          advance({
             ..branch,
             status: Active,
             states: branch.states + [next],

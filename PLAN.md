@@ -618,3 +618,14 @@ longer rewritten as absolute paths, which previously corrupted grammar names
 and could corrupt flag values. The full check script passes, including relative
 source/table paths and `--scanner ... init scanned <directory>`; all 268 native /
 265 JS / 265 Wasm GC tests remain green.
+
+Parser scheduling now advances versions in byte-frontier rounds, coalesces
+equivalent future configurations, and prunes obsolete error versions only at
+round boundaries. Recovery preparation preserves the reference's historical
+version count and does not prematurely advance the next frontier. A small
+C-oracle regression exercises two successive errors separated by a valid
+conditional; cancellation at 99 successive callback boundaries preserves both
+the result and parse-step count. All checks pass: 269 native / 266 JS / 266
+Wasm GC and CLI smoke checks. The public corpus matrix is now entirely green:
+JSON 6/6, C 85/85, JavaScript 116/116, Go 67/67, plus 11 query compilations.
+This remains a selected compatibility baseline, not proof of a complete port.

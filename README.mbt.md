@@ -151,12 +151,12 @@ unchanged upstream corpora:
 | JSON v0.24.8 | 6 / 6 |
 | C v0.24.2 | 85 / 85 |
 | JavaScript v0.25.0, with a MoonBit scanner | 116 / 116 |
-| Go v0.25.0 | 66 / 67 |
+| Go v0.25.0 | 67 / 67 |
 
 All 11 shipped query files also pass compilation against the generated tables.
 This checks query syntax and grammar references, not highlight/tag execution.
-The remaining public corpus case involves recovery around a malformed Go
-reserved keyword. It remains a failure in the matrix, and the audit exits nonzero.
+All 274 corpus cases pass. These include malformed-input recovery cases;
+the audit exits nonzero for any corpus or query compilation failure.
 
 Remaining compatibility work includes ambiguous-forest incremental reuse,
 incremental optimization for encoded/included-range inputs, broader upstream API
