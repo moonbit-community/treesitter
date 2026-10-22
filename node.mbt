@@ -1,6 +1,10 @@
 ///|
 priv struct NodeData {
   id : Int32
+  changed : Bool
+  origin_start : Int32
+  origin_end : Int32
+  dynamic_score : Int32
   symbol : Int32
   kind : String
   named : Bool

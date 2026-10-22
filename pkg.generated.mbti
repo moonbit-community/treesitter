@@ -9,6 +9,11 @@ import {
 // Values
 
 // Errors
+pub suberror EditError {
+  InvalidEdit(String)
+} derive(@debug.Debug)
+pub fn EditError::to_repr(Self) -> @debug.Repr
+
 pub suberror ParseError {
   Cancelled
   ParseLimit(String)
@@ -17,6 +22,18 @@ pub suberror ParseError {
 pub fn ParseError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+pub(all) struct InputEdit {
+  start_byte : Int32
+  old_end_byte : Int32
+  new_end_byte : Int32
+  start_point : Point
+  old_end_point : Point
+  new_end_point : Point
+} derive(Eq, @debug.Debug)
+pub fn InputEdit::equal(Self, Self) -> Bool
+pub fn InputEdit::not_equal(Self, Self) -> Bool
+pub fn InputEdit::to_repr(Self) -> @debug.Repr
+
 pub struct Node {
   // private fields
 }
@@ -29,6 +46,7 @@ pub fn Node::descendant_for_byte_range(Self, Int32, Int32, named? : Bool) -> Sel
 pub fn Node::end_byte(Self) -> Int32
 pub fn Node::end_position(Self) -> Point
 pub fn Node::field_name_for_child(Self, Int32) -> String?
+pub fn Node::has_changes(Self) -> Bool
 pub fn Node::has_error(Self) -> Bool
 pub fn Node::id(Self) -> Int32
 pub fn Node::is_error(Self) -> Bool
@@ -54,7 +72,7 @@ pub struct Parser {
   // private fields
 }
 pub fn Parser::new(@language.Language) -> Self raise @language.LanguageError
-pub fn Parser::parse(Self, Bytes, max_steps? : Int32, max_branches? : Int32, max_errors? : Int32, cancelled? : () -> Bool) -> Tree raise ParseError
+pub fn Parser::parse(Self, Bytes, old_tree? : Tree, max_steps? : Int32, max_branches? : Int32, max_errors? : Int32, cancelled? : () -> Bool) -> Tree raise ParseError
 pub fn Parser::parse_string(Self, String) -> Tree raise ParseError
 
 pub(all) struct Point {
@@ -85,10 +103,15 @@ pub fn Range::to_json(Self) -> Json
 pub fn Range::to_repr(Self) -> @debug.Repr
 
 pub struct Tree {
+  reused_subtrees : Int32
+  parse_steps : Int32
   source : Bytes
   language : @language.Language
   // private fields
 }
+pub fn Tree::changed_ranges(Self, Self) -> Array[Range]
+pub fn Tree::copy(Self) -> Self
+pub fn Tree::edit(Self, InputEdit) -> Unit raise EditError
 pub fn Tree::root_node(Self) -> Node
 pub fn Tree::walk(Self) -> TreeCursor
 

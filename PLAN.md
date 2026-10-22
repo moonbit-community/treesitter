@@ -112,3 +112,14 @@ Six integration tests exercise generated languages and expected trees; 20 tests
 pass across native, JS and Wasm GC. Recovery is not yet upstream-equivalent.
 Incremental reuse, included ranges, scanner persistence and complete node/cursor
 API coverage remain open.
+
+### Incremental checkpoint
+
+Added persistent tree copies, input edits, byte/point relocation, change flags,
+conservative suffix-subtree reuse guarded by identical remaining source and LR
+entry state, and structural changed ranges. Reuse counters and parser-step
+counts are observable. Tests verify identity reuse, reduced parser steps,
+fresh/incremental agreement, newline relocation, consecutive edits, and fallback
+when source changes without edits or languages differ. 23 tests pass on all
+three targets. This is conservative reuse, not yet upstream's full reuse and
+changed-range algorithms; included ranges and external scanner states remain.

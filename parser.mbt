@@ -60,6 +60,7 @@ fn Parser::node(
   next_state : Int32,
   extra~ : Bool = false,
   missing~ : Bool = false,
+  dynamic_score~ : Int32 = 0,
 ) -> Node {
   let id = self.next_id
   self.next_id += 1
@@ -76,6 +77,10 @@ fn Parser::node(
   {
     data: {
       id,
+      changed: false,
+      origin_start: start,
+      origin_end: end,
+      dynamic_score,
       symbol,
       kind: meta.name,
       named: meta.named,
@@ -270,6 +275,10 @@ fn Parser::reduce(
   } else {
     branch.entries.last().unwrap().node.end_byte()
   }
+  let score = branch.entries[index:].fold(init=production.dynamic_precedence, (
+    total,
+    e,
+  ) => total + e.node.data.dynamic_score)
   let node = self.node(
     production.lhs,
     start,
@@ -278,6 +287,7 @@ fn Parser::reduce(
     children,
     previous_state,
     next_state,
+    dynamic_score=score,
   )
   let entries = branch.entries[:index].to_owned()
   entries.push({ node, leading, })
@@ -340,11 +350,37 @@ fn Parser::finish(
 pub fn Parser::parse(
   self : Parser,
   source : Bytes,
+  old_tree? : Tree,
   max_steps~ : Int32 = 100000,
   max_branches~ : Int32 = 10000,
   max_errors~ : Int32 = 20,
   cancelled~ : () -> Bool = () => false,
 ) -> Tree raise ParseError {
+  if cancelled() {
+    raise Cancelled
+  }
+  let mut reused_subtrees = 0
+  let reusable = match old_tree {
+    Some(tree) if physical_equal(tree.language, self.language) => {
+      if !tree.edited && tree.source == source {
+        return {
+          root: tree.root,
+          source,
+          language: self.language,
+          edited: false,
+          edited_length: source.length(),
+          reused_subtrees: 1,
+          parse_steps: 0,
+        }
+      }
+      if tree.edited && tree.edited_length == source.length() {
+        reuse_candidates(tree, source)
+      } else {
+        Map([])
+      }
+    }
+    _ => Map([])
+  }
   let lines = line_starts(source)
   let work : Array[Branch] = [
     {
@@ -400,6 +436,20 @@ pub fn Parser::parse(
     }
     visited[key] = (branch.cost, branch.dynamic)
     let state = branch.states.last().unwrap()
+    if !token.missing && reusable.get((branch.offset, state)) is Some(candidate) {
+      let node = reset_origin(candidate)
+      reused_subtrees += 1
+      work.push({
+        ..branch,
+        states: branch.states + [node.next_parse_state()],
+        entries: branch.entries + [{ node, leading: branch.pending, }],
+        pending: [],
+        offset: node.end_byte(),
+        lookahead: None,
+        dynamic: branch.dynamic + node.data.dynamic_score,
+      })
+      continue
+    }
     let actions = self.language.states[state].actions
       .get(token.symbol)
       .unwrap_or([])
@@ -491,7 +541,16 @@ pub fn Parser::parse(
     }
   }
   match best {
-    Some((root, _, _)) => { root, source, language: self.language, }
+    Some((root, _, _)) =>
+      {
+        root,
+        source,
+        language: self.language,
+        edited: false,
+        edited_length: source.length(),
+        reused_subtrees,
+        parse_steps: steps,
+      }
     None => raise NoParse(furthest)
   }
 }

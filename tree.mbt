@@ -1,6 +1,10 @@
 ///|
 pub struct Tree {
-  priv root : Node
+  priv mut root : Node
+  priv mut edited_length : Int32
+  priv mut edited : Bool
+  reused_subtrees : Int32
+  parse_steps : Int32
   source : Bytes
   language : @language.Language
 }
