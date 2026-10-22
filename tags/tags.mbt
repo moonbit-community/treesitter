@@ -51,11 +51,17 @@ pub fn Configuration::generate(
   cancelled~ : () -> Bool = () => false,
 ) -> Array[Tag] raise @query.QueryError {
   let locals = @query.Locals::new(self.locals, tree)
-  let matches = self.query.matches(tree.root_node(), tree.source, cancelled~, property=(
-    key,
-    _,
-    node,
-  ) => key == "local" && node is Some(node) && locals.is_local(node))
+  // General predicates are consumer metadata, as in the upstream tagger.
+  // Documentation directives are interpreted by Match.texts below.
+  let matches = self.query.matches(
+    tree.root_node(),
+    tree.source,
+    cancelled~,
+    property=(key, _, node) => {
+      key == "local" && node is Some(node) && locals.is_local(node)
+    },
+    predicate=(_, _, _, _) => true,
+  )
   matches.sort_by_key(m => m.pattern_index)
   let ignored = []
   for matched in matches {
@@ -78,9 +84,7 @@ pub fn Configuration::generate(
       }
       let syntax_type = capture.name[if definition { 11 } else { 10 }:].to_owned()
       for name in matched.captures {
-        if name.name != "name" ||
-          name.node.start_byte() < capture.node.start_byte() ||
-          name.node.end_byte() > capture.node.end_byte() {
+        if name.name != "name" || name.node.has_error() {
           continue
         }
         if ignored.any(r => {
@@ -99,7 +103,23 @@ pub fn Configuration::generate(
           name: name.node.text(tree.source),
           syntax_type,
           is_definition: definition,
-          range: capture.node.range(),
+          range: {
+            start_byte: Int32::min(
+              capture.node.start_byte(),
+              name.node.start_byte(),
+            ),
+            end_byte: Int32::max(capture.node.end_byte(), name.node.end_byte()),
+            start_point: if capture.node.start_byte() < name.node.start_byte() {
+              capture.node.start_position()
+            } else {
+              name.node.start_position()
+            },
+            end_point: if capture.node.end_byte() > name.node.end_byte() {
+              capture.node.end_position()
+            } else {
+              name.node.end_position()
+            },
+          },
           name_range: name.node.range(),
           docs: if docs.is_empty() {
             None

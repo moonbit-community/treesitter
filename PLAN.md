@@ -640,3 +640,12 @@ optional prefixes now coexist with populated matches for different captures,
 while populated alternatives dominate their own empty alternatives. Frozen
 C-query examples cover both sibling groups and child patterns. All 29 query
 tests pass on native, JS and Wasm GC.
+
+Highlight captures now follow upstream's later-pattern precedence, including
+local-definition color inheritance. Tags allow names outside their syntax
+capture and union the two extents; names containing syntax errors are skipped.
+Highlight/tag consumers ignore unrecognized general directives as upstream
+does, while retaining text/property filtering and documentation directives.
+The complete check script passes 271 native / 268 JS / 268 Wasm GC tests.
+Executing the unchanged public C/JavaScript highlight and tag fixtures now
+passes all 90 position assertions across nine files.

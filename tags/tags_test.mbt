@@ -78,3 +78,37 @@ test "earlier tag pattern wins competing classifications for the same name" {
   assert_true(tags[0].is_definition)
   assert_eq(tags[0].syntax_type, "function")
 }
+
+///|
+// JavaScript's shipped tag query captures the member name and argument list
+// separately. Upstream extends the tag range to include both captures.
+test "tag ranges include names outside the syntax capture" {
+  let language = @generate.generate(
+    @grammar.Grammar::new("member_call", [
+      (
+        "call",
+        Seq([
+          Symbol("identifier"),
+          Literal("."),
+          Symbol("identifier"),
+          Symbol("arguments"),
+        ]),
+      ),
+      ("identifier", @grammar.pattern("[a-z]+")),
+      ("arguments", Seq([Literal("("), Literal(")")])),
+    ]),
+  )
+  let tree = @ts.Parser::new(language).parse_string("object.method()")
+  let config = @tags.Configuration::new(
+    language, "((call (identifier) . (identifier) @name (arguments) @reference.call) (#consumer-directive! @name))",
+  )
+  let tags = config.generate(tree)
+  assert_eq(tags.length(), 1)
+  assert_eq(tags[0].name, "method")
+  assert_eq((tags[0].range.start_byte, tags[0].range.end_byte), (7, 15))
+  assert_eq(
+    (tags[0].name_range.start_byte, tags[0].name_range.end_byte),
+    (7, 13),
+  )
+  assert_eq(tags[0].range.start_point, tags[0].name_range.start_point)
+}

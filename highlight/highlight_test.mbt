@@ -29,13 +29,19 @@ test "highlight events cover source and remain balanced" {
 }
 
 ///|
-test "highlight configuration resolves dotted names and earlier patterns" {
+test "highlight configuration resolves dotted names and later patterns" {
   let language = @arithmetic.language()
   let tree = @ts.Parser::new(language).parse_string("12")
   let config = @highlight.Configuration::new(
     language,
     "(number) @constant.numeric\n(number) @variable",
     names=["constant", "variable"],
+  )
+  assert_eq(config.html(tree), "<span class=\"variable\">12</span>")
+  let config = @highlight.Configuration::new(
+    language,
+    "((number) @constant.numeric (#consumer-directive! @constant.numeric))",
+    names=["constant"],
   )
   assert_eq(config.html(tree), "<span class=\"constant\">12</span>")
 }
@@ -64,6 +70,15 @@ test "local references inherit definition highlights" {
   let config = @highlight.Configuration::new(
     language,
     "(binding (identifier) @variable.definition)\n((identifier) @constant (#is-not? local))\n(identifier) @variable",
+    locals="(binding (identifier) @local.definition)\n(identifier) @local.reference",
+  )
+  assert_eq(
+    config.html(tree),
+    "let <span class=\"variable\">x</span>; <span class=\"variable\">x</span> <span class=\"variable\">y</span>",
+  )
+  let config = @highlight.Configuration::new(
+    language,
+    "(identifier) @variable\n(binding (identifier) @variable.definition)\n((identifier) @constant (#is-not? local))",
     locals="(binding (identifier) @local.definition)\n(identifier) @local.reference",
   )
   assert_eq(

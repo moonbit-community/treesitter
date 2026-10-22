@@ -74,7 +74,7 @@ priv struct Span {
 ///|
 /// Produce a balanced event stream covering every source byte, including
 /// unhighlighted text. Nested and crossing captures are closed and reopened at
-/// boundaries; earlier query patterns win ties for identical ranges.
+/// boundaries; later query patterns win ties for identical ranges.
 pub fn Configuration::highlight(
   self : Configuration,
   tree : @ts.Tree,
@@ -105,28 +105,41 @@ fn Configuration::collect(
 ) -> Array[Span] raise {
   let spans : Array[Span] = []
   let locals = @query.Locals::new(self.locals, tree)
-  let definitions : Map[(Int32, Int32), String] = Map([])
-  for
-    matched in self.query.matches(tree.root_node(), tree.source, cancelled~, property=(
-      key,
-      _,
-      node,
-    ) => key == "local" && node is Some(node) && locals.is_local(node)) {
+  let definitions : Map[(Int32, Int32), (Int32, String)] = Map([])
+  // General directives are consumer metadata. As in the upstream highlighter,
+  // unknown directives do not filter matches; text/property predicates still do.
+  let matches = self.query.matches(
+    tree.root_node(),
+    tree.source,
+    cancelled~,
+    property=(key, _, node) => {
+      key == "local" && node is Some(node) && locals.is_local(node)
+    },
+    predicate=(_, _, _, _) => true,
+  )
+  for matched in matches {
+    for capture in matched.captures {
+      if locals.definition(capture.node) is Some(node) &&
+        node.start_byte() == capture.node.start_byte() &&
+        self.name(capture.name) is Some(name) {
+        let key = (node.start_byte(), node.end_byte())
+        if definitions.get(key) is None ||
+          definitions[key].0 <= matched.pattern_index {
+          definitions[key] = (matched.pattern_index, name)
+        }
+      }
+    }
+  }
+  for matched in matches {
     for capture in matched.captures {
       if capture.node.end_byte() > capture.node.start_byte() &&
         self.name(capture.name) is Some(name) {
         let definition = locals.definition(capture.node)
-        if definition is Some(node) &&
-          node.start_byte() == capture.node.start_byte() {
-          let key = (node.start_byte(), node.end_byte())
-          if !definitions.contains(key) {
-            definitions[key] = name
-          }
-        }
         let name = match definition {
           Some(node) =>
             definitions
             .get((node.start_byte(), node.end_byte()))
+            .map(value => value.1)
             .unwrap_or(name)
           None => name
         }
@@ -136,7 +149,7 @@ fn Configuration::collect(
           capture.node.start_byte(),
           capture.node.end_byte(),
           name,
-          matched.pattern_index - depth * 100000,
+          -matched.pattern_index - depth * 100000,
         )
       }
     }
@@ -147,6 +160,7 @@ fn Configuration::collect(
       tree.root_node(),
       tree.source,
       cancelled~,
+      predicate=(_, _, _, _) => true,
     ) {
     let language_name = matched.captures
       .filter(c => c.name == "injection.language")
