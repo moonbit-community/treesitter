@@ -372,3 +372,20 @@ error_recovery_loop corpus now passes unchanged. UTF-8 callback input is also
 implemented with cancellation and an input-size bound. Native: 152 tests pass;
 portable target results and broader real-language corpora are the next gate.
 The pinned generator now builds with Rust 1.90 as a development-only reference.
+
+### Real JSON corpus and node schemas
+
+The pinned JSON v0.24.8 grammar now passes all six unchanged upstream error
+corpus cases. Lexer failures retain invalid runs and the failing EOF codepoint;
+corpus comparison optionally omits fields as upstream does. The same corpus
+passes with the pinned reference generator/runtime. Native/JS/Wasm GC: 153/152/152.
+
+Added language.node_types() and the native node-types command. It describes
+aliases, hidden-rule field propagation, recursive cardinalities, supertypes,
+root/extra flags and lexical identities. Differential comparison matches JSON
+and 61 of 62 accepted upstream fixture schemas exactly; those 61 schemas are
+frozen as portable regressions. The remaining uses_current_column difference is
+its block's named-child required flag: this implementation computes true for
+repeat1(statement), while upstream reports false. Track this metadata difference
+rather than changing either expected snapshot silently. tools/audit_node_types.py
+reproduces the complete schema audit with the pinned generator.

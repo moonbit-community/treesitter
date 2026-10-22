@@ -47,6 +47,7 @@ pub fn Language::equal(Self, Self) -> Bool
 pub fn Language::from_json(Json) -> Self raise
 pub fn Language::lookahead(Self, Int32) -> Array[Int32]
 pub fn Language::new(String, Array[Symbol], Array[Token], Array[Production], Array[ParseState], Int32, Array[Int32], word_token? : Int32, supertypes? : Array[Int32], externals? : Array[Int32]) -> Self raise LanguageError
+pub fn Language::node_types(Self) -> Json
 pub fn Language::not_equal(Self, Self) -> Bool
 pub fn Language::parse(StringView) -> Self raise
 pub fn Language::symbol_id(Self, String, named? : Bool) -> Int32?

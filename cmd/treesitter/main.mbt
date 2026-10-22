@@ -44,7 +44,7 @@ async fn run() -> Unit {
   let args = @env.args()
   if args.length() < 2 {
     raise Usage(
-      "usage: treesitter generate <grammar.mbtx|json> <language.json> | grammar-json <grammar.mbtx> | parse <language.json> <source> | test <language.json> <corpus.txt> | query|highlight|tags <language.json> <query.scm> <source> | emit <language.json> <language.mbt>",
+      "usage: treesitter generate <grammar.mbtx|json> <language.json> | grammar-json <grammar.mbtx> | parse <language.json> <source> | test <language.json> <corpus.txt> | query|highlight|tags <language.json> <query.scm> <source> | emit <language.json> <language.mbt> | node-types <language.json> <node-types.json>",
     )
   }
   let current_dir = @env.current_dir().unwrap_or(".")
@@ -53,7 +53,7 @@ async fn run() -> Unit {
     "--version" | "version" => println("treesitter.mbt 0.1.0")
     "--help" | "help" =>
       println(
-        "treesitter generate <grammar.mbtx|json> <language.json> | parse [language.json] <source> | parse --cst <language.json> <source> | test <language.json> <corpus-file-or-directory> | query|highlight|tags <language.json> <query.scm> <source> | languages [config.json] | init-config <path> | emit <language.json> <language.mbt> | grammar-json <grammar.mbtx>",
+        "treesitter generate <grammar.mbtx|json> <language.json> | parse [language.json] <source> | parse --cst <language.json> <source> | test <language.json> <corpus-file-or-directory> | query|highlight|tags <language.json> <query.scm> <source> | languages [config.json] | init-config <path> | emit <language.json> <language.mbt> | node-types <language.json> <node-types.json> | grammar-json <grammar.mbtx>",
       )
     "languages" if args.length() <= 3 => {
       let directories = @loader.parser_directories(path?=args.get(2))
@@ -114,6 +114,11 @@ async fn run() -> Unit {
         "Generated \{language.name}: \{language.states.length()} states, \{language.productions.length()} productions",
       )
     }
+    "node-types" if args.length() == 4 =>
+      write_file(
+        args[3],
+        @loader.load_language(args[2]).node_types().stringify(indent=2),
+      )
     "grammar-json" if args.length() == 3 => {
       let grammar = @loader.run_grammar(args[2], root)
       println(Json(grammar).stringify(indent=2))
