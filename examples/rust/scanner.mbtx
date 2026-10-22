@@ -1,0 +1,289 @@
+///|
+/// Pure MoonBit translation of tree-sitter-rust v0.24.2's external scanner.
+/// Token indices and the one-byte state follow the pinned upstream grammar.
+/// See NOTICE and the adjacent MIT license.
+import {
+  "bobzhang/treesitter" @ts,
+  "bobzhang/treesitter/lex",
+}
+
+///|
+fn whitespace(c : Int32) -> Bool {
+  match c {
+    9..<=13
+    | 32
+    | 0x1680
+    | 0x2000..<=0x2006
+    | 0x2008..<=0x200a
+    | 0x2028
+    | 0x2029
+    | 0x205f
+    | 0x3000 => true
+    _ => false
+  }
+}
+
+///|
+fn digit(c : Int32) -> Bool {
+  c >= 48 && c <= 57
+}
+
+///|
+fn number_char(c : Int32) -> Bool {
+  c == 95 || digit(c)
+}
+
+///|
+let alphabetic : @lex.Expr = try! @lex.parse("\\p{Alphabetic}")
+
+///|
+fn alpha(c : Int32) -> Bool {
+  match alphabetic {
+    Concat([Chars(set)]) => set.contains(c)
+    _ => false
+  }
+}
+
+///|
+fn string_content(input : @ts.ScannerInput) -> Bool {
+  let mut content = false
+  while input.lookahead() != 34 && input.lookahead() != 92 {
+    if input.eof() {
+      return false
+    }
+    input.advance()
+    content = true
+  }
+  input.mark_end()
+  content
+}
+
+///|
+fn raw_start(input : @ts.ScannerInput) -> Int32? {
+  if input.lookahead() is (98 | 99) {
+    input.advance()
+  }
+  if input.lookahead() != 114 {
+    return None
+  }
+  input.advance()
+  let mut hashes = 0
+  while input.lookahead() == 35 {
+    input.advance()
+    hashes = (hashes + 1) & 255
+  }
+  if input.lookahead() != 34 {
+    return None
+  }
+  input.advance()
+  Some(hashes)
+}
+
+///|
+fn raw_content(input : @ts.ScannerInput, opening : Int32) -> Bool {
+  while !input.eof() {
+    if input.lookahead() == 34 {
+      input.mark_end()
+      input.advance()
+      let mut hashes = 0
+      while input.lookahead() == 35 && hashes < opening {
+        input.advance()
+        hashes += 1
+      }
+      if hashes == opening {
+        return true
+      }
+    } else {
+      input.advance()
+    }
+  }
+  false
+}
+
+///|
+fn float_literal(input : @ts.ScannerInput) -> Bool {
+  input.advance()
+  while number_char(input.lookahead()) {
+    input.advance()
+  }
+  let mut fraction = false
+  let mut exponent = false
+  if input.lookahead() == 46 {
+    fraction = true
+    input.advance()
+    if alpha(input.lookahead()) || input.lookahead() == 46 {
+      return false
+    }
+    while number_char(input.lookahead()) {
+      input.advance()
+    }
+  }
+  input.mark_end()
+  if input.lookahead() is (101 | 69) {
+    exponent = true
+    input.advance()
+    if input.lookahead() is (43 | 45) {
+      input.advance()
+    }
+    if !number_char(input.lookahead()) {
+      return true
+    }
+    input.advance()
+    while number_char(input.lookahead()) {
+      input.advance()
+    }
+    input.mark_end()
+  }
+  if !exponent && !fraction {
+    return false
+  }
+  if !(input.lookahead() is (117 | 105 | 102)) {
+    return true
+  }
+  input.advance()
+  if !digit(input.lookahead()) {
+    return true
+  }
+  while digit(input.lookahead()) {
+    input.advance()
+  }
+  input.mark_end()
+  true
+}
+
+///|
+fn block_comment(input : @ts.ScannerInput, valid : Array[Bool]) -> Int32? {
+  // The reference converts lookahead to char before examining comment markers.
+  let first = input.lookahead() & 255
+  if valid[7] && first == 33 {
+    input.advance()
+    return Some(7)
+  }
+  if valid[6] && first == 42 {
+    input.advance()
+    input.mark_end()
+    if input.lookahead() == 47 {
+      return None
+    }
+    if input.lookahead() != 42 {
+      return Some(6)
+    }
+  } else {
+    input.advance()
+  }
+  if !valid[8] {
+    return None
+  }
+  // State 0 continues, 1 follows '/', and 2 follows '*'.
+  let mut state = if first == 42 {
+    if input.lookahead() == 47 {
+      return None
+    }
+    2
+  } else if first == 47 {
+    1
+  } else {
+    0
+  }
+  let mut depth = 1
+  while !input.eof() && depth != 0 {
+    let current = input.lookahead() & 255
+    match state {
+      1 => {
+        if current == 42 {
+          depth += 1
+        }
+        state = 0
+      }
+      2 =>
+        if current == 42 {
+          input.mark_end()
+        } else {
+          if current == 47 {
+            depth -= 1
+          }
+          state = 0
+        }
+      _ => {
+        input.mark_end()
+        if current == 47 {
+          state = 1
+        }
+        if current == 42 {
+          state = 2
+        }
+      }
+    }
+    input.advance()
+    if current == 47 && depth != 0 {
+      input.mark_end()
+    }
+  }
+  Some(8)
+}
+
+///|
+pub fn scanner(language : String) -> @ts.ExternalScanner? {
+  if language != "rust" {
+    return None
+  }
+  Some(
+    @ts.ExternalScanner::new((input, valid, state) => {
+      if valid.length() != 11 || valid[10] {
+        return None
+      }
+      let hashes = if state.length() == 1 { state[0].to_int() } else { 0 }
+      fn result(token : Int32) -> @ts.ScanResult? {
+        Some({ token, state: Bytes::from_array([hashes.to_byte()]), })
+      }
+      if valid[8] || valid[7] || valid[6] {
+        return match block_comment(input, valid) {
+          Some(token) => result(token)
+          None => None
+        }
+      }
+      if valid[0] && !valid[5] && string_content(input) {
+        return result(0)
+      }
+      if valid[1] && input.lookahead() == 34 {
+        input.advance()
+        input.mark_end()
+        return result(1)
+      }
+      if valid[9] {
+        while !input.eof() {
+          let c = input.lookahead()
+          input.advance()
+          if c == 10 {
+            break
+          }
+        }
+        return result(9)
+      }
+      while whitespace(input.lookahead()) {
+        input.advance(skip=true)
+      }
+      if valid[2] && input.lookahead() is (114 | 98 | 99) {
+        return match raw_start(input) {
+          Some(hashes) =>
+            Some({ token: 2, state: Bytes::from_array([hashes.to_byte()]), })
+          None => None
+        }
+      }
+      if valid[3] {
+        return if raw_content(input, hashes) { result(3) } else { None }
+      }
+      if valid[4] && input.lookahead() == 34 {
+        input.advance()
+        for _ in 0..<hashes {
+          input.advance()
+        }
+        return result(4)
+      }
+      if valid[5] && digit(input.lookahead()) && float_literal(input) {
+        return result(5)
+      }
+      None
+    }),
+  )
+}

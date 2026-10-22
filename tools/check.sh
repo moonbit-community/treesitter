@@ -43,4 +43,4 @@ test -f "$grammar_init_dir/scanned/example.scanned"
   cmp outside-scanner.sexp "$tree_sitter_root/examples/quoted/expected.sexp"
 )
 moon fmt --check
-moon fmt --check examples/grammar.mbtx examples/json/grammar.mbtx examples/quoted/grammar.mbtx examples/quoted/scanner.mbtx examples/javascript/scanner.mbtx
+moon fmt --check examples/grammar.mbtx examples/json/grammar.mbtx examples/quoted/grammar.mbtx examples/quoted/scanner.mbtx examples/javascript/scanner.mbtx examples/rust/scanner.mbtx

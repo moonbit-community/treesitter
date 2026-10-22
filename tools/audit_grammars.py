@@ -19,7 +19,6 @@ from audit_examples import audit as audit_examples
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "_build/grammar-matrix"
-MANIFEST = json.loads((ROOT / "tools/grammar_matrix.json").read_text())
 
 
 def run_logged(command, path, timeout):
@@ -35,9 +34,12 @@ def run_logged(command, path, timeout):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fetch", action="store_true", help="fetch missing pinned checkouts")
+    parser.add_argument("--manifest", type=Path, default=ROOT / "tools/grammar_matrix.json",
+                        help="pinned grammar manifest (candidate suites may still fail)")
     parser.add_argument("names", nargs="*")
     args = parser.parse_args()
-    known = {entry["name"] for entry in MANIFEST}
+    manifest = json.loads(args.manifest.read_text())
+    known = {entry["name"] for entry in manifest}
     if set(args.names) - known:
         parser.error("unknown grammar: " + ", ".join(sorted(set(args.names) - known)))
     OUT.mkdir(parents=True, exist_ok=True)
@@ -45,7 +47,7 @@ def main():
                    cwd=ROOT, check=True)
     cli = ROOT / "_build/native/release/build/cmd/treesitter/treesitter.exe"
     results = []
-    for entry in MANIFEST:
+    for entry in manifest:
         name = entry["name"]
         if args.names and name not in args.names:
             continue

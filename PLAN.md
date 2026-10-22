@@ -738,3 +738,23 @@ and grammar lookaheads. A small C-oracle regression checks both the excluded
 greedy token and the recovered tree, alongside valid comments and macro input.
 Full checks pass 280 native / 272 JS / 272 Wasm GC. This resolves Rust's malformed
 string-prefix case; two malformed macro-body recovery cases remain different.
+
+Added a pure MoonBit Rust external scanner with the upstream one-byte raw-string
+state, nested comments, doc markers/content, string boundaries and float scanning.
+The source and preserved MIT license are in examples/rust. The separate candidate
+manifest pins Rust v0.24.2 at `77a3747266f4d621d0757825e6b11edcbf991ca5`.
+`tools/audit_grammars.py --manifest tools/grammar_candidates.json` generates 67,636
+states and 4,635 productions, passes 149/151 corpus cases, compiles three query
+files, and passes 906 edit/undo checks. It deliberately exits nonzero for `Json
+macro contents` and `Longer json macro contents`; these are not blessed as expected
+successes or included in the passing five-grammar CI totals.
+
+Changing recovery scanner validity alone did not resolve those cases and changed
+the longer malformed tree; that runtime experiment was reverted. The pinned C
+trace retains competing stack histories through potential reductions and merges
+their recovery versions, while the port commits to flat histories. The next
+runtime step is to preserve those histories through reductions, recovery pops,
+and version condensation, with the existing 1,153-edit differential probe and
+all six public grammars as checks. The five-grammar audit remains fully passing
+after the generator fix (311 corpora / 12 queries / 90 annotations / 1,866 edits /
+10 full-source named trees).
