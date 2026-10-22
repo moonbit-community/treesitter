@@ -559,3 +559,11 @@ shows a remaining Go recovery problem: a context-only raw-string-content token
 can consume the rest of the source in fallback lexing. Upstream's recovery-token
 conflict analysis excludes such tokens; the port still needs that analysis.
 The pinned reference generator/runtime was also verified at Go 67/67.
+
+Custom input decoding now accepts a stateless application decoder while retaining
+original byte coordinates. Invalid scalar values and byte counts become U+FFFD
+with guaranteed forward progress. Decoder identity gates incremental reuse;
+node text, points, and external scanner columns use the same decoding path.
+Three tests cover Latin-1, variable-width scalars, malformed decoder results,
+and scanner columns. The complete check script passes 257 native / 256 JS /
+256 Wasm GC tests and the CLI smoke checks.

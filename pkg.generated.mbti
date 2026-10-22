@@ -29,6 +29,16 @@ pub struct ExternalScanner {
 }
 pub fn ExternalScanner::new((ScannerInput, Array[Bool], Bytes) -> ScanResult?) -> Self
 
+pub struct InputDecoder {
+  // private fields
+}
+pub fn InputDecoder::equal(Self, Self) -> Bool
+pub fn InputDecoder::new((BytesView) -> (Int32, Int32)) -> Self
+pub fn InputDecoder::not_equal(Self, Self) -> Bool
+pub fn InputDecoder::to_repr(Self) -> @debug.Repr
+pub impl Eq for InputDecoder
+pub impl @debug.Debug for InputDecoder
+
 pub(all) struct InputEdit {
   start_byte : Int32
   old_end_byte : Int32
@@ -45,6 +55,7 @@ pub(all) enum InputEncoding {
   Utf8
   Utf16LE
   Utf16BE
+  Custom(InputDecoder)
 } derive(Eq, @debug.Debug)
 pub fn InputEncoding::equal(Self, Self) -> Bool
 pub fn InputEncoding::not_equal(Self, Self) -> Bool

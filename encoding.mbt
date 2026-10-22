@@ -3,6 +3,7 @@ pub(all) enum InputEncoding {
   Utf8
   Utf16LE
   Utf16BE
+  Custom(InputDecoder)
 } derive(Eq, Debug)
 
 ///|
@@ -13,6 +14,20 @@ fn decode_input_codepoint(
 ) -> (Int32, Int32) {
   if encoding == Utf8 {
     return @lex.decode(source, offset)
+  }
+  if encoding is Custom(decoder) {
+    let (scalar, consumed) = (decoder.decode)(source[offset:])
+    if consumed <= 0 || consumed > source.length() - offset {
+      return (0xfffd, 1)
+    }
+    let scalar = if scalar < 0 ||
+      scalar > 0x10ffff ||
+      (scalar >= 0xd800 && scalar <= 0xdfff) {
+      0xfffd
+    } else {
+      scalar
+    }
+    return (scalar, consumed)
   }
   if offset + 1 >= source.length() {
     return (0xfffd, 1)
@@ -87,7 +102,7 @@ pub fn Tree::text(self : Tree, start : Int32, end : Int32) -> String {
 }
 
 ///|
-/// Parse UTF-8 or UTF-16, retaining offsets and point columns in source bytes.
+/// Parse UTF-8, UTF-16, or a custom encoding, retaining source byte coordinates.
 /// Included ranges are concatenated before decoding, so a scalar may span ranges.
 /// Malformed code units become replacement characters and always make progress.
 pub fn Parser::parse_encoded(

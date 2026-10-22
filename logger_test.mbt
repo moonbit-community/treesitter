@@ -32,7 +32,7 @@ test "parser diagnostics persist across cancellation and resumption" {
     ignore(parser.parse(b"x", cancelled=() => !events.is_empty()))
     false
   } catch {
-    @treesitter.Cancelled => true
+    Cancelled => true
     _ => false
   }
   assert_true(cancelled)
