@@ -147,7 +147,18 @@ pub fn run(
         actual: "",
       }
     }
-    let root = parser.parse_string(case.input).root_node()
+    let root = parser.parse_string(case.input).root_node() catch {
+        error => {
+          parser.reset()
+          return {
+            name: case.name,
+            passed: false,
+            skipped: false,
+            expected: case.expected,
+            actual: "parse failed: \{error.to_repr()}",
+          }
+        }
+      }
     let actual = if case.cst {
       render_cst(root, case.input)
     } else {

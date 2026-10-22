@@ -3,3 +3,8 @@ import {
   "bobzhang/treesitter/language",
   "moonbitlang/core/encoding/utf8",
 }
+
+import {
+  "bobzhang/treesitter/generate",
+  "bobzhang/treesitter/grammar",
+} for "test"
