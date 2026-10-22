@@ -56,3 +56,37 @@ test "legacy tables retain recovery tokens and invalid recovery symbols fail" {
     _ => fail("accepted a nonterminal recovery symbol")
   }
 }
+
+///|
+test "stack recovery leaves trailing comments outside the error subtree" {
+  let language = @generate.generate(
+    @grammar.Grammar::new(
+      "trailing_fixture",
+      [
+        ("document", Repeat(Choice([Symbol("member"), Symbol("conditional")]))),
+        (
+          "member",
+          Seq([Symbol("identifier"), Literal("."), Literal("end"), Literal(";")]),
+        ),
+        (
+          "conditional",
+          Seq([Literal("if"), Symbol("identifier"), Literal(";")]),
+        ),
+        ("identifier", @grammar.pattern("[a-z]+")),
+        ("comment", @grammar.pattern("//[^\\n]*")),
+      ],
+      extras=[@grammar.pattern("\\s"), Symbol("comment")],
+      word="identifier",
+      reserved={ "global": [Literal("if")] },
+    ),
+  )
+  let tree = @treesitter.Parser::new(language).parse_string(
+    "a. //comment\nif b;",
+  )
+  assert_eq(
+    tree.root_node().to_sexp(),
+    "(document (ERROR (identifier)) (comment) (conditional (identifier)))",
+  )
+  let error = tree.root_node().named_child(0).unwrap()
+  assert_eq((error.start_byte(), error.end_byte()), (0, 2))
+}

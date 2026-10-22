@@ -804,7 +804,13 @@ fn Parser::parse_source(
           discarded.push(entry.node)
         }
         discarded.append(branch.pending)
-        let pending = self.error_pending([], discarded, lines, previous)
+        let pending = self.error_pending(
+          [],
+          discarded,
+          lines,
+          previous,
+          preserve_trailing_extras=true,
+        )
         if self.logger is Some(log) {
           log(
             Parse,
@@ -1088,8 +1094,21 @@ fn Parser::error_pending(
   lines : Array[Int32],
   state : Int32,
   repeating~ : Bool = false,
+  preserve_trailing_extras~ : Bool = false,
 ) -> Array[Node] {
   let result = pending.copy()
+  let mut count = discarded.length()
+  if preserve_trailing_extras {
+    while count > 0 && discarded[count - 1].is_extra() {
+      count -= 1
+    }
+  }
+  if count == 0 {
+    result.append(discarded)
+    return result
+  }
+  let trailing = discarded[count:].to_owned()
+  let discarded = discarded[:count]
   let children : Array[ChildPart] = []
   let mut start = discarded[0].start_byte()
   if result.last() is Some(previous) && previous.data.error_repeat {
@@ -1117,6 +1136,7 @@ fn Parser::error_pending(
       extra=!repeating,
     ),
   )
+  result.append(trailing)
   result
 }
 

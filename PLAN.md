@@ -578,3 +578,9 @@ checks that string-content tokens cannot consume later words/comments after an
 invalid character. All checks pass (259 native / 258 JS / 258 Wasm GC). The Go
 string-literal corpus case now passes: Go is 66/67, with reserved-keyword recovery
 still open. JSON 6/6, C 85/85, and JavaScript 116/116 remain passing.
+
+Recovering to an earlier stack state now detaches trailing extras before
+constructing ERROR and reattaches them afterward, matching parser.c's
+recover_to_state. A C-reference fixture checks both comment placement and the
+error's byte extent. This fixes the comment placement in the second half of the
+remaining Go case, while its first competing parse still needs scheduling work.
