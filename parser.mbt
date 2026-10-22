@@ -349,15 +349,13 @@ fn Parser::finish(
   for extra in branch.pending {
     append_visible(children, extra, None)
   }
-  let start = if entry.leading.is_empty() {
-    root.start_byte()
-  } else {
-    entry.leading[0].start_byte()
-  }
-  let end = if branch.pending.is_empty() {
-    root.end_byte()
-  } else {
-    branch.pending.last().unwrap().end_byte()
+  let mut start = root.start_byte()
+  let mut end = root.end_byte()
+  // Recovery can finish an empty root at EOF and attach an earlier ERROR as
+  // pending syntax. The final root must enclose all attached children.
+  for extra in entry.leading + branch.pending {
+    start = Int32::min(start, extra.start_byte())
+    end = Int32::max(end, extra.end_byte())
   }
   Some(
     self.node(

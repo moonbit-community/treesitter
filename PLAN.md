@@ -499,3 +499,13 @@ port now does the same, with cross-target regression coverage. Go generates
 literals, and generic calls remain to investigate. Latest public results are
 JSON 6/6, C 85/85, JavaScript 115/116, Go 64/67. Upstream itself passes all 116
 JavaScript parse cases, confirming the remaining await/identifier discrepancy.
+
+The second Codex CLI ultra audit completed in _build/second-ultra-review.md,
+reporting seven concrete defects and additional full-port coverage gaps. Its
+1,153 edit probes found no incremental/fresh node mismatch but did find upstream
+changed-range discrepancies. Publication remains gated on these findings.
+
+Fixed recovery root bounds: finishing an empty root with pending ERROR syntax
+now includes that syntax in the root's extent. A pinned JSON regression checks
+incomplete-array root bounds and the empty-to-incomplete changed range on all
+three targets. This addresses second-audit finding 1.

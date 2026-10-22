@@ -15,3 +15,25 @@ test "upstream JSON error corpus" {
     assert_true(result.passed, msg="\{result.name}: \{result.actual}")
   }
 }
+
+///|
+test "empty recovered root encloses pending errors and reports insertion" {
+  let parser = @ts.Parser::new(upstream_json_language())
+  let old = parser.parse_string("")
+  old.edit({
+    start_byte: 0,
+    old_end_byte: 0,
+    new_end_byte: 1,
+    start_point: { row: 0, column: 0, },
+    old_end_point: { row: 0, column: 0, },
+    new_end_point: { row: 0, column: 1, },
+  })
+  let next = parser.parse(b"[", old_tree=old)
+  let root = next.root_node()
+  assert_eq(root.start_byte(), 0)
+  assert_eq(root.end_byte(), 1)
+  assert_eq(root.to_sexp(), "(document (ERROR))")
+  let ranges = old.changed_ranges(next)
+  assert_eq(ranges.length(), 1)
+  assert_eq((ranges[0].start_byte, ranges[0].end_byte), (0, 1))
+}
