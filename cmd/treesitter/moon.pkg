@@ -1,7 +1,6 @@
 import {
   "bobzhang/treesitter" @ts,
   "moonbitlang/async",
-  "moonbitlang/async/stdio",
   "bobzhang/treesitter/grammar",
   "bobzhang/treesitter/language",
   "bobzhang/treesitter/lex",

@@ -6,10 +6,7 @@ suberror CliError {
 ///|
 async fn main {
   run() catch {
-    error => {
-      @stdio.stderr.write("treesitter: " + describe(error) + "\n")
-      raise Usage(describe(error))
-    }
+    error => raise Failure("treesitter: " + describe(error))
   }
 }
 
