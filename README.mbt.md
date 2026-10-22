@@ -149,6 +149,8 @@ declared GLR conflicts, inlining, fields, aliases, hidden supertypes, word token
 reserved contexts, immediate tokens, external scanners, and nonterminal extras.
 Runtime support includes recovery, cancellation/resumption, UTF-8 input callbacks,
 UTF-16, included ranges, scanner snapshots, edits, subtree reuse, and changed ranges.
+Parsing has no step limit by default (`max_steps=0`); callers can set a positive
+budget or provide a cancellation callback.
 Queries include groups, quantifiers, ordered capture cursors, structural validation,
 text/property predicates, and cancellation. Highlighting supports locals and nested
 injections; tags support documentation and scope-aware name classification.

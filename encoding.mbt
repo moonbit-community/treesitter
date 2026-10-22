@@ -105,17 +105,21 @@ pub fn Tree::text(self : Tree, start : Int32, end : Int32) -> String {
 /// Parse UTF-8, UTF-16, or a custom encoding, retaining source byte coordinates.
 /// Included ranges are concatenated before decoding, so a scalar may span ranges.
 /// Malformed code units become replacement characters and always make progress.
+/// `max_steps=0` has no step limit, as in `parse`.
 pub fn Parser::parse_encoded(
   self : Parser,
   source : Bytes,
   encoding : InputEncoding,
   old_tree? : Tree,
   included_ranges~ : Array[Range] = [],
-  max_steps~ : Int32 = 100000,
+  max_steps~ : Int32 = 0,
   max_branches~ : Int32 = 10000,
   max_errors~ : Int32 = 20,
   cancelled~ : () -> Bool = () => false,
 ) -> Tree raise ParseError {
+  if max_steps < 0 {
+    raise ParseLimit("max_steps must be non-negative")
+  }
   if encoding == Utf8 {
     return self.parse(
       source,

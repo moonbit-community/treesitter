@@ -403,12 +403,13 @@ fn Parser::finish(
 /// Parse UTF-8 using generated tables. Declared conflicts explore separate
 /// stacks; error recovery explores missing tokens and skipped input with costs.
 /// Exhausted limits and cancellation are errors, never truncated success trees.
+/// `max_steps=0` (the default) has no step limit; positive values bound work.
 pub fn Parser::parse(
   self : Parser,
   source : Bytes,
   old_tree? : Tree,
   included_ranges~ : Array[Range] = [],
-  max_steps~ : Int32 = 100000,
+  max_steps~ : Int32 = 0,
   max_branches~ : Int32 = 10000,
   max_errors~ : Int32 = 20,
   cancelled~ : () -> Bool = () => false,
@@ -439,11 +440,14 @@ fn Parser::parse_source(
   old_tree? : Tree,
   projection~ : Projection? = None,
   continuation~ : ParseContinuation? = None,
-  max_steps~ : Int32 = 100000,
+  max_steps~ : Int32 = 0,
   max_branches~ : Int32 = 10000,
   max_errors~ : Int32 = 20,
   cancelled~ : () -> Bool = () => false,
 ) -> Tree raise ParseError {
+  if max_steps < 0 {
+    raise ParseLimit("max_steps must be non-negative")
+  }
   if cancelled() {
     raise Cancelled
   }
@@ -603,7 +607,7 @@ fn Parser::parse_source(
       )
     }
     steps += 1
-    if steps > max_steps {
+    if max_steps > 0 && steps > max_steps {
       raise ParseLimit("parser step limit exceeded")
     }
     if work.length() > max_branches {

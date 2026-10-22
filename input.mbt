@@ -3,18 +3,22 @@
 /// and byte-based point and returns an empty chunk at EOF. Chunk boundaries may
 /// split UTF-8 sequences. Input is collected before table execution; byte/point
 /// coordinates and incremental tree semantics are identical to `parse`.
+/// `max_steps=0` has no step limit, as in `parse`.
 pub fn Parser::parse_with(
   self : Parser,
   read : (Int32, Point) -> Bytes,
   old_tree? : Tree,
   included_ranges~ : Array[Range] = [],
   max_input_bytes~ : Int32 = 2147483647,
-  max_steps~ : Int32 = 100000,
+  max_steps~ : Int32 = 0,
   max_branches~ : Int32 = 10000,
   max_errors~ : Int32 = 20,
   cancelled~ : () -> Bool = () => false,
 ) -> Tree raise ParseError {
   self.reset()
+  if max_steps < 0 {
+    raise ParseLimit("max_steps must be non-negative")
+  }
   let buffer = @buffer.Buffer()
   let mut point : Point = { row: 0, column: 0, }
   for ;; {

@@ -704,3 +704,10 @@ at v0.25.0 (`b2ac15e27fce703d2f37a79ccd94a5c0cbe9720b`), using its unchanged
 grammar JSON, corpus and highlight query: all 37 cases, one query and 222
 edit/undo checks pass. The pinned five-grammar matrix therefore covers 311
 corpus cases, 12 query files, 90 annotations and 1,866 edit checks.
+
+Larger public examples exposed the default 100,000 parser-step limit on the
+247 KB jQuery source. Parsing now defaults to unlimited steps (`max_steps=0`),
+including callback and encoded input; explicit positive budgets and cancellation
+remain available, and negative budgets are rejected. The jQuery named tree now
+matches the pinned C runtime exactly. Full checks remain 278 native / 270 JS /
+270 Wasm GC, including the explicit-limit regression.

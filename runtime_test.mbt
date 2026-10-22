@@ -162,6 +162,13 @@ test "cancellation and resource limits fail explicitly" {
   } noraise {
     _ => fail("ignored work limit")
   }
+  assert_false(parser.parse(b"1 + 2", max_steps=0).root_node().has_error())
+  try parser.parse(b"1 + 2", max_steps=-1) catch {
+    ParseLimit(_) => ()
+    e => fail("unexpected error: \{@debug.Repr(e)}")
+  } noraise {
+    _ => fail("accepted negative work limit")
+  }
 }
 
 ///|
