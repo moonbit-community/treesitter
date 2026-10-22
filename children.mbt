@@ -9,6 +9,7 @@ priv enum ChildPart {
 // of a repetition. Flatten only when the public node API needs indexed children.
 // The cache does not alter any observable node or field and is safe to share.
 priv struct ChildList {
+  fragile : Bool
   parts : Array[ChildPart]
   length : Int32
   named_length : Int32
@@ -20,6 +21,7 @@ priv struct ChildList {
 
 ///|
 fn child_list(parts : Array[ChildPart]) -> ChildList {
+  let mut fragile = false
   let mut length = 0
   let mut named_length = 0
   let mut has_error = false
@@ -28,6 +30,7 @@ fn child_list(parts : Array[ChildPart]) -> ChildList {
   for part in parts {
     match part {
       Item(_, node) => {
+        fragile = fragile || node.data.fragile
         dependency_end = Int32::max(dependency_end, node.data.dependency_end)
         error_cost += node.data.error_cost
         length += 1
@@ -37,6 +40,7 @@ fn child_list(parts : Array[ChildPart]) -> ChildList {
         has_error = has_error || node.has_error()
       }
       Nested(_, nested) => {
+        fragile = fragile || nested.fragile
         dependency_end = Int32::max(dependency_end, nested.dependency_end)
         error_cost += nested.error_cost
         length += nested.length
@@ -47,6 +51,7 @@ fn child_list(parts : Array[ChildPart]) -> ChildList {
   }
   {
     parts,
+    fragile,
     length,
     named_length,
     has_error,

@@ -8,6 +8,7 @@ priv struct Derivation {
 
 ///|
 priv struct NodeData {
+  fragile : Bool
   derivation : Derivation
   dependency_end : Int32
   encoding : InputEncoding

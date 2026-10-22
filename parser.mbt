@@ -122,6 +122,7 @@ fn Parser::node(
   unexpected? : Int32,
   dependency_end? : Int32,
   derivation_children? : Array[Derivation],
+  fragile~ : Bool = false,
   error_repeat~ : Bool = false,
   extra~ : Bool = false,
   missing~ : Bool = false,
@@ -175,6 +176,7 @@ fn Parser::node(
   {
     data: {
       id,
+      fragile: fragile || children.fragile,
       derivation: {
         symbol,
         children: derivation_children.unwrap_or_else(() => {
@@ -234,6 +236,7 @@ fn Parser::reduce(
   branch : Branch,
   pid : Int32,
   lines : Array[Int32],
+  fragile~ : Bool = true,
 ) -> Branch? {
   let production = self.language.productions[pid]
   let count = production.steps.length()
@@ -305,6 +308,7 @@ fn Parser::reduce(
       init=branch.lookahead.map(t => t.dependency_end).unwrap_or(end),
       (value, entry) => Int32::max(value, entry.node.data.dependency_end),
     ),
+    fragile=fragile || branch.entries[index:].any(e => e.node.data.fragile),
     derivation_children~,
     dynamic_score=score,
     scan_before=if count == 0 {
@@ -364,6 +368,12 @@ fn Parser::finish(
       children,
       root.parse_state(),
       root.next_parse_state(),
+      fragile=root.data.fragile,
+      dependency_end=root.data.dependency_end,
+      dynamic_score=root.data.dynamic_score,
+      derivation_children=entry.leading.map(n => n.data.derivation) +
+        root.data.derivation.children +
+        branch.pending.map(n => n.data.derivation),
       scan_before=root.data.scan_before,
       scan_after=branch.scanner_state,
     ),
@@ -505,6 +515,9 @@ fn Parser::parse_source(
       }
       let versions = Int32::min(paused.length(), 6)
       paused.clear()
+      // Previously visited configurations can belong only to stacks discarded
+      // above. They must not dominate the sole resumed recovery path.
+      visited.clear()
       work.push({ ..selected, status: Preparing, recovery_versions: versions, })
     }
     if cancelled() {
@@ -892,6 +905,9 @@ fn Parser::parse_source(
             state,
             next,
             dependency_end=token.dependency_end,
+            fragile=actions.length() > 1 ||
+              !work.is_empty() ||
+              !paused.is_empty(),
             missing=token.missing,
             scan_before=branch.scanner_state,
             scan_after=token.scanner_state.unwrap_or(branch.scanner_state),
@@ -913,7 +929,16 @@ fn Parser::parse_source(
           })
         }
         Reduce(pid) =>
-          if self.reduce(branch, pid, lines) is Some(reduced) {
+          if self.reduce(
+              branch,
+              pid,
+              lines,
+              fragile=actions.length() > 1 ||
+                !work.is_empty() ||
+                !paused.is_empty() ||
+                branch.status != Active,
+            )
+            is Some(reduced) {
             work.push(reduced)
           }
         Accept =>

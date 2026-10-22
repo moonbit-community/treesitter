@@ -258,3 +258,68 @@ test "failed long-token lookahead invalidates a distant prefix after an edit" {
     "abbbx",
   )
 }
+
+///|
+test "deterministic regions of ambiguous languages can be reused" {
+  let language = @generate.generate(
+    @grammar.Grammar::new(
+      "glr_list",
+      [
+        ("document", Repeat(Symbol("statement"))),
+        ("statement", Seq([Symbol("expression"), Literal(";")])),
+        ("expression", Choice([Symbol("number"), Symbol("binary")])),
+        (
+          "binary",
+          Seq([Symbol("expression"), Literal("+"), Symbol("expression")]),
+        ),
+        ("number", @grammar.pattern("[0-9]+")),
+      ],
+      conflicts=[["binary"]],
+    ),
+  )
+  let parser = @treesitter.Parser::new(language)
+  let old_source = "1;2;3;4+5+6;7;8;9;"
+  let old = parser.parse_string(old_source)
+  old.edit({
+    start_byte: 0,
+    old_end_byte: 1,
+    new_end_byte: 1,
+    start_point: { row: 0, column: 0, },
+    old_end_point: { row: 0, column: 1, },
+    new_end_point: { row: 0, column: 1, },
+  })
+  let source = b"0;2;3;4+5+6;7;8;9;"
+  let next = parser.parse(source, old_tree=old)
+  let fresh = parser.parse(source)
+  assert_eq(next.root_node().to_sexp(), fresh.root_node().to_sexp())
+  assert_true(next.reused_subtrees > 0)
+  assert_true(next.parse_steps < fresh.parse_steps)
+  let mut tree = next
+  let mut source = source
+  let mut random = 17U
+  for _ in 0..<160 {
+    random = random * 1664525U + 1013904223U
+    let position = (random % source.length().reinterpret_as_uint()).reinterpret_as_int()
+    let bytes = source.to_array()
+    bytes[position] = [b'1', b'2', b'+', b';'][(random >> 16).reinterpret_as_int() %
+      4]
+    let changed = Bytes::from_array(bytes)
+    tree.edit({
+      start_byte: position,
+      old_end_byte: position + 1,
+      new_end_byte: position + 1,
+      start_point: { row: 0, column: position, },
+      old_end_point: { row: 0, column: position + 1, },
+      new_end_point: { row: 0, column: position + 1, },
+    })
+    let fresh = parser.parse(changed) catch {
+      e => fail("fresh \{changed}: \{Repr(e)}")
+    }
+    let incremental = parser.parse(changed, old_tree=tree) catch {
+      e => fail("incremental \{changed} failed: \{Repr(e)}")
+    }
+    compare_nodes(incremental.root_node(), fresh.root_node())
+    tree = incremental
+    source = changed
+  }
+}

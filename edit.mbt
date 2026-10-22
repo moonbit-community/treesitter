@@ -162,19 +162,14 @@ fn reuse_candidates(
   source : Bytes,
 ) -> Map[(Int32, Int32), Node] {
   let result : Map[(Int32, Int32), Node] = Map([])
-  // A previously selected GLR derivation is not sufficient to reconstruct all
-  // competing stacks. Reparse ambiguous tables until a shared parse forest is
-  // available; reusing a single winner could change dynamic precedence.
-  if old_tree.language.states.any(row => {
-      row.actions.values().any(actions => actions.length() > 1)
-    }) {
-    return result
-  }
+  // Reuse deterministic subtrees only. Ambiguous reductions and nodes built
+  // while another stack competes retain their fragility in the old tree.
   let old_lines = line_starts(old_tree.source)
   let new_lines = line_starts(source)
   let pending = [old_tree.root]
   while pending.pop() is Some(node) {
-    if !node.is_extra() &&
+    if !node.data.fragile &&
+      !node.is_extra() &&
       !node.has_changes() &&
       !node.has_error() &&
       !old_tree.language.symbols[node.symbol()].terminal &&

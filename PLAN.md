@@ -459,3 +459,12 @@ quoted-language example exercises compilation and parsing in tools/check.sh.
 Native type checking and native interface inspection are included in CI checks.
 The full script passes (233 native / 232 JS / 232 Wasm GC tests plus all CLI smoke
 checks). README compatibility notes now reflect current implementation status.
+
+Incremental reuse now accepts deterministic regions in grammars that contain GLR
+conflicts. Nodes created with competing actions/stacks retain a fragility flag,
+including through hidden reductions and final extra attachment, and are never
+reused. A 160-edit stress sequence compares every node with a fresh parse. It
+also exposed stale recovery dominance entries: when paused competitors are
+removed, their visited configurations must no longer suppress the resumed stack.
+Resetting that recovery epoch fixes a reproducible NoParse on malformed input.
+All checks pass: 234 native / 233 JS / 233 Wasm GC plus CLI scanner compilation.
