@@ -28,17 +28,34 @@ priv struct Reader {
   mut insensitive : Bool
   mut dotall : Bool
   mut unicode : Bool
+  mut extended : Bool
+  mut crlf : Bool
   mut depth : Int32
+  capture_names : Map[String, Bool]
 }
 
 ///|
 fn Reader::peek(self : Reader) -> Char? {
+  if self.extended {
+    for ;; {
+      while self.chars.get(self.pos)
+            is Some(' ' | '\t' | '\r' | '\n' | '\u{000b}' | '\u{000c}') {
+        self.pos += 1
+      }
+      if self.chars.get(self.pos) != Some('#') {
+        break
+      }
+      while self.chars.get(self.pos) is Some(c) && c != '\n' {
+        self.pos += 1
+      }
+    }
+  }
   self.chars.get(self.pos)
 }
 
 ///|
 fn Reader::take(self : Reader) -> Char raise RegexError {
-  match self.peek() {
+  match self.chars.get(self.pos) {
     None => raise InvalidRegex(self.pos, "unexpected end of pattern")
     Some(c) => {
       self.pos += 1
@@ -62,7 +79,7 @@ pub fn literal(value : String) -> Expr {
 /// assertions fail explicitly.
 pub fn parse(pattern : String, flags~ : String = "") -> Expr raise RegexError {
   for flag in flags {
-    if !(flag is ('i' | 's' | 'u')) {
+    if !(flag is ('i' | 's' | 'u' | 'm' | 'x' | 'R' | 'U')) {
       raise InvalidRegex(0, "unsupported regex flag '\{flag}'")
     }
   }
@@ -72,7 +89,10 @@ pub fn parse(pattern : String, flags~ : String = "") -> Expr raise RegexError {
     insensitive: flags.contains("i"),
     dotall: flags.contains("s"),
     unicode: true,
+    extended: flags.contains("x"),
+    crlf: flags.contains("R"),
     depth: 0,
+    capture_names: Map([]),
   }
   let expr = reader.alternative()
   if reader.peek() != None {
@@ -187,7 +207,13 @@ fn Reader::atom(self : Reader) -> Expr raise RegexError {
         if self.dotall {
           CharSet::new([(0, 0x10ffff)])
         } else {
-          CharSet::new([(10, 10)]).complement()
+          CharSet::new(
+            if self.crlf {
+              [(10, 10), (13, 13)]
+            } else {
+              [(10, 10)]
+            },
+          ).complement()
         },
       )
     }

@@ -20,9 +20,55 @@ fn Reader::check_ascii(
 ///|
 fn Reader::group(self : Reader) -> Expr raise RegexError {
   self.enter()
-  let saved = (self.insensitive, self.dotall, self.unicode)
+  let saved = (
+    self.insensitive,
+    self.dotall,
+    self.unicode,
+    self.extended,
+    self.crlf,
+  )
   if self.peek() == Some('?') {
     self.pos += 1
+    if self.peek() is Some('P' | '<') {
+      if self.peek() == Some('P') {
+        self.pos += 1
+      }
+      if self.take() != '<' {
+        raise InvalidRegex(self.pos, "expected capture name")
+      }
+      let name = StringBuilder()
+      let letters = unicode_property("L").unwrap()
+      let mut first = true
+      while self.peek() is Some(c) && c != '>' {
+        if !(c == '_' ||
+          letters.contains(c.to_int()) ||
+          (!first && c is ('0'..<='9' | '.' | '[' | ']'))) {
+          raise InvalidRegex(self.pos, "invalid capture name")
+        }
+        first = false
+        self.pos += 1
+        name.write_char(c)
+      }
+      if first || self.take() != '>' {
+        raise InvalidRegex(self.pos, "expected capture name terminator")
+      }
+      let name = name.to_string()
+      if self.capture_names.contains(name) {
+        raise InvalidRegex(self.pos, "duplicate capture name")
+      }
+      self.capture_names[name] = true
+      let expr = self.alternative()
+      if self.take() != ')' {
+        raise InvalidRegex(self.pos, "expected ')'")
+      }
+      self.insensitive = saved.0
+      self.dotall = saved.1
+      self.unicode = saved.2
+      self.extended = saved.3
+      self.crlf = saved.4
+      self.depth -= 1
+      return expr
+    }
     let mut enabled = true
     let mut seen = ""
     let mut flags = 0
@@ -41,6 +87,9 @@ fn Reader::group(self : Reader) -> Expr raise RegexError {
           'i' => self.insensitive = enabled
           's' => self.dotall = enabled
           'u' => self.unicode = enabled
+          'x' => self.extended = enabled
+          'R' => self.crlf = enabled
+          'm' | 'U' => ()
           _ =>
             raise InvalidRegex(
               self.pos - 1,
@@ -71,6 +120,8 @@ fn Reader::group(self : Reader) -> Expr raise RegexError {
   self.insensitive = saved.0
   self.dotall = saved.1
   self.unicode = saved.2
+  self.extended = saved.3
+  self.crlf = saved.4
   self.depth -= 1
   expr
 }

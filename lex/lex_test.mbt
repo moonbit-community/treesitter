@@ -123,3 +123,30 @@ test "scoped flags restore groups and ASCII classes remain distinct" {
     _ => fail("accepted unbounded nesting")
   }
 }
+
+///|
+test "extended flags skip comments and whitespace while preserving escapes" {
+  let regex = @lex.compile(
+    @lex.parse("(?x: a # comment\n b [ c d ] \\  \\#)(?-x: )"),
+  )
+  assert_eq(regex.match_prefix(b"abc # "), Some(6))
+  assert_eq(regex.match_prefix(b"abd # "), Some(6))
+  assert_eq(regex.match_prefix(b"ab  # "), None)
+  let dot = @lex.compile(@lex.parse("(?mRU:.)"))
+  assert_eq(dot.match_prefix(b"\r"), None)
+  assert_eq(dot.match_prefix(b"a"), Some(1))
+  assert_eq(@lex.compile(@lex.parse("(?Rs:.)")).match_prefix(b"\r"), Some(1))
+}
+
+///|
+test "named capture groups have ordinary lexical group semantics" {
+  let regex = @lex.compile(@lex.parse("(?P<head>a)(?<tail>b+)"))
+  assert_eq(regex.match_prefix(b"abbb"), Some(4))
+  for pattern in ["(?<x>a)(?<x>b)", "(?<0>a)", "(?<=a)b", "(?P<>)"] {
+    try @lex.parse(pattern) catch {
+      InvalidRegex(_, _) => ()
+    } noraise {
+      _ => fail("accepted invalid capture")
+    }
+  }
+}

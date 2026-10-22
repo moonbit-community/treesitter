@@ -328,3 +328,11 @@ Tree navigation adds point descendants, named field lookup, preorder seeking,
 cursor copying/resetting, and tree-relative parent/sibling lookup. Tree lookup
 uses persistent node identity rather than parser-local numeric ids. Targeted
 runtime/query/lexer tests (44) pass on native, JavaScript and Wasm GC.
+
+### Remaining regex flags and named groups
+
+Regex compilation now accepts scoped/global extended whitespace and comments,
+CRLF-aware dot semantics, multiline and ungreedy flags (assertions still reject,
+and DFA matching retains longest-match behavior). Escaped spaces and hashes
+remain literal. Named capture groups compile as ordinary groups with duplicate
+name validation. These semantics are covered by cross-target lexical tests.
