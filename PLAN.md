@@ -101,3 +101,14 @@ and language table validation. Four compiler tests bring the suite to 14 tests,
 passing on native, JS and Wasm GC. Named precedence, reserved contexts, word
 extraction, supertypes, external scanners and nonterminal extras are explicitly
 rejected pending implementation. Runtime integration is next.
+
+### Runtime checkpoint
+
+The root package now contains a pure MoonBit GLR parser, contextual token
+selection, lexical precedence, numeric dynamic precedence, bounded recovery by
+insertion/deletion, UTF-8 locations, persistent syntax nodes, fields, aliases,
+hidden-node flattening, named extras, tree cursors and cancellation/work limits.
+Six integration tests exercise generated languages and expected trees; 20 tests
+pass across native, JS and Wasm GC. Recovery is not yet upstream-equivalent.
+Incremental reuse, included ranges, scanner persistence and complete node/cursor
+API coverage remain open.

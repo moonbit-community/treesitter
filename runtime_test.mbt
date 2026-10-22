@@ -1,0 +1,165 @@
+///|
+fn arithmetic() -> @language.Language raise {
+  let e : @grammar.Rule = Symbol("_expression")
+  @generate.generate(
+    @grammar.Grammar::new("arithmetic", [
+      ("document", e),
+      (
+        "_expression",
+        Choice([
+          Symbol("number"),
+          Symbol("binary"),
+          Seq([Literal("("), e, Literal(")")]),
+        ]),
+      ),
+      (
+        "binary",
+        Choice([
+          @grammar.prec_left(
+            Seq([Field("left", e), Literal("+"), Field("right", e)]),
+            value=1,
+          ),
+          @grammar.prec_left(
+            Seq([Field("left", e), Literal("*"), Field("right", e)]),
+            value=2,
+          ),
+        ]),
+      ),
+      ("number", @grammar.pattern("[0-9]+")),
+    ]),
+  )
+}
+
+///|
+test "pure runtime parses generated arithmetic tables with fields and precedence" {
+  let parser = @treesitter.Parser::new(arithmetic())
+  let tree = parser.parse_string("1 + 2 * 3")
+  let root = tree.root_node()
+  assert_eq(
+    root.to_sexp(),
+    "(document (binary left: (number) right: (binary left: (number) right: (number))))",
+  )
+  assert_false(root.has_error())
+  let binary = root.named_child(0).unwrap()
+  assert_eq(binary.child_by_field_name("left").unwrap().text(tree.source), "1")
+  assert_eq(
+    binary.child_by_field_name("right").unwrap().text(tree.source),
+    "2 * 3",
+  )
+  assert_eq(root.start_byte(), 0)
+  assert_eq(root.end_byte(), 9)
+  let left = parser
+    .parse_string("1 + 2 + 3")
+    .root_node()
+    .named_child(0)
+    .unwrap()
+  assert_eq(left.child_by_field_name("left").unwrap().kind(), "binary")
+}
+
+///|
+test "runtime preserves Unicode byte positions across lines" {
+  let language = @generate.generate(
+    @grammar.Grammar::new("words", [
+      ("document", Repeat(Symbol("word"))),
+      ("word", @grammar.pattern("\\p{L}+")),
+    ]),
+  )
+  let tree = @treesitter.Parser::new(language).parse_string("中文\nαβ")
+  let root = tree.root_node()
+  assert_eq(root.named_child_count(), 2)
+  let first = root.named_child(0).unwrap()
+  let second = root.named_child(1).unwrap()
+  assert_eq(first.end_byte(), 6)
+  assert_eq(second.start_byte(), 7)
+  assert_eq(second.start_position(), { row: 1, column: 0, })
+  assert_eq(second.end_position(), { row: 1, column: 4, })
+  assert_eq(root.descendant_for_byte_range(7, 11).unwrap().kind(), "word")
+}
+
+///|
+test "aliases, named extras and cursors survive hidden rule flattening" {
+  let language = @generate.generate(
+    @grammar.Grammar::new(
+      "aliases",
+      [
+        (
+          "root",
+          Seq([Field("first", Symbol("_hidden")), Literal(","), Symbol("word")]),
+        ),
+        ("_hidden", Alias(Symbol("word"), "name", named=true)),
+        ("word", @grammar.pattern("[a-z]+")),
+        ("comment", @grammar.pattern("#[^\\n]*")),
+      ],
+      extras=[@grammar.pattern("\\s"), Symbol("comment")],
+    ),
+  )
+  let tree = @treesitter.Parser::new(language).parse_string("a, #note\nb")
+  assert_eq(tree.root_node().to_sexp(), "(root first: (name) (comment) (word))")
+  let cursor = tree.walk()
+  assert_true(cursor.goto_first_child())
+  assert_eq(cursor.field_name(), Some("first"))
+  assert_eq(cursor.node().kind(), "name")
+  assert_true(cursor.goto_next_sibling())
+  assert_eq(cursor.node().kind(), ",")
+  let copy = cursor.copy()
+  assert_true(cursor.goto_next_sibling())
+  assert_true(cursor.node().is_extra())
+  assert_eq(copy.node().kind(), ",")
+  assert_true(cursor.goto_parent())
+  assert_eq(cursor.depth(), 0)
+  assert_true(cursor.goto_last_child())
+  assert_eq(cursor.node().text(tree.source), "b")
+  assert_false(cursor.goto_next_sibling())
+}
+
+///|
+test "error recovery inserts missing tokens and retains skipped input" {
+  let language = @generate.generate(
+    @grammar.Grammar::new("paren", [
+      ("root", Seq([Literal("("), Symbol("word"), Literal(")")])),
+      ("word", @grammar.pattern("[a-z]+")),
+    ]),
+  )
+  let parser = @treesitter.Parser::new(language)
+  let missing = parser.parse_string("(hello").root_node()
+  assert_true(missing.has_error())
+  assert_true(missing.child(2).unwrap().is_missing())
+  assert_eq(missing.child(2).unwrap().start_byte(), 6)
+  let unexpected = parser.parse_string("(@hello)").root_node()
+  assert_true(unexpected.has_error())
+  assert_eq(unexpected.to_sexp(), "(root (ERROR) (word))")
+}
+
+///|
+test "GLR selects the derivation with higher dynamic precedence" {
+  let language = @generate.generate(
+    @grammar.Grammar::new(
+      "dynamic",
+      [
+        ("root", Choice([Symbol("a"), Symbol("b")])),
+        ("a", PrecDynamic(1, Literal("x"))),
+        ("b", PrecDynamic(2, Literal("x"))),
+      ],
+      conflicts=[["a", "b"]],
+    ),
+  )
+  let tree = @treesitter.Parser::new(language).parse_string("x")
+  assert_eq(tree.root_node().to_sexp(), "(root (b))")
+}
+
+///|
+test "cancellation and resource limits fail explicitly" {
+  let parser = @treesitter.Parser::new(arithmetic())
+  try parser.parse(b"1", cancelled=() => true) catch {
+    Cancelled => ()
+    e => fail("unexpected error: \{@debug.Repr(e)}")
+  } noraise {
+    _ => fail("ignored cancellation")
+  }
+  try parser.parse(b"1 + 2", max_steps=1) catch {
+    ParseLimit(_) => ()
+    e => fail("unexpected error: \{@debug.Repr(e)}")
+  } noraise {
+    _ => fail("ignored work limit")
+  }
+}

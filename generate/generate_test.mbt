@@ -1,7 +1,7 @@
 ///|
 test "canonical tables support nullable start and recursive productions" {
   let grammar = @grammar.Grammar::new("list", [
-    ("document", @grammar.Rule::Repeat(@grammar.Rule::Symbol("item"))),
+    ("document", Repeat(Symbol("item"))),
     ("item", @grammar.pattern("[a-z]+")),
   ])
   let first = @generate.generate(grammar)
@@ -16,14 +16,8 @@ test "canonical tables support nullable start and recursive productions" {
 ///|
 test "undeclared conflicts fail while declared GLR conflicts remain" {
   let expr : @grammar.Rule = Symbol("expression")
-  let rules = [
-    (
-      "expression",
-      @grammar.Rule::Choice([
-        @grammar.Rule::Seq([expr, @grammar.Rule::Literal("+"), expr]),
-        @grammar.Rule::Literal("1"),
-      ]),
-    ),
+  let rules : Array[(String, @grammar.Rule)] = [
+    ("expression", Choice([Seq([expr, Literal("+"), expr]), Literal("1")])),
   ]
   let grammar = @grammar.Grammar::new("ambiguous", rules)
   try @generate.generate(grammar) catch {
@@ -51,16 +45,10 @@ test "static precedence resolves expression conflicts" {
   let grammar = @grammar.Grammar::new("arithmetic", [
     (
       "expression",
-      @grammar.Rule::Choice([
-        @grammar.prec_left(
-          @grammar.Rule::Seq([expr, @grammar.Rule::Literal("+"), expr]),
-          value=1,
-        ),
-        @grammar.prec_left(
-          @grammar.Rule::Seq([expr, @grammar.Rule::Literal("*"), expr]),
-          value=2,
-        ),
-        @grammar.Rule::Literal("1"),
+      Choice([
+        @grammar.prec_left(Seq([expr, Literal("+"), expr]), value=1),
+        @grammar.prec_left(Seq([expr, Literal("*"), expr]), value=2),
+        Literal("1"),
       ]),
     ),
   ])
@@ -75,10 +63,8 @@ test "static precedence resolves expression conflicts" {
 ///|
 test "nonproductive and nullable repeated grammars fail" {
   let grammars = [
-    @grammar.Grammar::new("cycle", [("start", @grammar.Rule::Symbol("start"))]),
-    @grammar.Grammar::new("empty", [
-      ("start", @grammar.Rule::Repeat(@grammar.Rule::Blank)),
-    ]),
+    @grammar.Grammar::new("cycle", [("start", Symbol("start"))]),
+    @grammar.Grammar::new("empty", [("start", Repeat(Blank))]),
     @grammar.Grammar::new("token", [("start", @grammar.pattern("a*"))]),
   ]
   for grammar in grammars {
