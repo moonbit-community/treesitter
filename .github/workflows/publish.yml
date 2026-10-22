@@ -1,0 +1,58 @@
+name: Publish to Mooncakes
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (vMAJOR.MINOR.PATCH)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: publish-mooncakes
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Verify release version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          version = re.search(r'^version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"', Path('moon.mod').read_text(), re.M)
+          if not version or os.environ['RELEASE_TAG'] != 'v' + version[1]:
+              raise SystemExit('Release tag must match the version in moon.mod')
+          PY
+      - name: Install MoonBit
+        run: |
+          curl --fail --silent --show-error --location https://cli.moonbitlang.com/install/unix.sh -o "$RUNNER_TEMP/install-moon.sh"
+          bash "$RUNNER_TEMP/install-moon.sh"
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - run: moon version --all
+      - run: moon update
+      - name: Validate release
+        run: sh tools/check.sh
+      - name: Publish
+        env:
+          MOONCAKES_CREDENTIALS: ${{ secrets.MOONCAKES_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$MOONCAKES_CREDENTIALS" || { echo 'MOONCAKES_TOKEN repository secret is required'; exit 1; }
+          umask 077
+          mkdir -p "$HOME/.moon"
+          trap 'rm -f "$HOME/.moon/credentials.json"' EXIT
+          printf '%s' "$MOONCAKES_CREDENTIALS" > "$HOME/.moon/credentials.json"
+          moon publish --dry-run
+          moon publish
