@@ -1,0 +1,436 @@
+///|
+priv enum TokenKind {
+  Word(String)
+  Quoted(String)
+  Punct(Char)
+}
+
+///|
+priv struct Token {
+  kind : TokenKind
+  offset : Int32
+}
+
+///|
+priv struct Reader {
+  tokens : Array[Token]
+  mut pos : Int32
+  language : @language.Language
+  captures : Array[String]
+  mut predicates : Array[Predicate]
+}
+
+///|
+fn tokenize(source : String) -> Array[Token] raise QueryError {
+  let chars = source.iter().to_array()
+  let result = []
+  let mut i = 0
+  let mut offset = 0
+  while i < chars.length() {
+    let c = chars[i]
+    let start = i
+    let start_offset = offset
+    if c is (' ' | '\t' | '\n' | '\r') {
+      i += 1
+      offset += 1
+      continue
+    }
+    if c == ';' {
+      while i < chars.length() && chars[i] != '\n' {
+        offset += @utf8.encode(chars[i].to_string()).length()
+        i += 1
+      }
+      continue
+    }
+    let kind = if c == '"' {
+      i += 1
+      let mut escaped = false
+      while i < chars.length() {
+        if !escaped && chars[i] == '"' {
+          break
+        }
+        if !escaped && chars[i] == '\\' {
+          escaped = true
+        } else {
+          escaped = false
+        }
+        i += 1
+      }
+      if i == chars.length() {
+        raise InvalidQuery(start_offset, "unterminated string")
+      }
+      i += 1
+      let raw = String::from_array(chars[start:i])
+      let text = @json.parse(raw) catch {
+        _ => raise InvalidQuery(start_offset, "invalid string escape")
+      }
+      match text {
+        String(s) => TokenKind::Quoted(s)
+        _ => raise InvalidQuery(start_offset, "expected string")
+      }
+    } else if c is ('(' | ')' | '[' | ']' | ':' | '!' | '.' | '?' | '+' | '*') {
+      i += 1
+      Punct(c)
+    } else {
+      i += 1
+      while i < chars.length() &&
+            !(chars[i]
+            is (' '
+            | '\t'
+            | '\r'
+            | '\n'
+            | '('
+            | ')'
+            | '['
+            | ']'
+            | ':'
+            | '"'
+            | ';'
+            | '+'
+            | '*')) {
+        // Capture names and predicates may contain dots and ?/! suffixes.
+        if chars[i] == '?' && c != '#' {
+          break
+        }
+        i += 1
+      }
+      Word(String::from_array(chars[start:i]))
+    }
+    offset += @utf8.encode(String::from_array(chars[start:i])).length()
+    result.push({ kind, offset: start_offset, })
+  }
+  result
+}
+
+///|
+fn Reader::error(self : Reader, message : String) -> QueryError {
+  InvalidQuery(
+    match self.tokens.get(self.pos) {
+      Some(t) => t.offset
+      None => self.tokens.last().map(t => t.offset + 1).unwrap_or(0)
+    },
+    message,
+  )
+}
+
+///|
+fn Reader::punct(self : Reader, c : Char) -> Bool {
+  if self.tokens.get(self.pos) is Some({ kind: Punct(actual), .. }) &&
+    actual == c {
+    self.pos += 1
+    true
+  } else {
+    false
+  }
+}
+
+///|
+fn Reader::expect(self : Reader, c : Char) -> Unit raise QueryError {
+  if !self.punct(c) {
+    raise self.error("expected '\{c}'")
+  }
+}
+
+///|
+fn Reader::take(self : Reader) -> TokenKind raise QueryError {
+  match self.tokens.get(self.pos) {
+    None => raise self.error("unexpected end of query")
+    Some(token) => {
+      self.pos += 1
+      token.kind
+    }
+  }
+}
+
+///|
+fn Reader::word(self : Reader) -> String raise QueryError {
+  match self.take() {
+    Word(s) => s
+    _ => raise self.error("expected identifier")
+  }
+}
+
+///|
+fn Reader::predicate(self : Reader) -> Unit raise QueryError {
+  self.expect('(')
+  let name = self.word()
+  let args = []
+  while !self.punct(')') {
+    match self.take() {
+      Word(s) if s.has_prefix("@") =>
+        args.push(Argument::Capture(s[1:].to_owned()))
+      Quoted(s) | Word(s) => args.push(Text(s))
+      _ => raise self.error("invalid predicate argument")
+    }
+  }
+  let equality = name is ("#eq?" | "#not-eq?" | "#any-eq?" | "#any-not-eq?")
+  let matching = name
+    is ("#match?" | "#not-match?" | "#any-match?" | "#any-not-match?")
+  let anyof = name is ("#any-of?" | "#not-any-of?")
+  if equality || matching {
+    if args.length() != 2 || !(args[0] is Capture(_)) {
+      raise self.error("predicate requires a capture and one value")
+    }
+  } else if anyof {
+    if args.length() < 2 || !(args[0] is Capture(_)) {
+      raise self.error("any-of requires a capture and values")
+    }
+  } else if name == "#set!" {
+    if args.length() < 1 || args.length() > 2 || !args.all(a => a is Text(_)) {
+      raise self.error("set! requires a property name and optional value")
+    }
+  } else {
+    raise self.error("unsupported predicate '\{name}'")
+  }
+  let mut regex = None
+  let mut start_anchor = false
+  let mut end_anchor = false
+  if matching {
+    guard args[1] is Text(text) else {
+      raise self.error("match? requires a string regex")
+    }
+    let mut pattern = text
+    if pattern.has_prefix("^") {
+      start_anchor = true
+      pattern = pattern[1:].to_owned()
+    }
+    if pattern.has_suffix("$") && !pattern.has_suffix("\\$") {
+      end_anchor = true
+      pattern = pattern[:pattern.length() - 1].to_owned()
+    }
+    regex = Some(
+      @lex.compile(@lex.parse(pattern)) catch {
+        _ => raise self.error("invalid predicate regex")
+      },
+    )
+  }
+  self.predicates.push({ name, args, regex, start_anchor, end_anchor, })
+}
+
+///|
+fn Reader::is_predicate(self : Reader) -> Bool {
+  self.tokens.get(self.pos) is Some({ kind: Punct('('), .. }) &&
+  self.tokens.get(self.pos + 1) is Some({ kind: Word(name), .. }) &&
+  name.has_prefix("#")
+}
+
+///|
+fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
+  if depth > 128 {
+    raise self.error("query nesting limit exceeded")
+  }
+  let mut pattern = match self.take() {
+    Punct('[') => {
+      let alternatives = []
+      while !self.punct(']') {
+        alternatives.push(self.pattern(depth + 1))
+      }
+      if alternatives.is_empty() {
+        raise self.error("empty alternative")
+      }
+      Either(alternatives)
+    }
+    Quoted(kind) => {
+      self.check_kind(kind, false)
+      Node({
+        kind: Some(kind),
+        named: Some(false),
+        missing: false,
+        children: [],
+        absent_fields: [],
+        trailing_anchor: false,
+      })
+    }
+    Word("_") =>
+      Node({
+        kind: None,
+        named: None,
+        missing: false,
+        children: [],
+        absent_fields: [],
+        trailing_anchor: false,
+      })
+    Punct('(') =>
+      if self.tokens.get(self.pos) is Some({ kind: Punct('(' | '['), .. }) {
+        let inner = self.pattern(depth + 1)
+        while self.is_predicate() {
+          self.predicate()
+        }
+        self.expect(')')
+        inner
+      } else {
+        let kind = self.word()
+        let missing = kind == "MISSING"
+        let kind = if missing {
+          match self.tokens.get(self.pos) {
+            Some({ kind: Word(_) | Quoted(_), .. }) =>
+              match self.take() {
+                Word(k) | Quoted(k) => k
+                _ => "_"
+              }
+            _ => "_"
+          }
+        } else {
+          kind
+        }
+        if kind != "_" && kind != "ERROR" {
+          self.check_kind(kind, true)
+        }
+        let children = []
+        let absent_fields = []
+        let mut anchor = false
+        while !self.punct(')') {
+          if self.punct('.') {
+            anchor = true
+            continue
+          }
+          if self.punct('!') {
+            let name = self.word()
+            self.check_field(name)
+            absent_fields.push(name)
+            continue
+          }
+          if self.is_predicate() {
+            self.predicate()
+            continue
+          }
+          let field = if self.tokens.get(self.pos)
+            is Some({ kind: Word(name), .. }) &&
+            self.tokens.get(self.pos + 1) is Some({ kind: Punct(':'), .. }) {
+            self.pos += 2
+            Some(name)
+          } else {
+            None
+          }
+          let mut child = self.pattern(depth + 1)
+          let (min, max) = if self.punct('?') {
+            (0, Some(1))
+          } else if self.punct('*') {
+            (0, None)
+          } else if self.punct('+') {
+            (1, None)
+          } else {
+            (1, Some(1))
+          }
+          while self.tokens.get(self.pos) is Some({ kind: Word(name), .. }) &&
+                name.has_prefix("@") {
+            self.pos += 1
+            let name = name[1:].to_owned()
+            if name.is_empty() {
+              raise self.error("empty capture name")
+            }
+            if !self.captures.contains(name) {
+              self.captures.push(name)
+            }
+            child = Capture(child, name)
+          }
+          if field is Some(name) {
+            self.check_field(name)
+          }
+          children.push({ pattern: child, field, anchor, min, max, })
+          anchor = false
+        }
+        Node({
+          kind: if kind == "_" {
+            None
+          } else {
+            Some(kind)
+          },
+          named: if missing {
+            None
+          } else {
+            Some(true)
+          },
+          missing,
+          children,
+          absent_fields,
+          trailing_anchor: anchor,
+        })
+      }
+    _ => raise self.error("expected node pattern")
+  }
+  while self.tokens.get(self.pos) is Some({ kind: Word(name), .. }) &&
+        name.has_prefix("@") {
+    self.pos += 1
+    let name = name[1:].to_owned()
+    if name.is_empty() {
+      raise self.error("empty capture name")
+    }
+    if !self.captures.contains(name) {
+      self.captures.push(name)
+    }
+    pattern = Capture(pattern, name)
+  }
+  pattern
+}
+
+///|
+fn Reader::check_kind(
+  self : Reader,
+  name : String,
+  named : Bool,
+) -> Unit raise QueryError {
+  let exists = self.language.symbols.any(s => s.name == name && s.named == named) ||
+    self.language.productions.any(p => {
+      p.steps.any(s => s.rename == Some((name, named)))
+    })
+  if !exists {
+    raise self.error("unknown node type '\{name}'")
+  }
+}
+
+///|
+pub fn Query::new(
+  language : @language.Language,
+  source : String,
+) -> Query raise QueryError {
+  let reader : Reader = {
+    tokens: tokenize(source),
+    pos: 0,
+    language,
+    captures: [],
+    predicates: [],
+  }
+  let patterns = []
+  while reader.pos < reader.tokens.length() {
+    reader.predicates = []
+    let pattern = reader.pattern(0)
+    for predicate in reader.predicates {
+      for arg in predicate.args {
+        if arg is Capture(name) && !pattern_captures(pattern).contains(name) {
+          raise reader.error("unknown capture '@\{name}'")
+        }
+      }
+    }
+    patterns.push({ pattern, predicates: reader.predicates, })
+  }
+  { patterns, capture_names: reader.captures, }
+}
+
+///|
+fn Reader::check_field(self : Reader, name : String) -> Unit raise QueryError {
+  if !self.language.productions.any(p => p.steps.any(s => s.field == Some(name))) {
+    raise self.error("unknown field '\{name}'")
+  }
+}
+
+///|
+fn pattern_captures(pattern : Pattern) -> Array[String] {
+  match pattern {
+    Capture(inner, name) => pattern_captures(inner) + [name]
+    Either(items) => {
+      let out = []
+      for item in items {
+        out.append(pattern_captures(item))
+      }
+      out
+    }
+    Node(node) => {
+      let out = []
+      for child in node.children {
+        out.append(pattern_captures(child.pattern))
+      }
+      out
+    }
+  }
+}

@@ -1,0 +1,319 @@
+///|
+priv struct Budget {
+  mut steps : Int32
+  limit : Int32
+  cancelled : () -> Bool
+}
+
+///|
+fn Budget::tick(self : Budget) -> Unit raise QueryError {
+  self.steps += 1
+  if (self.cancelled)() {
+    raise Cancelled
+  }
+  if self.steps > self.limit {
+    raise MatchLimit
+  }
+}
+
+///|
+fn match_pattern(
+  pattern : Pattern,
+  node : @ts.Node,
+  budget : Budget,
+) -> Array[Array[Capture]] raise QueryError {
+  budget.tick()
+  match pattern {
+    Capture(inner, name) =>
+      match_pattern(inner, node, budget).map(captures => {
+        captures + [{ name, node, }]
+      })
+    Either(alternatives) => {
+      let result = []
+      for alternative in alternatives {
+        result.append(match_pattern(alternative, node, budget))
+      }
+      result
+    }
+    Node(p) => {
+      if p.kind is Some(kind) && kind != node.kind() {
+        return []
+      }
+      if p.named is Some(named) && named != node.is_named() {
+        return []
+      }
+      if p.missing && !node.is_missing() {
+        return []
+      }
+      if p.absent_fields.any(f => node.child_by_field_name(f) is Some(_)) {
+        return []
+      }
+      match_children(p, node, 0, 0, [], budget)
+    }
+  }
+}
+
+///|
+fn match_children(
+  pattern : NodePattern,
+  parent : @ts.Node,
+  pi : Int32,
+  from : Int32,
+  captures : Array[Capture],
+  budget : Budget,
+) -> Array[Array[Capture]] raise QueryError {
+  budget.tick()
+  if pi == pattern.children.length() {
+    if pattern.trailing_anchor {
+      for i in from..<parent.child_count() {
+        if parent.child(i).unwrap().is_named() {
+          return []
+        }
+      }
+    }
+    return [captures]
+  }
+  let spec = pattern.children[pi]
+  let result = []
+  for i in from..<parent.child_count() {
+    let node = parent.child(i).unwrap()
+    let field_matches = spec.field is None ||
+      spec.field == parent.field_name_for_child(i)
+    let matches = if field_matches {
+      match_pattern(spec.pattern, node, budget)
+    } else {
+      []
+    }
+    for matched in matches {
+      if spec.max == Some(1) {
+        result.append(
+          match_children(
+            pattern,
+            parent,
+            pi + 1,
+            i + 1,
+            captures + matched,
+            budget,
+          ),
+        )
+      } else {
+        // Enumerate consecutive repetitions greedily, retaining shorter paths
+        // only when needed for the following child pattern.
+        let runs : Array[(Int32, Int32, Array[Capture])] = [
+          (i + 1, 1, captures + matched),
+        ]
+        let stops : Array[(Int32, Int32, Array[Capture])] = []
+        while runs.pop() is Some((next, count, accumulated)) {
+          budget.tick()
+          stops.push((next, count, accumulated))
+          for j in next..<parent.child_count() {
+            let sibling = parent.child(j).unwrap()
+            if spec.field is None ||
+              spec.field == parent.field_name_for_child(j) {
+              let found = match_pattern(spec.pattern, sibling, budget)
+              for additional in found {
+                runs.push((j + 1, count + 1, accumulated + additional))
+              }
+              if !found.is_empty() || sibling.is_named() {
+                break
+              }
+            } else if sibling.is_named() {
+              break
+            }
+          }
+        }
+        stops.sort_by((a, b) => b.1.compare(a.1))
+        for (next, _, accumulated) in stops {
+          let found = match_children(
+            pattern,
+            parent,
+            pi + 1,
+            next,
+            accumulated,
+            budget,
+          )
+          if !found.is_empty() {
+            result.append(found)
+            break
+          }
+        }
+      }
+    }
+    if !result.is_empty() && spec.max is None {
+      return result
+    }
+    if spec.anchor && node.is_named() {
+      break
+    }
+  }
+  if result.is_empty() && spec.min == 0 {
+    match_children(pattern, parent, pi + 1, from, captures, budget)
+  } else {
+    result
+  }
+}
+
+///|
+fn values(
+  arg : Argument,
+  captures : Array[Capture],
+  source : Bytes,
+) -> Array[String] {
+  match arg {
+    Text(s) => [s]
+    Capture(name) =>
+      captures.filter(c => c.name == name).map(c => c.node.text(source))
+  }
+}
+
+///|
+fn regex_matches(
+  predicate : Predicate,
+  text : String,
+  budget : Budget,
+) -> Bool raise QueryError {
+  let input = @utf8.encode(text)
+  let regex = predicate.regex.unwrap()
+  let mut start = 0
+  for ;; {
+    budget.tick()
+    if regex.match_prefix(input, start~) is Some(end) &&
+      (!predicate.end_anchor || end == input.length()) {
+      return true
+    }
+    if predicate.start_anchor || start == input.length() {
+      return false
+    }
+    start += @lex.decode(input, start).1
+  }
+}
+
+///|
+fn predicates_match(
+  predicates : Array[Predicate],
+  captures : Array[Capture],
+  source : Bytes,
+  budget : Budget,
+) -> Bool raise QueryError {
+  for predicate in predicates {
+    budget.tick()
+    if predicate.name == "#set!" {
+      continue
+    }
+    let left = values(predicate.args[0], captures, source)
+    if left.is_empty() {
+      return false
+    }
+    let negative = predicate.name.contains("not-")
+    let any = predicate.name.has_prefix("#any-") && predicate.name != "#any-of?"
+    let results : Array[Bool] = []
+    if predicate.regex is Some(_) {
+      for text in left {
+        results.push(regex_matches(predicate, text, budget) != negative)
+      }
+    } else if predicate.name is ("#any-of?" | "#not-any-of?") {
+      let options = []
+      for i in 1..<predicate.args.length() {
+        options.append(values(predicate.args[i], captures, source))
+      }
+      for text in left {
+        results.push(options.contains(text) != negative)
+      }
+    } else {
+      let right = values(predicate.args[1], captures, source)
+      if right.is_empty() {
+        return false
+      }
+      if predicate.args[1] is Capture(_) {
+        if left.length() != right.length() {
+          return false
+        }
+        for i in 0..<left.length() {
+          results.push((left[i] == right[i]) != negative)
+        }
+      } else {
+        for text in left {
+          results.push((text == right[0]) != negative)
+        }
+      }
+    }
+    if !(if any { results.any(x => x) } else { results.all(x => x) }) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+pub fn Query::matches(
+  self : Query,
+  root : @ts.Node,
+  source : Bytes,
+  start_byte~ : Int32 = 0,
+  end_byte~ : Int32 = 2147483647,
+  max_steps~ : Int32 = 100000,
+  max_matches~ : Int32 = 10000,
+  cancelled~ : () -> Bool = () => false,
+) -> Array[Match] raise QueryError {
+  let result : Array[Match] = []
+  let budget : Budget = { steps: 0, limit: max_steps, cancelled, }
+  let nodes = [root]
+  while nodes.pop() is Some(node) {
+    budget.tick()
+    if node.end_byte() < start_byte || node.start_byte() >= end_byte {
+      continue
+    }
+    for pattern_index, p in self.patterns {
+      for captures in match_pattern(p.pattern, node, budget) {
+        if predicates_match(p.predicates, captures, source, budget) {
+          let properties : Map[String, String] = Map([])
+          for predicate in p.predicates {
+            if predicate.name == "#set!" && predicate.args[0] is Text(key) {
+              properties[key] = match predicate.args.get(1) {
+                Some(Text(value)) => value
+                _ => ""
+              }
+            }
+          }
+          if result.length() >= max_matches {
+            raise MatchLimit
+          }
+          result.push({ pattern_index, captures, properties, })
+        }
+      }
+    }
+    let children = node.children()
+    for i = children.length() - 1; i >= 0; i = i - 1 {
+      nodes.push(children[i])
+    }
+  }
+  result
+}
+
+///|
+pub fn Query::captures(
+  self : Query,
+  root : @ts.Node,
+  source : Bytes,
+) -> Array[Capture] raise QueryError {
+  let captures : Array[(Int32, Capture)] = []
+  for matched in self.matches(root, source) {
+    for capture in matched.captures {
+      captures.push((matched.pattern_index, capture))
+    }
+  }
+  captures.sort_by((a, b) => {
+    let start = a.1.node.start_byte().compare(b.1.node.start_byte())
+    if start != 0 {
+      start
+    } else {
+      let end = b.1.node.end_byte().compare(a.1.node.end_byte())
+      if end != 0 {
+        end
+      } else {
+        a.0.compare(b.0)
+      }
+    }
+  })
+  captures.map(c => c.1)
+}

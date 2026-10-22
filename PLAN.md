@@ -135,3 +135,14 @@ load those tables without the generator. The mbtx arithmetic example has been
 executed end to end and its emitted factory is tested on all three backends.
 The CLI's filesystem/process support uses moonbitlang/async 0.20.2. Core parser,
 lexer, generator, and query packages do not import that dependency.
+
+### Query checkpoint
+
+Added query tokenization/validation, node and anonymous-token patterns, fields,
+negated fields, captures, alternatives, named-sibling anchors, child quantifiers,
+equality/regex/any-of predicates, property settings, source-order captures,
+byte-range filtering and explicit cancellation/work/match limits. Five query
+regressions are included. The suite is now 32 passing tests on native, JS and
+Wasm GC. Supertype patterns, grouped sibling patterns, custom property predicates,
+upstream-complete quantifier semantics, streaming cursors and injection predicates
+remain compatibility work; unsupported predicates currently fail explicitly.

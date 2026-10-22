@@ -1,0 +1,13 @@
+import {
+  "bobzhang/treesitter" @ts,
+  "bobzhang/treesitter/language",
+  "bobzhang/treesitter/lex",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
+}
+
+import {
+  "bobzhang/treesitter/grammar",
+  "bobzhang/treesitter/generate",
+} for "test"

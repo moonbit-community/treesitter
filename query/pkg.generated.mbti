@@ -1,0 +1,43 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/treesitter/query"
+
+import {
+  "bobzhang/treesitter",
+  "bobzhang/treesitter/language",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub suberror QueryError {
+  InvalidQuery(Int32, String)
+  MatchLimit
+  Cancelled
+} derive(@debug.Debug)
+pub fn QueryError::to_repr(Self) -> @debug.Repr
+
+// Types and methods
+pub(all) struct Capture {
+  name : String
+  node : @treesitter.Node
+}
+
+pub(all) struct Match {
+  pattern_index : Int32
+  captures : Array[Capture]
+  properties : Map[String, String]
+}
+
+pub struct Query {
+  capture_names : Array[String]
+  // private fields
+}
+pub fn Query::captures(Self, @treesitter.Node, Bytes) -> Array[Capture] raise QueryError
+pub fn Query::matches(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool) -> Array[Match] raise QueryError
+pub fn Query::new(@language.Language, String) -> Self raise QueryError
+pub fn Query::pattern_count(Self) -> Int32
+
+// Type aliases
+
+// Traits
