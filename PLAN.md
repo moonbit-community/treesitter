@@ -518,3 +518,13 @@ captures now precede descendant captures within a match, preserving same-node
 capture order. Twenty-two query tests pass on native, JS, and Wasm GC, and the
 full native suite passes 246 tests. These cases are derived from the pinned
 reference probes, with expected capture-order assertions corrected accordingly.
+
+Second-audit finding 2 is fixed: nodes whose start is deleted by an edit now
+collapse at the replacement's end, including their row/column coordinates.
+Replacement text is no longer assigned to each overlapped sibling. A reference
+importer freezes 123 edited-tree span cases covering punctuation, nested nodes,
+multiple siblings, and newlines; every node's byte and point spans match C on
+all targets. The focused changed-range regression now reports [1,3) for
+`1 2 3` -> `113`. Replaying the audit's 1,153 edits reduces matching-tree range
+discrepancies from 106 to 35, with zero incremental/fresh node mismatches;
+remaining changed-range differences still require investigation.

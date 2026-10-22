@@ -37,3 +37,25 @@ test "empty recovered root encloses pending errors and reports insertion" {
   assert_eq(ranges.length(), 1)
   assert_eq((ranges[0].start_byte, ranges[0].end_byte), (0, 1))
 }
+
+///|
+test "replacement spanning siblings shrinks deleted content after insertion" {
+  let parser = @ts.Parser::new(upstream_json_language())
+  let old = parser.parse_string("1 2 3")
+  old.edit({
+    start_byte: 1,
+    old_end_byte: 4,
+    new_end_byte: 2,
+    start_point: { row: 0, column: 1, },
+    old_end_point: { row: 0, column: 4, },
+    new_end_point: { row: 0, column: 2, },
+  })
+  assert_eq(
+    old.root_node().children().map(n => (n.start_byte(), n.end_byte())),
+    [(0, 1), (2, 2), (2, 3)],
+  )
+  let next = parser.parse(b"113", old_tree=old)
+  let ranges = old.changed_ranges(next)
+  assert_eq(ranges.length(), 1)
+  assert_eq((ranges[0].start_byte, ranges[0].end_byte), (1, 3))
+}

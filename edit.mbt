@@ -50,7 +50,9 @@ fn edit_node(node : Node, edit : InputEdit) -> Node {
   let start_byte = if data.start_byte >= edit.old_end_byte {
     data.start_byte + delta
   } else if data.start_byte > edit.start_byte {
-    edit.start_byte
+    // The replacement belongs to the first affected content or its padding.
+    // Later nodes covered by the deletion collapse at the replacement's end.
+    edit.new_end_byte
   } else {
     data.start_byte
   }
@@ -66,7 +68,7 @@ fn edit_node(node : Node, edit : InputEdit) -> Node {
   let start_point = if data.start_byte >= edit.old_end_byte {
     shift_point(data.start_point, edit)
   } else if data.start_byte > edit.start_byte {
-    edit.start_point
+    edit.new_end_point
   } else {
     data.start_point
   }
