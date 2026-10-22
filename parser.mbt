@@ -61,7 +61,7 @@ fn Parser::node(
   start : Int32,
   end : Int32,
   lines : Array[Int32],
-  children : Array[(String?, Node)],
+  children : Array[ChildPart],
   parse_state : Int32,
   next_state : Int32,
   extra~ : Bool = false,
@@ -103,7 +103,7 @@ fn Parser::node(
       end_byte: end,
       start_point: point_at(lines, start),
       end_point: point_at(lines, end),
-      children,
+      children: child_list(children),
       parse_state,
       next_state,
     },
@@ -112,24 +112,14 @@ fn Parser::node(
 
 ///|
 fn append_visible(
-  output : Array[(String?, Node)],
+  output : Array[ChildPart],
   node : Node,
   field : String?,
 ) -> Unit {
   if node.data.visible || node.is_error() || node.is_missing() {
-    output.push((field, node))
-  } else {
-    for (inner_field, child) in node.data.children {
-      output.push(
-        (
-          match inner_field {
-            Some(_) => inner_field
-            None => if child.is_extra() { None } else { field }
-          },
-          child,
-        ),
-      )
-    }
+    output.push(Item(field, node))
+  } else if node.data.children.length > 0 {
+    output.push(Nested(field, node.data.children))
   }
 }
 
@@ -151,7 +141,7 @@ fn Parser::reduce(
     is Some(next_state) else {
     return None
   }
-  let children : Array[(String?, Node)] = []
+  let children : Array[ChildPart] = []
   let leading = if count == 0 { [] } else { branch.entries[index].leading }
   for i in 0..<count {
     let entry = branch.entries[index + i]
@@ -169,17 +159,18 @@ fn Parser::reduce(
   }
   if self.language.supertypes.contains(production.lhs) {
     let name = self.language.symbols[production.lhs].name
-    for i, (field, child) in children {
-      if !child.is_extra() {
-        children[i] = (
-          field,
-          {
-            data: { ..child.data, supertypes: child.data.supertypes + [name], },
-          },
-        )
+    let entries = child_list(children.copy()).entries()
+    children.clear()
+    for (field, child) in entries {
+      let child = if child.is_extra() {
+        child
+      } else {
+        { data: { ..child.data, supertypes: child.data.supertypes + [name], }, }
       }
+      children.push(Item(field, child))
     }
   }
+
   let start = if count == 0 {
     branch.offset
   } else {
@@ -233,11 +224,11 @@ fn Parser::finish(
   if entry.leading.is_empty() && branch.pending.is_empty() {
     return Some({ data: { ..root.data, scan_after: branch.scanner_state, }, })
   }
-  let children : Array[(String?, Node)] = []
+  let children : Array[ChildPart] = []
   for extra in entry.leading {
     append_visible(children, extra, None)
   }
-  children.append(root.data.children)
+  children.push(Nested(None, root.data.children))
   for extra in branch.pending {
     append_visible(children, extra, None)
   }

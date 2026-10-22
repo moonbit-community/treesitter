@@ -25,9 +25,11 @@ fn project_node(
       origin_end: end_byte,
       start_point: point_at(lines, start_byte),
       end_point: point_at(lines, end_byte),
-      children: node.data.children.map(c => {
-        (c.0, project_node(c.1, starts, ends, lines))
-      }),
+      children: child_entries(
+        node.data.children
+        .entries()
+        .map(c => (c.0, project_node(c.1, starts, ends, lines))),
+      ),
     },
   }
 }

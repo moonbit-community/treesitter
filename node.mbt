@@ -19,7 +19,7 @@ priv struct NodeData {
   end_byte : Int32
   start_point : Point
   end_point : Point
-  children : Array[(String?, Node)]
+  children : ChildList
   parse_state : Int32
   next_state : Int32
 }
@@ -67,9 +67,7 @@ pub fn Node::is_error(self : Node) -> Bool {
 
 ///|
 pub fn Node::has_error(self : Node) -> Bool {
-  self.is_error() ||
-  self.is_missing() ||
-  self.data.children.any(c => c.1.has_error())
+  self.is_error() || self.is_missing() || self.data.children.has_error
 }
 
 ///|
@@ -114,17 +112,17 @@ pub fn Node::next_parse_state(self : Node) -> Int32 {
 
 ///|
 pub fn Node::child_count(self : Node) -> Int32 {
-  self.data.children.length()
+  self.data.children.length
 }
 
 ///|
 pub fn Node::named_child_count(self : Node) -> Int32 {
-  self.data.children.filter(c => c.1.is_named()).length()
+  self.data.children.named_length
 }
 
 ///|
 pub fn Node::child(self : Node, index : Int32) -> Node? {
-  self.data.children.get(index).map(c => c.1)
+  self.data.children.entries().get(index).map(c => c.1)
 }
 
 ///|
@@ -133,7 +131,7 @@ pub fn Node::named_child(self : Node, index : Int32) -> Node? {
     return None
   }
   let mut current = 0
-  for (_, child) in self.data.children {
+  for (_, child) in self.data.children.entries() {
     if child.is_named() {
       if current == index {
         return Some(child)
@@ -146,7 +144,7 @@ pub fn Node::named_child(self : Node, index : Int32) -> Node? {
 
 ///|
 pub fn Node::children(self : Node) -> Array[Node] {
-  self.data.children.map(c => c.1)
+  self.data.children.entries().map(c => c.1)
 }
 
 ///|
@@ -156,7 +154,7 @@ pub fn Node::named_children(self : Node) -> Array[Node] {
 
 ///|
 pub fn Node::field_name_for_child(self : Node, index : Int32) -> String? {
-  match self.data.children.get(index) {
+  match self.data.children.entries().get(index) {
     Some((field, _)) => field
     None => None
   }
@@ -164,7 +162,7 @@ pub fn Node::field_name_for_child(self : Node, index : Int32) -> String? {
 
 ///|
 pub fn Node::child_by_field_name(self : Node, name : String) -> Node? {
-  for (field, child) in self.data.children {
+  for (field, child) in self.data.children.entries() {
     if field == Some(name) {
       return Some(child)
     }
@@ -174,7 +172,7 @@ pub fn Node::child_by_field_name(self : Node, name : String) -> Node? {
 
 ///|
 pub fn Node::children_by_field_name(self : Node, name : String) -> Array[Node] {
-  self.data.children.filter(c => c.0 == Some(name)).map(c => c.1)
+  self.data.children.entries().filter(c => c.0 == Some(name)).map(c => c.1)
 }
 
 ///|
@@ -187,7 +185,7 @@ pub fn Node::descendant_for_byte_range(
   if start < self.start_byte() || end > self.end_byte() || end < start {
     return None
   }
-  for (_, child) in self.data.children {
+  for (_, child) in self.data.children.entries() {
     if child.start_byte() <= start &&
       child.end_byte() >= end &&
       (child.end_byte() > start || child.start_byte() == child.end_byte()) {
@@ -224,7 +222,7 @@ fn Node::write_sexp(self : Node, output : StringBuilder) -> Unit {
   }
   output.write_char('(')
   output.write_string(self.kind())
-  for (field, child) in self.data.children {
+  for (field, child) in self.data.children.entries() {
     if child.is_named() || child.is_missing() || child.is_error() {
       output.write_char(' ')
       if field is Some(name) {

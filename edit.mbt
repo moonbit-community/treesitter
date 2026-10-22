@@ -83,7 +83,9 @@ fn edit_node(node : Node, edit : InputEdit) -> Node {
       end_byte,
       start_point,
       end_point,
-      children: data.children.map(c => (c.0, edit_node(c.1, edit))),
+      children: child_entries(
+        data.children.entries().map(c => (c.0, edit_node(c.1, edit))),
+      ),
     },
   }
 }
@@ -140,7 +142,9 @@ fn reset_origin(node : Node) -> Node {
       ..node.data,
       origin_start: node.start_byte(),
       origin_end: node.end_byte(),
-      children: node.data.children.map(c => (c.0, reset_origin(c.1))),
+      children: child_entries(
+        node.data.children.entries().map(c => (c.0, reset_origin(c.1))),
+      ),
     },
   }
 }

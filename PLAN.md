@@ -235,3 +235,13 @@ without deprecation warnings. The script checks all 86 tests on native/JS/Wasm G
 executes both mbtx grammars, compares regenerated factories byte-for-byte, and
 smoke-tests parse/highlight commands. No reference checkout is needed for this
 normal validation path. Full port completion remains open as detailed above.
+
+### Runtime scaling checkpoint
+
+A reproducible native release benchmark exposed quadratic copying in hidden
+repetitions: 100 versus 1000 JSON objects took roughly 0.86 versus 26.9 ms.
+Persistent child segments with cached materialization reduced those measurements
+to 0.74 versus 7.9 ms on the same machine. An edit/reuse case measured 0.46 ms
+versus 0.75 ms for a fresh parse. These are local observations, not upstream parity
+claims or CI timing thresholds. An additional 2000-object test verifies child
+order, counts and fields. All 87 tests pass across native, JS and Wasm GC.
