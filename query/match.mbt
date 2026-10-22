@@ -35,6 +35,8 @@ fn match_pattern(
       }
       result
     }
+    Group(children, trailing) =>
+      match_children(children, trailing, node, 0, 0, [], budget).map(m => m.0)
     Node(p) => {
       if p.supertype is Some(name) && !node.supertypes().contains(name) {
         return []
@@ -51,61 +53,94 @@ fn match_pattern(
       if p.absent_fields.any(f => node.child_by_field_name(f) is Some(_)) {
         return []
       }
-      match_children(p, node, 0, 0, [], budget)
+      match_children(p.children, p.trailing_anchor, node, 0, 0, [], budget).map(m => {
+          m.0
+        },
+      )
     }
   }
 }
 
 ///|
+fn match_at(
+  pattern : Pattern,
+  parent : @ts.Node,
+  index : Int32,
+  budget : Budget,
+) -> Array[(Array[Capture], Int32)] raise QueryError {
+  match pattern {
+    Group(children, trailing) => {
+      let children = children.copy()
+      if !children.is_empty() {
+        children[0] = { ..children[0], anchor: true, }
+      }
+      match_children(children, trailing, parent, 0, index, [], budget)
+    }
+    Either(items) => {
+      let results = []
+      for item in items {
+        results.append(match_at(item, parent, index, budget))
+      }
+      results
+    }
+    Capture(inner, name) =>
+      match_at(inner, parent, index, budget).map(m => {
+        (m.0 + [{ name, node: parent.child(index).unwrap(), }], m.1)
+      })
+    _ =>
+      match_pattern(pattern, parent.child(index).unwrap(), budget).map(c => {
+        (c, index + 1)
+      })
+  }
+}
+
+///|
 fn match_children(
-  pattern : NodePattern,
+  children : Array[Child],
+  trailing_anchor : Bool,
   parent : @ts.Node,
   pi : Int32,
   from : Int32,
   captures : Array[Capture],
   budget : Budget,
-) -> Array[Array[Capture]] raise QueryError {
+) -> Array[(Array[Capture], Int32)] raise QueryError {
   budget.tick()
-  if pi == pattern.children.length() {
-    if pattern.trailing_anchor {
+  if pi == children.length() {
+    if trailing_anchor {
       for i in from..<parent.child_count() {
         if parent.child(i).unwrap().is_named() {
           return []
         }
       }
     }
-    return [captures]
+    return [(captures, from)]
   }
-  let spec = pattern.children[pi]
+  let spec = children[pi]
   let result = []
   for i in from..<parent.child_count() {
     let node = parent.child(i).unwrap()
-    let field_matches = spec.field is None ||
-      spec.field == parent.field_name_for_child(i)
-    let matches = if field_matches {
-      match_pattern(spec.pattern, node, budget)
+    let matches = if spec.field is None ||
+      spec.field == parent.field_name_for_child(i) {
+      match_at(spec.pattern, parent, i, budget)
     } else {
       []
     }
-    for matched in matches {
+    for (matched, after) in matches {
       if spec.max == Some(1) {
         result.append(
           match_children(
-            pattern,
+            children,
+            trailing_anchor,
             parent,
             pi + 1,
-            i + 1,
+            after,
             captures + matched,
             budget,
           ),
         )
       } else {
-        // Enumerate consecutive repetitions greedily, retaining shorter paths
-        // only when needed for the following child pattern.
-        let runs : Array[(Int32, Int32, Array[Capture])] = [
-          (i + 1, 1, captures + matched),
-        ]
-        let stops : Array[(Int32, Int32, Array[Capture])] = []
+        let runs = [(after, 1, captures + matched)]
+        let stops = []
         while runs.pop() is Some((next, count, accumulated)) {
           budget.tick()
           stops.push((next, count, accumulated))
@@ -113,9 +148,11 @@ fn match_children(
             let sibling = parent.child(j).unwrap()
             if spec.field is None ||
               spec.field == parent.field_name_for_child(j) {
-              let found = match_pattern(spec.pattern, sibling, budget)
-              for additional in found {
-                runs.push((j + 1, count + 1, accumulated + additional))
+              let found = match_at(spec.pattern, parent, j, budget)
+              for (additional, after) in found {
+                if after > next {
+                  runs.push((after, count + 1, accumulated + additional))
+                }
               }
               if !found.is_empty() || sibling.is_named() {
                 break
@@ -128,7 +165,8 @@ fn match_children(
         stops.sort_by((a, b) => b.1.compare(a.1))
         for (next, _, accumulated) in stops {
           let found = match_children(
-            pattern,
+            children,
+            trailing_anchor,
             parent,
             pi + 1,
             next,
@@ -150,7 +188,15 @@ fn match_children(
     }
   }
   if result.is_empty() && spec.min == 0 {
-    match_children(pattern, parent, pi + 1, from, captures, budget)
+    match_children(
+      children,
+      trailing_anchor,
+      parent,
+      pi + 1,
+      from,
+      captures,
+      budget,
+    )
   } else {
     result
   }
@@ -197,10 +243,60 @@ fn predicates_match(
   captures : Array[Capture],
   source : Bytes,
   budget : Budget,
+  property : (String, String?, @ts.Node?) -> Bool,
+  custom : ((String, Array[Argument], Array[Capture], Bytes) -> Bool)?,
 ) -> Bool raise QueryError {
   for predicate in predicates {
     budget.tick()
-    if predicate.name == "#set!" {
+    if predicate.name is ("#set!" | "#strip!" | "#select-adjacent!") {
+      continue
+    }
+    if predicate.name is ("#is?" | "#is-not?") {
+      let texts = predicate.args.filter_map(a => {
+        match a {
+          Text(s) => Some(s)
+          _ => None
+        }
+      })
+      let names = predicate.args.filter_map(a => {
+        match a {
+          Capture(s) => Some(s)
+          _ => None
+        }
+      })
+      let targets = if names.is_empty() {
+        if captures.is_empty() {
+          [None]
+        } else {
+          captures.map(c => Some(c.node))
+        }
+      } else {
+        captures.filter(c => c.name == names[0]).map(c => Some(c.node))
+      }
+      if !targets.all(node => {
+          property(texts[0], texts.get(1), node) == (predicate.name == "#is?")
+        }) {
+        return false
+      }
+      continue
+    }
+    if !(predicate.name
+      is ("#eq?"
+      | "#not-eq?"
+      | "#any-eq?"
+      | "#any-not-eq?"
+      | "#match?"
+      | "#not-match?"
+      | "#any-match?"
+      | "#any-not-match?"
+      | "#any-of?"
+      | "#not-any-of?")) {
+      guard custom is Some(callback) else {
+        raise InvalidQuery(0, "no evaluator for predicate '\{predicate.name}'")
+      }
+      if !callback(predicate.name, predicate.args, captures, source) {
+        return false
+      }
       continue
     }
     let left = values(predicate.args[0], captures, source)
@@ -257,6 +353,8 @@ pub fn Query::matches(
   max_steps~ : Int32 = 100000,
   max_matches~ : Int32 = 10000,
   cancelled~ : () -> Bool = () => false,
+  property~ : (String, String?, @ts.Node?) -> Bool = (_, _, _) => false,
+  predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool,
 ) -> Array[Match] raise QueryError {
   let result : Array[Match] = []
   let budget : Budget = { steps: 0, limit: max_steps, cancelled, }
@@ -268,7 +366,14 @@ pub fn Query::matches(
     }
     for pattern_index, p in self.patterns {
       for captures in match_pattern(p.pattern, node, budget) {
-        if predicates_match(p.predicates, captures, source, budget) {
+        if predicates_match(
+            p.predicates,
+            captures,
+            source,
+            budget,
+            property,
+            predicate,
+          ) {
           let properties : Map[String, String] = Map([])
           for predicate in p.predicates {
             if predicate.name == "#set!" && predicate.args[0] is Text(key) {
@@ -281,7 +386,10 @@ pub fn Query::matches(
           if result.length() >= max_matches {
             raise MatchLimit
           }
-          result.push({ pattern_index, captures, properties, })
+          let directives = p.predicates
+            .filter(p => p.name.has_suffix("!") && p.name != "#set!")
+            .map(p => Directive::{ name: p.name, args: p.args.copy(), })
+          result.push({ pattern_index, captures, properties, directives, })
         }
       }
     }

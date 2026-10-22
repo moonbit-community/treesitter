@@ -18,23 +18,42 @@ pub(all) suberror QueryError {
 pub fn QueryError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+pub(all) enum Argument {
+  Capture(String)
+  Text(String)
+}
+
 pub(all) struct Capture {
   name : String
   node : @treesitter.Node
 }
 
+pub(all) struct Directive {
+  name : String
+  args : Array[Argument]
+}
+
+pub struct Locals {
+  // private fields
+}
+pub fn Locals::definition(Self, @treesitter.Node) -> @treesitter.Node?
+pub fn Locals::is_local(Self, @treesitter.Node) -> Bool
+pub fn Locals::new(Query, @treesitter.Tree) -> Self raise QueryError
+
 pub(all) struct Match {
   pattern_index : Int32
   captures : Array[Capture]
   properties : Map[String, String]
+  directives : Array[Directive]
 }
+pub fn Match::texts(Self, String, Bytes) -> Array[String] raise QueryError
 
 pub struct Query {
   capture_names : Array[String]
   // private fields
 }
 pub fn Query::captures(Self, @treesitter.Node, Bytes) -> Array[Capture] raise QueryError
-pub fn Query::matches(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool) -> Array[Match] raise QueryError
+pub fn Query::matches(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> Array[Match] raise QueryError
 pub fn Query::new(@language.Language, String) -> Self raise QueryError
 pub fn Query::pattern_count(Self) -> Int32
 

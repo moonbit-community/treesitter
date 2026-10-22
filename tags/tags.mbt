@@ -17,12 +17,14 @@ pub(all) struct Tag {
 pub struct Configuration {
   language : @language.Language
   priv query : @query.Query
+  priv locals : @query.Query
 }
 
 ///|
 pub fn Configuration::new(
   language : @language.Language,
   source : String,
+  locals~ : String = "",
 ) -> Configuration raise {
   let query = @query.Query::new(language, source)
   for name in query.capture_names {
@@ -37,7 +39,7 @@ pub fn Configuration::new(
   if !query.capture_names.contains("name") {
     raise InvalidCapture("missing @name")
   }
-  { language, query, }
+  { language, query, locals: @query.Query::new(language, locals), }
 }
 
 ///|
@@ -48,7 +50,12 @@ pub fn Configuration::generate(
   tree : @ts.Tree,
   cancelled~ : () -> Bool = () => false,
 ) -> Array[Tag] raise @query.QueryError {
-  let matches = self.query.matches(tree.root_node(), tree.source, cancelled~)
+  let locals = @query.Locals::new(self.locals, tree)
+  let matches = self.query.matches(tree.root_node(), tree.source, cancelled~, property=(
+    key,
+    _,
+    node,
+  ) => key == "local" && node is Some(node) && locals.is_local(node))
   let ignored = []
   for matched in matches {
     for capture in matched.captures {
@@ -91,9 +98,7 @@ pub fn Configuration::generate(
           continue
         }
         seen[key] = true
-        let docs = matched.captures
-          .filter(c => c.name == "doc")
-          .map(c => c.node.text(tree.source))
+        let docs = matched.texts("doc", tree.source)
         tags.push(Tag::{
           name: name.node.text(tree.source),
           syntax_type,

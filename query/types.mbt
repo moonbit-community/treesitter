@@ -12,6 +12,7 @@ pub extend QueryError with @debug.Debug::{to_repr}
 priv enum Pattern {
   Node(NodePattern)
   Either(Array[Pattern])
+  Group(Array[Child], Bool)
   Capture(Pattern, String)
 }
 
@@ -36,7 +37,7 @@ priv struct Child {
 }
 
 ///|
-priv enum Argument {
+pub(all) enum Argument {
   Capture(String)
   Text(String)
 }
@@ -69,10 +70,17 @@ pub(all) struct Capture {
 }
 
 ///|
+pub(all) struct Directive {
+  name : String
+  args : Array[Argument]
+}
+
+///|
 pub(all) struct Match {
   pattern_index : Int32
   captures : Array[Capture]
   properties : Map[String, String]
+  directives : Array[Directive]
 }
 
 ///|

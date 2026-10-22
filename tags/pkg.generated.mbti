@@ -20,7 +20,7 @@ pub struct Configuration {
   // private fields
 }
 pub fn Configuration::generate(Self, @treesitter.Tree, cancelled? : () -> Bool) -> Array[Tag] raise @query.QueryError
-pub fn Configuration::new(@language.Language, String) -> Self raise
+pub fn Configuration::new(@language.Language, String, locals? : String) -> Self raise
 
 pub(all) struct Tag {
   name : String

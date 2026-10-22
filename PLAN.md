@@ -292,3 +292,13 @@ and supplementary Unicode scanner fixtures to MoonBit callbacks. Scanner ranges
 now clamp their start to a previously marked end after later skip advances,
 matching the reference lexer. A direct get-column-at-EOF regression supplements
 its generation-only upstream fixture. 115 tests pass on all three targets.
+
+### Query groups, local bindings and documentation directives
+
+Sibling pattern groups now match adjacent roots, including nested groups and
+quantified documentation captures. Property predicates accept caller-provided
+state; general predicates accept explicit evaluators and fail when none exists.
+Local queries resolve references through lexical scopes, honor scope inheritance,
+and exclude the definition's initializer. Tags apply select-adjacent! and strip!
+to documentation captures. Regression tests cover sibling captures, callbacks,
+shadowing, initializers and documentation gaps.

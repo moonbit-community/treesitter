@@ -179,13 +179,30 @@ fn Reader::predicate(self : Reader) -> Unit raise QueryError {
     if args.length() < 1 || args.length() > 2 || !args.all(a => a is Text(_)) {
       raise self.error("set! requires a property name and optional value")
     }
-  } else {
-    raise self.error("unsupported predicate '\{name}'")
+  } else if name is ("#is?" | "#is-not?") {
+    let values = args.filter(a => a is Text(_))
+    if values.length() < 1 ||
+      values.length() > 2 ||
+      args.filter(a => a is Capture(_)).length() > 1 {
+      raise self.error(
+        "property predicate requires a key, optional value and optional capture",
+      )
+    }
+  } else if name == "#strip!" {
+    if args.length() != 2 || !(args[0] is Capture(_)) || !(args[1] is Text(_)) {
+      raise self.error("strip! requires a capture and a regex")
+    }
+  } else if name == "#select-adjacent!" {
+    if args.length() != 2 || !args.all(a => a is Capture(_)) {
+      raise self.error("select-adjacent! requires two captures")
+    }
+  } else if !name.has_prefix("#") {
+    raise self.error("invalid predicate name")
   }
   let mut regex = None
   let mut start_anchor = false
   let mut end_anchor = false
-  if matching {
+  if matching || name == "#strip!" {
     guard args[1] is Text(text) else {
       raise self.error("match? requires a string regex")
     }
@@ -254,12 +271,29 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
       })
     Punct('(') =>
       if self.tokens.get(self.pos) is Some({ kind: Punct('(' | '['), .. }) {
-        let inner = self.pattern(depth + 1)
-        while self.is_predicate() {
-          self.predicate()
+        let children = []
+        let mut anchor = false
+        while !self.punct(')') {
+          if self.is_predicate() {
+            self.predicate()
+            continue
+          }
+          if self.punct('.') {
+            anchor = true
+            continue
+          }
+          children.push(self.child(depth + 1, None, anchor))
+          anchor = false
         }
-        self.expect(')')
-        inner
+        if children.length() == 1 &&
+          children[0].min == 1 &&
+          children[0].max == Some(1) &&
+          !children[0].anchor &&
+          !anchor {
+          children[0].pattern
+        } else {
+          Group(children, anchor)
+        }
       } else {
         let kind = self.word()
         let missing = kind == "MISSING"
@@ -330,32 +364,7 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
           } else {
             None
           }
-          let mut child = self.pattern(depth + 1)
-          let (min, max) = if self.punct('?') {
-            (0, Some(1))
-          } else if self.punct('*') {
-            (0, None)
-          } else if self.punct('+') {
-            (1, None)
-          } else {
-            (1, Some(1))
-          }
-          while self.tokens.get(self.pos) is Some({ kind: Word(name), .. }) &&
-                name.has_prefix("@") {
-            self.pos += 1
-            let name = name[1:].to_owned()
-            if name.is_empty() {
-              raise self.error("empty capture name")
-            }
-            if !self.captures.contains(name) {
-              self.captures.push(name)
-            }
-            child = Capture(child, name)
-          }
-          if field is Some(name) {
-            self.check_field(name)
-          }
-          children.push({ pattern: child, field, anchor, min, max, })
+          children.push(self.child(depth + 1, field, anchor))
           anchor = false
         }
         Node({
@@ -447,6 +456,13 @@ fn Reader::check_field(self : Reader, name : String) -> Unit raise QueryError {
 fn pattern_captures(pattern : Pattern) -> Array[String] {
   match pattern {
     Capture(inner, name) => pattern_captures(inner) + [name]
+    Group(children, _) => {
+      let out = []
+      for child in children {
+        out.append(pattern_captures(child.pattern))
+      }
+      out
+    }
     Either(items) => {
       let out = []
       for item in items {
@@ -462,4 +478,39 @@ fn pattern_captures(pattern : Pattern) -> Array[String] {
       out
     }
   }
+}
+
+///|
+fn Reader::child(
+  self : Reader,
+  depth : Int32,
+  field : String?,
+  anchor : Bool,
+) -> Child raise QueryError {
+  let mut pattern = self.pattern(depth)
+  let (min, max) = if self.punct('?') {
+    (0, Some(1))
+  } else if self.punct('*') {
+    (0, None)
+  } else if self.punct('+') {
+    (1, None)
+  } else {
+    (1, Some(1))
+  }
+  while self.tokens.get(self.pos) is Some({ kind: Word(name), .. }) &&
+        name.has_prefix("@") {
+    self.pos += 1
+    let name = name[1:].to_owned()
+    if name.is_empty() {
+      raise self.error("empty capture name")
+    }
+    if !self.captures.contains(name) {
+      self.captures.push(name)
+    }
+    pattern = Capture(pattern, name)
+  }
+  if field is Some(name) {
+    self.check_field(name)
+  }
+  { pattern, field, anchor, min, max, }
 }
