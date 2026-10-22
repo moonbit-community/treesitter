@@ -1,0 +1,315 @@
+///|
+/// Pure MoonBit translation of tree-sitter-javascript v0.25.0's MIT-licensed
+/// external scanner. See NOTICE for attribution. Token indices follow externals.
+import {
+  "bobzhang/treesitter" @ts,
+  "bobzhang/treesitter/lex",
+}
+
+///|
+fn whitespace(c : Int32) -> Bool {
+  match c {
+    9..<=13
+    | 32
+    | 0x1680
+    | 0x2000..<=0x2006
+    | 0x2008..<=0x200a
+    | 0x2028
+    | 0x2029
+    | 0x205f
+    | 0x3000 => true
+    _ => false
+  }
+}
+
+///|
+fn newline(c : Int32) -> Bool {
+  c == 10 || c == 0x2028 || c == 0x2029
+}
+
+///|
+fn digit(c : Int32) -> Bool {
+  c >= 48 && c <= 57
+}
+
+///|
+let alphabetic : @lex.Expr = try! @lex.parse("\\p{Alphabetic}")
+
+///|
+fn alpha(c : Int32) -> Bool {
+  match alphabetic {
+    Concat([Chars(set)]) => set.contains(c)
+    _ => false
+  }
+}
+
+///|
+fn template_chars(input : @ts.ScannerInput) -> Bool {
+  let mut has_content = false
+  while true {
+    input.mark_end()
+    match input.lookahead() {
+      96 | 92 => return has_content
+      0 => return false
+      36 => {
+        input.advance()
+        if input.lookahead() == 123 {
+          return has_content
+        }
+      }
+      _ => input.advance()
+    }
+    has_content = true
+  }
+  false
+}
+
+///|
+priv enum WhitespaceResult {
+  Reject
+  NoNewline
+  Accept
+}
+
+///|
+priv struct CommentState {
+  mut scanned : Bool
+}
+
+///|
+fn whitespace_and_comments(
+  input : @ts.ScannerInput,
+  comment : CommentState,
+  consume : Bool,
+) -> WhitespaceResult {
+  let mut saw_block_newline = false
+  while true {
+    while whitespace(input.lookahead()) {
+      input.advance(skip=true)
+    }
+    if input.lookahead() != 47 {
+      return Accept
+    }
+    input.advance(skip=true)
+    match input.lookahead() {
+      47 => {
+        input.advance(skip=true)
+        while input.lookahead() != 0 && !newline(input.lookahead()) {
+          input.advance(skip=true)
+        }
+        comment.scanned = true
+      }
+      42 => {
+        input.advance(skip=true)
+        while input.lookahead() != 0 {
+          if input.lookahead() == 42 {
+            input.advance(skip=true)
+            if input.lookahead() == 47 {
+              input.advance(skip=true)
+              comment.scanned = true
+              if input.lookahead() != 47 && !consume {
+                return if saw_block_newline { Accept } else { NoNewline }
+              }
+              break
+            }
+          } else {
+            if newline(input.lookahead()) {
+              saw_block_newline = true
+            }
+            input.advance(skip=true)
+          }
+        }
+      }
+      _ => return Reject
+    }
+  }
+  Accept
+}
+
+///|
+fn automatic_semicolon(
+  input : @ts.ScannerInput,
+  comment_condition : Bool,
+  comment : CommentState,
+) -> Bool {
+  input.mark_end()
+  while true {
+    if input.lookahead() == 0 {
+      return true
+    }
+    if input.lookahead() == 47 {
+      match whitespace_and_comments(input, comment, false) {
+        Reject => return false
+        Accept =>
+          if comment_condition &&
+            input.lookahead() != 44 &&
+            input.lookahead() != 61 {
+            return true
+          }
+        NoNewline => ()
+      }
+    }
+    if input.lookahead() == 125 || input.is_at_included_range_start() {
+      return true
+    }
+    if newline(input.lookahead()) {
+      break
+    }
+    if !whitespace(input.lookahead()) {
+      return false
+    }
+    input.advance(skip=true)
+  }
+  input.advance(skip=true)
+  if whitespace_and_comments(input, comment, true) is Reject {
+    return false
+  }
+  match input.lookahead() {
+    96
+    | 44
+    | 58
+    | 59
+    | 42
+    | 37
+    | 62
+    | 60
+    | 61
+    | 91
+    | 40
+    | 63
+    | 94
+    | 124
+    | 38
+    | 47 => false
+    46 => {
+      input.advance(skip=true)
+      digit(input.lookahead())
+    }
+    43 | 45 as c => {
+      input.advance(skip=true)
+      input.lookahead() == c
+    }
+    33 => {
+      input.advance(skip=true)
+      input.lookahead() != 61
+    }
+    105 => {
+      input.advance(skip=true)
+      if input.lookahead() != 110 {
+        return true
+      }
+      input.advance(skip=true)
+      if !alpha(input.lookahead()) {
+        return false
+      }
+      for c in "stanceof" {
+        if input.lookahead() != c.to_int() {
+          return true
+        }
+        input.advance(skip=true)
+      }
+      alpha(input.lookahead())
+    }
+    _ => true
+  }
+}
+
+///|
+fn ternary_qmark(input : @ts.ScannerInput) -> Bool {
+  while whitespace(input.lookahead()) {
+    input.advance(skip=true)
+  }
+  if input.lookahead() != 63 {
+    return false
+  }
+  input.advance()
+  if input.lookahead() == 63 {
+    return false
+  }
+  input.mark_end()
+  if input.lookahead() == 46 {
+    input.advance()
+    return digit(input.lookahead())
+  }
+  true
+}
+
+///|
+fn html_comment(input : @ts.ScannerInput) -> Bool {
+  while whitespace(input.lookahead()) {
+    input.advance(skip=true)
+  }
+  let prefix = match input.lookahead() {
+    60 => "<!--"
+    45 => "-->"
+    _ => return false
+  }
+  for c in prefix {
+    if input.lookahead() != c.to_int() {
+      return false
+    }
+    input.advance()
+  }
+  while input.lookahead() != 0 && !newline(input.lookahead()) {
+    input.advance()
+  }
+  input.mark_end()
+  true
+}
+
+///|
+fn jsx_text(input : @ts.ScannerInput) -> Bool {
+  let mut saw_text = false
+  let mut at_newline = false
+  while !(input.lookahead() is (0 | 60 | 62 | 123 | 125 | 38)) {
+    if input.lookahead() == 10 {
+      at_newline = true
+    } else {
+      at_newline = at_newline && whitespace(input.lookahead())
+      if !at_newline {
+        saw_text = true
+      }
+    }
+    input.advance()
+  }
+  saw_text
+}
+
+///|
+pub fn scanner(language : String) -> @ts.ExternalScanner? {
+  if language != "javascript" {
+    return None
+  }
+  Some(
+    @ts.ExternalScanner::new((input, valid, _) => {
+      fn result(token : Int32, ok : Bool) -> @ts.ScanResult? {
+        if ok {
+          Some({ token, state: b"", })
+        } else {
+          None
+        }
+      }
+      if valid[1] {
+        return if valid[0] { None } else { result(1, template_chars(input)) }
+      }
+      if valid[7] && jsx_text(input) {
+        return result(7, true)
+      }
+      if valid[0] {
+        let comment = { scanned: false, }
+        let ok = automatic_semicolon(input, !valid[4], comment)
+        if !ok && !comment.scanned && valid[2] && input.lookahead() == 63 {
+          return result(2, ternary_qmark(input))
+        }
+        return result(0, ok)
+      }
+      if valid[2] {
+        return result(2, ternary_qmark(input))
+      }
+      if valid[3] && !valid[4] && !valid[5] && !valid[6] {
+        return result(3, html_comment(input))
+      }
+      None
+    }),
+  )
+}
