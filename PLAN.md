@@ -509,3 +509,12 @@ Fixed recovery root bounds: finishing an empty root with pending ERROR syntax
 now includes that syntax in the root's extent. A pinned JSON regression checks
 incomplete-array root bounds and the empty-to-incomplete changed range on all
 three targets. This addresses second-audit finding 1.
+
+Second-audit query findings 4–7 are fixed: independent repeated-child runs remain
+visible; skipped optional/repeated children transfer or remove anchors according
+to their direction; anonymous tokens can begin sibling groups; absent optional
+captures satisfy universal predicates, including empty capture pairs. Parent
+captures now precede descendant captures within a match, preserving same-node
+capture order. Twenty-two query tests pass on native, JS, and Wasm GC, and the
+full native suite passes 246 tests. These cases are derived from the pinned
+reference probes, with expected capture-order assertions corrected accordingly.

@@ -50,7 +50,8 @@ test "query predicates and properties filter captures" {
   )
   let matches = query.matches(tree.root_node(), tree.source)
   assert_eq(matches.length(), 1)
-  assert_eq(matches[0].captures[0].node.text(tree.source), "bob")
+  assert_eq(matches[0].captures.map(c => c.name), ["definition", "name"])
+  assert_eq(matches[0].captures[1].node.text(tree.source), "bob")
   assert_eq(matches[0].properties["kind"], "variable")
   let anyof = @query.Query::new(
     tree.language,
@@ -407,4 +408,95 @@ test "group edges and single-valued fields are rejected at their source offsets"
     ] {
     ignore(@query.Query::new(tree.language, source))
   }
+}
+
+///|
+fn list_fixture(source : String) -> @ts.Tree raise {
+  let language = @generate.generate(
+    @grammar.Grammar::new("list", [
+      (
+        "array",
+        Seq([
+          Literal("["),
+          @grammar.sep(
+            Choice([Symbol("number"), Symbol("string"), Symbol("true")]),
+            Literal(","),
+          ),
+          Literal("]"),
+        ]),
+      ),
+      ("number", @grammar.pattern("[0-9]+")),
+      ("string", @grammar.pattern("[a-z]+")),
+      ("true", Literal("true")),
+    ]),
+  )
+  @ts.Parser::new(language).parse_string(source)
+}
+
+///|
+test "anonymous groups and parent captures follow tree order" {
+  let tree = list_fixture("[1,2]")
+  let query = @query.Query::new(tree.language, "(\"[\" @left \"]\" @right)")
+  let matches = query.matches(tree.root_node(), tree.source)
+  assert_eq(matches.length(), 1)
+  assert_eq(matches[0].captures.map(c => c.name), ["left", "right"])
+  let query = @query.Query::new(tree.language, "(array (number) @n) @a @b")
+  let matches = query.matches(tree.root_node(), tree.source)
+  assert_eq(matches[0].captures.map(c => c.name), ["a", "b", "n"])
+}
+
+///|
+test "quantified query patterns enumerate separate runs" {
+  let tree = list_fixture("[1,2,true,3,4]")
+  let query = @query.Query::new(tree.language, "(array (number)+ @n)")
+  let matches = query.matches(tree.root_node(), tree.source)
+  assert_eq(matches.map(m => m.captures.map(c => c.node.text(tree.source))), [
+    ["1", "2"],
+    ["3", "4"],
+  ])
+}
+
+///|
+test "anchors survive a skipped optional predecessor in the correct direction" {
+  let tree = list_fixture("[1,true]")
+  let after = @query.Query::new(
+    tree.language,
+    "(array (string)* @s . (true) @t)",
+  )
+  assert_eq(after.matches(tree.root_node(), tree.source).length(), 1)
+  let before = @query.Query::new(tree.language, "(array . (string)* (true) @t)")
+  assert_eq(before.matches(tree.root_node(), tree.source).length(), 0)
+  let predicate = @query.Query::new(
+    tree.language,
+    "((array (string)? @s) @a (#eq? @s \"x\"))",
+  )
+  assert_eq(predicate.matches(tree.root_node(), tree.source).length(), 1)
+}
+
+///|
+test "predicates accept absent optional captures including empty pairs" {
+  let tree = list_fixture("[1]")
+  for
+    predicate in [
+      "#eq?", "#not-eq?", "#any-eq?", "#any-not-eq?", "#match?", "#not-match?", "#any-match?",
+      "#any-not-match?", "#any-of?", "#not-any-of?",
+    ] {
+    let query = @query.Query::new(
+      tree.language,
+      "((array (string)? @s) @a (\{predicate} @s \"x\"))",
+    )
+    assert_eq(query.matches(tree.root_node(), tree.source).length(), 1)
+  }
+  for predicate in ["#eq?", "#not-eq?", "#any-eq?", "#any-not-eq?"] {
+    let query = @query.Query::new(
+      tree.language,
+      "((array (string)? @s (true)? @t) @a (\{predicate} @s @t))",
+    )
+    assert_eq(query.matches(tree.root_node(), tree.source).length(), 1)
+  }
+  let query = @query.Query::new(
+    tree.language,
+    "((array (string)? @s (number) @n) @a (#eq? @s @n))",
+  )
+  assert_eq(query.matches(tree.root_node(), tree.source).length(), 0)
 }

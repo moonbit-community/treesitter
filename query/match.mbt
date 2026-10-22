@@ -26,7 +26,11 @@ fn match_pattern(
   match pattern {
     Capture(inner, name) =>
       match_pattern(inner, node, budget).map(captures => {
-        captures + [{ name, node, }]
+        let index = captures
+          .search_by(c => c.node.id() != node.id())
+          .unwrap_or(captures.length())
+        captures.insert(index, { name, node, })
+        captures
       })
     Either(alternatives) => {
       let result = []
@@ -117,7 +121,11 @@ fn match_children(
   }
   let spec = children[pi]
   let result = []
+  let mut skip_until = from
   for i in from..<parent.child_count() {
+    if i < skip_until {
+      continue
+    }
     let node = parent.child(i).unwrap()
     let matches = if spec.field is None ||
       spec.field == parent.field_name_for_child(i) {
@@ -175,19 +183,21 @@ fn match_children(
           )
           if !found.is_empty() {
             result.append(found)
+            skip_until = Int32::max(skip_until, next)
             break
           }
         }
       }
-    }
-    if !result.is_empty() && spec.max is None {
-      return result
     }
     if spec.anchor && node.is_named() {
       break
     }
   }
   if result.is_empty() && spec.min == 0 {
+    let children = children.copy()
+    if pi + 1 < children.length() {
+      children[pi + 1] = { ..children[pi + 1], anchor: spec.anchor, }
+    }
     match_children(
       children,
       trailing_anchor,
@@ -295,9 +305,6 @@ fn predicates_match(
       continue
     }
     let left = values(predicate.args[0], captures, source)
-    if left.is_empty() {
-      return false
-    }
     let negative = predicate.name.contains("not-")
     let any = predicate.name.has_prefix("#any-") && predicate.name != "#any-of?"
     let results : Array[Bool] = []
@@ -315,9 +322,6 @@ fn predicates_match(
       }
     } else {
       let right = values(predicate.args[1], captures, source)
-      if right.is_empty() {
-        return false
-      }
       if predicate.args[1] is Capture(_) {
         if left.length() != right.length() {
           return false
@@ -331,7 +335,8 @@ fn predicates_match(
         }
       }
     }
-    if !(if any { results.any(x => x) } else { results.all(x => x) }) {
+    if !results.is_empty() &&
+      !(if any { results.any(x => x) } else { results.all(x => x) }) {
       return false
     }
   }

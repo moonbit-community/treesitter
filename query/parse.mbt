@@ -264,7 +264,8 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
         trailing_anchor: false,
       })
     Punct('(') =>
-      if self.tokens.get(self.pos) is Some({ kind: Punct('(' | '['), .. }) {
+      if self.tokens.get(self.pos)
+        is Some({ kind: Punct('(' | '[') | Quoted(_), .. }) {
         let children = []
         let mut anchor = false
         let mut anchor_byte = 0
