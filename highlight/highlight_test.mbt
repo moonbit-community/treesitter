@@ -47,3 +47,58 @@ test "HTML escapes unhighlighted input and capture class names" {
   let config = @highlight.Configuration::new(language, "(number) @number")
   assert_eq(config.html(tree), "&lt;<span class=\"number\">1</span>")
 }
+
+///|
+test "local references inherit definition highlights" {
+  let language = @generate.generate(
+    @grammar.Grammar::new("locals", [
+      (
+        "document",
+        Seq([Symbol("binding"), Symbol("identifier"), Symbol("identifier")]),
+      ),
+      ("binding", Seq([Literal("let"), Symbol("identifier"), Literal(";")])),
+      ("identifier", @grammar.pattern("[a-z]+")),
+    ]),
+  )
+  let tree = @ts.Parser::new(language).parse_string("let x; x y")
+  let config = @highlight.Configuration::new(
+    language,
+    "(binding (identifier) @variable.definition)\n((identifier) @constant (#is-not? local))\n(identifier) @variable",
+    locals="(binding (identifier) @local.definition)\n(identifier) @local.reference",
+  )
+  assert_eq(
+    config.html(tree),
+    "let <span class=\"variable.definition\">x</span>; <span class=\"variable.definition\">x</span> <span class=\"constant\">y</span>",
+  )
+}
+
+///|
+test "injection content uses original ranges and clips combined captures" {
+  let outer = @generate.generate(
+    @grammar.Grammar::new("embedded", [
+      ("document", Repeat(Symbol("embedded"))),
+      ("embedded", Seq([Literal("`"), Symbol("content"), Literal("`")])),
+      ("content", @grammar.pattern("[^`]+")),
+    ]),
+  )
+  let inner = @highlight.Configuration::new(
+    @arithmetic.language(),
+    "(number) @number\n\"+\" @operator",
+  )
+  let config = @highlight.Configuration::new(
+    outer,
+    "",
+    injections="((content) @injection.content (#set! injection.language arithmetic) (#set! injection.combined))",
+  )
+  let tree = @ts.Parser::new(outer).parse_string("`1 +` `2`")
+  assert_eq(
+    config.html(tree, injection=name => {
+      if name == "arithmetic" {
+        Some(inner)
+      } else {
+        None
+      }
+    }),
+    "`<span class=\"number\">1</span> <span class=\"operator\">+</span>` `<span class=\"number\">2</span>`",
+  )
+}

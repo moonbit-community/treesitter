@@ -8,4 +8,6 @@ import {
 
 import {
   "bobzhang/treesitter/examples/arithmetic",
+  "bobzhang/treesitter/grammar",
+  "bobzhang/treesitter/generate",
 } for "test"

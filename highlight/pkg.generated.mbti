@@ -11,15 +11,18 @@ import {
 // Values
 
 // Errors
+pub suberror HighlightError {
+  InjectionLimit
+}
 
 // Types and methods
 pub struct Configuration {
   language : @language.Language
   // private fields
 }
-pub fn Configuration::highlight(Self, @treesitter.Tree, cancelled? : () -> Bool) -> Array[Event] raise @query.QueryError
-pub fn Configuration::html(Self, @treesitter.Tree) -> String raise @query.QueryError
-pub fn Configuration::new(@language.Language, String, names? : Array[String]) -> Self raise @query.QueryError
+pub fn Configuration::highlight(Self, @treesitter.Tree, cancelled? : () -> Bool, injection? : (String) -> Self?, max_injection_depth? : Int32) -> Array[Event] raise
+pub fn Configuration::html(Self, @treesitter.Tree, injection? : (String) -> Self?) -> String raise
+pub fn Configuration::new(@language.Language, String, names? : Array[String], locals? : String, injections? : String, scanner? : @treesitter.ExternalScanner) -> Self raise @query.QueryError
 
 pub(all) enum Event {
   Start(String)

@@ -302,3 +302,13 @@ Local queries resolve references through lexical scopes, honor scope inheritance
 and exclude the definition's initializer. Tags apply select-adjacent! and strip!
 to documentation captures. Regression tests cover sibling captures, callbacks,
 shadowing, initializers and documentation gaps.
+
+### Local and injected highlighting
+
+Highlight configurations accept locals and injection queries. References inherit
+their definition's highlight; local property predicates can exclude special
+patterns. Injections resolve languages through a caller callback, support self,
+parent, combined content and child exclusion, intersect parent included ranges,
+and enforce a recursion limit. Highlight spans remain in original UTF-8 source
+coordinates and are clipped to disjoint injection ranges. Cross-target regression
+coverage includes combined content separated by host-language delimiters.
