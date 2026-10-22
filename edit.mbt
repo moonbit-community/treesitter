@@ -148,6 +148,12 @@ fn reuse_candidates(
   source : Bytes,
 ) -> Map[(Int32, Int32), Node] {
   let result : Map[(Int32, Int32), Node] = Map([])
+  // A previously selected GLR derivation is not sufficient to reconstruct all
+  // competing stacks. Reparse ambiguous tables until a shared parse forest is
+  // available; reusing a single winner could change dynamic precedence.
+  if old_tree.language.states.any(row => row.actions.values().any(actions => actions.length() > 1)) {
+    return result
+  }
   let mut common = 0
   while common < old_tree.source.length() &&
         common < source.length() &&

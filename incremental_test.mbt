@@ -105,3 +105,36 @@ test "reuse checks source content and language identity" {
   )
   assert_eq(other.reused_subtrees, 0)
 }
+
+///|
+fn compare_nodes(actual : @treesitter.Node, expected : @treesitter.Node) -> Unit raise {
+  assert_eq(actual.kind(), expected.kind())
+  assert_eq(actual.range(), expected.range())
+  assert_eq(actual.is_named(), expected.is_named())
+  assert_eq(actual.is_missing(), expected.is_missing())
+  assert_eq(actual.is_extra(), expected.is_extra())
+  assert_eq(actual.child_count(), expected.child_count())
+  for i in 0..<actual.child_count() {
+    assert_eq(actual.field_name_for_child(i), expected.field_name_for_child(i))
+    compare_nodes(actual.child(i).unwrap(), expected.child(i).unwrap())
+  }
+}
+
+///|
+test "forty successive growth and shrink edits match every fresh node" {
+  let parser = @treesitter.Parser::new(statements())
+  let mut tree = parser.parse_string("a=1; b=2; c=3;")
+  let mut length = 1
+  for i in 1..=40 {
+    let number = if i % 2 == 0 { "7" } else { "\{i * 123}" }
+    tree.edit({ start_byte: 2, old_end_byte: 2 + length, new_end_byte: 2 + number.length(),
+      start_point: { row: 0, column: 2 }, old_end_point: { row: 0, column: 2 + length },
+      new_end_point: { row: 0, column: 2 + number.length() } })
+    let source = @utf8.encode("a=\{number}; b=2; c=3;")
+    let next = parser.parse(source, old_tree=tree)
+    compare_nodes(next.root_node(), parser.parse(source).root_node())
+    assert_true(next.reused_subtrees > 0)
+    tree = next
+    length = number.length()
+  }
+}

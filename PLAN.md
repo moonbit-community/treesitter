@@ -167,3 +167,11 @@ upstream matrix now contains 26 fixtures (including one generation-only fixture
 without upstream expected output and one required conflict rejection). 64 tests
 passed on all three targets after these changes. Precedence metadata was added
 to the portable format and the emitted arithmetic factory was regenerated.
+
+### Incremental hardening
+
+A 40-edit growth/shrink regression compares every node's kind, fields, flags,
+byte range and point range against fresh parses. Candidate reuse is deliberately
+disabled for tables with GLR conflicts until reusable parse forests are available;
+reusing only a previous winning derivation could change dynamic precedence.
+Node IDs are advanced before accepting a tree produced by another parser.
