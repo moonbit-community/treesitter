@@ -69,6 +69,7 @@ pub fn Dfa::state_count(Self) -> Int32
 pub fn Dfa::to_json(Self) -> Json
 pub fn Dfa::to_repr(Self) -> @debug.Repr
 pub fn Dfa::transition(Self, Int32, Int32) -> (Int32, Int32?)?
+pub fn Dfa::transitions(Self, Int32) -> Array[(CharSet, Int32, Int32?)]
 pub impl ToJson for Dfa
 pub impl @json.FromJson for Dfa
 

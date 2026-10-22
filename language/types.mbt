@@ -67,6 +67,7 @@ pub struct Language {
   word_token : Int32?
   supertypes : Array[Int32]
   externals : Array[Int32]
+  recovery_tokens : Array[Int32]
 } derive(Debug, Eq)
 
 ///|
@@ -86,6 +87,7 @@ pub fn Language::new(
   word_token? : Int32,
   supertypes~ : Array[Int32] = [],
   externals~ : Array[Int32] = [],
+  recovery_tokens? : Array[Int32],
 ) -> Language raise LanguageError {
   let language : Language = {
     name,
@@ -98,6 +100,9 @@ pub fn Language::new(
     word_token,
     supertypes,
     externals,
+    recovery_tokens: recovery_tokens.unwrap_or_else(() => {
+      tokens.map(t => t.symbol)
+    }),
   }
   language.validate()
   language
@@ -128,6 +133,11 @@ pub fn Language::validate(self : Language) -> Unit raise LanguageError {
   for id in self.externals {
     if id <= 0 || id >= count || !self.symbols[id].terminal {
       invalid("external symbols must be terminals")
+    }
+  }
+  for id in self.recovery_tokens {
+    if !self.tokens.any(t => t.symbol == id) {
+      invalid("recovery symbol must be a lexical token")
     }
   }
   for id in self.supertypes {

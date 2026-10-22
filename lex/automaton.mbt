@@ -248,6 +248,22 @@ pub fn Dfa::has_precedence(self : Dfa) -> Bool {
 }
 
 ///|
+/// Inspect the disjoint character ranges leaving a state. The returned array
+/// is independent of the automaton; an invalid state has no transitions.
+pub fn Dfa::transitions(
+  self : Dfa,
+  state : Int32,
+) -> Array[(CharSet, Int32, Int32?)] {
+  match self.states.get(state) {
+    None => []
+    Some(state) =>
+      state.edges.map(edge => {
+        (CharSet::new([(edge.lo, edge.hi)]), edge.target, edge.precedence)
+      })
+  }
+}
+
+///|
 /// Returns the longest matching end position, including an empty match when
 /// the expression is nullable. Invalid UTF-8 consumes one byte as U+FFFD.
 pub fn Dfa::scan_prefix(

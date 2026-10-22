@@ -567,3 +567,14 @@ node text, points, and external scanner columns use the same decoding path.
 Three tests cover Latin-1, variable-width scalars, malformed decoder results,
 and scanner columns. The complete check script passes 257 native / 256 JS /
 256 Wasm GC tests and the CLI smoke checks.
+
+Recovery lexing now uses generated token-conflict analysis instead of every
+lexical token. The analysis accounts for separator prefixes, token continuation
+characters, precedence, coincident parse-state tokens, and keyword protection.
+Invalid-character runs use the same filtered vocabulary and retain their
+lookahead dependencies. Existing serialized tables remain readable; generated
+examples now include the recovery vocabulary. A pinned C-oracle regression
+checks that string-content tokens cannot consume later words/comments after an
+invalid character. All checks pass (259 native / 258 JS / 258 Wasm GC). The Go
+string-literal corpus case now passes: Go is 66/67, with reserved-keyword recovery
+still open. JSON 6/6, C 85/85, and JavaScript 116/116 remain passing.

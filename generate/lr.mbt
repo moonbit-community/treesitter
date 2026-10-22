@@ -534,5 +534,6 @@ pub fn generate(
     word_token?=grammar.word.map(name => builder.names[name]),
     supertypes=builder.grammar.supertypes.map(name => builder.names[name]),
     externals=builder.externals,
+    recovery_tokens=builder.recovery_tokens(rows, extras, first, nullable),
   )
 }

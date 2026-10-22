@@ -212,7 +212,10 @@ fn Parser::lex(
     // context, preserving token boundaries and names in skipped subtrees.
     if best is None && offset < input.length() {
       if weighted {
-        let candidates = self.language.tokens.filter(token => !token.immediate)
+        let candidates = self.language.tokens.filter(token => {
+          !token.immediate &&
+          self.language.recovery_tokens.contains(token.symbol)
+        })
         let (found, stopped) = scan_weighted_tokens(
           candidates, input, offset, offset,
         )
@@ -227,7 +230,8 @@ fn Parser::lex(
         )
       } else {
         for token in self.language.tokens {
-          if token.immediate {
+          if token.immediate ||
+            !self.language.recovery_tokens.contains(token.symbol) {
             continue
           }
           if scanned(token.lexer, offset) is Some(end) && end > offset {
@@ -291,7 +295,8 @@ fn Parser::lex(
         }
         let mut failure = offset
         for token in self.language.tokens {
-          if !token.immediate {
+          if !token.immediate &&
+            self.language.recovery_tokens.contains(token.symbol) {
             failure = Int32::max(
               failure,
               token.lexer.scan_prefix(input, start=offset).1,
@@ -310,12 +315,21 @@ fn Parser::lex(
         while end < input.length() {
           if self.language.tokens.any(t => {
               !t.immediate &&
-              t.lexer.match_prefix(input, start=end).unwrap_or(end) > end
+              self.language.recovery_tokens.contains(t.symbol) &&
+              scanned(t.lexer, end).unwrap_or(end) > end
             }) {
             break
           }
           end += @lex.decode(input, end).1
         }
+        dependency_end = Int32::max(
+          dependency_end,
+          if end == input.length() {
+            end + 1
+          } else {
+            end + @lex.decode(input, end).1
+          },
+        )
         return {
           ..branch,
           offset,
