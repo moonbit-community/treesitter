@@ -86,6 +86,7 @@ pub struct Parser {
 pub fn Parser::new(@language.Language, scanner? : ExternalScanner) -> Self raise @language.LanguageError
 pub fn Parser::parse(Self, Bytes, old_tree? : Tree, included_ranges? : Array[Range], max_steps? : Int32, max_branches? : Int32, max_errors? : Int32, cancelled? : () -> Bool) -> Tree raise ParseError
 pub fn Parser::parse_string(Self, String) -> Tree raise ParseError
+pub fn Parser::parse_with(Self, (Int32, Point) -> Bytes, old_tree? : Tree, included_ranges? : Array[Range], max_input_bytes? : Int32, max_steps? : Int32, max_branches? : Int32, max_errors? : Int32, cancelled? : () -> Bool) -> Tree raise ParseError
 
 pub(all) struct Point {
   row : Int32

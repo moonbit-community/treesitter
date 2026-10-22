@@ -3,6 +3,7 @@ import {
   "bobzhang/treesitter/lex",
   "moonbitlang/core/debug",
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/buffer",
 }
 
 import {
