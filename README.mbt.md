@@ -79,6 +79,7 @@ Upstream `grammar.json` is accepted as a migration input.
 | `init-config` | `output.json` | Initial parser-directory configuration |
 | `parse` | `[language.json] source` | Named-node s-expression; fails on syntax errors |
 | `test` | `language.json corpus-file-or-directory` | Corpus results; fails on mismatches |
+| `fuzz` | `language.json corpus-file-or-directory` | Seeded edits, fresh/incremental checks, and undo validation |
 | `query` | `language.json query.scm source` | Capture JSON lines |
 | `query --check` | `language.json query.scm` | Validate query syntax and grammar references |
 | `init` | `name directory` | Create an mbtx grammar, corpus test, and highlight query |
@@ -89,6 +90,14 @@ All commands use `moon run cmd/treesitter --target native -- COMMAND ...`.
 `parse`, `highlight`, and `tags` also accept a source path alone and select a
 language using discovered `tree-sitter.json` files and parser directories.
 `parse --cst language.json source` prints the concrete tree with byte locations.
+
+`fuzz` accepts `--seed N`, `--iterations N`, `--edits N`, and test-name regex
+filters `--include REGEX` / `--exclude REGEX`. Defaults are seed 0, 100 iterations
+per case, and up to three edits followed by their inverses. It checks every
+node's kind, byte/point ranges, flags and fields against a fresh parse, validates
+child ordering and bounds, and checks restoration after undo. Failures include
+the seed, original bytes and complete edit history as JSON. Its deterministic
+ChaCha8 stream is specific to this CLI and does not reproduce Rust StdRng seeds.
 
 Use `--scanner scanner.mbtx` before a command to compile a pure MoonBit scanner
 registry with the CLI. The registry exports
@@ -165,6 +174,8 @@ the audit exits nonzero for any corpus or query compilation failure.
 CI runs this pinned public matrix in a separate Ubuntu job alongside the
 portable-library and CLI checks on Linux and macOS. Corpus, query compilation,
 and query execution results are reported separately in the audit's JSON output.
+The audit also runs two seeded fuzz iterations per corpus case, with up to two
+edits and their inverses, and reports those checks separately.
 
 Remaining compatibility work includes ambiguous-forest incremental reuse,
 incremental optimization for encoded/included-range inputs, broader upstream API

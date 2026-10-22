@@ -13,6 +13,8 @@ import {
   "moonbitlang/async/fs",
   "moonbitlang/core/env",
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/random",
+  "moonbitlang/core/string",
 }
 
 supported_targets = "+native"

@@ -48,7 +48,7 @@ jobs:
           bash "$RUNNER_TEMP/install-moon.sh"
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - run: moon update
-      - name: Test pinned public corpora and compile their queries
+      - name: Test pinned public corpora, queries, and incremental edits
         run: python3 tools/audit_grammars.py --fetch
       - name: Report compatibility results
         if: always()

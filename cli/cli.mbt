@@ -73,7 +73,7 @@ async fn dispatch(
     "--version" | "version" => println("treesitter.mbt 0.1.0")
     "--help" | "help" =>
       println(
-        "treesitter [--scanner scanner.mbtx] generate <grammar.mbtx|json> <language.json> | parse [language.json] <source> | highlight|tags <source> | parse --cst <language.json> <source> | test <language.json> <corpus-file-or-directory> | query|highlight|tags <language.json> <query.scm> <source> | query --check <language.json> <query.scm> | languages [config.json] | init <name> <directory> | init-config <path> | emit <language.json> <language.mbt> | node-types <language.json> <node-types.json> | grammar-json <grammar.mbtx>",
+        "treesitter [--scanner scanner.mbtx] generate <grammar.mbtx|json> <language.json> | parse [language.json] <source> | highlight|tags <source> | parse --cst <language.json> <source> | test <language.json> <corpus-file-or-directory> | fuzz <language.json> <corpus> [--seed N] [--iterations N] [--edits N] [--include REGEX] [--exclude REGEX] | query|highlight|tags <language.json> <query.scm> <source> | query --check <language.json> <query.scm> | languages [config.json] | init <name> <directory> | init-config <path> | emit <language.json> <language.mbt> | node-types <language.json> <node-types.json> | grammar-json <grammar.mbtx>",
       )
     "languages" if args.length() <= 3 => {
       let directories = @loader.parser_directories(path?=args.get(2))
@@ -199,6 +199,11 @@ async fn dispatch(
           }
         }
       }
+    }
+    "fuzz" if args.length() >= 4 => {
+      let options = fuzz_options(args[4:])
+      let language = @loader.load_language(args[2])
+      run_fuzz(language, read_corpus(args[3]), options, scanners(language.name))
     }
     "test" if args.length() == 4 => {
       let language = @loader.load_language(args[2])

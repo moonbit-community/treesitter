@@ -687,3 +687,13 @@ registry workspace shape. CLI smoke tests generate mbtx and load a scanner from
 an unrelated directory without TREESITTER_MBT_ROOT. Full checks pass 275 native /
 270 JS / 270 Wasm GC; installing and resolving the actual published module must
 still be verified at release, after the community namespace is applied.
+
+The native CLI now fuzzes corpus cases with deterministic byte edits and their
+inverses. Each step checks incremental trees against fresh trees, including
+anonymous nodes, fields, flags and byte/point ranges, plus child ordering and
+parent bounds. Failures record the seed, original bytes and edit history. The
+ChaCha8 seed stream is local to this implementation. Full checks pass 278 native /
+270 JS / 270 Wasm GC tests. Individual public-grammar runs pass 276 JSON checks
+(10 iterations), and 510 C / 696 JavaScript / 402 Go checks (two iterations).
+The public audit now includes a bounded two-iteration run per case; it does not
+yet validate changed-range coverage or replace differential recovery testing.

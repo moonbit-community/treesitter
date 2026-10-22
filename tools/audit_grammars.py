@@ -9,6 +9,7 @@ are compiled from the checked-in MoonBit translations.
 import argparse
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import time
@@ -78,6 +79,7 @@ def main():
                 command = [str(cli)]
                 if "scanner" in entry:
                     command += ["--scanner", str(ROOT / entry["scanner"])]
+                prefix = command.copy()
                 command += ["test", str(table), str(repo / "test/corpus")]
                 log = OUT / (name + "-corpus.log")
                 code = run_logged(command, log, 600)
@@ -108,6 +110,19 @@ def main():
                 if result["query_fixtures"]["fail"]:
                     result["status"] = ("query-fixtures-failed" if result["status"] == "passed"
                                         else result["status"] + "-and-query-fixtures-failed")
+                fuzz_log = OUT / (name + "-fuzz.log")
+                fuzz_code = run_logged(prefix + ["fuzz", str(table), str(repo / "test/corpus"),
+                                      "--seed", "7", "--iterations", "2", "--edits", "2"],
+                                      fuzz_log, 600)
+                summary = re.search(r"^Fuzzed (\d+) cases, (\d+) edits including undo, seed=7$",
+                                    fuzz_log.read_text(), re.MULTILINE)
+                result["fuzz"] = {"seed": 7, "iterations": 2, "max_edits": 2,
+                                  "exit_code": fuzz_code,
+                                  "cases": int(summary[1]) if summary else 0,
+                                  "edits": int(summary[2]) if summary else 0}
+                if fuzz_code or not summary:
+                    result["status"] = ("fuzz-failed" if result["status"] == "passed"
+                                        else result["status"] + "-and-fuzz-failed")
         except (OSError, RuntimeError, subprocess.SubprocessError) as error:
             result.update(status="setup-failed", error=str(error))
         result["seconds"] = round(time.monotonic() - start, 2)
