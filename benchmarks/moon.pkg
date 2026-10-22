@@ -1,0 +1,6 @@
+import {
+  "bobzhang/treesitter" @ts,
+  "bobzhang/treesitter/examples/json" @json_language,
+  "moonbitlang/core/bench",
+  "moonbitlang/core/encoding/utf8",
+} for "test"

@@ -141,7 +141,9 @@ sh tools/check.sh
 This checks warnings, native/JS/Wasm GC tests, executes both mbtx grammars,
 regenerates their factories into `_build`, checks them against committed sources,
 and runs the JSON CLI example. `moon fmt` and `moon info` maintain formatting
-and generated public interfaces.
+and generated public interfaces. Run `moon bench benchmarks --target native --release`
+for fresh-parse scaling and incremental-edit measurements. These are local
+baselines, not a performance comparison with upstream Tree-sitter.
 
 `tools/import_fixtures.py` freezes selected upstream grammars/corpora from the
 pinned `.repos/tree-sitter` checkout. Node is used only for this development-time
