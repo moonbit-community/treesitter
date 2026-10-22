@@ -272,3 +272,15 @@ for an independent review, address actionable findings and rerun validation.
 Then create `moonbit-community/treesitter`, use `moonbit-community/treesitter` as
 the module name, configure CI and a release publishing workflow, and publish to
 mooncakes.io. These release actions were explicitly requested by the user.
+
+### EOF and external word compatibility
+
+EOF constraints now gate reductions rather than shift a fake terminal. Discarded
+EOF alternatives do not poison reachable repetition branches, and equivalent
+unconditional reductions subsume EOF-only reductions. Invisible start rules are
+rejected. External word tokens and nullable regex tokens are accepted, matching
+upstream scanner fixtures. Five more scanner callbacks and 17 reference fixture
+groups bring the suite to 109 tests across native, JS and Wasm GC. CLI diagnostics
+now expose the underlying error detail. A development audit inventories all 74
+upstream grammar fixtures separately from the frozen, passing test suite.
+EOF recovery shape and other broader recovery cases remain open.

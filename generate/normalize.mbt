@@ -110,9 +110,6 @@ fn Builder::token(
     return id
   }
   let lexer = @lex.compile(expression(rule))
-  if lexer.nullable() {
-    raise InvalidGrammar("token '\{key}' matches the empty string")
-  }
   let token_name = match name {
     Some(name) => name
     None =>
@@ -145,19 +142,39 @@ fn Builder::emit(
   alternatives : Array[Alternative],
 ) -> Unit raise GenerateError {
   for alternative in alternatives {
+    let eof = alternative.steps.search_by(s => s.symbol == 0)
+    if eof is Some(index) && index != alternative.steps.length() - 1 {
+      continue
+    }
     if self.productions.length() >= self.max_productions {
       raise ResourceLimit("production limit exceeded")
     }
     let production : @language.Production = {
       lhs,
-      steps: alternative.steps,
+      requires_eof: if eof is Some(_) {
+        Some(true)
+      } else {
+        None
+      },
+      steps: if eof is Some(index) {
+        alternative.steps[:index].to_owned()
+      } else {
+        alternative.steps
+      },
       precedence: alternative.precedence,
       precedence_name: alternative.precedence_name,
       associativity: alternative.associativity,
       dynamic_precedence: alternative.dynamic_precedence,
     }
-    if !self.productions.contains(production) {
-      self.productions.push(production)
+    let equivalent = self.productions.search_by(p => {
+      { ..p, requires_eof: None, } == { ..production, requires_eof: None, }
+    })
+    match equivalent {
+      Some(index) =>
+        if production.requires_eof != Some(true) {
+          self.productions[index] = production
+        }
+      None => self.productions.push(production)
     }
   }
 }
@@ -455,6 +472,9 @@ fn normalize(
     builder.reserved_sets.push(tokens)
   }
   let start = builder.names[grammar.rules[0].0]
+  if !builder.symbols[start].visible {
+    raise InvalidGrammar("a grammar's start rule must be visible")
+  }
   let neutral : Context = {
     reserved_set: 0,
     precedence: 0,
@@ -468,6 +488,11 @@ fn normalize(
     let lhs = builder.names[name]
     if !builder.symbols[lhs].terminal && !grammar.inline_rules.contains(name) {
       builder.emit(lhs, builder.expand(rule, neutral, []))
+      if !builder.productions.any(p => p.lhs == lhs) {
+        raise InvalidGrammar(
+          "rule '\{name}' has no reachable production: eof() must be last",
+        )
+      }
     }
   }
   builder.validate_supertypes()

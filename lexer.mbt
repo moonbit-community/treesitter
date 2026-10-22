@@ -135,7 +135,7 @@ fn Parser::lex(
         continue
       }
       if token.lexer.match_prefix(input, start=offset) is Some(end) &&
-        end > offset {
+        (end > offset || valid.contains(token.symbol)) {
         if token.literal && word_end > end {
           continue
         }

@@ -5,6 +5,41 @@ suberror CliError {
 
 ///|
 async fn main {
+  run() catch {
+    error => {
+      @stdio.stderr.write("treesitter: " + describe(error) + "\n")
+      raise Usage(describe(error))
+    }
+  }
+}
+
+///|
+fn describe(error : Error) -> String {
+  match error {
+    Usage(message)
+    | @loader.LoadFailure(message)
+    | @corpus.InvalidCorpus(message)
+    | @generate.InvalidGrammar(message)
+    | @generate.ResourceLimit(message)
+    | @grammar.InvalidGrammar(message)
+    | @language.InvalidLanguage(message)
+    | @ts.InvalidRanges(message)
+    | @ts.ScannerError(message)
+    | @ts.ParseLimit(message) => message
+    @generate.Conflict(state, token, rules) =>
+      "unresolved conflict in state \{state} at '\{token}' between \{rules.join(", ")}"
+    @query.InvalidQuery(offset, message) => "query byte \{offset}: \{message}"
+    @lex.InvalidRegex(offset, message) =>
+      "regex character \{offset}: \{message}"
+    @ts.NoParse(offset) => "unable to recover a parse at byte \{offset}"
+    @ts.Cancelled | @query.Cancelled => "cancelled"
+    @query.MatchLimit => "query match/work limit exceeded"
+    _ => "\{error}"
+  }
+}
+
+///|
+async fn run() -> Unit {
   let args = @env.args()
   if args.length() < 2 {
     raise Usage(

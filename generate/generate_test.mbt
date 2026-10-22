@@ -65,7 +65,6 @@ test "nonproductive and nullable repeated grammars fail" {
   let grammars = [
     @grammar.Grammar::new("cycle", [("start", Symbol("start"))]),
     @grammar.Grammar::new("empty", [("start", Repeat(Blank))]),
-    @grammar.Grammar::new("token", [("start", @grammar.pattern("a*"))]),
   ]
   for grammar in grammars {
     try @generate.generate(grammar) catch {

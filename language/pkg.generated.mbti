@@ -66,6 +66,7 @@ pub fn ParseState::not_equal(Self, Self) -> Bool
 pub fn ParseState::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Production {
+  requires_eof : Bool?
   lhs : Int32
   steps : Array[Step]
   precedence : Int32

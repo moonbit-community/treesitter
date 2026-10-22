@@ -507,3 +507,264 @@ test "upstream field_lookup_through_hidden_nodes" {
     )
   }
 }
+
+///|
+test "upstream anonymous_error" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"anonymous_error","rules":{"document":{"type":"REPEAT","content":{"type":"CHOICE","members":[{"type":"STRING","value":"ok"},{"type":"STRING","value":"ERROR"}]}}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "======================\nA simple error literal\n======================\n\nERROR\n\n---\n\n(document)\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="anonymous_error: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream duplicate_reduction_precedence" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"duplicate_reduction_precedence","rules":{"start":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"a"},{"type":"SYMBOL","name":"c"}]},"a":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"x"},{"type":"PREC","value":2,"content":{"type":"SYMBOL","name":"x"}}]},"c":{"type":"SYMBOL","name":"x"},"x":{"type":"STRING","value":"x"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "======================\nhigher precedence wins\n======================\n\nx\n---\n\n(start\n  (a\n    (x)))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="duplicate_reduction_precedence: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream eof_basic" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"eof_basic","rules":{"source_file":{"type":"REPEAT","content":{"type":"SYMBOL","name":"line"}},"line":{"type":"CHOICE","members":[{"type":"SEQ","members":[{"type":"STRING","value":"text"},{"type":"STRING","value":"\n"}]},{"type":"SEQ","members":[{"type":"STRING","value":"text"},{"type":"EOF"}]}]}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "============\ntrailing newline\n============\n\ntext\ntext\n\n---\n\n(source_file\n  (line)\n  (line))\n\n============\nno trailing newline\n============\n\ntext\ntext\n---\n\n(source_file\n  (line)\n  (line))\n\n============\nsingle line, no newline\n============\n\ntext\n---\n\n(source_file\n  (line))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="eof_basic: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream eof_dropped_branch" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"eof_dropped_branch","rules":{"source_file":{"type":"CHOICE","members":[{"type":"SEQ","members":[{"type":"STRING","value":"("},{"type":"CHOICE","members":[{"type":"SEQ","members":[{"type":"SYMBOL","name":"item"},{"type":"REPEAT","content":{"type":"SEQ","members":[{"type":"CHOICE","members":[{"type":"STRING","value":"\n"},{"type":"STRING","value":";"},{"type":"EOF"}]},{"type":"SYMBOL","name":"item"}]}},{"type":"CHOICE","members":[{"type":"CHOICE","members":[{"type":"STRING","value":"\n"},{"type":"STRING","value":";"},{"type":"EOF"}]},{"type":"BLANK"}]}]},{"type":"BLANK"}]},{"type":"STRING","value":")"}]},{"type":"SYMBOL","name":"inline_test"}]},"item":{"type":"STRING","value":"x"},"inline_test":{"type":"CHOICE","members":[{"type":"STRING","value":"ok"},{"type":"SEQ","members":[{"type":"SYMBOL","name":"_inline_eof"},{"type":"STRING","value":"bad"}]}]},"_inline_eof":{"type":"EOF"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":["_inline_eof"],"supertypes":[],"reserved":{}}
+  let corpus = "============\nno items\n============\n\n()\n---\n\n(source_file)\n\n============\nitems separated by newlines\n============\n\n(x\nx\nx)\n---\n\n(source_file (item) (item) (item))\n\n============\nitems separated by semicolons\n============\n\n(x;x;x)\n---\n\n(source_file (item) (item) (item))\n\n============\ntrailing separator\n============\n\n(x;)\n---\n\n(source_file (item))\n\n============\neof in an inline before a later symbol is unreachable\n============\n\nok\n---\n\n(source_file (inline_test))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="eof_dropped_branch: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream eof_duplicate_reduction" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"eof_duplicate_reduction","rules":{"source_file":{"type":"REPEAT","content":{"type":"SYMBOL","name":"line"}},"line":{"type":"CHOICE","members":[{"type":"STRING","value":"text"},{"type":"SEQ","members":[{"type":"STRING","value":"text"},{"type":"EOF"}]}]}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "===========================\nsingle line at end of input\n===========================\n\ntext\n---\n\n(source_file\n  (line))\n\n=============\nseveral lines\n=============\n\ntexttext\n---\n\n(source_file\n  (line)\n  (line))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="eof_duplicate_reduction: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream rejection eof_misplaced" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"eof_misplaced","rules":{"source_file":{"type":"SEQ","members":[{"type":"EOF"},{"type":"STRING","value":"after"}]}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let grammar = @grammar.Grammar::parse(grammar)
+  try @generate.generate(grammar) catch {
+    @generate.InvalidGrammar(_) => ()
+    error => fail("unexpected error: \{error}")
+  } noraise {
+    _ => fail("accepted an upstream conflict fixture")
+  }
+}
+
+///|
+test "upstream rejection invisible_start_rule" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"invisible_start_rule","rules":{"_value":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"a"},{"type":"SYMBOL","name":"b"}]},"a":{"type":"STRING","value":"a"},"b":{"type":"STRING","value":"b"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let grammar = @grammar.Grammar::parse(grammar)
+  try @generate.generate(grammar) catch {
+    @generate.InvalidGrammar(_) => ()
+    error => fail("unexpected error: \{error}")
+  } noraise {
+    _ => fail("accepted an upstream conflict fixture")
+  }
+}
+
+///|
+test "upstream last_child_anchor_past_hidden_repeat" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"last_child_anchor_past_hidden_repeat","rules":{"source_file":{"type":"REPEAT","content":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"trailing_sep"},{"type":"SYMBOL","name":"leading_sep"},{"type":"SYMBOL","name":"trailing_named"}]}},"trailing_sep":{"type":"SEQ","members":[{"type":"STRING","value":"T"},{"type":"REPEAT","content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"name"},{"type":"STRING","value":"."}]}},{"type":"SYMBOL","name":"name"}]},"leading_sep":{"type":"SEQ","members":[{"type":"STRING","value":"L"},{"type":"SYMBOL","name":"name"},{"type":"REPEAT","content":{"type":"SEQ","members":[{"type":"STRING","value":"."},{"type":"SYMBOL","name":"name"}]}}]},"trailing_named":{"type":"SEQ","members":[{"type":"STRING","value":"N"},{"type":"REPEAT","content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"name"},{"type":"SYMBOL","name":"tag"},{"type":"STRING","value":"."}]}},{"type":"SYMBOL","name":"name"}]},"tag":{"type":"STRING","value":"!"},"name":{"type":"PATTERN","value":"[a-z]+"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "=========================================\nRepeat ending with an anonymous separator\n=========================================\n\nT a.b.c\n\n---\n\n(source_file\n  (trailing_sep\n    (name)\n    (name)\n    (name)))\n\n===============================\nRepeat ending with a named node\n===============================\n\nL a.b.c\n\n---\n\n(source_file\n  (leading_sep\n    (name)\n    (name)\n    (name)))\n\n============================================================\nRepeat ending with an anonymous separator, preceded by a tag\n============================================================\n\nN a!.b!.c\n\n---\n\n(source_file\n  (trailing_named\n    (name)\n    (tag)\n    (name)\n    (tag)\n    (name)))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="last_child_anchor_past_hidden_repeat: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream named_rule_aliased_as_anonymous" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"named_rule_aliased_as_anonymous","rules":{"a":{"type":"SEQ","members":[{"type":"ALIAS","content":{"type":"SYMBOL","name":"b"},"named":false,"value":"the-alias"},{"type":"SYMBOL","name":"c"},{"type":"SYMBOL","name":"b"}]},"b":{"type":"STRING","value":"B"},"c":{"type":"STRING","value":"C"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "================================================\nNamed rules that are aliased as anonymous tokens\n================================================\n\nB C B\n\n---\n\n(a (c) (b))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="named_rule_aliased_as_anonymous: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream next_sibling_from_zwt" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"next_sibling_from_zwt","rules":{"source":{"type":"SEQ","members":[{"type":"STRING","value":"a"},{"type":"SYMBOL","name":"_bc"},{"type":"STRING","value":"d"},{"type":"STRING","value":"e"},{"type":"STRING","value":"f"}]},"_bc":{"type":"SEQ","members":[{"type":"STRING","value":"b"},{"type":"STRING","value":"c"}]}},"extras":[{"type":"PATTERN","value":"\\s|\\\\\\r?\\n"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "===========================\nmissing c node\n===========================\n\nabdef\n\n---\n\n(source\n    (MISSING \"c\"))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="next_sibling_from_zwt: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream readme_grammar" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"readme_grammar","rules":{"expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"sum"},{"type":"SYMBOL","name":"product"},{"type":"SYMBOL","name":"number"},{"type":"SYMBOL","name":"variable"},{"type":"SEQ","members":[{"type":"STRING","value":"("},{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":")"}]}]},"sum":{"type":"PREC_LEFT","value":1,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"+"},{"type":"SYMBOL","name":"expression"}]}},"product":{"type":"PREC_LEFT","value":2,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"*"},{"type":"SYMBOL","name":"expression"}]}},"number":{"type":"PATTERN","value":"\\d+"},"comment":{"type":"PATTERN","value":"#.*"},"variable":{"type":"PATTERN","value":"(?i:[a-z])\\w*"}},"extras":[{"type":"PATTERN","value":"\\s"},{"type":"SYMBOL","name":"comment"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "==================================\nthe readme example\n==================================\n\na + b * c\n\n---\n\n(expression (sum\n  (expression (variable))\n  (expression (product\n     (expression (variable))\n     (expression (variable))))))"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="readme_grammar: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream unicode_classes" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"unicode_classes","rules":{"program":{"type":"REPEAT","content":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"lower"},{"type":"SYMBOL","name":"upper"},{"type":"SYMBOL","name":"math_sym"},{"type":"SYMBOL","name":"letter_number"}]}},"lower":{"type":"PATTERN","value":"\\p{Ll}\\p{L}*"},"upper":{"type":"PATTERN","value":"\\p{Lu}\\p{L}*"},"math_sym":{"type":"PATTERN","value":"\\p{Sm}+"},"letter_number":{"type":"PATTERN","value":"\\p{Letter_Number}"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "===============\nUppercase words\n===============\n\nΔბㄱ  Ψ  Ɓƀ  Ƒ  Ɣ  Śřř\n\n---\n\n(program\n  (upper) (upper) (upper) (upper) (upper) (upper))\n\n================\nLowercase words\n================\n\nśś  ťť  ßß\n\n---\n\n(program\n  (lower) (lower) (lower))\n\n================\nMath symbols\n================\n\n≺ ≼ ≠ ≝ ⨔∑\n\n---\n\n(program\n  (math_sym) (math_sym) (math_sym) (math_sym) (math_sym))\n\n================================\nLetterlike numeric characters\n================================\n\nᛯ Ⅵ 〩\n\n---\n\n(program\n  (letter_number) (letter_number) (letter_number))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="unicode_classes: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream depends_on_column" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"depends_on_column","rules":{"x_is_at":{"type":"SEQ","members":[{"type":"PATTERN","value":"[ \\r\\n]*"},{"type":"CHOICE","members":[{"type":"SYMBOL","name":"odd_column"},{"type":"SYMBOL","name":"even_column"}]},{"type":"STRING","value":"x"}]}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"odd_column"},{"type":"SYMBOL","name":"even_column"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "==================\nX is at odd column\n==================\n\n x\n\n---\n\n(x_is_at\n  (odd_column))\n\n===================\nX is at even column\n===================\n\n  x\n\n---\n\n(x_is_at\n  (even_column))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_depends_on_column(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="depends_on_column: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream depends_on_column_failed_scan" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"depends_on_column_failed_scan","rules":{"document":{"type":"REPEAT","content":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"head"},{"type":"SYMBOL","name":"tail"},{"type":"SYMBOL","name":"letter"},{"type":"SYMBOL","name":"newline"}]}},"tail":{"type":"STRING","value":"x"},"letter":{"type":"STRING","value":"a"},"newline":{"type":"STRING","value":"\n"}},"extras":[],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"head"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "========================================\nColumn-dependent failed external scan\n========================================\n\nax\nx\n\n---\n\n(document (newline) (letter) (tail) (newline) (head) (newline))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_depends_on_column_failed_scan(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="depends_on_column_failed_scan: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream depends_on_column_repetition" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"depends_on_column_repetition","rules":{"document":{"type":"REPEAT","content":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"head"},{"type":"SYMBOL","name":"tail"},{"type":"SYMBOL","name":"word"},{"type":"SYMBOL","name":"newline"}]}},"word":{"type":"PATTERN","value":"[a-w]+"},"newline":{"type":"STRING","value":"\n"}},"extras":[],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"head"},{"type":"SYMBOL","name":"tail"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "===========================\nColumn-dependent repetition\n===========================\n\nax\nx\n\n---\n\n(document (newline) (word) (tail) (newline) (head) (newline))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_depends_on_column_repetition(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="depends_on_column_repetition: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream external_word_token" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"external_word_token","word":"identifier","rules":{"program":{"type":"REPEAT","content":{"type":"SYMBOL","name":"_item"}},"label_name":{"type":"PATTERN","value":"[a-z]+"},"_item":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"let_statement"},{"type":"SYMBOL","name":"label"}]},"let_statement":{"type":"SEQ","members":[{"type":"STRING","value":"let"},{"type":"SYMBOL","name":"identifier"},{"type":"STRING","value":"="},{"type":"SYMBOL","name":"identifier"},{"type":"STRING","value":";"}]},"label":{"type":"SEQ","members":[{"type":"STRING","value":"@"},{"type":"SYMBOL","name":"label_name"}]}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"identifier"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "================================================================================\nKeywords with an external word token\n================================================================================\n\nlet a = b;\n@ here\nlet c = d;\n\n--------------------------------------------------------------------------------\n\n(program\n  (let_statement\n    (identifier)\n    (identifier))\n  (label\n    (label_name))\n  (let_statement\n    (identifier)\n    (identifier)))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_external_word_token(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="external_word_token: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream external_and_internal_tokens" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"external_and_internal_tokens","rules":{"statement":{"type":"SEQ","members":[{"type":"SYMBOL","name":"_expression"},{"type":"SYMBOL","name":"_expression"},{"type":"SYMBOL","name":"line_break"}]},"_expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"string"},{"type":"SYMBOL","name":"variable"},{"type":"SYMBOL","name":"number"}]},"variable":{"type":"PATTERN","value":"[a-z]+"},"number":{"type":"PATTERN","value":"\\d+"},"line_break":{"type":"STRING","value":"\n"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"string"},{"type":"SYMBOL","name":"line_break"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "=========================================\nsingle-line statements - internal tokens\n=========================================\n\na b\n\n---\n\n(statement (variable) (variable) (line_break))\n\n=========================================\nmulti-line statements - internal tokens\n=========================================\n\na\nb\n\n---\n\n(statement (variable) (variable) (line_break))\n\n=========================================\nsingle-line statements - external tokens\n=========================================\n\n'hello' 'world'\n\n---\n\n(statement (string) (string) (line_break))\n\n=========================================\nmulti-line statements - external tokens\n=========================================\n\n'hello'\n'world'\n\n---\n\n(statement (string) (string) (line_break))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_external_and_internal_tokens(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="external_and_internal_tokens: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}

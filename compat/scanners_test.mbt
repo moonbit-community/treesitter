@@ -98,3 +98,57 @@ fn scanner_external_and_internal_anonymous_tokens() -> @ts.ExternalScanner {
     None
   })
 }
+
+///|
+fn scanner_depends_on_column() -> @ts.ExternalScanner {
+  @ts.ExternalScanner::new((input, _, state) => {
+    Some({ token: if input.get_column() % 2 == 1 { 0 } else { 1 }, state, })
+  })
+}
+
+///|
+fn scanner_depends_on_column_failed_scan() -> @ts.ExternalScanner {
+  @ts.ExternalScanner::new((input, _, state) => {
+    if input.lookahead() != 120 || input.get_column() != 0 {
+      return None
+    }
+    input.advance()
+    Some({ token: 0, state, })
+  })
+}
+
+///|
+fn scanner_depends_on_column_repetition() -> @ts.ExternalScanner {
+  @ts.ExternalScanner::new((input, _, state) => {
+    if input.lookahead() != 120 {
+      return None
+    }
+    let token = if input.get_column() == 0 { 0 } else { 1 }
+    input.advance()
+    Some({ token, state, })
+  })
+}
+
+///|
+fn scanner_external_word_token() -> @ts.ExternalScanner {
+  @ts.ExternalScanner::new((input, valid, state) => {
+    if !valid[0] {
+      return None
+    }
+    while input.lookahead() is (32 | 9 | 13 | 10) {
+      input.advance(skip=true)
+    }
+    if input.lookahead() < 97 || input.lookahead() > 122 {
+      return None
+    }
+    while input.lookahead() >= 97 && input.lookahead() <= 122 {
+      input.advance()
+    }
+    Some({ token: 0, state, })
+  })
+}
+
+///|
+fn scanner_external_and_internal_tokens() -> @ts.ExternalScanner {
+  scanner_external_and_internal_anonymous_tokens()
+}

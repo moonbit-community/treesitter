@@ -28,6 +28,7 @@ pub(all) struct Step {
 
 ///|
 pub(all) struct Production {
+  requires_eof : Bool?
   lhs : Int32
   steps : Array[Step]
   precedence : Int32
@@ -119,7 +120,9 @@ pub fn Language::validate(self : Language) -> Unit raise LanguageError {
     self.symbols[self.start_symbol].terminal {
     invalid("invalid start symbol")
   }
-  if self.word_token is Some(id) && !self.tokens.any(t => t.symbol == id) {
+  if self.word_token is Some(id) &&
+    !self.tokens.any(t => t.symbol == id) &&
+    !self.externals.contains(id) {
     invalid("word symbol must be a lexical token")
   }
   for id in self.externals {
@@ -140,9 +143,6 @@ pub fn Language::validate(self : Language) -> Unit raise LanguageError {
       token.symbol >= count ||
       !self.symbols[token.symbol].terminal {
       invalid("invalid token symbol")
-    }
-    if token.lexer.nullable() {
-      invalid("lexical tokens must consume input")
     }
   }
   for production in self.productions {

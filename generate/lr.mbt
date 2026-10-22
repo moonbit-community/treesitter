@@ -270,6 +270,7 @@ pub fn generate(
   let aug_id = builder.productions.length()
   builder.productions.push({
     lhs: augmented,
+    requires_eof: None,
     steps: [
       {
         symbol: start,
@@ -374,7 +375,7 @@ pub fn generate(
         add(0, Accept)
       } else if extra_roots.any(p => p.1 == item.production) {
         add(item.lookahead, AcceptExtra)
-      } else {
+      } else if p.requires_eof != Some(true) || item.lookahead == 0 {
         add(item.lookahead, Reduce(item.production))
       }
     }

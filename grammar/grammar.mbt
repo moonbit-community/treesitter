@@ -146,7 +146,7 @@ pub fn Grammar::validate(self : Grammar) -> Unit raise GrammarError {
       invalid("unknown inline/supertype rule '\{name}'")
     }
   }
-  if self.word is Some(name) && !self.rules.any(r => r.0 == name) {
+  if self.word is Some(name) && !names.contains(name) {
     invalid("unknown word rule '\{name}'")
   }
   for conflict in self.conflicts {
