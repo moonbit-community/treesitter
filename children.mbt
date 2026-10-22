@@ -13,6 +13,7 @@ priv struct ChildList {
   length : Int32
   named_length : Int32
   has_error : Bool
+  error_cost : Int32
   mut flattened : Array[(String?, Node)]?
 }
 
@@ -21,9 +22,11 @@ fn child_list(parts : Array[ChildPart]) -> ChildList {
   let mut length = 0
   let mut named_length = 0
   let mut has_error = false
+  let mut error_cost = 0
   for part in parts {
     match part {
       Item(_, node) => {
+        error_cost += node.data.error_cost
         length += 1
         if node.is_named() {
           named_length += 1
@@ -31,13 +34,14 @@ fn child_list(parts : Array[ChildPart]) -> ChildList {
         has_error = has_error || node.has_error()
       }
       Nested(_, nested) => {
+        error_cost += nested.error_cost
         length += nested.length
         named_length += nested.named_length
         has_error = has_error || nested.has_error
       }
     }
   }
-  { parts, length, named_length, has_error, flattened: None, }
+  { parts, length, named_length, has_error, error_cost, flattened: None, }
 }
 
 ///|

@@ -1,6 +1,9 @@
 ///|
 priv struct NodeData {
   id : Int32
+  error_repeat : Bool
+  error_cost : Int32
+  unexpected : Int32?
   changed : Bool
   origin_start : Int32
   origin_end : Int32
@@ -208,6 +211,19 @@ pub fn Node::text(self : Node, source : Bytes) -> String {
 
 ///|
 fn Node::write_sexp(self : Node, output : StringBuilder) -> Unit {
+  if self.data.unexpected is Some(code) {
+    output.write_string("(UNEXPECTED '")
+    match code {
+      10 => output.write_string("\\n")
+      13 => output.write_string("\\r")
+      9 => output.write_string("\\t")
+      39 => output.write_string("\\'")
+      92 => output.write_string("\\\\")
+      _ => output.write_char(code.unsafe_to_char())
+    }
+    output.write_string("')")
+    return
+  }
   if self.is_missing() {
     output.write_string("(MISSING ")
     output.write_string(

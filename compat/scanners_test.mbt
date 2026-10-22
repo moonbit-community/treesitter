@@ -308,3 +308,70 @@ test "upstream get_column after advancing to EOF" {
   )
   assert_eq(parser.parse_string("界").root_node().to_sexp(), "(root (char))")
 }
+
+///|
+fn scanner_uses_current_column() -> @ts.ExternalScanner {
+  @ts.ExternalScanner::new((input, valid, state) => {
+    let mut queued = if state.length() > 0 { state[0].to_int() } else { 0 }
+    let indents : Array[Int32] = if state.length() > 1 {
+      state[1:].to_owned().to_array().map(b => b.to_int())
+    } else {
+      [0]
+    }
+    let snapshot = fn() {
+      Bytes::from_array([queued.to_byte()] + indents.map(i => i.to_byte()))
+    }
+    input.mark_end()
+    if queued > 0 && valid[1] {
+      queued -= 1
+      return Some({ token: 1, state: snapshot(), })
+    }
+    if valid[0] {
+      while input.lookahead() is (32 | 9 | 10 | 13) {
+        input.advance()
+      }
+      let column = input.get_column()
+      if column > indents.last().unwrap() &&
+        indents.length() < 32 &&
+        column >= 2 &&
+        column - 2 <= 127 {
+        indents.push(column - 2)
+        return Some({ token: 0, state: snapshot(), })
+      }
+      return None
+    }
+    if valid[1] || valid[2] {
+      while input.lookahead() is (32 | 9 | 13) {
+        input.advance()
+      }
+      if input.lookahead() == 10 {
+        input.advance()
+        let mut column = 0
+        for ;; {
+          if input.lookahead() == 32 {
+            column += 1
+            input.advance()
+          } else if input.lookahead() == 10 {
+            column = 0
+            input.advance()
+          } else {
+            break
+          }
+        }
+        let mut dedents = 0
+        while indents.length() > 1 && column < indents.last().unwrap() {
+          dedents += 1
+          ignore(indents.pop())
+        }
+        if dedents > 0 && valid[1] {
+          return Some({ token: 1, state: snapshot(), })
+        }
+        if valid[2] {
+          queued += dedents
+          return Some({ token: 2, state: snapshot(), })
+        }
+      }
+    }
+    None
+  })
+}

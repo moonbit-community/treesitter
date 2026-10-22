@@ -50,12 +50,21 @@ priv struct ExtraFrame {
 }
 
 ///|
+priv enum BranchStatus {
+  Active
+  Preparing
+  Recovering
+} derive(Eq, Hash)
+
+///|
 priv struct BranchKey {
+  status : BranchStatus
   states : Array[Int32]
   offset : Int32
   symbol : Int32
   missing : Bool
   insertions : Int32
+  errors : Int32
   scanner_state : Bytes
   next_scanner_state : Bytes?
   extras : Array[(Array[Int32], Int32)]
@@ -63,6 +72,8 @@ priv struct BranchKey {
 
 ///|
 priv struct Branch {
+  recovery_versions : Int32
+  status : BranchStatus
   extras : Array[ExtraFrame]
   states : Array[Int32]
   entries : Array[Entry]
@@ -70,6 +81,7 @@ priv struct Branch {
   pending : Array[Node]
   lookahead : Lexeme?
   cost : Int32
+  errors : Int32
   dynamic : Int32
   insertions : Int32
   scanner_state : Bytes
@@ -85,6 +97,8 @@ fn Parser::node(
   children : Array[ChildPart],
   parse_state : Int32,
   next_state : Int32,
+  unexpected? : Int32,
+  error_repeat~ : Bool = false,
   extra~ : Bool = false,
   missing~ : Bool = false,
   dynamic_score~ : Int32 = 0,
@@ -103,9 +117,34 @@ fn Parser::node(
   } else {
     self.language.symbols[symbol]
   }
+  let children = child_list(children)
+  let mut error_cost = children.error_cost
+  if missing {
+    error_cost += 610
+  }
+  if symbol < 0 {
+    error_cost += 500 +
+      end -
+      start +
+      30 * (point_at(lines, end).row - point_at(lines, start).row)
+    for (_, child) in children.entries() {
+      if child.data.error_repeat {
+        error_cost -= 500 +
+          child.end_byte() -
+          child.start_byte() +
+          30 * (child.end_position().row - child.start_position().row)
+      } else if !child.is_extra() &&
+        !(child.is_error() && child.child_count() == 0) {
+        error_cost += 100
+      }
+    }
+  }
   {
     data: {
       id,
+      error_cost,
+      error_repeat,
+      unexpected,
       changed: false,
       origin_start: start,
       origin_end: end,
@@ -124,7 +163,7 @@ fn Parser::node(
       end_byte: end,
       start_point: point_at(lines, start),
       end_point: point_at(lines, end),
-      children: child_list(children),
+      children,
       parse_state,
       next_state,
     },
@@ -357,6 +396,8 @@ fn Parser::parse_source(
   let lines = line_starts(source)
   let work : Array[Branch] = [
     {
+      status: Active,
+      recovery_versions: 0,
       states: [0],
       extras: [],
       entries: [],
@@ -364,16 +405,35 @@ fn Parser::parse_source(
       pending: [],
       lookahead: None,
       cost: 0,
+      errors: 0,
       dynamic: 0,
       insertions: 0,
       scanner_state: b"",
     },
   ]
+  let paused : Array[Branch] = []
   let visited : Map[BranchKey, (Int32, Int32)] = Map([])
   let mut best : (Node, Int32, Int32)? = None
   let mut steps = 0
   let mut furthest = 0
-  while work.pop() is Some(initial) {
+  while !work.is_empty() || !paused.is_empty() {
+    if work.is_empty() {
+      let mut selected = paused[0]
+      for candidate in paused[1:] {
+        if candidate.cost < selected.cost ||
+          (
+            candidate.cost == selected.cost &&
+            candidate.dynamic > selected.dynamic
+          ) {
+          selected = candidate
+        }
+      }
+      let versions = Int32::min(paused.length(), 6)
+      paused.clear()
+      work.push({ ..selected, status: Preparing, recovery_versions: versions, })
+    }
+    let initial = work.remove(0)
+    let initial = { ..initial, cost: branch_error_cost(initial), }
     steps += 1
     if cancelled() {
       raise Cancelled
@@ -384,7 +444,7 @@ fn Parser::parse_source(
     if work.length() > max_branches {
       raise ParseLimit("GLR branch limit exceeded")
     }
-    if initial.cost > max_errors {
+    if initial.errors > max_errors {
       continue
     }
     if best is Some((_, cost, _)) && initial.cost > cost {
@@ -398,11 +458,13 @@ fn Parser::parse_source(
     let token = branch.lookahead.unwrap()
     furthest = Int32::max(furthest, branch.offset)
     let key : BranchKey = {
+      status: branch.status,
       states: branch.states,
       offset: branch.offset,
       symbol: token.symbol,
       missing: token.missing,
       insertions: branch.insertions,
+      errors: branch.errors,
       scanner_state: branch.scanner_state,
       next_scanner_state: token.scanner_state,
       extras: branch.extras.map(f => (f.states, f.start)),
@@ -438,48 +500,220 @@ fn Parser::parse_source(
           []
         },
       )
-    if actions.is_empty() {
-      // Recovery is bounded and never inserts EOF. Try insertion at this
-      // position and deletion independently, preserving visible ERROR nodes.
-      if !token.missing && branch.insertions < 3 {
-        for expected in self.language.lookahead(state) {
-          if expected != 0 {
+    if branch.status == Recovering && !actions.is_empty() {
+      work.push({
+        ..branch,
+        status: Active,
+        recovery_versions: 0,
+        pending: branch.pending.map(n => {
+          if n.data.error_repeat {
+            { data: { ..n.data, error_repeat: false, extra: true, }, }
+          } else {
+            n
+          }
+        }),
+      })
+    }
+    if actions.is_empty() || branch.status == Recovering {
+      if branch.status == Active && !token.missing {
+        paused.push(branch)
+        continue
+      }
+      if token.missing {
+        continue
+      }
+      // Completed productions may reduce before recovery even when the current
+      // lookahead is invalid. This preserves the last valid syntactic units.
+      let reductions : Map[Int32, Bool] = Map([])
+      let mut reduced_any = false
+      let mut can_shift = false
+      for actions in self.language.states[state].actions.values() {
+        if branch.status != Preparing {
+          break
+        }
+        for action in actions {
+          if action is Shift(_) {
+            can_shift = true
+          }
+          if action is Reduce(pid) &&
+            !reductions.contains(pid) &&
+            (
+              self.language.productions[pid].requires_eof != Some(true) ||
+              token.symbol == 0
+            ) {
+            reductions[pid] = true
+            if self.reduce(branch, pid, lines) is Some(reduced) {
+              work.push(reduced)
+              reduced_any = true
+            }
+          }
+        }
+      }
+      if reduced_any && !can_shift {
+        continue
+      }
+      // Missing tokens are useful only when their shift enables a reduction on
+      // the actual lookahead; arbitrary chains fabricate complete statements.
+      if branch.insertions == 0 && branch.status == Preparing {
+        for (expected, actions) in self.language.states[state].actions {
+          if expected == 0 {
+            continue
+          }
+          for action in actions {
+            if action is Shift(next) &&
+              next != state &&
+              self.language.states[next].actions
+              .get(token.symbol)
+              .unwrap_or([])
+              .any(a => a is Reduce(_)) {
+              work.push({
+                ..branch,
+                lookahead: Some({
+                  symbol: expected,
+                  start: token.start,
+                  end: token.start,
+                  missing: true,
+                  scanner_state: None,
+                }),
+                errors: branch.errors + 1,
+                insertions: 1,
+              })
+            }
+          }
+        }
+      }
+      // Recover to an earlier stack state, retaining discarded syntax in one
+      // ERROR subtree. Contextual lexing resumes at the same input position.
+      let mut did_recover = !actions.is_empty()
+      for index = branch.entries.length() - 1; index >= 0; index = index - 1 {
+        let previous = branch.states[index]
+        if !self.language.states[previous].actions.contains(token.symbol) {
+          continue
+        }
+        let discarded = []
+        for entry in branch.entries[index:] {
+          discarded.append(entry.leading)
+          discarded.push(entry.node)
+        }
+        discarded.append(branch.pending)
+        let pending = self.error_pending([], discarded, lines, previous)
+        did_recover = true
+        work.push({
+          ..branch,
+          recovery_versions: 0,
+          status: Active,
+          states: branch.states[:index + 1].to_owned(),
+          entries: branch.entries[:index].to_owned(),
+          pending,
+          lookahead: None,
+          errors: branch.errors + 1,
+          insertions: 0,
+        })
+        break
+      }
+      if token.symbol == 0 && branch.extras.is_empty() && branch.insertions < 3 {
+        // A damaged nonterminal can still complete an enclosing production.
+        // Keep its consumed input as ERROR instead of inventing named syntax.
+        for index = branch.entries.length(); index > 0; index = index - 1 {
+          let previous = branch.states[index]
+          let discarded = []
+          for entry in branch.entries[index:] {
+            discarded.append(entry.leading)
+            discarded.push(entry.node)
+          }
+          discarded.append(branch.pending)
+          if discarded.is_empty() {
+            continue
+          }
+          for (symbol, next) in self.language.states[previous].gotos {
+            if symbol == self.language.start_symbol ||
+              !self.language.states[next].actions
+              .get(0)
+              .unwrap_or([])
+              .any(a => a is Reduce(_)) {
+              continue
+            }
+            let error = self.error_pending([], discarded, lines, previous)[0]
             work.push({
               ..branch,
-              lookahead: Some({
-                symbol: expected,
-                start: token.start,
-                end: token.start,
-                missing: true,
-                scanner_state: None,
-              }),
-              cost: branch.cost + 1,
+              states: branch.states[:index + 1].to_owned() + [next],
+              entries: branch.entries[:index].to_owned() +
+              [{ node: error, leading: [], }],
+              pending: [],
+              errors: branch.errors + 1,
               insertions: branch.insertions + 1,
             })
           }
         }
       }
-      if !token.missing && token.end > token.start {
-        let error = self.node(
-          -1,
+      if token.symbol == 0 && branch.extras.is_empty() {
+        let discarded = []
+        for entry in branch.entries {
+          discarded.append(entry.leading)
+          discarded.push(entry.node)
+        }
+        discarded.append(branch.pending)
+        if !discarded.is_empty() {
+          let root = self.error_pending([], discarded, lines, 0)[0]
+          // EOF recovery pushes an empty error at the discontinuity before
+          // accepting the enclosing error tree (parser.c: recover_eof).
+          let cost = root.data.error_cost + 500
+          if best is None || cost < best.unwrap().1 {
+            best = Some((root, cost, branch.dynamic))
+          }
+        }
+      }
+      if token.end > token.start &&
+        !(did_recover &&
+        Int32::max(
+          branch.recovery_versions,
+          work.length() + paused.length() + 1,
+        ) >=
+        6) {
+        let skipped = self.node(
+          token.symbol,
           token.start,
           token.end,
           lines,
           [],
           state,
           state,
+          unexpected?=if token.symbol < 0 {
+            Some(@lex.decode(source, token.start).0)
+          } else {
+            None
+          },
         )
         work.push({
           ..branch,
+          recovery_versions: 0,
+          status: Recovering,
           offset: token.end,
           lookahead: None,
-          pending: branch.pending + [error],
-          cost: branch.cost + 1,
+          pending: self.error_pending(
+            branch.pending,
+            [skipped],
+            lines,
+            state,
+            repeating=true,
+          ),
+          errors: branch.errors +
+          (if branch.pending.last() is Some(n) && n.is_error() { 0 } else { 1 }),
           scanner_state: token.scanner_state.unwrap_or(branch.scanner_state),
           insertions: 0,
         })
       }
       continue
+    }
+    let branch = {
+      ..branch,
+      pending: branch.pending.map(n => {
+        if n.data.error_repeat {
+          { data: { ..n.data, error_repeat: false, extra: true, }, }
+        } else {
+          n
+        }
+      }),
     }
     for action in actions {
       match action {
@@ -530,6 +764,7 @@ fn Parser::parse_source(
           )
           work.push({
             ..branch,
+            status: Active,
             states: branch.states + [next],
             entries: branch.entries + [{ node, leading: branch.pending, }],
             pending: [],
@@ -554,7 +789,13 @@ fn Parser::parse_source(
               None => true
               Some((_, cost, dynamic)) =>
                 branch.cost < cost ||
-                (branch.cost == cost && branch.dynamic > dynamic)
+                (
+                  branch.cost == cost &&
+                  (
+                    branch.dynamic > dynamic ||
+                    (branch.cost > 0 && branch.dynamic == dynamic)
+                  )
+                )
             }
             if replace {
               best = Some((root, branch.cost, branch.dynamic))
@@ -586,4 +827,70 @@ pub fn Parser::parse_string(
   source : String,
 ) -> Tree raise ParseError {
   self.parse(@utf8.encode(source))
+}
+
+///|
+fn Parser::error_pending(
+  self : Parser,
+  pending : Array[Node],
+  discarded : Array[Node],
+  lines : Array[Int32],
+  state : Int32,
+  repeating~ : Bool = false,
+) -> Array[Node] {
+  let result = pending.copy()
+  let children : Array[ChildPart] = []
+  let mut start = discarded[0].start_byte()
+  if result.last() is Some(previous) && previous.data.error_repeat {
+    ignore(result.pop())
+    start = previous.start_byte()
+    children.push(Nested(None, previous.data.children))
+  }
+  for node in discarded {
+    if node.data.error_repeat {
+      children.push(Nested(None, node.data.children))
+    } else {
+      append_visible(children, node, None)
+    }
+  }
+  result.push(
+    self.node(
+      -1,
+      start,
+      discarded.last().unwrap().end_byte(),
+      lines,
+      children,
+      state,
+      state,
+      error_repeat=repeating,
+      extra=!repeating,
+    ),
+  )
+  result
+}
+
+///|
+fn branch_error_cost(branch : Branch) -> Int32 {
+  let mut cost = 0
+  for entry in branch.entries {
+    cost += entry.node.data.error_cost
+    for node in entry.leading {
+      cost += node.data.error_cost
+    }
+  }
+  for node in branch.pending {
+    cost += node.data.error_cost
+  }
+  for frame in branch.extras {
+    for entry in frame.entries {
+      cost += entry.node.data.error_cost
+      for node in entry.leading {
+        cost += node.data.error_cost
+      }
+    }
+    for node in frame.pending {
+      cost += node.data.error_cost
+    }
+  }
+  cost
 }

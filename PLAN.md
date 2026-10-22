@@ -359,3 +359,16 @@ the port is not yet release-ready. Codex CLI 0.153.4 is running an early review
 with its configured gpt-6-astra model and reasoning effort ultra, focusing first
 on the remaining recovery mismatch and then release blockers. A final review
 and fixes are still required before release.
+
+### Ultra review repairs and recovery competition
+
+Codex CLI ultra reviewed the implementation and reported seven concrete defects.
+Fixed scoped/static and dynamic precedence, assertion-aware regex matching,
+separator visibility, tag precedence, compound extensions and empty-root edits;
+added regression coverage. Recovery now pauses failed branches, retains competing
+recovery continuations, bounds speculative recovery versions, and compares
+subtree costs including missing tokens and error grouping. The frozen upstream
+error_recovery_loop corpus now passes unchanged. UTF-8 callback input is also
+implemented with cancellation and an input-size bound. Native: 152 tests pass;
+portable target results and broader real-language corpora are the next gate.
+The pinned generator now builds with Rust 1.90 as a development-only reference.
