@@ -226,7 +226,27 @@ fn Builder::expand(
         let rule = self.grammar.rules[self.grammar.rules
           .search_by(r => r.0 == name)
           .unwrap()].1
-        self.expand(rule, context, inlines + [name])
+        let alternatives = self.expand(rule, context, inlines + [name])
+        // Inlining replaces a production step. Its alias and field apply to
+        // every inserted step, overriding metadata inside the inline rule.
+        for alternative in alternatives {
+          for i, step in alternative.steps {
+            alternative.steps[i] = {
+              ..step,
+              rename: if context.rename is Some(_) {
+                context.rename
+              } else {
+                step.rename
+              },
+              field: if context.field is Some(_) {
+                context.field
+              } else {
+                step.field
+              },
+            }
+          }
+        }
+        alternatives
       } else {
         single(self.names[name], context)
       }

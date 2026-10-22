@@ -475,3 +475,10 @@ Structural/node/field diagnostics now retain source byte offsets, including
 queries with UTF-8 comments. Eighteen query tests pass on native, JS, and Wasm GC;
 the complete native suite passes 236 tests. Sequence validation beyond these
 schema constraints remains in the broader upstream API audit.
+
+Public grammar coverage now includes a pure MoonBit JavaScript v0.25.0 external
+scanner. Its complete upstream corpus exposed an inline metadata bug: an alias
+or field on the removed inline step must override each inserted step's metadata.
+The fix passes a focused regression on all three targets and the full native
+suite (238 tests). C remains 85/85; JavaScript reaches 113/116 with imports,
+object/block ambiguity, and reserved-word identifiers still under investigation.
