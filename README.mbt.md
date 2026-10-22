@@ -79,6 +79,7 @@ Upstream `grammar.json` is accepted as a migration input.
 | `test` | `language.json corpus-file-or-directory` | Corpus results; fails on mismatches |
 | `query` | `language.json query.scm source` | Capture JSON lines |
 | `query --check` | `language.json query.scm` | Validate query syntax and grammar references |
+| `init` | `name directory` | Create an mbtx grammar, corpus test, and highlight query |
 | `highlight` | `language.json highlights.scm source` | Escaped HTML spans |
 | `tags` | `language.json tags.scm source` | Definition/reference JSON lines |
 

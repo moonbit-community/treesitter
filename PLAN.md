@@ -602,3 +602,12 @@ All 11 files pass (JSON 1, C 2, JavaScript 6, Go 2). Compilation and corpus coun
 are reported separately, with any failure keeping the audit nonzero. This does
 not yet validate annotated highlight/tag execution fixtures. The stable corpus
 counts remain 6/6, 85/85, 116/116, and 66/67 respectively.
+
+The CLI now scaffolds mbtx grammar projects with `init <name> <directory>`:
+portable grammar source, tree-sitter.json metadata, a corpus case, highlight
+query, sample input, README, and ignore file. Names are validated, existing files
+are checked before creation, and writes are exclusive. The metadata intentionally
+starts UNLICENSED until the grammar author chooses a license. Native tests cover
+name validation and overwrite refusal; tools/check.sh initializes a temporary
+project, compiles its mbtx grammar, and passes its corpus. The full script passes
+268 native / 265 JS / 265 Wasm GC tests and all smoke checks.

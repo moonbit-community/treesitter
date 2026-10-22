@@ -78,7 +78,7 @@ async fn dispatch(
     "--version" | "version" => println("treesitter.mbt 0.1.0")
     "--help" | "help" =>
       println(
-        "treesitter [--scanner scanner.mbtx] generate <grammar.mbtx|json> <language.json> | parse [language.json] <source> | highlight|tags <source> | parse --cst <language.json> <source> | test <language.json> <corpus-file-or-directory> | query|highlight|tags <language.json> <query.scm> <source> | query --check <language.json> <query.scm> | languages [config.json] | init-config <path> | emit <language.json> <language.mbt> | node-types <language.json> <node-types.json> | grammar-json <grammar.mbtx>",
+        "treesitter [--scanner scanner.mbtx] generate <grammar.mbtx|json> <language.json> | parse [language.json] <source> | highlight|tags <source> | parse --cst <language.json> <source> | test <language.json> <corpus-file-or-directory> | query|highlight|tags <language.json> <query.scm> <source> | query --check <language.json> <query.scm> | languages [config.json] | init <name> <directory> | init-config <path> | emit <language.json> <language.mbt> | node-types <language.json> <node-types.json> | grammar-json <grammar.mbtx>",
       )
     "languages" if args.length() <= 3 => {
       let directories = @loader.parser_directories(path?=args.get(2))
@@ -93,6 +93,7 @@ async fn dispatch(
         )
       }
     }
+    "init" if args.length() == 4 => init_grammar(args[2], args[3])
     "init-config" if args.length() == 3 => {
       if @fs.exists(args[2]) {
         raise Usage("configuration already exists: \{args[2]}")

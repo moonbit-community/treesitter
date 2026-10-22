@@ -6,6 +6,11 @@ moon check --target native --warn-list +unnecessary_annotation
 moon test --target native
 moon test --target js
 moon test --target wasm-gc
+grammar_init_dir=$(mktemp -d "${TMPDIR:-/tmp}/treesitter-init.XXXXXX")
+trap 'rm -rf "$grammar_init_dir"' EXIT HUP INT TERM
+moon run cmd/treesitter --target native -- init starter "$grammar_init_dir"
+moon run cmd/treesitter --target native -- generate "$grammar_init_dir/grammar.mbtx" "$grammar_init_dir/language.json"
+moon run cmd/treesitter --target native -- test "$grammar_init_dir/language.json" "$grammar_init_dir/test/corpus"
 moon run cmd/treesitter --target native -- generate examples/grammar.mbtx _build/arithmetic.language.json
 moon run cmd/treesitter --target native -- emit _build/arithmetic.language.json _build/arithmetic.mbt
 moon run cmd/treesitter --target native -- generate examples/json/grammar.mbtx _build/json.language.json
