@@ -100,7 +100,7 @@ priv struct ParseContinuation {
   reused_subtrees : Int32
   work : Array[Branch]
   paused : Array[Branch]
-  visited : Map[BranchKey, (Int32, Int32)]
+  visited : Map[BranchKey, (Int32, Int32, Array[Derivation])]
   best : (Node, Int32, Int32)?
   steps : Int32
   furthest : Int32
@@ -121,6 +121,7 @@ fn Parser::node(
   next_state : Int32,
   unexpected? : Int32,
   dependency_end? : Int32,
+  derivation_children? : Array[Derivation],
   error_repeat~ : Bool = false,
   extra~ : Bool = false,
   missing~ : Bool = false,
@@ -174,6 +175,12 @@ fn Parser::node(
   {
     data: {
       id,
+      derivation: {
+        symbol,
+        children: derivation_children.unwrap_or_else(() => {
+          children.entries().map(c => c.1.data.derivation)
+        }),
+      },
       dependency_end: Int32::max(
         children.dependency_end,
         dependency_end.unwrap_or(end),
@@ -240,14 +247,17 @@ fn Parser::reduce(
     return None
   }
   let children : Array[ChildPart] = []
+  let derivation_children : Array[Derivation] = []
   let leading = if count == 0 { [] } else { branch.entries[index].leading }
   for i in 0..<count {
     let entry = branch.entries[index + i]
     if i > 0 {
       for extra in entry.leading {
         append_visible(children, extra, None)
+        derivation_children.push(extra.data.derivation)
       }
     }
+    derivation_children.push(entry.node.data.derivation)
     let step = production.steps[i]
     let child = match step.rename {
       Some((name, named)) => entry.node.renamed(name, named)
@@ -295,6 +305,7 @@ fn Parser::reduce(
       init=branch.lookahead.map(t => t.dependency_end).unwrap_or(end),
       (value, entry) => Int32::max(value, entry.node.data.dependency_end),
     ),
+    derivation_children~,
     dynamic_score=score,
     scan_before=if count == 0 {
       branch.scanner_state
@@ -471,7 +482,7 @@ fn Parser::parse_source(
     ]
   }
   let paused : Array[Branch] = continuation.map(c => c.paused).unwrap_or([])
-  let visited : Map[BranchKey, (Int32, Int32)] = continuation
+  let visited : Map[BranchKey, (Int32, Int32, Array[Derivation])] = continuation
     .map(c => c.visited)
     .unwrap_or(Map([]))
   let mut best : (Node, Int32, Int32)? = match continuation {
@@ -571,11 +582,24 @@ fn Parser::parse_source(
       next_scanner_state: token.scanner_state,
       extras: branch.extras.map(f => (f.states, f.start)),
     }
-    if visited.get(key) is Some((cost, dynamic)) &&
-      (cost < branch.cost || (cost == branch.cost && dynamic >= branch.dynamic)) {
+    let derivations = branch.entries.map(e => e.node.data.derivation)
+    if visited.get(key) is Some((cost, dynamic, previous)) &&
+      (
+        cost < branch.cost ||
+        (
+          cost == branch.cost &&
+          (
+            dynamic > branch.dynamic ||
+            (
+              dynamic == branch.dynamic &&
+              compare_derivations(self.language, previous, derivations) <= 0
+            )
+          )
+        )
+      ) {
       continue
     }
-    visited[key] = (branch.cost, branch.dynamic)
+    visited[key] = (branch.cost, branch.dynamic, derivations)
     let state = branch.states.last().unwrap()
     if branch.status == Active &&
       work.is_empty() &&
@@ -897,13 +921,24 @@ fn Parser::parse_source(
             self.finish(branch, lines) is Some(root) {
             let replace = match best {
               None => true
-              Some((_, cost, dynamic)) =>
+              Some((previous, cost, dynamic)) =>
                 branch.cost < cost ||
                 (
                   branch.cost == cost &&
                   (
                     branch.dynamic > dynamic ||
-                    (branch.cost > 0 && branch.dynamic == dynamic)
+                    (
+                      branch.dynamic == dynamic &&
+                      (
+                        branch.cost > 0 ||
+                        compare_derivations(
+                          self.language,
+                          [previous.data.derivation],
+                          [root.data.derivation],
+                        ) >
+                        0
+                      )
+                    )
                   )
                 )
             }

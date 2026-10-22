@@ -1,5 +1,14 @@
 ///|
+// Keep the hidden production hierarchy for deterministic GLR tie-breaking.
+// This immutable shape is independent of byte positions and survives edits.
+priv struct Derivation {
+  symbol : Int32
+  children : Array[Derivation]
+}
+
+///|
 priv struct NodeData {
+  derivation : Derivation
   dependency_end : Int32
   encoding : InputEncoding
   id : Int32

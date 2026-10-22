@@ -435,3 +435,9 @@ earlier rules. Named extras restart immediate-token recognition; anonymous
 separator whitespace still prevents immediate matches. Focused regressions and
 the native suite pass; generated examples have been regenerated for the intended
 token-order change.
+
+GLR branch convergence and accepted-tree selection now compare immutable hidden
+production hierarchies after error cost and dynamic precedence. This prevents
+queue timing from selecting a shorter hidden derivation over the grammar's
+earlier alternative. All 85 C v0.24.2 corpus cases pass after this and the lexical
+fixes. The full check script passes 232 native / 231 JS / 231 Wasm GC tests.
