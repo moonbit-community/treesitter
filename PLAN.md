@@ -69,3 +69,13 @@ silently update expected output to match a divergent implementation.
 Planning baseline only. No runtime or compatibility claims yet. The upstream
 runtime alone contains approximately 15,000 lines of C; full completion means
 all milestones and the compatibility gate, not merely parsing one language.
+
+### Grammar frontend checkpoint
+
+Typed rule IR covers all 19 upstream rule variants. Grammar JSON round trips
+preserve start-rule order and metadata. Reference and shape diagnostics are
+covered by 5 tests passing on native, JS and Wasm GC. The mbtx example is written,
+but the installed `moon` resolves standalone imports only from the registry;
+local unpublished imports need a development runner. Milestone 1 remains open
+until that path is exercised. Regex and parser-specific validation belong to
+subsequent compiler passes.

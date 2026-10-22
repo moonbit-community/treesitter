@@ -1,0 +1,19 @@
+import {
+  "bobzhang/treesitter/grammar",
+}
+
+fn main raise {
+  let grammar = @grammar.Grammar::new("arithmetic", [
+    ("expression", @grammar.Rule::Choice([
+      @grammar.Rule::Symbol("number"),
+      @grammar.prec_left(@grammar.Rule::Seq([
+        @grammar.Rule::Field("left", @grammar.Rule::Symbol("expression")),
+        @grammar.Rule::Literal("+"),
+        @grammar.Rule::Field("right", @grammar.Rule::Symbol("expression")),
+      ]), value=1),
+    ])),
+    ("number", @grammar.pattern("[0-9]+")),
+  ])
+  grammar.validate()
+  println(Json(grammar).stringify(indent=2))
+}
