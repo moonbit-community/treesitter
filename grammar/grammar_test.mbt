@@ -54,7 +54,7 @@ test "JSON preserves rule insertion order and explicit empty extras" {
 test "unknown references and duplicate rules produce actionable errors" {
   let invalid = @grammar.Grammar::new("broken", [("start", Symbol("missing"))])
   try invalid.validate() catch {
-    @grammar.InvalidGrammar(message) =>
+    InvalidGrammar(message) =>
       assert_eq(message, "rules.start: unknown rule 'missing'")
   } noraise {
     _ => fail("expected undefined rule error")
@@ -64,7 +64,7 @@ test "unknown references and duplicate rules produce actionable errors" {
     ("x", Blank),
   ])
   try duplicate.validate() catch {
-    @grammar.InvalidGrammar(message) => assert_eq(message, "duplicate rule 'x'")
+    InvalidGrammar(message) => assert_eq(message, "duplicate rule 'x'")
   } noraise {
     _ => fail("expected duplicate rule error")
   }
@@ -80,7 +80,7 @@ test "malformed JSON rule values are rejected" {
   for source in inputs {
     let value = @json.parse(source)
     try @grammar.Rule::from_json(value) catch {
-      @grammar.InvalidGrammar(_) => ()
+      InvalidGrammar(_) => ()
     } noraise {
       _ => fail("accepted malformed rule: \{source}")
     }

@@ -79,3 +79,14 @@ but the installed `moon` resolves standalone imports only from the registry;
 local unpublished imports need a development runner. Milestone 1 remains open
 until that path is exercised. Regex and parser-specific validation belong to
 subsequent compiler passes.
+
+### Lexer checkpoint
+
+Implemented scalar range sets, regex AST, Thompson NFA and deterministic subset
+construction, longest-prefix scanning, Unicode property categories/scripts/
+script extensions/binary properties, Unicode `\d`/`\s`/`\w`, case folding matching
+upstream's long-s/Kelvin exclusions, and malformed UTF-8 progress. Unicode 16.0.0
+DATA comes from the checksum-verified regex-syntax 0.8.11 pinned by upstream;
+its license and a development-only importer are included. No Rust is executed.
+Ten tests pass on native, JS, and Wasm GC. Remaining lexical work includes inline
+flags, class set operations, combined contextual automata and external scanners.
