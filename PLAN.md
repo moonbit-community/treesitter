@@ -420,3 +420,11 @@ unchanged. Regressions cover distant edits changing token choice and insertion
 at an observed EOF. The full native, JavaScript, and Wasm GC check script passes.
 Large C and JavaScript grammars reach the canonical LR state budget; kernel
 storage and closure construction are the next scaling work, before release.
+
+Canonical LR generation now interns kernels rather than retaining full closures,
+and precomputes FIRST/reserved lookaheads for each production suffix. The default
+state budget is 100,000. C v0.24.2 generates 21,091 states/1,134 productions and
+JavaScript v0.25.0 generates 17,098 states/1,003 productions. All 229 native and
+228 portable tests pass, including the state-merging lexical conflict fixture;
+no LALR merging or lexical-context widening was introduced. Both committed mbtx
+factories still regenerate byte-for-byte.

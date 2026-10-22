@@ -44,76 +44,113 @@ fn first_sets(builder : Builder) -> (Array[Map[Int32, Bool]], Array[Bool]) {
 }
 
 ///|
-fn close_items(
-  seeds : Array[Item],
+priv struct ClosureStep {
+  targets : Array[Int32]
+  lookaheads : Array[(Int32, Int32)]
+  inherits : Bool
+  eof : Bool
+}
+
+///|
+// FIRST of each suffix is grammar-wide, not dependent on a state's lookahead.
+fn closure_steps(
   builder : Builder,
   first : Array[Map[Int32, Bool]],
   nullable : Array[Bool],
   by_lhs : Array[Array[Int32]],
   reserved_first : Array[Int32],
+) -> Array[Array[ClosureStep]] {
+  builder.productions.map(production => {
+    Array::makei(production.steps.length() + 1, dot => {
+      let targets = match production.steps.get(dot) {
+        Some(step) if !builder.symbols[step.symbol].terminal =>
+          by_lhs[step.symbol]
+        _ => []
+      }
+      let lookaheads : Map[Int32, Int32] = Map([])
+      let mut inherits = true
+      if !targets.is_empty() {
+        for i in (dot + 1)..<production.steps.length() {
+          let next = production.steps[i].symbol
+          let reserved = if builder.grammar.word is Some(word) &&
+            next == builder.names[word] {
+            production.steps[i].reserved_set.unwrap_or(0)
+          } else {
+            reserved_first[next]
+          }
+          for token in first[next].keys() {
+            lookaheads[token] = Int32::max(
+              lookaheads.get(token).unwrap_or(0),
+              reserved,
+            )
+          }
+          if !nullable[next] {
+            inherits = false
+            break
+          }
+        }
+      }
+      {
+        targets,
+        lookaheads: lookaheads.iter().to_array(),
+        inherits,
+        eof: production.requires_eof == Some(true),
+      }
+    })
+  })
+}
+
+///|
+fn close_items(
+  seeds : Array[Item],
+  steps : Array[Array[ClosureStep]],
 ) -> Array[Item] {
   let seen : Map[Item, Bool] = Map([])
+  let expanded : Map[(Int32, Int32), Bool] = Map([])
   let result = []
-  for item in seeds {
+  fn add(item) {
     if !seen.contains(item) {
       seen[item] = true
       result.push(item)
     }
   }
+  for item in seeds {
+    add(item)
+  }
   let mut index = 0
   while index < result.length() {
     let item = result[index]
     index += 1
-    let production = builder.productions[item.production]
-    if item.dot == production.steps.length() {
+    let step = steps[item.production][item.dot]
+    if step.targets.is_empty() {
       continue
     }
-    let symbol = production.steps[item.dot].symbol
-    if builder.symbols[symbol].terminal {
-      continue
-    }
-    let lookaheads : Map[Int32, Int32] = Map([])
-    let mut empty = true
-    for i in (item.dot + 1)..<production.steps.length() {
-      let next = production.steps[i].symbol
-      for token in first[next].keys() {
-        lookaheads[token] = Int32::max(
-          lookaheads.get(token).unwrap_or(0),
-          if builder.grammar.word is Some(word) && next == builder.names[word] {
-            production.steps[i].reserved_set.unwrap_or(0)
-          } else {
-            reserved_first[next]
-          },
-        )
-      }
-      if !nullable[next] {
-        empty = false
-        break
+    let key = (item.production, item.dot)
+    if !expanded.contains(key) {
+      expanded[key] = true
+      for pid in step.targets {
+        for (lookahead, reserved) in step.lookaheads {
+          add({
+            production: pid,
+            dot: 0,
+            lookahead,
+            reserved_lookahead: reserved,
+          })
+        }
       }
     }
-    if empty {
-      let lookahead = if production.requires_eof == Some(true) {
-        0
-      } else {
-        item.lookahead
-      }
-      lookaheads[lookahead] = Int32::max(
-        lookaheads.get(lookahead).unwrap_or(0),
-        item.reserved_lookahead,
-      )
-    }
-    for pid in by_lhs[symbol] {
-      for lookahead in lookaheads.keys() {
-        let next : Item = {
+    if step.inherits {
+      for pid in step.targets {
+        add({
           production: pid,
           dot: 0,
-          lookahead,
-          reserved_lookahead: lookaheads[lookahead],
-        }
-        if !seen.contains(next) {
-          seen[next] = true
-          result.push(next)
-        }
+          lookahead: if step.eof {
+            0
+          } else {
+            item.lookahead
+          },
+          reserved_lookahead: item.reserved_lookahead,
+        })
       }
     }
   }
@@ -288,7 +325,7 @@ fn compare_precedence(
 /// declared; declared conflicts are retained for the GLR runtime.
 pub fn generate(
   grammar : @grammar.Grammar,
-  max_states~ : Int32 = 10000,
+  max_states~ : Int32 = 100000,
   max_productions~ : Int32 = 10000,
 ) -> @language.Language raise {
   if max_states < 1 || max_productions < 1 {
@@ -346,14 +383,12 @@ pub fn generate(
     by_lhs[p.lhs].push(id)
   }
   let reserved_first = reserved_first_sets(builder, first, nullable)
-  let initial = close_items(
-    [{ production: aug_id, dot: 0, lookahead: 0, reserved_lookahead: 0, }],
-    builder,
-    first,
-    nullable,
-    by_lhs,
-    reserved_first,
-  )
+  let closure = closure_steps(builder, first, nullable, by_lhs, reserved_first)
+  // Intern only kernels. Closures are temporary; retaining them duplicates all
+  // the productions reachable from each kernel and overwhelms larger grammars.
+  let initial = [
+    { production: aug_id, dot: 0, lookahead: 0, reserved_lookahead: 0, },
+  ]
   let states = [initial]
   let contexts : Array[Map[String, Array[String]]] = [Map([])]
   let auxiliaries : Map[Int32, Bool] = Map([])
@@ -375,9 +410,8 @@ pub fn generate(
         })
       }
     }
-    let state = close_items(
-      seeds, builder, first, nullable, by_lhs, reserved_first,
-    )
+    seeds.sort()
+    let state = seeds
     let id = states.length()
     states.push(state)
     contexts.push(Map([]))
@@ -390,7 +424,7 @@ pub fn generate(
     if states.length() > max_states {
       raise ResourceLimit("LR state limit exceeded")
     }
-    let items = states[index]
+    let items = close_items(states[index], closure)
     let auxiliary_context = contexts[index].copy()
     let uses : Map[Int32, Array[String]] = Map([])
     for item in items {
@@ -433,14 +467,8 @@ pub fn generate(
     let symbols = transitions.keys().to_array()
     symbols.sort()
     for symbol in symbols {
-      let next = close_items(
-        transitions[symbol],
-        builder,
-        first,
-        nullable,
-        by_lhs,
-        reserved_first,
-      )
+      let next = transitions[symbol]
+      next.sort()
       let target = match ids.get(next) {
         Some(id) => id
         None => {
