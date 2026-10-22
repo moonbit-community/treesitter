@@ -14,6 +14,7 @@ pub fn Parser::parse_with(
   max_errors~ : Int32 = 20,
   cancelled~ : () -> Bool = () => false,
 ) -> Tree raise ParseError {
+  self.reset()
   let buffer = @buffer.Buffer()
   let mut point : Point = { row: 0, column: 0, }
   for ;; {

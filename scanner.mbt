@@ -21,6 +21,7 @@ pub fn ExternalScanner::new(
 
 ///|
 priv struct Projection {
+  ranges : Array[Range]
   source : Bytes
   starts : Array[Int32]
   ends : Array[Int32]
@@ -87,6 +88,11 @@ pub fn ScannerInput::get_column(self : ScannerInput) -> Int32 {
     None => (self.source, self.offset, self.lines)
     Some(p) => (p.source, p.starts[self.offset], p.lines)
   }
+  scalar_column(source, offset, lines)
+}
+
+///|
+fn scalar_column(source : Bytes, offset : Int32, lines : Array[Int32]) -> Int32 {
   let mut cursor = offset - point_at(lines, offset).column
   let mut column = 0
   while cursor < offset {

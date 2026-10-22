@@ -172,3 +172,43 @@ test "scanner coordinates use Unicode columns and original included ranges" {
   assert_eq(tree.root_node().start_byte(), 3)
   assert_eq(tree.root_node().end_byte(), 7)
 }
+
+///|
+test "scanner-aware suffix reuse restores the accepted scanner snapshot" {
+  let language = @generate.generate(
+    @grammar.Grammar::new(
+      "quoted_lines",
+      [
+        ("document", Repeat(Symbol("line"))),
+        (
+          "line",
+          Seq([
+            Symbol("open"),
+            Symbol("content"),
+            Symbol("close"),
+            Literal("\n"),
+          ]),
+        ),
+      ],
+      externals=[Symbol("open"), Symbol("content"), Symbol("close")],
+      extras=[],
+    ),
+  )
+  let parser = @treesitter.Parser::new(language, scanner=quoted_scanner())
+  let old = parser.parse(b"'one'\n'long'\n'last'\n")
+  old.edit({
+    start_byte: 1,
+    old_end_byte: 4,
+    new_end_byte: 6,
+    start_point: { row: 0, column: 1, },
+    old_end_point: { row: 0, column: 4, },
+    new_end_point: { row: 0, column: 6, },
+  })
+  let source = b"'first'\n'long'\n'last'\n"
+  let updated = parser.parse(source, old_tree=old)
+  let fresh = parser.parse(source)
+  assert_eq(updated.root_node().to_sexp(), fresh.root_node().to_sexp())
+  assert_eq(updated.external_scanner_state(), fresh.external_scanner_state())
+  assert_true(updated.reused_subtrees > 0)
+  assert_true(updated.parse_steps < fresh.parse_steps)
+}

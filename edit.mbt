@@ -160,8 +160,7 @@ fn reuse_candidates(
   // A previously selected GLR derivation is not sufficient to reconstruct all
   // competing stacks. Reparse ambiguous tables until a shared parse forest is
   // available; reusing a single winner could change dynamic precedence.
-  if !old_tree.language.externals.is_empty() ||
-    old_tree.language.states.any(row => {
+  if old_tree.language.states.any(row => {
       row.actions.values().any(actions => actions.length() > 1)
     }) {
     return result
@@ -173,6 +172,8 @@ fn reuse_candidates(
         source[source.length() - common - 1] {
     common += 1
   }
+  let old_lines = line_starts(old_tree.source)
+  let new_lines = line_starts(source)
   let pending = [old_tree.root]
   while pending.pop() is Some(node) {
     if !node.is_extra() &&
@@ -184,7 +185,15 @@ fn reuse_candidates(
       node.end_byte() <= source.length() &&
       node.data.origin_start >= old_tree.source.length() - common &&
       old_tree.source.length() - node.data.origin_start ==
-      source.length() - node.start_byte() {
+      source.length() - node.start_byte() &&
+      (
+        old_tree.language.externals.is_empty() ||
+        (
+          scalar_column(old_tree.source, node.data.origin_start, old_lines) ==
+          scalar_column(source, node.start_byte(), new_lines) &&
+          (node.data.origin_start == 0) == (node.start_byte() == 0)
+        )
+      ) {
       let key = (node.start_byte(), node.parse_state())
       if result.get(key) is Some(previous) &&
         previous.end_byte() >= node.end_byte() {

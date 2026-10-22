@@ -389,3 +389,17 @@ its block's named-child required flag: this implementation computes true for
 repeat1(statement), while upstream reports false. Track this metadata difference
 rather than changing either expected snapshot silently. tools/audit_node_types.py
 reproduces the complete schema audit with the pinned generator.
+
+### Query controls, scanner reuse and resumable parsing
+
+Added a capture cursor that interleaves enclosing and nested matches in source
+order while retaining each match's metadata. Queries expose pattern byte ranges,
+disabled patterns/captures, and reject impossible named-child/field combinations.
+Capture predicates still see disabled captures before output filtering.
+
+Unambiguous scanner languages can reuse unchanged suffix subtrees when incoming
+scanner snapshots and Unicode columns match; reuse restores the outgoing snapshot.
+Ambiguous tables still conservatively reparse. Cancellation saves the actual parse
+stacks, lookahead, recovery competition and budgets. resume_parse continues them;
+reset discards them, and parse starts fresh. Included-range resumes restore source
+coordinates. Native: 221 tests pass; runtime and query changes pass JS/Wasm GC.

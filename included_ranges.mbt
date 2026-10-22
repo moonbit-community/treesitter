@@ -85,7 +85,7 @@ fn Parser::parse_ranges(
   let parsed = self.parse_source(
     Bytes::from_array(bytes),
     max_steps~,
-    projection=Some({ source, starts, ends, lines, }),
+    projection=Some({ source, starts, ends, lines, ranges: ranges.copy(), }),
     max_branches~,
     max_errors~,
     cancelled~,

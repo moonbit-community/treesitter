@@ -15,6 +15,7 @@ pub struct Parser {
   language : @language.Language
   priv mut next_id : Int32
   priv scanner : ExternalScanner?
+  priv mut suspended : ParseContinuation?
 }
 
 ///|
@@ -23,7 +24,7 @@ pub fn Parser::new(
   scanner? : ExternalScanner,
 ) -> Parser raise @language.LanguageError {
   language.validate()
-  { language, next_id: 0, scanner, }
+  { language, next_id: 0, scanner, suspended: None, }
 }
 
 ///|
@@ -86,6 +87,24 @@ priv struct Branch {
   dynamic : Int32
   insertions : Int32
   scanner_state : Bytes
+}
+
+///|
+priv struct ParseContinuation {
+  source : Bytes
+  projection : Projection?
+  lines : Array[Int32]
+  reusable : Map[(Int32, Int32), Node]
+  reused_subtrees : Int32
+  work : Array[Branch]
+  paused : Array[Branch]
+  visited : Map[BranchKey, (Int32, Int32)]
+  best : (Node, Int32, Int32)?
+  steps : Int32
+  furthest : Int32
+  max_steps : Int32
+  max_branches : Int32
+  max_errors : Int32
 }
 
 ///|
@@ -332,6 +351,7 @@ pub fn Parser::parse(
   max_errors~ : Int32 = 20,
   cancelled~ : () -> Bool = () => false,
 ) -> Tree raise ParseError {
+  self.suspended = None
   if cancelled() {
     raise Cancelled
   }
@@ -356,6 +376,7 @@ fn Parser::parse_source(
   source : Bytes,
   old_tree? : Tree,
   projection~ : Projection? = None,
+  continuation~ : ParseContinuation? = None,
   max_steps~ : Int32 = 100000,
   max_branches~ : Int32 = 10000,
   max_errors~ : Int32 = 20,
@@ -364,59 +385,77 @@ fn Parser::parse_source(
   if cancelled() {
     raise Cancelled
   }
+  self.suspended = None
   if !self.language.externals.is_empty() && self.scanner is None {
     raise ScannerError("language requires an external scanner")
   }
-  let mut reused_subtrees = 0
-  let reusable = match old_tree {
-    Some(tree) if physical_equal(tree.language, self.language) &&
-      tree.source_ranges.is_empty() &&
-      same_scanner(tree.scanner, self.scanner) => {
-      self.next_id = Int32::max(self.next_id, tree.root.id() + 1)
-      if !tree.edited && tree.source == source {
-        return {
-          root: tree.root,
-          source,
-          language: self.language,
-          edited: false,
-          edited_length: source.length(),
-          reused_subtrees: 1,
-          parse_steps: 0,
-          source_ranges: [],
-          scanner: self.scanner,
+  let mut reused_subtrees = continuation
+    .map(c => c.reused_subtrees)
+    .unwrap_or(0)
+  let reusable = if continuation is Some(saved) {
+    saved.reusable
+  } else {
+    match old_tree {
+      Some(tree) if physical_equal(tree.language, self.language) &&
+        tree.source_ranges.is_empty() &&
+        same_scanner(tree.scanner, self.scanner) => {
+        self.next_id = Int32::max(self.next_id, tree.root.id() + 1)
+        if !tree.edited && tree.source == source {
+          return {
+            root: tree.root,
+            source,
+            language: self.language,
+            edited: false,
+            edited_length: source.length(),
+            reused_subtrees: 1,
+            parse_steps: 0,
+            source_ranges: [],
+            scanner: self.scanner,
+          }
+        }
+        if tree.edited && tree.edited_length == source.length() {
+          reuse_candidates(tree, source)
+        } else {
+          Map([])
         }
       }
-      if tree.edited && tree.edited_length == source.length() {
-        reuse_candidates(tree, source)
-      } else {
-        Map([])
-      }
+      _ => Map([])
     }
-    _ => Map([])
   }
-  let lines = line_starts(source)
-  let work : Array[Branch] = [
-    {
-      status: Active,
-      recovery_versions: 0,
-      states: [0],
-      extras: [],
-      entries: [],
-      offset: 0,
-      pending: [],
-      lookahead: None,
-      cost: 0,
-      errors: 0,
-      dynamic: 0,
-      insertions: 0,
-      scanner_state: b"",
-    },
-  ]
-  let paused : Array[Branch] = []
-  let visited : Map[BranchKey, (Int32, Int32)] = Map([])
-  let mut best : (Node, Int32, Int32)? = None
-  let mut steps = 0
-  let mut furthest = 0
+  let lines = continuation
+    .map(c => c.lines)
+    .unwrap_or_else(() => line_starts(source))
+  let work : Array[Branch] = if continuation is Some(saved) {
+    saved.work
+  } else {
+    [
+      {
+        status: Active,
+        recovery_versions: 0,
+        states: [0],
+        extras: [],
+        entries: [],
+        offset: 0,
+        pending: [],
+        lookahead: None,
+        cost: 0,
+        errors: 0,
+        dynamic: 0,
+        insertions: 0,
+        scanner_state: b"",
+      },
+    ]
+  }
+  let paused : Array[Branch] = continuation.map(c => c.paused).unwrap_or([])
+  let visited : Map[BranchKey, (Int32, Int32)] = continuation
+    .map(c => c.visited)
+    .unwrap_or(Map([]))
+  let mut best : (Node, Int32, Int32)? = match continuation {
+    Some(saved) => saved.best
+    None => None
+  }
+  let mut steps = continuation.map(c => c.steps).unwrap_or(0)
+  let mut furthest = continuation.map(c => c.furthest).unwrap_or(0)
   while !work.is_empty() || !paused.is_empty() {
     if work.is_empty() {
       let mut selected = paused[0]
@@ -433,12 +472,28 @@ fn Parser::parse_source(
       paused.clear()
       work.push({ ..selected, status: Preparing, recovery_versions: versions, })
     }
+    if cancelled() {
+      self.suspended = Some({
+        source,
+        projection,
+        lines,
+        reusable,
+        reused_subtrees,
+        work,
+        paused,
+        visited,
+        best,
+        steps,
+        furthest,
+        max_steps,
+        max_branches,
+        max_errors,
+      })
+      raise Cancelled
+    }
     let initial = work.remove(0)
     let initial = { ..initial, cost: branch_error_cost(initial), }
     steps += 1
-    if cancelled() {
-      raise Cancelled
-    }
     if steps > max_steps {
       raise ParseLimit("parser step limit exceeded")
     }
@@ -452,7 +507,29 @@ fn Parser::parse_source(
       continue
     }
     let branch = if initial.lookahead is None {
-      self.lex(source, initial, lines, projection, cancelled)
+      self.lex(source, initial, lines, projection, cancelled) catch {
+        Cancelled => {
+          work.insert(0, initial)
+          self.suspended = Some({
+            source,
+            projection,
+            lines,
+            reusable,
+            reused_subtrees,
+            work,
+            paused,
+            visited,
+            best,
+            steps: steps - 1,
+            furthest,
+            max_steps,
+            max_branches,
+            max_errors,
+          })
+          raise Cancelled
+        }
+        error => raise error
+      }
     } else {
       initial
     }
@@ -476,9 +553,13 @@ fn Parser::parse_source(
     }
     visited[key] = (branch.cost, branch.dynamic)
     let state = branch.states.last().unwrap()
-    if branch.extras.is_empty() &&
+    if branch.status == Active &&
+      work.is_empty() &&
+      paused.is_empty() &&
+      branch.extras.is_empty() &&
       !token.missing &&
-      reusable.get((branch.offset, state)) is Some(candidate) {
+      reusable.get((branch.offset, state)) is Some(candidate) &&
+      candidate.data.scan_before == branch.scanner_state {
       let node = reset_origin(candidate)
       reused_subtrees += 1
       work.push({
@@ -488,6 +569,7 @@ fn Parser::parse_source(
         pending: [],
         offset: node.end_byte(),
         lookahead: None,
+        scanner_state: node.data.scan_after,
         dynamic: branch.dynamic + node.data.dynamic_score,
       })
       continue
@@ -895,4 +977,54 @@ fn branch_error_cost(branch : Branch) -> Int32 {
     }
   }
   cost
+}
+
+///|
+/// Discard a suspended parse before starting unrelated work.
+pub fn Parser::reset(self : Parser) -> Unit {
+  self.suspended = None
+}
+
+///|
+pub fn Parser::has_pending_parse(self : Parser) -> Bool {
+  self.suspended is Some(_)
+}
+
+///|
+/// Continue the exact input and options saved by a cancelled parse. Calling
+/// parse instead starts a new parse. Scanner callbacks must keep their mutable
+/// state in the serialized snapshots, just as during ordinary GLR execution.
+pub fn Parser::resume_parse(
+  self : Parser,
+  cancelled~ : () -> Bool = () => false,
+) -> Tree raise ParseError {
+  guard self.suspended is Some(saved) else { raise NoParse(0) }
+  if cancelled() {
+    raise Cancelled
+  }
+  let tree = self.parse_source(
+    saved.source,
+    projection=saved.projection,
+    continuation=Some(saved),
+    max_steps=saved.max_steps,
+    max_branches=saved.max_branches,
+    max_errors=saved.max_errors,
+    cancelled~,
+  )
+  match saved.projection {
+    None => tree
+    Some(projection) =>
+      {
+        ..tree,
+        root: project_node(
+          tree.root,
+          projection.starts,
+          projection.ends,
+          projection.lines,
+        ),
+        source: projection.source,
+        edited_length: projection.source.length(),
+        source_ranges: projection.ranges,
+      }
+  }
 }
