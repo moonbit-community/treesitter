@@ -768,3 +768,88 @@ test "upstream external_and_internal_tokens" {
     )
   }
 }
+
+///|
+test "upstream inverted_external_token" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"inverted_external_token","rules":{"program":{"type":"REPEAT","content":{"type":"SYMBOL","name":"statement"}},"statement":{"type":"SEQ","members":[{"type":"SYMBOL","name":"_expression"},{"type":"SYMBOL","name":"line_break"}]},"_expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"member_expression"}]},"member_expression":{"type":"PREC_LEFT","value":0,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"_expression"},{"type":"STRING","value":"."},{"type":"SYMBOL","name":"identifier"}]}},"identifier":{"type":"PATTERN","value":"[a-z]+"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"line_break"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "========================\nExpressions on one line\n=========================\n\na\nb\n  .c\nd\n  .e\n  .f\n\n---\n\n(program\n  (statement (identifier) (line_break))\n  (statement (member_expression (identifier) (identifier)) (line_break))\n  (statement (member_expression (member_expression (identifier) (identifier)) (identifier)) (line_break)))\n\n=====================================\nLine breaks followed by whitespace\n=====================================\n\na\n  b\n  c\n\n---\n\n(program\n  (statement (identifier) (line_break))\n  (statement (identifier) (line_break))\n  (statement (identifier) (line_break)))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_inverted_external_token(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="inverted_external_token: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream external_lookahead_eof_boundary" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"external_lookahead_eof_boundary","rules":{"document":{"type":"REPEAT","content":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"span"},{"type":"SYMBOL","name":"unclosed_delim"}]}},"span":{"type":"SEQ","members":[{"type":"SYMBOL","name":"open_delim"},{"type":"SYMBOL","name":"close_delim"}]}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"open_delim"},{"type":"SYMBOL","name":"close_delim"},{"type":"SYMBOL","name":"unclosed_delim"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "=====================\nopened and closed span\n=====================\n``\n---\n(document (span (open_delim) (close_delim)))\n\n==================\nunclosed delimiter\n==================\n`\n---\n(document (unclosed_delim))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_external_lookahead_eof_boundary(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="external_lookahead_eof_boundary: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream external_tokens" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"external_tokens","rules":{"expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"string"},{"type":"SYMBOL","name":"sum"},{"type":"SYMBOL","name":"identifier"}]},"sum":{"type":"PREC_LEFT","value":0,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"+"},{"type":"SYMBOL","name":"expression"}]}},"string":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"_percent_string"},{"type":"SEQ","members":[{"type":"SYMBOL","name":"_percent_string_start"},{"type":"SYMBOL","name":"expression"},{"type":"SYMBOL","name":"_percent_string_end"}]}]},"identifier":{"type":"PATTERN","value":"[a-z]+"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"_percent_string"},{"type":"SYMBOL","name":"_percent_string_start"},{"type":"SYMBOL","name":"_percent_string_end"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "========================\nsimple external tokens\n=========================\n\nx + %(sup (external) scanner?)\n\n---\n\n(expression (sum (expression (identifier)) (expression (string))))\n\n==================================\nexternal tokens that require state\n==================================\n\n%{sup {} #{x + y} {} scanner?}\n\n---\n\n(expression (string\n  (expression (sum\n    (expression (identifier))\n    (expression (identifier))))))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_external_tokens(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="external_tokens: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream generation get_col_eof" {
+  // Upstream supplies no corpus expectations for this grammar.
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"get_col_eof","rules":{"source_file":{"type":"REPEAT","content":{"type":"SYMBOL","name":"char"}}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"char"}],"inline":[],"supertypes":[],"reserved":{}}
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  language.validate()
+}
+
+///|
+test "upstream utf16_surrogate_oob" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"utf16_surrogate_oob","rules":{"program":{"type":"REPEAT","content":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"surrogate"},{"type":"SYMBOL","name":"supplementary"}]}}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"surrogate"},{"type":"SYMBOL","name":"supplementary"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "==============================\nutf16 supplementary character\n==============================\n🦋\n------------------------------\n\n(program (supplementary))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_utf16_surrogate_oob(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="utf16_surrogate_oob: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}

@@ -284,3 +284,11 @@ groups bring the suite to 109 tests across native, JS and Wasm GC. CLI diagnosti
 now expose the underlying error detail. A development audit inventories all 74
 upstream grammar fixtures separately from the frozen, passing test suite.
 EOF recovery shape and other broader recovery cases remain open.
+
+### Scanner boundary compatibility
+
+Ported the percent-string/interpolation, lookahead-to-EOF, inverted token range,
+and supplementary Unicode scanner fixtures to MoonBit callbacks. Scanner ranges
+now clamp their start to a previously marked end after later skip advances,
+matching the reference lexer. A direct get-column-at-EOF regression supplements
+its generation-only upstream fixture. 115 tests pass on all three targets.

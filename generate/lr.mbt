@@ -92,8 +92,13 @@ fn close_items(
       }
     }
     if empty {
-      lookaheads[item.lookahead] = Int32::max(
-        lookaheads.get(item.lookahead).unwrap_or(0),
+      let lookahead = if production.requires_eof == Some(true) {
+        0
+      } else {
+        item.lookahead
+      }
+      lookaheads[lookahead] = Int32::max(
+        lookaheads.get(lookahead).unwrap_or(0),
         item.reserved_lookahead,
       )
     }

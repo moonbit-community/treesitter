@@ -65,9 +65,9 @@ fn Parser::lex(
             raise ScannerError("serialized scanner state exceeds 1024 bytes")
           }
           let end = input.marked_end.unwrap_or(input.offset)
-          if end < input.start {
-            raise ScannerError("scanner end precedes token start")
-          }
+          // Upstream clamps inverted scanner ranges after skip advances
+          // beyond a previously marked end (lexer.c: ts_lexer_finish).
+          let start = Int32::min(input.start, end)
           let symbol = self.language.externals[result.token]
           if self.language.extras.contains(symbol) && !valid.contains(symbol) {
             if end == offset {
@@ -85,7 +85,7 @@ fn Parser::lex(
               pending.push(
                 self.node(
                   symbol,
-                  input.start,
+                  start,
                   end,
                   lines,
                   [],
@@ -104,12 +104,12 @@ fn Parser::lex(
           }
           return {
             ..branch,
-            offset: input.start,
+            offset: start,
             pending,
             scanner_state,
             lookahead: Some({
               symbol,
-              start: input.start,
+              start,
               end,
               missing: false,
               scanner_state: Some(result.state),
