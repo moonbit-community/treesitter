@@ -183,3 +183,12 @@ and query-driven definitions/references with names, source ranges and documentat
 captures. CLI commands `query`, `highlight` and `tags` now exercise these packages.
 Locals, language injections and documentation transformation directives remain
 open. These additions and included-range work pass 69 tests on all three targets.
+
+### Included ranges checkpoint
+
+The runtime can parse ordered disjoint source ranges, validates UTF-8 byte/point
+coordinates, and projects nodes back into the original source. Tokens can span
+range boundaries. Trees retain and edit their included ranges. This path reparses
+rather than applying ordinary subtree reuse to projected coordinates. Regression
+coverage checks disjoint lines, tokens spanning gaps, invalid ranges and cache
+isolation; 69 tests pass on native, JS and Wasm GC.

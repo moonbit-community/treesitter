@@ -16,6 +16,7 @@ pub fn EditError::to_repr(Self) -> @debug.Repr
 
 pub suberror ParseError {
   Cancelled
+  InvalidRanges(String)
   ParseLimit(String)
   NoParse(Int32)
 } derive(@debug.Debug)
@@ -72,7 +73,7 @@ pub struct Parser {
   // private fields
 }
 pub fn Parser::new(@language.Language) -> Self raise @language.LanguageError
-pub fn Parser::parse(Self, Bytes, old_tree? : Tree, max_steps? : Int32, max_branches? : Int32, max_errors? : Int32, cancelled? : () -> Bool) -> Tree raise ParseError
+pub fn Parser::parse(Self, Bytes, old_tree? : Tree, included_ranges? : Array[Range], max_steps? : Int32, max_branches? : Int32, max_errors? : Int32, cancelled? : () -> Bool) -> Tree raise ParseError
 pub fn Parser::parse_string(Self, String) -> Tree raise ParseError
 
 pub(all) struct Point {
@@ -112,6 +113,7 @@ pub struct Tree {
 pub fn Tree::changed_ranges(Self, Self) -> Array[Range]
 pub fn Tree::copy(Self) -> Self
 pub fn Tree::edit(Self, InputEdit) -> Unit raise EditError
+pub fn Tree::included_ranges(Self) -> Array[Range]
 pub fn Tree::root_node(Self) -> Node
 pub fn Tree::walk(Self) -> TreeCursor
 

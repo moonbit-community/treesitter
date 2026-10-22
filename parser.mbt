@@ -1,6 +1,7 @@
 ///|
 pub suberror ParseError {
   Cancelled
+  InvalidRanges(String)
   ParseLimit(String)
   NoParse(Int32)
 } derive(Debug)
@@ -365,6 +366,7 @@ pub fn Parser::parse(
   self : Parser,
   source : Bytes,
   old_tree? : Tree,
+  included_ranges~ : Array[Range] = [],
   max_steps~ : Int32 = 100000,
   max_branches~ : Int32 = 10000,
   max_errors~ : Int32 = 20,
@@ -373,10 +375,16 @@ pub fn Parser::parse(
   if cancelled() {
     raise Cancelled
   }
+  if !included_ranges.is_empty() {
+    return self.parse_ranges(
+      source, included_ranges, max_steps, max_branches, max_errors, cancelled,
+    )
+  }
   let mut reused_subtrees = 0
   let reusable = match old_tree {
-    Some(tree) if physical_equal(tree.language, self.language) => {
-      self.next_id = Int::max(self.next_id, tree.root.id() + 1)
+    Some(tree) if physical_equal(tree.language, self.language) &&
+      tree.source_ranges.is_empty() => {
+      self.next_id = Int32::max(self.next_id, tree.root.id() + 1)
       if !tree.edited && tree.source == source {
         return {
           root: tree.root,
@@ -386,6 +394,7 @@ pub fn Parser::parse(
           edited_length: source.length(),
           reused_subtrees: 1,
           parse_steps: 0,
+          source_ranges: [],
         }
       }
       if tree.edited && tree.edited_length == source.length() {
@@ -565,6 +574,7 @@ pub fn Parser::parse(
         edited_length: source.length(),
         reused_subtrees,
         parse_steps: steps,
+        source_ranges: [],
       }
     None => raise NoParse(furthest)
   }

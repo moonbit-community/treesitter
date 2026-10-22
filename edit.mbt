@@ -104,6 +104,7 @@ pub fn Tree::edit(self : Tree, edit : InputEdit) -> Unit raise EditError {
     raise InvalidEdit("invalid byte or point bounds")
   }
   self.root = edit_node(self.root, edit)
+  self.source_ranges = self.source_ranges.map(r => edited_range(r, edit))
   self.edited_length += edit.new_end_byte - edit.old_end_byte
   self.edited = true
 }
@@ -123,6 +124,7 @@ pub fn Tree::copy(self : Tree) -> Tree {
     edited: self.edited,
     reused_subtrees: self.reused_subtrees,
     parse_steps: self.parse_steps,
+    source_ranges: self.source_ranges.copy(),
   }
 }
 
@@ -151,7 +153,9 @@ fn reuse_candidates(
   // A previously selected GLR derivation is not sufficient to reconstruct all
   // competing stacks. Reparse ambiguous tables until a shared parse forest is
   // available; reusing a single winner could change dynamic precedence.
-  if old_tree.language.states.any(row => row.actions.values().any(actions => actions.length() > 1)) {
+  if old_tree.language.states.any(row => {
+      row.actions.values().any(actions => actions.length() > 1)
+    }) {
     return result
   }
   let mut common = 0
