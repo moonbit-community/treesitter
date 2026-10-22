@@ -97,6 +97,46 @@ fn token_precedence(rule : @grammar.Rule) -> Int32 raise GenerateError {
 }
 
 ///|
+fn token_key(rule : @grammar.Rule) -> String {
+  match rule {
+    Token(child) => token_key(child)
+    _ => Json(rule).stringify()
+  }
+}
+
+///|
+fn count_tokens(grammar : @grammar.Grammar) -> Map[String, Int32] {
+  let counts : Map[String, Int32] = Map([])
+  fn visit(rule : @grammar.Rule) {
+    if lexical(rule) {
+      let key = token_key(rule)
+      counts[key] = counts.get(key).unwrap_or(0) + 1
+      return
+    }
+    match rule {
+      Seq(children) | Choice(children) => children.each(visit)
+      Repeat(child)
+      | Repeat1(child)
+      | Field(_, child)
+      | Alias(child, _, ..)
+      | Prec(_, child)
+      | PrecLeft(_, child)
+      | PrecRight(_, child)
+      | PrecDynamic(_, child)
+      | Reserved(_, child) => visit(child)
+      _ => ()
+    }
+  }
+  for (_, rule) in grammar.rules {
+    visit(rule)
+  }
+  for rule in grammar.externals {
+    visit(rule)
+  }
+  counts
+}
+
+///|
 fn Builder::token(
   self : Builder,
   rule : @grammar.Rule,
@@ -104,7 +144,7 @@ fn Builder::token(
 ) -> Int32 raise {
   let key = match name {
     Some(name) => "named:\{name}"
-    None => Json(rule).stringify()
+    None => token_key(rule)
   }
   if self.token_ids.get(key) is Some(id) {
     return id
@@ -450,6 +490,7 @@ fn normalize(
     max_productions,
   }
   ignore(builder.symbol("end", false, false, true))
+  let token_counts = count_tokens(grammar)
   for i, (name, rule) in grammar.rules {
     if grammar.supertypes.contains(name) && lexical(rule) {
       raise InvalidGrammar("terminal rule '\{name}' cannot be a supertype")
@@ -457,7 +498,9 @@ fn normalize(
     if grammar.supertypes.contains(name) && grammar.inline_rules.contains(name) {
       raise InvalidGrammar("supertype '\{name}' cannot be inlined")
     }
-    let id = if i != 0 && lexical(rule) {
+    let id = if i != 0 &&
+      lexical(rule) &&
+      token_counts.get(token_key(rule)) == Some(1) {
       builder.token(rule, name~)
     } else {
       builder.symbol(
@@ -594,7 +637,7 @@ fn literal_name(rule : @grammar.Rule) -> String? {
 fn Builder::order_tokens(self : Builder) -> Unit {
   let order : Map[Int32, Int32] = Map([])
   fn visit(rule : @grammar.Rule) {
-    if self.token_ids.get(Json(rule).stringify()) is Some(id) {
+    if self.token_ids.get(token_key(rule)) is Some(id) {
       if !order.contains(id) {
         order[id] = order.length()
       }

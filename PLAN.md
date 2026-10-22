@@ -482,3 +482,11 @@ or field on the removed inline step must override each inserted step's metadata.
 The fix passes a focused regression on all three targets and the full native
 suite (238 tests). C remains 85/85; JavaScript reaches 113/116 with imports,
 object/block ambiguity, and reserved-word identifiers still under investigation.
+
+The public JavaScript imports test also exposed duplicate lexical extraction:
+`token("import")` in a named rule and anonymous `"import"` in another rule must
+share one token. Named rules with shared lexical definitions retain their syntax
+wrapper. Token identity now removes plain token wrappers, and syntax retention
+uses lexical occurrence counts. Two focused regressions cover shared strings
+and named patterns. The complete check script passes 240 native / 239 JS / 239
+Wasm GC tests and CLI smoke checks; the expanded public matrix is being rerun.
