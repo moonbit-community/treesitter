@@ -50,6 +50,14 @@ pub fn InputEncoding::equal(Self, Self) -> Bool
 pub fn InputEncoding::not_equal(Self, Self) -> Bool
 pub fn InputEncoding::to_repr(Self) -> @debug.Repr
 
+pub(all) enum LogType {
+  Parse
+  Lex
+} derive(Eq, @debug.Debug)
+pub fn LogType::equal(Self, Self) -> Bool
+pub fn LogType::not_equal(Self, Self) -> Bool
+pub fn LogType::to_repr(Self) -> @debug.Repr
+
 pub struct Node {
   // private fields
 }
@@ -100,6 +108,7 @@ pub fn Parser::parse_string(Self, String) -> Tree raise ParseError
 pub fn Parser::parse_with(Self, (Int32, Point) -> Bytes, old_tree? : Tree, included_ranges? : Array[Range], max_input_bytes? : Int32, max_steps? : Int32, max_branches? : Int32, max_errors? : Int32, cancelled? : () -> Bool) -> Tree raise ParseError
 pub fn Parser::reset(Self) -> Unit
 pub fn Parser::resume_parse(Self, cancelled? : () -> Bool) -> Tree raise ParseError
+pub fn Parser::set_logger(Self, ((LogType, String) -> Unit)?) -> Unit
 
 pub(all) struct Point {
   row : Int32

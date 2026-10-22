@@ -549,3 +549,13 @@ extraction order and keeps the first viable insertion, matching upstream's
 selection. Focused C-oracle regressions cover nested await/call ambiguity and
 missing punctuation versus an external semicolon. The complete check script
 passes 252 native / 251 JS / 251 Wasm GC tests and CLI smoke checks.
+
+Added pure MoonBit parser logging via LogType and Parser.set_logger, covering
+lexical recognition, process/shift/reduce, missing-token insertion, recovery,
+and acceptance. Logging is optional, persists across reset/resumption, and
+allocates diagnostic strings only when enabled. Cross-target tests cover
+installation, disabling, reset, and cancellation/resumption. A development trace
+shows a remaining Go recovery problem: a context-only raw-string-content token
+can consume the rest of the source in fallback lexing. Upstream's recovery-token
+conflict analysis excludes such tokens; the port still needs that analysis.
+The pinned reference generator/runtime was also verified at Go 67/67.

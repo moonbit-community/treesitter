@@ -17,6 +17,7 @@ pub struct Parser {
   priv scanner : ExternalScanner?
   priv mut suspended : ParseContinuation?
   priv mut projection : Projection?
+  priv mut logger : ((LogType, String) -> Unit)?
 }
 
 ///|
@@ -25,7 +26,14 @@ pub fn Parser::new(
   scanner? : ExternalScanner,
 ) -> Parser raise @language.LanguageError {
   language.validate()
-  { language, next_id: 0, scanner, suspended: None, projection: None, }
+  {
+    language,
+    next_id: 0,
+    scanner,
+    suspended: None,
+    projection: None,
+    logger: None,
+  }
 }
 
 ///|
@@ -516,6 +524,12 @@ fn Parser::parse_source(
       // Previously visited configurations can belong only to stacks discarded
       // above. They must not dominate the sole resumed recovery path.
       visited.clear()
+      if self.logger is Some(log) {
+        log(
+          Parse,
+          "resume offset:\{selected.offset} cost:\{selected.cost} versions:\{versions}",
+        )
+      }
       work.push({ ..selected, status: Preparing, recovery_versions: versions, })
     }
     if cancelled() {
@@ -539,6 +553,12 @@ fn Parser::parse_source(
     }
     let initial = work.remove(0)
     let initial = { ..initial, cost: branch_error_cost(initial), }
+    if self.logger is Some(log) {
+      log(
+        Parse,
+        "process state:\{initial.states.last().unwrap()} offset:\{initial.offset} cost:\{initial.cost} versions:\{work.length() + paused.length() + 1}",
+      )
+    }
     steps += 1
     if steps > max_steps {
       raise ParseLimit("parser step limit exceeded")
@@ -580,6 +600,17 @@ fn Parser::parse_source(
       initial
     }
     let token = branch.lookahead.unwrap()
+    if initial.lookahead is None && self.logger is Some(log) {
+      let symbol = if token.symbol < 0 {
+        "ERROR"
+      } else {
+        self.language.symbols[token.symbol].name
+      }
+      log(
+        Lex,
+        "lookahead symbol:\{symbol} start:\{token.start} end:\{token.end}",
+      )
+    }
     furthest = Int32::max(furthest, branch.offset)
     let key : BranchKey = {
       status: branch.status,
@@ -748,6 +779,12 @@ fn Parser::parse_source(
                 insertions: 1,
               })
               inserted = true
+              if self.logger is Some(log) {
+                log(
+                  Parse,
+                  "insert_missing symbol:\{self.language.symbols[expected].name} state:\{state}",
+                )
+              }
               break
             }
           }
@@ -768,6 +805,12 @@ fn Parser::parse_source(
         }
         discarded.append(branch.pending)
         let pending = self.error_pending([], discarded, lines, previous)
+        if self.logger is Some(log) {
+          log(
+            Parse,
+            "recover state:\{previous} depth:\{branch.entries.length() - index}",
+          )
+        }
         did_recover = true
         work.push({
           ..branch,
@@ -921,6 +964,9 @@ fn Parser::parse_source(
             })
           }
         Shift(next) => {
+          if self.logger is Some(log) {
+            log(Parse, "shift state:\{next}")
+          }
           let node = self.node(
             token.symbol,
             token.start,
@@ -964,11 +1010,20 @@ fn Parser::parse_source(
                 branch.status != Active,
             )
             is Some(reduced) {
+            if self.logger is Some(log) {
+              log(
+                Parse,
+                "reduce symbol:\{self.language.symbols[self.language.productions[pid].lhs].name} children:\{self.language.productions[pid].steps.length()}",
+              )
+            }
             work.insert(0, reduced)
           }
         Accept =>
           if branch.extras.is_empty() &&
             self.finish(branch, lines) is Some(root) {
+            if self.logger is Some(log) {
+              log(Parse, "accept cost:\{branch.cost} dynamic:\{branch.dynamic}")
+            }
             let replace = match best {
               None => true
               Some((previous, cost, dynamic)) =>
