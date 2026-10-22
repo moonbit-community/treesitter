@@ -14,7 +14,8 @@ fn better_token(
   } else if candidate.literal != previous.literal {
     candidate.literal
   } else {
-    candidate.symbol < previous.symbol
+    // Tokens are in grammar extraction order; keep the first equal match.
+    false
   }
 }
 
@@ -119,7 +120,8 @@ fn Parser::lex(
             }
             offset = end
             scanner_state = result.state
-            skipped = true
+            skipped = !(self.language.symbols[symbol].named ||
+              self.language.symbols[symbol].visible)
             continue
           }
           return {
@@ -221,7 +223,8 @@ fn Parser::lex(
               ),
             )
           }
-          skipped = true
+          skipped = !(self.language.symbols[token.symbol].named ||
+            self.language.symbols[token.symbol].visible)
           zero_width_states.clear()
           offset = end
         } else {

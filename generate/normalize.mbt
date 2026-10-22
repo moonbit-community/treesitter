@@ -534,6 +534,7 @@ fn normalize(
     }
     extras.push(id)
   }
+  builder.order_tokens()
   (builder, start, extras)
 }
 
@@ -565,4 +566,55 @@ fn literal_name(rule : @grammar.Rule) -> String? {
     Token(child) | ImmediateToken(child) | Prec(_, child) => literal_name(child)
     _ => None
   }
+}
+
+///|
+// Extraction follows grammar rule order, including anonymous tokens inside
+// earlier rules. Symbol allocation alone puts all named tokens first.
+fn Builder::order_tokens(self : Builder) -> Unit {
+  let order : Map[Int32, Int32] = Map([])
+  fn visit(rule : @grammar.Rule) {
+    if self.token_ids.get(Json(rule).stringify()) is Some(id) {
+      if !order.contains(id) {
+        order[id] = order.length()
+      }
+      return
+    }
+    match rule {
+      Choice(rules) | Seq(rules) =>
+        for child in rules {
+          visit(child)
+        }
+      Repeat(child)
+      | Repeat1(child)
+      | Token(child)
+      | ImmediateToken(child)
+      | Field(_, child)
+      | Alias(child, _, ..)
+      | Prec(_, child)
+      | PrecLeft(_, child)
+      | PrecRight(_, child)
+      | PrecDynamic(_, child)
+      | Reserved(_, child) => visit(child)
+      _ => ()
+    }
+  }
+  for (name, rule) in self.grammar.rules {
+    if self.token_ids.get("named:\{name}") is Some(id) {
+      if !order.contains(id) {
+        order[id] = order.length()
+      }
+    } else {
+      visit(rule)
+    }
+  }
+  for rule in self.grammar.extras {
+    visit(rule)
+  }
+  for token in self.tokens {
+    if !order.contains(token.symbol) {
+      order[token.symbol] = order.length()
+    }
+  }
+  self.tokens.sort_by((a, b) => order[a.symbol].compare(order[b.symbol]))
 }

@@ -428,3 +428,10 @@ JavaScript v0.25.0 generates 17,098 states/1,003 productions. All 229 native and
 228 portable tests pass, including the state-merging lexical conflict fixture;
 no LALR merging or lexical-context widening was introduced. Both committed mbtx
 factories still regenerate byte-for-byte.
+
+The C corpus exposed lexical tie ordering and named-extra boundaries. Equal
+regex matches now use grammar extraction order, including anonymous tokens in
+earlier rules. Named extras restart immediate-token recognition; anonymous
+separator whitespace still prevents immediate matches. Focused regressions and
+the native suite pass; generated examples have been regenerated for the intended
+token-order change.
