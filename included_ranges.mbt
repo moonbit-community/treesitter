@@ -21,6 +21,11 @@ fn project_node(
     data: {
       ..node.data,
       encoding,
+      dependency_end: if node.data.dependency_end >= ends.length() {
+        ends.last().unwrap() + 1
+      } else {
+        ends[node.data.dependency_end]
+      },
       start_byte,
       end_byte,
       origin_start: start_byte,

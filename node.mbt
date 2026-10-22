@@ -1,5 +1,6 @@
 ///|
 priv struct NodeData {
+  dependency_end : Int32
   encoding : InputEncoding
   id : Int32
   error_repeat : Bool

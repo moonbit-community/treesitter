@@ -30,6 +30,7 @@ pub fn Parser::new(
 
 ///|
 priv struct Lexeme {
+  dependency_end : Int32
   unexpected : Int32?
   symbol : Int32
   start : Int32
@@ -119,6 +120,7 @@ fn Parser::node(
   parse_state : Int32,
   next_state : Int32,
   unexpected? : Int32,
+  dependency_end? : Int32,
   error_repeat~ : Bool = false,
   extra~ : Bool = false,
   missing~ : Bool = false,
@@ -172,6 +174,10 @@ fn Parser::node(
   {
     data: {
       id,
+      dependency_end: Int32::max(
+        children.dependency_end,
+        dependency_end.unwrap_or(end),
+      ),
       encoding: Utf8,
       error_cost,
       error_extent,
@@ -285,6 +291,10 @@ fn Parser::reduce(
     children,
     previous_state,
     next_state,
+    dependency_end=branch.entries[index:].fold(
+      init=branch.lookahead.map(t => t.dependency_end).unwrap_or(end),
+      (value, entry) => Int32::max(value, entry.node.data.dependency_end),
+    ),
     dynamic_score=score,
     scan_before=if count == 0 {
       branch.scanner_state
@@ -666,6 +676,7 @@ fn Parser::parse_source(
               work.push({
                 ..branch,
                 lookahead: Some({
+                  dependency_end: token.dependency_end,
                   unexpected: None,
                   symbol: expected,
                   start: token.start,
@@ -856,6 +867,7 @@ fn Parser::parse_source(
             [],
             state,
             next,
+            dependency_end=token.dependency_end,
             missing=token.missing,
             scan_before=branch.scanner_state,
             scan_after=token.scanner_state.unwrap_or(branch.scanner_state),

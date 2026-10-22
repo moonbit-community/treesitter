@@ -30,6 +30,17 @@ fn Parser::lex(
   let state = branch.states.last().unwrap()
   let valid = self.language.states[state].actions
   let mut offset = branch.offset
+  let mut dependency_end = offset
+  fn scanned(lexer : @lex.Dfa, start : Int32) -> Int32? {
+    let (accepted, stopped) = lexer.scan_prefix(input, start~)
+    let observed = if stopped == input.length() {
+      stopped + 1
+    } else {
+      stopped + @lex.decode(input, stopped).1
+    }
+    dependency_end = Int32::max(dependency_end, observed)
+    accepted
+  }
   let pending = branch.pending.copy()
   let mut skipped = false
   let mut scanner_state = branch.scanner_state
@@ -52,8 +63,16 @@ fn Parser::lex(
           projection,
           cancelled,
         }
-        if (scanner.scan)(input, valid_tokens.copy(), scanner_state)
-          is Some(result) {
+        let result = (scanner.scan)(input, valid_tokens.copy(), scanner_state)
+        dependency_end = Int32::max(
+          dependency_end,
+          if input.eof() {
+            input.offset + 1
+          } else {
+            input.offset + @lex.decode(input.source, input.offset).1
+          },
+        )
+        if result is Some(result) {
           if result.token < 0 ||
             result.token >= valid_tokens.length() ||
             !valid_tokens[result.token] {
@@ -91,6 +110,7 @@ fn Parser::lex(
                   [],
                   state,
                   state,
+                  dependency_end~,
                   extra=true,
                   scan_before=scanner_state,
                   scan_after=result.state,
@@ -108,6 +128,7 @@ fn Parser::lex(
             pending,
             scanner_state,
             lookahead: Some({
+              dependency_end,
               unexpected: None,
               symbol,
               start,
@@ -123,7 +144,7 @@ fn Parser::lex(
     if self.language.word_token is Some(word) {
       for t in self.language.tokens {
         if t.symbol == word {
-          word_end = t.lexer.match_prefix(input, start=offset).unwrap_or(offset)
+          word_end = scanned(t.lexer, offset).unwrap_or(offset)
           break
         }
       }
@@ -135,7 +156,7 @@ fn Parser::lex(
         (skipped && token.immediate) {
         continue
       }
-      if token.lexer.match_prefix(input, start=offset) is Some(end) &&
+      if scanned(token.lexer, offset) is Some(end) &&
         (end > offset || valid.contains(token.symbol)) {
         if token.literal && word_end > end {
           continue
@@ -155,7 +176,7 @@ fn Parser::lex(
       for reserved in self.language.states[state].reserved_words {
         for keyword in self.language.tokens {
           if keyword.symbol == reserved &&
-            keyword.lexer.match_prefix(input, start=offset) == Some(end) {
+            scanned(keyword.lexer, offset) == Some(end) {
             best = Some((keyword, end))
             break
           }
@@ -169,8 +190,7 @@ fn Parser::lex(
         if token.immediate {
           continue
         }
-        if token.lexer.match_prefix(input, start=offset) is Some(end) &&
-          end > offset {
+        if scanned(token.lexer, offset) is Some(end) && end > offset {
           let replace = match best {
             None => true
             Some((previous, previous_end)) =>
@@ -196,6 +216,7 @@ fn Parser::lex(
                 [],
                 state,
                 state,
+                dependency_end~,
                 extra=true,
               ),
             )
@@ -210,6 +231,7 @@ fn Parser::lex(
             pending,
             scanner_state,
             lookahead: Some({
+              dependency_end,
               unexpected: None,
               symbol: token.symbol,
               start: offset,
@@ -258,6 +280,7 @@ fn Parser::lex(
           pending,
           scanner_state,
           lookahead: Some({
+            dependency_end,
             unexpected: Some(unexpected),
             symbol: if offset == input.length() {
               0

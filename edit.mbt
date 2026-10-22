@@ -142,6 +142,9 @@ fn reset_origin(node : Node) -> Node {
   {
     data: {
       ..node.data,
+      dependency_end: node.data.dependency_end +
+      node.start_byte() -
+      node.data.origin_start,
       origin_start: node.start_byte(),
       origin_end: node.end_byte(),
       children: child_entries(
@@ -165,13 +168,6 @@ fn reuse_candidates(
     }) {
     return result
   }
-  let mut common = 0
-  while common < old_tree.source.length() &&
-        common < source.length() &&
-        old_tree.source[old_tree.source.length() - common - 1] ==
-        source[source.length() - common - 1] {
-    common += 1
-  }
   let old_lines = line_starts(old_tree.source)
   let new_lines = line_starts(source)
   let pending = [old_tree.root]
@@ -183,9 +179,7 @@ fn reuse_candidates(
       node.end_byte() > node.start_byte() &&
       node.start_byte() >= 0 &&
       node.end_byte() <= source.length() &&
-      node.data.origin_start >= old_tree.source.length() - common &&
-      old_tree.source.length() - node.data.origin_start ==
-      source.length() - node.start_byte() &&
+      same_dependency(old_tree.source, source, node) &&
       (
         old_tree.language.externals.is_empty() ||
         (
@@ -249,4 +243,19 @@ pub fn Tree::changed_ranges(self : Tree, new_tree : Tree) -> Array[Range] {
     }
   }
   result
+}
+
+///|
+fn same_dependency(old : Bytes, current : Bytes, node : Node) -> Bool {
+  let origin = node.data.origin_start
+  let inspected_eof = node.data.dependency_end > old.length()
+  let old_end = Int32::min(old.length(), node.data.dependency_end)
+  let end = node.start_byte() + old_end - origin
+  if origin < 0 ||
+    old_end < origin ||
+    end > current.length() ||
+    (inspected_eof && end != current.length()) {
+    return false
+  }
+  old[origin:old_end] == current[node.start_byte():end]
 }

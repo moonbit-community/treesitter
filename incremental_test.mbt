@@ -169,3 +169,92 @@ test "inserting into an empty root preserves a valid edited range" {
     parser.parse(b"a").root_node().to_sexp(),
   )
 }
+
+///|
+test "incremental parsing reuses prefixes outside lexical lookahead dependencies" {
+  let parser = @treesitter.Parser::new(statements())
+  let tree = parser.parse(b"a=1; b=2; c=3; d=4;")
+  let first_id = tree.root_node().child(0).unwrap().id()
+  tree.edit({
+    start_byte: 17,
+    old_end_byte: 18,
+    new_end_byte: 20,
+    start_point: { row: 0, column: 17, },
+    old_end_point: { row: 0, column: 18, },
+    new_end_point: { row: 0, column: 20, },
+  })
+  let source = b"a=1; b=2; c=3; d=400;"
+  let next = parser.parse(source, old_tree=tree)
+  let fresh = parser.parse(source)
+  compare_nodes(next.root_node(), fresh.root_node())
+  assert_eq(next.root_node().child(0).unwrap().id(), first_id)
+  assert_true(next.reused_subtrees > 0)
+  assert_true(next.parse_steps < fresh.parse_steps)
+}
+
+///|
+test "lookahead and EOF changes invalidate otherwise unchanged prefix nodes" {
+  let language = @generate.generate(
+    @grammar.Grammar::new(
+      "lookahead_dependency",
+      [
+        (
+          "document",
+          Seq([Symbol("head"), Choice([Literal("b"), Literal("bc")])]),
+        ),
+        ("head", Seq([Literal("a")])),
+      ],
+      extras=[],
+    ),
+  )
+  let parser = @treesitter.Parser::new(language)
+  let old = parser.parse(b"ab")
+  old.edit({
+    start_byte: 2,
+    old_end_byte: 2,
+    new_end_byte: 3,
+    start_point: { row: 0, column: 2, },
+    old_end_point: { row: 0, column: 2, },
+    new_end_point: { row: 0, column: 3, },
+  })
+  let next = parser.parse(b"abc", old_tree=old)
+  compare_nodes(next.root_node(), parser.parse(b"abc").root_node())
+  assert_eq(next.root_node().child(1).unwrap().kind(), "bc")
+}
+
+///|
+test "failed long-token lookahead invalidates a distant prefix after an edit" {
+  let language = @generate.generate(
+    @grammar.Grammar::new(
+      "failed_lookahead",
+      [
+        (
+          "document",
+          Seq([
+            Symbol("head"),
+            Repeat(Literal("b")),
+            Choice([Literal("x"), Literal("y"), Blank]),
+          ]),
+        ),
+        ("head", Choice([Literal("a"), Token(Literal("abbbx"))])),
+      ],
+      extras=[],
+    ),
+  )
+  let parser = @treesitter.Parser::new(language)
+  let old = parser.parse(b"abbby")
+  old.edit({
+    start_byte: 4,
+    old_end_byte: 5,
+    new_end_byte: 5,
+    start_point: { row: 0, column: 4, },
+    old_end_point: { row: 0, column: 5, },
+    new_end_point: { row: 0, column: 5, },
+  })
+  let next = parser.parse(b"abbbx", old_tree=old)
+  compare_nodes(next.root_node(), parser.parse(b"abbbx").root_node())
+  assert_eq(
+    next.root_node().child(0).unwrap().child(0).unwrap().kind(),
+    "abbbx",
+  )
+}

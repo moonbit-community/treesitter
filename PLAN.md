@@ -412,3 +412,11 @@ node/tree text decoding and projected resume state. UTF-16 injection highlightin
 uses the same encoding and renders decoded HTML. Unchanged encoded trees can be
 reused as a whole; edited encoded ranges currently reparse. Native: 225 tests;
 43 runtime/highlight tests pass on JS and Wasm GC.
+
+Incremental prefix reuse now records lexer and reduction lookahead dependencies,
+including failed longer-token alternatives, external scanner reads, and EOF.
+Unchanged prefixes can be reused without assuming that all following input is
+unchanged. Regressions cover distant edits changing token choice and insertion
+at an observed EOF. The full native, JavaScript, and Wasm GC check script passes.
+Large C and JavaScript grammars reach the canonical LR state budget; kernel
+storage and closure construction are the next scaling work, before release.
