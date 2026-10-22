@@ -1,6 +1,8 @@
 import {
   "bobzhang/treesitter" @ts,
   "bobzhang/treesitter/grammar",
+  "bobzhang/treesitter/language",
+  "moonbitlang/core/encoding/utf8",
   "bobzhang/treesitter/generate",
   "bobzhang/treesitter/corpus",
 } for "test"

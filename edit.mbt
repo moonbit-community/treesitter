@@ -54,7 +54,8 @@ fn edit_node(node : Node, edit : InputEdit) -> Node {
   } else {
     data.start_byte
   }
-  let end_byte = if data.end_byte <= edit.start_byte {
+  let end_byte = if data.end_byte < edit.start_byte ||
+    (data.end_byte == edit.start_byte && edit.old_end_byte != edit.start_byte) {
     data.end_byte
   } else if data.end_byte >= edit.old_end_byte {
     data.end_byte + delta
@@ -69,7 +70,8 @@ fn edit_node(node : Node, edit : InputEdit) -> Node {
   } else {
     data.start_point
   }
-  let end_point = if data.end_byte <= edit.start_byte {
+  let end_point = if data.end_byte < edit.start_byte ||
+    (data.end_byte == edit.start_byte && edit.old_end_byte != edit.start_byte) {
     data.end_point
   } else if data.end_byte >= edit.old_end_byte {
     shift_point(data.end_point, edit)
@@ -196,51 +198,6 @@ fn reuse_candidates(
       result[key] = node
     }
     pending.append(node.children())
-  }
-  result
-}
-
-///|
-fn changed_nodes(old : Node, new : Node, result : Array[Range]) -> Unit {
-  if old.kind() != new.kind() ||
-    old.is_named() != new.is_named() ||
-    old.is_missing() != new.is_missing() ||
-    old.start_byte() != new.start_byte() ||
-    old.end_byte() != new.end_byte() ||
-    old.child_count() != new.child_count() {
-    result.push(new.range())
-    return
-  }
-  for i in 0..<new.child_count() {
-    if old.field_name_for_child(i) != new.field_name_for_child(i) {
-      result.push(new.child(i).unwrap().range())
-    } else {
-      changed_nodes(old.child(i).unwrap(), new.child(i).unwrap(), result)
-    }
-  }
-}
-
-///|
-/// Structural changed ranges in the new tree's coordinate space. Edit the old
-/// tree first. Text-only changes preserving node kinds need not change syntax.
-pub fn Tree::changed_ranges(self : Tree, new_tree : Tree) -> Array[Range] {
-  let ranges = []
-  changed_nodes(self.root, new_tree.root, ranges)
-  let result : Array[Range] = []
-  for range in ranges {
-    if result.last() is Some(previous) && range.start_byte <= previous.end_byte {
-      result[result.length() - 1] = {
-        ..previous,
-        end_byte: Int32::max(previous.end_byte, range.end_byte),
-        end_point: if previous.end_byte >= range.end_byte {
-          previous.end_point
-        } else {
-          range.end_point
-        },
-      }
-    } else {
-      result.push(range)
-    }
   }
   result
 }
