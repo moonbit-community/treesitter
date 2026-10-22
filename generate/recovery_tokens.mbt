@@ -1,11 +1,19 @@
 ///|
-fn Builder::recovery_tokens(
+priv struct LexicalConflicts {
+  indices : Map[Int32, Int32]
+  conflicts : Array[Int32]
+  keywords : Array[Bool]
+  word : Int32?
+}
+
+///|
+fn Builder::lexical_analysis(
   self : Builder,
   contexts : Array[Array[Int32]],
   extras : Array[Int32],
   first : Array[Map[Int32, Bool]],
   nullable : Array[Bool],
-) -> Array[Int32] raise {
+) -> (Array[Int32], LexicalConflicts) raise {
   let tokens = self.tokens
   let n = tokens.length()
   let token_indices : Map[Int32, Int32] = Map([])
@@ -168,7 +176,7 @@ fn Builder::recovery_tokens(
         })
     }
   }
-  indices.filter_map(i => {
+  let recovery = indices.filter_map(i => {
     if free[i] ||
       keywords[i] ||
       word == Some(tokens[i].symbol) ||
@@ -180,4 +188,5 @@ fn Builder::recovery_tokens(
       None
     }
   })
+  (recovery, { indices: token_indices, conflicts, keywords, word, })
 }

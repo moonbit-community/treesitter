@@ -544,6 +544,10 @@ pub fn generate(
     lexical_contexts.push(lexical_context.keys().to_array())
     index += 1
   }
+  let (recovery_tokens, conflicts) = builder.lexical_analysis(
+    lexical_contexts, extras, first, nullable,
+  )
+  let rows = builder.compact_states(states, rows, conflicts)
   @language.Language::new(
     grammar.name,
     builder.aliased_symbols(extras),
@@ -555,8 +559,6 @@ pub fn generate(
     word_token?=grammar.word.map(name => builder.names[name]),
     supertypes=builder.grammar.supertypes.map(name => builder.names[name]),
     externals=builder.externals,
-    recovery_tokens=builder.recovery_tokens(
-      lexical_contexts, extras, first, nullable,
-    ),
+    recovery_tokens~,
   )
 }

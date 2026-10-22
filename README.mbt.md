@@ -147,6 +147,8 @@ See [scanner_test.mbt](scanner_test.mbt) and
 Implemented paths include numeric/named/dynamic precedence, associativity,
 declared GLR conflicts, inlining, fields, aliases, hidden supertypes, word tokens,
 reserved contexts, immediate tokens, external scanners, and nonterminal extras.
+The generator compacts compatible LR states while preserving action and lexical
+conflicts; canonical construction still precedes compaction.
 Runtime support includes recovery, cancellation/resumption, UTF-8 input callbacks,
 UTF-16, included ranges, scanner snapshots, edits, subtree reuse, and changed ranges.
 Parsing has no step limit by default (`max_steps=0`); callers can set a positive

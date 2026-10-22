@@ -821,3 +821,22 @@ after a reused JavaScript method body had interpreted `finally` as a keyword
 instead of the already-recognized property identifier, even after a no-op edit.
 The pinned JavaScript edit audit reproduces that regression. A focused test
 covers shifted trailing comments and invalidation of their dependencies.
+
+Compatible-state compaction now groups canonical kernels, splits incompatible
+actions and lexical contexts, propagates successor distinctions to a stable
+partition, and remaps all transitions. External-token validity and nonterminal
+extra completion prevent unsafe lookahead additions. Regression tests cover a
+shared reduction with different callers, LR(1) reduce/reduce distinctions, and
+overlapping lexical tokens. Canonical states are still built first, so the
+100,000-state construction budget is unchanged. Unit-reduction elimination and
+complete equivalence with upstream's minimizer remain open.
+
+Generated state counts are now C 3,896, JavaScript 4,091, Go 2,592, Regex 383,
+and Rust 13,216 (previously 67,636 for Rust). The checked-in JSON factory was
+regenerated. Full checks pass 288 native / 280 JS / 280 Wasm GC plus CLI smoke
+checks. All five public grammars pass 311 corpora, 12 query files, 90 annotations,
+1,866 edit/undo checks, and ten large named-tree comparisons. The 1,153 JSON-edit
+probe remains at 187 differing C S-expression pairs and 40 differing ranges,
+with zero incremental/fresh mismatches or parser errors. Compaction alone leaves
+Rust at 150/151; retaining competing recovery histories with these tables is the
+next investigation. The full-port/review/publication gate remains open.
