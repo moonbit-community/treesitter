@@ -12,6 +12,7 @@ pub extend GenerateError with @debug.Debug::{to_repr}
 ///|
 priv struct Context {
   precedence : Int32
+  precedence_name : String?
   associativity : Int32
   dynamic_precedence : Int32
   field : String?
@@ -22,6 +23,7 @@ priv struct Context {
 priv struct Alternative {
   steps : Array[@language.Step]
   precedence : Int32
+  precedence_name : String?
   associativity : Int32
   dynamic_precedence : Int32
 }
@@ -119,7 +121,7 @@ fn Builder::token(
   let symbol = self.symbol(
     token_name,
     name != None,
-    !token_name.has_prefix("_"),
+    name is None || !token_name.has_prefix("_"),
     true,
   )
   self.tokens.push({
@@ -127,7 +129,7 @@ fn Builder::token(
     lexer,
     precedence: token_precedence(rule),
     immediate: rule is ImmediateToken(_),
-    literal: rule is Literal(_),
+    literal: literal_token(rule),
   })
   self.token_ids[key] = symbol
   symbol
@@ -147,6 +149,7 @@ fn Builder::emit(
       lhs,
       steps: alternative.steps,
       precedence: alternative.precedence,
+      precedence_name: alternative.precedence_name,
       associativity: alternative.associativity,
       dynamic_precedence: alternative.dynamic_precedence,
     }
@@ -166,10 +169,12 @@ fn single(symbol : Int32, context : Context) -> Array[Alternative] {
           field: context.field,
           rename: context.rename,
           precedence: context.precedence,
+          precedence_name: context.precedence_name,
           associativity: context.associativity,
         },
       ],
       precedence: context.precedence,
+      precedence_name: context.precedence_name,
       associativity: context.associativity,
       dynamic_precedence: context.dynamic_precedence,
     },
@@ -189,6 +194,7 @@ fn Builder::expand(
         {
           steps: [],
           precedence: context.precedence,
+          precedence_name: context.precedence_name,
           associativity: context.associativity,
           dynamic_precedence: context.dynamic_precedence,
         },
@@ -223,6 +229,7 @@ fn Builder::expand(
         {
           steps: [],
           precedence: context.precedence,
+          precedence_name: context.precedence_name,
           associativity: context.associativity,
           dynamic_precedence: 0,
         },
@@ -242,6 +249,7 @@ fn Builder::expand(
             next.push({
               steps: prefix.steps + suffix.steps,
               precedence: suffix.precedence,
+              precedence_name: suffix.precedence_name,
               associativity: suffix.associativity,
               dynamic_precedence: prefix.dynamic_precedence +
               suffix.dynamic_precedence,
@@ -269,6 +277,7 @@ fn Builder::expand(
           self.repeats[key] = id
           let neutral : Context = {
             precedence: 0,
+            precedence_name: None,
             associativity: 0,
             dynamic_precedence: 0,
             field: None,
@@ -301,23 +310,53 @@ fn Builder::expand(
     Alias(child, name, named~) =>
       self.expand(child, { ..context, rename: Some((name, named)), }, inlines)
     Prec(Integer(n), child) =>
-      self.expand(child, { ..context, precedence: n, }, inlines)
+      self.expand(
+        child,
+        { ..context, precedence: n, precedence_name: None, },
+        inlines,
+      )
     PrecLeft(Integer(n), child) =>
       self.expand(
         child,
-        { ..context, precedence: n, associativity: -1, },
+        { ..context, precedence: n, precedence_name: None, associativity: -1, },
         inlines,
       )
     PrecRight(Integer(n), child) =>
       self.expand(
         child,
-        { ..context, precedence: n, associativity: 1, },
+        { ..context, precedence: n, precedence_name: None, associativity: 1, },
         inlines,
       )
     PrecDynamic(n, child) =>
       self.expand(child, { ..context, dynamic_precedence: n, }, inlines)
-    Prec(Name(_), _) | PrecLeft(Name(_), _) | PrecRight(Name(_), _) =>
-      raise Unsupported("named precedence")
+    Prec(Name(name), child) =>
+      self.expand(
+        child,
+        { ..context, precedence: 0, precedence_name: Some(name), },
+        inlines,
+      )
+    PrecLeft(Name(name), child) =>
+      self.expand(
+        child,
+        {
+          ..context,
+          precedence: 0,
+          precedence_name: Some(name),
+          associativity: -1,
+        },
+        inlines,
+      )
+    PrecRight(Name(name), child) =>
+      self.expand(
+        child,
+        {
+          ..context,
+          precedence: 0,
+          precedence_name: Some(name),
+          associativity: 1,
+        },
+        inlines,
+      )
     Reserved(_, _) => raise Unsupported("reserved word contexts")
   }
 }
@@ -334,14 +373,8 @@ fn normalize(
   if !grammar.reserved.is_empty() {
     raise Unsupported("reserved word contexts")
   }
-  if !grammar.precedences.is_empty() {
-    raise Unsupported("named precedence ordering")
-  }
   if !grammar.supertypes.is_empty() {
     raise Unsupported("supertype metadata")
-  }
-  if grammar.word != None {
-    raise Unsupported("word token extraction")
   }
   let builder : Builder = {
     grammar,
@@ -365,6 +398,7 @@ fn normalize(
   let start = builder.names[grammar.rules[0].0]
   let neutral : Context = {
     precedence: 0,
+    precedence_name: None,
     associativity: 0,
     dynamic_precedence: 0,
     field: None,
@@ -391,4 +425,14 @@ fn normalize(
     extras.push(id)
   }
   (builder, start, extras)
+}
+
+///|
+fn literal_token(rule : @grammar.Rule) -> Bool {
+  match rule {
+    Literal(_) => true
+    Token(child) | ImmediateToken(child) | Prec(_, child) =>
+      literal_token(child)
+    _ => false
+  }
 }

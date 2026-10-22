@@ -111,43 +111,55 @@ fn resolve_actions(
   if actions.length() <= 1 {
     return actions
   }
-  let mut best = -2147483648
+  let mut reductions : Array[Int32] = []
   for action in actions {
     if action is Reduce(id) {
-      best = Int32::max(best, builder.productions[id].precedence)
+      if reductions.is_empty() {
+        reductions.push(id)
+      } else {
+        let comparison = compare_precedence(
+          builder,
+          builder.productions[id],
+          reductions.map(i => builder.productions[i]),
+        )
+        if comparison > 0 {
+          reductions = [id]
+        } else if comparison == 0 {
+          reductions.push(id)
+        }
+      }
     }
   }
   let mut remaining = actions.filter(a => {
     match a {
-      Reduce(id) => builder.productions[id].precedence == best
+      Reduce(id) => reductions.contains(id)
       _ => true
     }
   })
-  let shifts = []
+  let shifts : Array[@language.Production] = []
   let shift_names : Map[String, Bool] = Map([])
   for item in items {
     let p = builder.productions[item.production]
     if item.dot > 0 &&
       p.steps.get(item.dot) is Some(step) &&
       first[step.symbol].contains(token) {
-      shifts.push(p.steps[item.dot - 1].precedence)
+      let previous = p.steps[item.dot - 1]
+      shifts.push({
+        ..p,
+        precedence: previous.precedence,
+        precedence_name: previous.precedence_name,
+      })
       shift_names[builder.symbols[p.lhs].name] = true
     }
   }
-  if remaining.any(a => a is Shift(_)) {
-    let less = shifts.any(p => p < best)
-    let more = shifts.any(p => p > best)
-    let equal = shifts.any(p => p == best)
-    let reductions = remaining.filter_map(a => {
-      match a {
-        Reduce(id) => Some(builder.productions[id])
-        _ => None
-      }
-    })
-    let left = !reductions.is_empty() &&
-      reductions.all(p => p.associativity == -1)
-    let right = !reductions.is_empty() &&
-      reductions.all(p => p.associativity == 1)
+  if remaining.any(a => a is Shift(_)) && !reductions.is_empty() {
+    let reduced = reductions.map(i => builder.productions[i])
+    let comparisons = shifts.map(p => compare_precedence(builder, p, reduced))
+    let less = comparisons.any(p => p < 0)
+    let more = comparisons.any(p => p > 0)
+    let equal = comparisons.any(p => p == 0)
+    let left = reduced.all(p => p.associativity == -1)
+    let right = reduced.all(p => p.associativity == 1)
     if more && !less {
       remaining = remaining.filter(a => !(a is Reduce(_)))
     } else if less && !more {
@@ -188,6 +200,44 @@ fn resolve_actions(
 }
 
 ///|
+fn compare_precedence(
+  builder : Builder,
+  left : @language.Production,
+  right : Array[@language.Production],
+) -> Int32 {
+  if left.precedence_name is None &&
+    right[0].precedence_name is None &&
+    (left.precedence != 0 || right[0].precedence != 0) {
+    return left.precedence.compare(right[0].precedence)
+  }
+  fn matches(rule : @grammar.Rule, production : @language.Production) {
+    match rule {
+      Literal(name) => production.precedence_name == Some(name)
+      Symbol(name) => builder.symbols[production.lhs].name == name
+      _ => false
+    }
+  }
+  for group in builder.grammar.precedences {
+    let mut saw_left = false
+    let mut saw_right = false
+    for rule in group {
+      if matches(rule, left) {
+        saw_left = true
+        if saw_right {
+          return -1
+        }
+      } else if right.any(p => matches(rule, p)) {
+        saw_right = true
+        if saw_left {
+          return 1
+        }
+      }
+    }
+  }
+  0
+}
+
+///|
 /// Generate canonical LR(1) tables. Unresolved conflicts must be explicitly
 /// declared; declared conflicts are retained for the GLR runtime.
 pub fn generate(
@@ -209,10 +259,12 @@ pub fn generate(
         field: None,
         rename: None,
         precedence: 0,
+        precedence_name: None,
         associativity: 0,
       },
     ],
     precedence: 0,
+    precedence_name: None,
     associativity: 0,
     dynamic_precedence: 0,
   })
@@ -315,5 +367,6 @@ pub fn generate(
     rows,
     start,
     extras,
+    word_token?=grammar.word.map(name => builder.names[name]),
   )
 }

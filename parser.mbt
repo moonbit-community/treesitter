@@ -132,6 +132,15 @@ fn Parser::lex(
   let pending = branch.pending.copy()
   let mut skipped = false
   for ;; {
+    let mut word_end = offset
+    if self.language.word_token is Some(word) {
+      for t in self.language.tokens {
+        if t.symbol == word {
+          word_end = t.lexer.match_prefix(input, start=offset).unwrap_or(offset)
+          break
+        }
+      }
+    }
     let mut best : (@language.Token, Int32)? = None
     for token in self.language.tokens {
       let extra = self.language.extras.contains(token.symbol)
@@ -141,6 +150,9 @@ fn Parser::lex(
       }
       if token.lexer.match_prefix(input, start=offset) is Some(end) &&
         end > offset {
+        if token.literal && word_end > end {
+          continue
+        }
         let replace = match best {
           None => true
           Some((previous, previous_end)) =>
@@ -364,6 +376,7 @@ pub fn Parser::parse(
   let mut reused_subtrees = 0
   let reusable = match old_tree {
     Some(tree) if physical_equal(tree.language, self.language) => {
+      self.next_id = Int::max(self.next_id, tree.root.id() + 1)
       if !tree.edited && tree.source == source {
         return {
           root: tree.root,

@@ -157,3 +157,13 @@ shift/reduce precedence using the upstream active-item/FIRST-set algorithm.
 Added a portable corpus reader/runner and CLI `test` command. Whitespace-only
 inputs are preserved. 47 tests pass on native, JS and Wasm GC. This is a selected
 compatibility suite, not the complete upstream test matrix.
+
+### Generator compatibility expansion
+
+Named precedence now follows upstream's ordered name/rule comparisons. Keyword
+capture uses the grammar's word token to reject keyword prefixes of longer
+identifiers. Anonymous underscore-prefixed tokens remain visible. The selected
+upstream matrix now contains 26 fixtures (including one generation-only fixture
+without upstream expected output and one required conflict rejection). 64 tests
+passed on all three targets after these changes. Precedence metadata was added
+to the portable format and the emitted arithmetic factory was regenerated.

@@ -15,6 +15,7 @@ priv struct EncodedLanguage {
   states : Array[EncodedState]
   start_symbol : Int32
   extras : Array[Int32]
+  word_token : Int32?
 } derive(ToJson, @json.FromJson)
 
 ///|
@@ -28,6 +29,7 @@ pub impl ToJson for Language with fn to_json(self) {
     productions: self.productions,
     start_symbol: self.start_symbol,
     extras: self.extras,
+    word_token: self.word_token,
     states: self.states.map(s => {
       let actions = s.actions.iter().to_array()
       actions.sort_by_key(p => p.0)
@@ -86,6 +88,7 @@ pub fn Language::from_json(value : Json) -> Language raise {
     states,
     decoded.start_symbol,
     decoded.extras,
+    word_token?=decoded.word_token,
   )
 }
 

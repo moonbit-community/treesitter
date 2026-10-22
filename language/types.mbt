@@ -21,6 +21,7 @@ pub(all) struct Step {
   field : String?
   rename : (String, Bool)?
   precedence : Int32
+  precedence_name : String?
   associativity : Int32
 } derive(Debug, Eq, ToJson, @json.FromJson)
 
@@ -29,6 +30,7 @@ pub(all) struct Production {
   lhs : Int32
   steps : Array[Step]
   precedence : Int32
+  precedence_name : String?
   associativity : Int32
   dynamic_precedence : Int32
 } derive(Debug, Eq, ToJson, @json.FromJson)
@@ -57,6 +59,7 @@ pub struct Language {
   states : Array[ParseState]
   start_symbol : Int32
   extras : Array[Int32]
+  word_token : Int32?
 } derive(Debug, Eq)
 
 ///|
@@ -73,6 +76,7 @@ pub fn Language::new(
   states : Array[ParseState],
   start_symbol : Int32,
   extras : Array[Int32],
+  word_token? : Int32,
 ) -> Language raise LanguageError {
   let language : Language = {
     name,
@@ -82,6 +86,7 @@ pub fn Language::new(
     states,
     start_symbol,
     extras,
+    word_token,
   }
   language.validate()
   language
@@ -103,6 +108,9 @@ pub fn Language::validate(self : Language) -> Unit raise LanguageError {
     self.start_symbol >= count ||
     self.symbols[self.start_symbol].terminal {
     invalid("invalid start symbol")
+  }
+  if self.word_token is Some(id) && !self.tokens.any(t => t.symbol == id) {
+    invalid("word symbol must be a lexical token")
   }
   for token in self.tokens {
     if token.symbol <= 0 ||

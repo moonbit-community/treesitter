@@ -163,3 +163,42 @@ test "cancellation and resource limits fail explicitly" {
     _ => fail("ignored work limit")
   }
 }
+
+///|
+test "word extraction prevents contextual keywords matching identifier prefixes" {
+  let grammar = @grammar.Grammar::new(
+    "keywords",
+    [
+      ("root", Seq([Literal("if"), Symbol("identifier")])),
+      ("identifier", @grammar.pattern("[a-z]+")),
+    ],
+    word="identifier",
+  )
+  let parser = @treesitter.Parser::new(@generate.generate(grammar))
+  assert_false(parser.parse_string("if name").root_node().has_error())
+  assert_true(parser.parse_string("iffy").root_node().has_error())
+}
+
+///|
+test "named precedence preserves operator grouping" {
+  let expr : @grammar.Rule = Symbol("expression")
+  let grammar = @grammar.Grammar::new(
+    "named",
+    [
+      ("root", expr),
+      (
+        "expression",
+        Choice([Symbol("sum"), Symbol("product"), Symbol("number")]),
+      ),
+      ("sum", PrecLeft(Name("sum"), Seq([expr, Literal("+"), expr]))),
+      ("product", PrecLeft(Name("product"), Seq([expr, Literal("*"), expr]))),
+      ("number", @grammar.pattern("[0-9]+")),
+    ],
+    precedences=[[Literal("product"), Literal("sum")]],
+  )
+  let parser = @treesitter.Parser::new(@generate.generate(grammar))
+  assert_eq(
+    parser.parse_string("1+2*3").root_node().to_sexp(),
+    "(root (expression (sum (expression (number)) (expression (product (expression (number)) (expression (number)))))))",
+  )
+}

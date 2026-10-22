@@ -195,3 +195,165 @@ test "upstream aliased_unit_reductions" {
     )
   }
 }
+
+///|
+test "upstream generation named_precedences" {
+  // Upstream supplies no corpus expectations for this grammar.
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"named_precedences","rules":{"program":{"type":"REPEAT","content":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"expression_statement"},{"type":"SYMBOL","name":"declaration_statement"}]}},"expression_statement":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":";"}]},"declaration_statement":{"type":"SEQ","members":[{"type":"SYMBOL","name":"type"},{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":";"}]},"expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"member_expression"},{"type":"SYMBOL","name":"binary_expression"},{"type":"SYMBOL","name":"identifier"}]},"member_expression":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"."},{"type":"SYMBOL","name":"identifier"}]},"binary_expression":{"type":"CHOICE","members":[{"type":"PREC_LEFT","value":"or","content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"||"},{"type":"SYMBOL","name":"expression"}]}},{"type":"PREC_LEFT","value":"and","content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"&&"},{"type":"SYMBOL","name":"expression"}]}}]},"type":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"nested_type"},{"type":"SYMBOL","name":"binary_type"},{"type":"SYMBOL","name":"identifier"}]},"nested_type":{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"STRING","value":"."},{"type":"SYMBOL","name":"identifier"}]},"binary_type":{"type":"CHOICE","members":[{"type":"PREC_LEFT","value":"type_union","content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"type"},{"type":"STRING","value":"||"},{"type":"SYMBOL","name":"type"}]}},{"type":"PREC_LEFT","value":"type_intersection","content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"type"},{"type":"STRING","value":"&&"},{"type":"SYMBOL","name":"type"}]}}]},"identifier":{"type":"PATTERN","value":"[a-z]\\w+"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[["expression","type"],["expression","nested_type"]],"precedences":[[{"type":"SYMBOL","name":"member_expression"},{"type":"STRING","value":"and"},{"type":"STRING","value":"or"}],[{"type":"SYMBOL","name":"nested_type"},{"type":"STRING","value":"type_intersection"},{"type":"STRING","value":"type_union"}]],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  language.validate()
+}
+
+///|
+test "upstream associativity_left_with_lower_precedence_shift" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"associativity_left_with_lower_precedence_shift","rules":{"expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"addition"},{"type":"SYMBOL","name":"superaddition"},{"type":"SYMBOL","name":"number"}]},"addition":{"type":"PREC_LEFT","value":1,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"+"},{"type":"SYMBOL","name":"expression"}]}},"superaddition":{"type":"PREC_RIGHT","value":0,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"+"},{"type":"STRING","value":"+"},{"type":"SYMBOL","name":"expression"}]}},"number":{"type":"STRING","value":"1"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "================================================================================\nAddition is left associative\n================================================================================\n\n1 + 1 + 1 + 1\n\n--------------------------------------------------------------------------------\n\n(expression\n  (addition\n    (expression\n      (addition\n        (expression\n          (addition\n            (expression\n              (number))\n            (expression\n              (number))))\n        (expression\n          (number))))\n    (expression\n      (number))))\n\n================================================================================\nSuperaddition still parses\n================================================================================\n\n1 + + 1\n\n--------------------------------------------------------------------------------\n\n(expression\n  (superaddition\n    (expression\n      (number))\n    (expression\n      (number))))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="associativity_left_with_lower_precedence_shift: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream associativity_right_with_lower_precedence_shift" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"associativity_right_with_lower_precedence_shift","rules":{"expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"addition"},{"type":"SYMBOL","name":"superaddition"},{"type":"SYMBOL","name":"number"}]},"addition":{"type":"PREC_RIGHT","value":1,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"+"},{"type":"SYMBOL","name":"expression"}]}},"superaddition":{"type":"PREC_RIGHT","value":0,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"+"},{"type":"STRING","value":"+"},{"type":"SYMBOL","name":"expression"}]}},"number":{"type":"STRING","value":"1"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "================================================================================\nAddition is right associative\n================================================================================\n\n1 + 1 + 1 + 1\n\n--------------------------------------------------------------------------------\n\n(expression\n  (addition\n    (expression\n      (number))\n    (expression\n      (addition\n        (expression\n          (number))\n        (expression\n          (addition\n            (expression\n              (number))\n            (expression\n              (number))))))))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="associativity_right_with_lower_precedence_shift: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream aliased_inlined_rules" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"aliased_inlined_rules","rules":{"statement":{"type":"SEQ","members":[{"type":"SYMBOL","name":"_expression"},{"type":"STRING","value":";"}]},"_expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"member_expression"},{"type":"ALIAS","content":{"type":"SYMBOL","name":"identifier"},"named":true,"value":"variable_name"}]},"member_expression":{"type":"PREC_LEFT","value":1,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"_expression"},{"type":"STRING","value":"."},{"type":"ALIAS","content":{"type":"SYMBOL","name":"identifier"},"named":true,"value":"property_name"}]}},"identifier":{"type":"CHOICE","members":[{"type":"STRING","value":"a"},{"type":"STRING","value":"b"},{"type":"STRING","value":"c"}]}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":["identifier"],"supertypes":[],"reserved":{}}
+  let corpus = "=========================\nOK\n=========================\n\na.b.c;\n\n---\n\n(statement\n  (member_expression\n    (member_expression\n      (variable_name)\n      (property_name))\n    (property_name)))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="aliased_inlined_rules: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream inlined_aliased_rules" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"inlined_aliased_rules","rules":{"statement":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":";"}]},"expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"call_expression"},{"type":"SYMBOL","name":"member_expression"},{"type":"ALIAS","content":{"type":"SYMBOL","name":"identifier"},"named":true,"value":"variable_name"}]},"call_expression":{"type":"PREC_LEFT","value":0,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"("},{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":")"}]}},"member_expression":{"type":"PREC_LEFT","value":1,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"."},{"type":"ALIAS","content":{"type":"SYMBOL","name":"identifier"},"named":true,"value":"property_name"}]}},"identifier":{"type":"PATTERN","value":"[a-z]+"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":["expression"],"supertypes":[],"reserved":{}}
+  let corpus = "======================================\nMethod calls\n======================================\n\na.b(c(d.e));\n\n---\n\n(statement\n  (call_expression\n    (member_expression\n      (variable_name)\n      (property_name))\n    (call_expression\n      (variable_name)\n      (member_expression\n        (variable_name)\n        (property_name)))))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="inlined_aliased_rules: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream nested_inlined_rules" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"nested_inlined_rules","rules":{"program":{"type":"REPEAT1","content":{"type":"SYMBOL","name":"top_level_item"}},"top_level_item":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"statement"},{"type":"STRING","value":"!"}]},"statement":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"expression_statement"},{"type":"SYMBOL","name":"return_statement"}]},"return_statement":{"type":"SEQ","members":[{"type":"STRING","value":"return"},{"type":"SYMBOL","name":"number"},{"type":"STRING","value":";"}]},"expression_statement":{"type":"SEQ","members":[{"type":"SYMBOL","name":"number"},{"type":"STRING","value":";"}]},"number":{"type":"PATTERN","value":"\\d+"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":["top_level_item","statement"],"supertypes":[],"reserved":{}}
+  let corpus = "==================================\nStatements\n==================================\n\nreturn 1;\nreturn 2;\n\n---\n\n(program\n  (return_statement (number))\n  (return_statement (number)))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="nested_inlined_rules: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream rejection precedence_on_single_child_missing" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"precedence_on_single_child_missing","rules":{"expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"function_call"},{"type":"SYMBOL","name":"identifier"}]},"function_call":{"type":"PREC_RIGHT","value":0,"content":{"type":"CHOICE","members":[{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"expression"}]},{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"block"}]},{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"expression"},{"type":"SYMBOL","name":"block"}]}]}},"block":{"type":"SEQ","members":[{"type":"STRING","value":"{"},{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"}"}]},"identifier":{"type":"PATTERN","value":"[a-zA-Z]+"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let grammar = @grammar.Grammar::parse(grammar)
+  try @generate.generate(grammar) catch {
+    @generate.Conflict(_, _, _) => ()
+    error => fail("unexpected error: \{error}")
+  } noraise {
+    _ => fail("accepted an upstream conflict fixture")
+  }
+}
+
+///|
+test "upstream precedence_on_single_child_negative" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"precedence_on_single_child_negative","rules":{"expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"function_call"},{"type":"SYMBOL","name":"identifier"}]},"function_call":{"type":"PREC_RIGHT","value":-1,"content":{"type":"CHOICE","members":[{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"expression"}]},{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"block"}]},{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"expression"},{"type":"SYMBOL","name":"block"}]}]}},"block":{"type":"SEQ","members":[{"type":"STRING","value":"{"},{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"}"}]},"identifier":{"type":"PATTERN","value":"[a-zA-Z]+"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "===========================\nfunction calls with blocks\n===========================\n\nfoo bar { baz }\n\n---\n\n(expression (function_call\n  (identifier)\n  (expression (identifier))\n  (block (expression (identifier)))))"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="precedence_on_single_child_negative: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream precedence_on_single_child_positive" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"precedence_on_single_child_positive","rules":{"expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"function_call"},{"type":"SYMBOL","name":"identifier"}]},"function_call":{"type":"PREC_RIGHT","value":1,"content":{"type":"CHOICE","members":[{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"expression"}]},{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"block"}]},{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"expression"},{"type":"SYMBOL","name":"block"}]}]}},"block":{"type":"SEQ","members":[{"type":"STRING","value":"{"},{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"}"}]},"identifier":{"type":"PATTERN","value":"[a-zA-X]+"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "===========================\nfunction calls with blocks\n===========================\n\nfoo bar { baz }\n\n---\n\n(expression (function_call\n  (identifier)\n  (expression (function_call\n    (identifier)\n    (block (expression (identifier)))))))"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="precedence_on_single_child_positive: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream precedence_on_subsequence" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"precedence_on_subsequence","rules":{"expression":{"type":"PREC_LEFT","value":0,"content":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"function_call"},{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"scope_resolution"}]}},"function_call":{"type":"CHOICE","members":[{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"expression"}]},{"type":"PREC","value":1,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"block"}]}},{"type":"PREC","value":-1,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"SYMBOL","name":"do_block"}]}},{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"PREC","value":1,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"SYMBOL","name":"block"}]}}]},{"type":"SEQ","members":[{"type":"SYMBOL","name":"identifier"},{"type":"PREC","value":-1,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"SYMBOL","name":"do_block"}]}}]}]},"scope_resolution":{"type":"PREC_LEFT","value":1,"content":{"type":"CHOICE","members":[{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"::"},{"type":"SYMBOL","name":"expression"}]},{"type":"SEQ","members":[{"type":"STRING","value":"::"},{"type":"SYMBOL","name":"expression"}]}]}},"block":{"type":"STRING","value":"{}"},"do_block":{"type":"STRING","value":"do end"},"identifier":{"type":"PATTERN","value":"[a-zA-Z]+"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "==========================================\ncurly brace blocks with high precedence\n==========================================\n\na b {}\n\n---\n\n(expression (function_call\n  (identifier)\n  (expression (function_call (identifier) (block)))))\n\n==========================================\ndo blocks with low precedence\n==========================================\n\na b do end\n\n---\n\n(expression (function_call\n  (identifier)\n  (expression (identifier))\n  (do_block)))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="precedence_on_subsequence: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream unused_rules" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"unused_rules","rules":{"a":{"type":"SEQ","members":[{"type":"SYMBOL","name":"d"},{"type":"SYMBOL","name":"h"}]},"b":{"type":"STRING","value":"B"},"c":{"type":"STRING","value":"C"},"d":{"type":"SEQ","members":[{"type":"SYMBOL","name":"e"},{"type":"SYMBOL","name":"f"}]},"e":{"type":"STRING","value":"E"},"f":{"type":"STRING","value":"F"},"g":{"type":"STRING","value":"G"},"h":{"type":"SEQ","members":[{"type":"SYMBOL","name":"i"},{"type":"SYMBOL","name":"j"}]},"i":{"type":"STRING","value":"I"},"j":{"type":"STRING","value":"J"},"k":{"type":"STRING","value":"K"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "=========================\nthe language\n=========================\n\nE F I J\n\n---\n\n(a (d (e) (f)) (h (i) (j)))"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="unused_rules: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream lexical_conflicts_due_to_state_merging" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"lexical_conflicts_due_to_state_merging","rules":{"expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"conditional"},{"type":"SYMBOL","name":"quotient"},{"type":"SYMBOL","name":"regex"},{"type":"SYMBOL","name":"number"},{"type":"SYMBOL","name":"parenthesized"}]},"conditional":{"type":"PREC_LEFT","value":1,"content":{"type":"SEQ","members":[{"type":"STRING","value":"if"},{"type":"SYMBOL","name":"parenthesized"},{"type":"SYMBOL","name":"expression"}]}},"quotient":{"type":"PREC_LEFT","value":0,"content":{"type":"SEQ","members":[{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":"/"},{"type":"SYMBOL","name":"expression"}]}},"regex":{"type":"PATTERN","value":"\\/[^/\\n]+\\/"},"number":{"type":"PATTERN","value":"\\d+"},"parenthesized":{"type":"SEQ","members":[{"type":"STRING","value":"("},{"type":"SYMBOL","name":"expression"},{"type":"STRING","value":")"}]}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "========================\nregexes\n========================\n\n/a+/\n\n---\n\n(expression (regex))\n\n========================\nconditionals\n========================\n\n(if (1) /a+/)\n\n---\n\n(expression (parenthesized (expression (conditional\n  (parenthesized (expression (number)))\n  (expression (regex))))))\n\n========================\nquotients\n========================\n\n((1) / 2)\n\n---\n\n(expression (parenthesized (expression (quotient\n  (expression (parenthesized (expression (number))))\n  (expression (number))))))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for result in @corpus.run(language, @corpus.parse(corpus)) {
+    assert_true(
+      result.passed,
+      msg="lexical_conflicts_due_to_state_merging: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
