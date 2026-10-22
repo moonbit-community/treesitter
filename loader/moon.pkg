@@ -2,8 +2,16 @@ import {
   "bobzhang/treesitter/grammar",
   "bobzhang/treesitter/language",
   "bobzhang/treesitter/mbtx",
+  "bobzhang/treesitter/config",
+  "bobzhang/treesitter/generate",
+  "moonbitlang/core/json",
+  "moonbitlang/core/env",
   "moonbitlang/async/fs",
   "moonbitlang/async/process",
 }
 
 supported_targets = "+native"
+
+import {
+  "moonbitlang/async",
+} for "test"

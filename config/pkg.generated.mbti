@@ -1,0 +1,37 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bobzhang/treesitter/config"
+
+// Values
+pub fn select(Array[Grammar], String, String, scope? : String) -> Grammar? raise ConfigError
+
+pub fn select_injection(Array[Grammar], String) -> Grammar? raise ConfigError
+
+// Errors
+pub suberror ConfigError {
+  InvalidConfig(String)
+}
+
+// Types and methods
+pub struct Config {
+  grammars : Array[Grammar]
+  metadata : Json
+}
+pub fn Config::parse(String) -> Self raise ConfigError
+
+pub(all) struct Grammar {
+  name : String
+  scope : String
+  path : String
+  file_types : Array[String]
+  highlights : Array[String]
+  injections : Array[String]
+  locals : Array[String]
+  tags : Array[String]
+  content_regex : String?
+  first_line_regex : String?
+  injection_regex : String?
+}
+
+// Type aliases
+
+// Traits

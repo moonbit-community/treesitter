@@ -1,0 +1,17 @@
+{
+  "grammars": [
+    {
+      "name": "json",
+      "scope": "source.json",
+      "path": ".",
+      "file-types": ["json"],
+      "highlights": "highlights.scm",
+      "injection-regex": "^json$"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Pure MoonBit JSON grammar example"
+  }
+}

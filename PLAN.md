@@ -336,3 +336,26 @@ CRLF-aware dot semantics, multiline and ungreedy flags (assertions still reject,
 and DFA matching retains longest-match behavior). Escaped spaces and hashes
 remain literal. Named capture groups compile as ordinary groups with duplicate
 name validation. These semantics are covered by cross-target lexical tests.
+
+### Metadata, discovery and native CLI
+
+Added tree-sitter.json metadata parsing, file/extension/content/shebang and
+injection-language selection, deterministic discovery of configured grammar
+folders, query-file loading, and loading generated tables or mbtx/JSON grammars.
+The native CLI supports language listing, configuration initialization, automatic
+parse-language selection, CST output and recursive corpus directories. Portable
+selection tests pass on native/JS/Wasm GC; native filesystem discovery is tested
+in temporary directories. Automatic selection was exercised end-to-end from the
+JSON example directory, compiling its mbtx grammar and parsing sample.json.
+
+### Release preparation
+
+Prepared Linux/macOS CI and a release-tag-checked Mooncakes publishing workflow.
+Both execute the full validation script before publication. Publishing expects
+the MOONCAKES_TOKEN secret as the Mooncakes credentials JSON and removes the
+runner's temporary credentials afterward. Workflow YAML parses successfully.
+GitHub creation, remote CI verification and registry publication remain pending;
+the port is not yet release-ready. Codex CLI 0.153.4 is running an early review
+with its configured gpt-6-astra model and reasoning effort ultra, focusing first
+on the remaining recovery mismatch and then release blockers. A final review
+and fixes are still required before release.

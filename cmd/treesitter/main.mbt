@@ -18,6 +18,7 @@ fn describe(error : Error) -> String {
   match error {
     Usage(message)
     | @loader.LoadFailure(message)
+    | @config.InvalidConfig(message)
     | @corpus.InvalidCorpus(message)
     | @generate.InvalidGrammar(message)
     | @generate.ResourceLimit(message)
@@ -46,10 +47,65 @@ async fn run() -> Unit {
       "usage: treesitter generate <grammar.mbtx|json> <language.json> | grammar-json <grammar.mbtx> | parse <language.json> <source> | test <language.json> <corpus.txt> | query|highlight|tags <language.json> <query.scm> <source> | emit <language.json> <language.mbt>",
     )
   }
-  let root = @env.get_env_var("TREESITTER_MBT_ROOT").unwrap_or(
-    @env.current_dir().unwrap_or("."),
-  )
+  let current_dir = @env.current_dir().unwrap_or(".")
+  let root = @env.get_env_var("TREESITTER_MBT_ROOT").unwrap_or(current_dir)
   match args[1] {
+    "--version" | "version" => println("treesitter.mbt 0.1.0")
+    "--help" | "help" =>
+      println(
+        "treesitter generate <grammar.mbtx|json> <language.json> | parse [language.json] <source> | parse --cst <language.json> <source> | test <language.json> <corpus-file-or-directory> | query|highlight|tags <language.json> <query.scm> <source> | languages [config.json] | init-config <path> | emit <language.json> <language.mbt> | grammar-json <grammar.mbtx>",
+      )
+    "languages" if args.length() <= 3 => {
+      let directories = @loader.parser_directories(path?=args.get(2))
+      for location in @loader.discover([current_dir] + directories) {
+        println(
+          Json::object({
+            "name": Json(location.grammar.name),
+            "scope": Json(location.grammar.scope),
+            "path": Json(location.root),
+            "file-types": Json(location.grammar.file_types),
+          }).stringify(),
+        )
+      }
+    }
+    "init-config" if args.length() == 3 => {
+      if @fs.exists(args[2]) {
+        raise Usage("configuration already exists: \{args[2]}")
+      }
+      write_file(args[2], "{\"parser-directories\": []}\n")
+    }
+    "parse" if args.length() == 3 => {
+      let source = @fs.read_file(args[2]).binary()
+      let locations = @loader.discover(
+        [current_dir] + @loader.parser_directories(),
+      )
+      guard @config.select(
+          locations.map(l => l.grammar),
+          args[2],
+          @utf8.decode_lossy(source),
+        )
+        is Some(grammar) else {
+        raise Usage("no language configuration matches \{args[2]}")
+      }
+      let location = locations[locations
+        .search_by(l => physical_equal(l.grammar, grammar))
+        .unwrap()]
+      let tree = @ts.Parser::new(location.language(root)).parse(source)
+      println(tree.root_node().to_sexp())
+      if tree.root_node().has_error() {
+        raise Usage("source contains syntax errors")
+      }
+    }
+    "parse" if args.length() == 5 && args[2] == "--cst" => {
+      let source = @fs.read_file(args[4]).text()
+      let tree = @ts.Parser::new(@loader.load_language(args[3])).parse_string(
+        source,
+      )
+      println(@corpus.render_cst(tree.root_node(), source).trim().to_owned())
+      if tree.root_node().has_error() {
+        raise Usage("source contains syntax errors")
+      }
+    }
     "generate" if args.length() == 4 => {
       let grammar = @loader.load_grammar(args[2], root)
       let language = @generate.generate(grammar)
@@ -114,7 +170,7 @@ async fn run() -> Unit {
     }
     "test" if args.length() == 4 => {
       let language = @loader.load_language(args[2])
-      let cases = @corpus.parse(@fs.read_file(args[3]).text())
+      let cases = read_corpus(args[3])
       let results = @corpus.run(language, cases)
       for result in results {
         let status = if result.skipped {
@@ -142,4 +198,19 @@ async fn run() -> Unit {
 ///|
 async fn write_file(path : String, content : String) -> Unit {
   @fs.write_file(path, content, create_mode=CreateOrTruncate)
+}
+
+///|
+async fn read_corpus(path : String) -> Array[@corpus.Case] {
+  if @fs.kind(path) != Directory {
+    return @corpus.parse(@fs.read_file(path).text())
+  }
+  let cases = []
+  for name in @fs.readdir(path, sort=true) {
+    let child = "\{path}/\{name}"
+    if @fs.kind(child) == Directory || name.has_suffix(".txt") {
+      cases.append(read_corpus(child))
+    }
+  }
+  cases
 }
