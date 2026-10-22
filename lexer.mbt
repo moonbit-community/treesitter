@@ -152,24 +152,47 @@ fn Parser::lex(
       }
     }
     let mut best : (@language.Token, Int32)? = None
-    for token in self.language.tokens {
-      let extra = self.language.extras.contains(token.symbol)
-      if (!valid.contains(token.symbol) && !extra) ||
-        (skipped && token.immediate) {
-        continue
-      }
-      if scanned(token.lexer, offset) is Some(end) &&
-        (end > offset || valid.contains(token.symbol)) {
-        if token.literal && word_end > end {
+    let weighted = self.language.tokens.any(t => t.lexer.has_precedence())
+    if weighted {
+      let candidates = self.language.tokens.filter(token => {
+        (
+          valid.contains(token.symbol) ||
+          self.language.extras.contains(token.symbol)
+        ) &&
+        !(skipped && token.immediate)
+      })
+      let (found, stopped) = scan_weighted_tokens(
+        candidates, input, offset, word_end,
+      )
+      best = found
+      dependency_end = Int32::max(
+        dependency_end,
+        if stopped == input.length() {
+          stopped + 1
+        } else {
+          stopped + @lex.decode(input, stopped).1
+        },
+      )
+    } else {
+      for token in self.language.tokens {
+        let extra = self.language.extras.contains(token.symbol)
+        if (!valid.contains(token.symbol) && !extra) ||
+          (skipped && token.immediate) {
           continue
         }
-        let replace = match best {
-          None => true
-          Some((previous, previous_end)) =>
-            better_token(token, end, previous, previous_end)
-        }
-        if replace {
-          best = Some((token, end))
+        if scanned(token.lexer, offset) is Some(end) &&
+          (end > offset || valid.contains(token.symbol)) {
+          if token.literal && word_end > end {
+            continue
+          }
+          let replace = match best {
+            None => true
+            Some((previous, previous_end)) =>
+              better_token(token, end, previous, previous_end)
+          }
+          if replace {
+            best = Some((token, end))
+          }
         }
       }
     }
@@ -188,18 +211,34 @@ fn Parser::lex(
     // Recovery lexing recognizes otherwise valid tokens outside this state's
     // context, preserving token boundaries and names in skipped subtrees.
     if best is None && offset < input.length() {
-      for token in self.language.tokens {
-        if token.immediate {
-          continue
-        }
-        if scanned(token.lexer, offset) is Some(end) && end > offset {
-          let replace = match best {
-            None => true
-            Some((previous, previous_end)) =>
-              better_token(token, end, previous, previous_end)
+      if weighted {
+        let candidates = self.language.tokens.filter(token => !token.immediate)
+        let (found, stopped) = scan_weighted_tokens(
+          candidates, input, offset, offset,
+        )
+        best = found
+        dependency_end = Int32::max(
+          dependency_end,
+          if stopped == input.length() {
+            stopped + 1
+          } else {
+            stopped + @lex.decode(input, stopped).1
+          },
+        )
+      } else {
+        for token in self.language.tokens {
+          if token.immediate {
+            continue
           }
-          if replace {
-            best = Some((token, end))
+          if scanned(token.lexer, offset) is Some(end) && end > offset {
+            let replace = match best {
+              None => true
+              Some((previous, previous_end)) =>
+                better_token(token, end, previous, previous_end)
+            }
+            if replace {
+              best = Some((token, end))
+            }
           }
         }
       }

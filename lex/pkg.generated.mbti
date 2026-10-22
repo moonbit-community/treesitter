@@ -55,9 +55,11 @@ pub fn CharSet::union(Self, Self) -> Self
 pub struct Dfa {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn Dfa::accepts(Self, Int32) -> Bool
 pub fn Dfa::equal(Self, Self) -> Bool
 #deprecated
 pub fn Dfa::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Dfa::has_precedence(Self) -> Bool
 pub fn Dfa::match_prefix(Self, Bytes, start? : Int32) -> Int32?
 pub fn Dfa::not_equal(Self, Self) -> Bool
 pub fn Dfa::nullable(Self) -> Bool
@@ -66,6 +68,7 @@ pub fn Dfa::state_count(Self) -> Int32
 #deprecated
 pub fn Dfa::to_json(Self) -> Json
 pub fn Dfa::to_repr(Self) -> @debug.Repr
+pub fn Dfa::transition(Self, Int32, Int32) -> (Int32, Int32?)?
 pub impl ToJson for Dfa
 pub impl @json.FromJson for Dfa
 
@@ -77,6 +80,7 @@ pub(all) enum Expr {
   Many(Expr)
   Repeat(Expr, Int32, Int32?, Bool)
   Assert(Assertion)
+  Precedence(Int32, Expr)
 } derive(Eq, @debug.Debug)
 pub fn Expr::equal(Self, Self) -> Bool
 pub fn Expr::not_equal(Self, Self) -> Bool

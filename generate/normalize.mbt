@@ -77,7 +77,8 @@ fn expression(rule : @grammar.Rule) -> @lex.Expr raise {
       let expr = expression(child)
       Concat([expr, Many(expr)])
     }
-    Token(child) | ImmediateToken(child) | Prec(_, child) => expression(child)
+    Token(child) | ImmediateToken(child) => expression(child)
+    Prec(Integer(value), child) => Precedence(value, expression(child))
     _ =>
       raise InvalidGrammar(
         "token rules may only contain strings, patterns, choices, sequences, repetitions and numeric precedence",

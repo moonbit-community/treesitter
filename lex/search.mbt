@@ -52,6 +52,7 @@ fn compile_search(
     Empty => next
     Chars(chars) => emit_search(code, Consume(chars, next))
     Assert(assertion) => emit_search(code, Check(assertion, next))
+    Precedence(_, child) => compile_search(child, next, code)
     Concat(parts) => {
       let mut next = next
       for i = parts.length() - 1; i >= 0; i = i - 1 {

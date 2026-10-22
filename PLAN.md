@@ -528,3 +528,14 @@ all targets. The focused changed-range regression now reports [1,3) for
 `1 2 3` -> `113`. Replaying the audit's 1,153 edits reduces matching-tree range
 discrepancies from 106 to 35, with zero incremental/fresh node mismatches;
 remaining changed-range differences still require investigation.
+
+Second-audit finding 3 is fixed: lexical expressions retain scoped precedence on
+DFA transitions. Contextual lexing advances competing DFAs together when scoped
+precedence is present, so a completion competes with the next transition rather
+than only final longest matches. Weighted transitions survive serialization;
+legacy three-field transitions remain readable. Positive and negative scoped
+precedence examples match pinned C output on all targets. The complete check
+script passes 250 native / 249 JS / 249 Wasm GC tests and all CLI checks. The
+public matrix remains JSON 6/6, C 85/85, JavaScript 115/116, Go 64/67. All seven
+concrete second-audit findings now have fixes and regression coverage, while
+broader changed-range, GLR, API, CLI, and performance coverage remains open.

@@ -1,6 +1,6 @@
 ///|
 priv struct NfaState {
-  edges : Array[(CharSet, Int32)]
+  edges : Array[(CharSet, Int32, Int32?)]
   epsilon : Array[Int32]
 }
 
@@ -20,8 +20,11 @@ fn build(
   states : Array[NfaState],
   start : Int32,
   end : Int32,
+  precedence~ : Int32? = None,
 ) -> Unit raise RegexError {
   match expr {
+    Precedence(value, child) =>
+      build(child, states, start, end, precedence=Some(value))
     Assert(_) =>
       raise InvalidRegex(0, "assertions are not supported in lexical DFAs")
     Repeat(child, min, max, _) => {
@@ -36,15 +39,15 @@ fn build(
             parts.push(Alt([child, Empty]))
           }
       }
-      build(Concat(parts), states, start, end)
+      build(Concat(parts), states, start, end, precedence~)
     }
     Empty => states[start].epsilon.push(end)
-    Chars(chars) => states[start].edges.push((chars, end))
+    Chars(chars) => states[start].edges.push((chars, end, precedence))
     Concat(parts) => {
       let mut current = start
       for i, part in parts {
         let next = if i == parts.length() - 1 { end } else { state(states) }
-        build(part, states, current, next)
+        build(part, states, current, next, precedence~)
         current = next
       }
       if parts.is_empty() {
@@ -56,7 +59,7 @@ fn build(
         let branch_start = state(states)
         let branch_end = state(states)
         states[start].epsilon.push(branch_start)
-        build(part, states, branch_start, branch_end)
+        build(part, states, branch_start, branch_end, precedence~)
         states[branch_end].epsilon.push(end)
       }
     Many(part) => {
@@ -64,7 +67,7 @@ fn build(
       let inner_end = state(states)
       states[start].epsilon.push(end)
       states[start].epsilon.push(inner_start)
-      build(part, states, inner_start, inner_end)
+      build(part, states, inner_start, inner_end, precedence~)
       states[inner_end].epsilon.push(inner_start)
       states[inner_end].epsilon.push(end)
     }
@@ -94,6 +97,7 @@ priv struct Transition {
   lo : Int32
   hi : Int32
   target : Int32
+  precedence : Int32?
 } derive(Debug, Eq)
 
 ///|
@@ -106,6 +110,7 @@ priv struct DfaState {
 /// Immutable deterministic Unicode lexer. Match offsets are UTF-8 byte offsets.
 pub struct Dfa {
   priv states : Array[DfaState]
+  priv weighted : Bool
 } derive(Debug, Eq)
 
 ///|
@@ -137,7 +142,7 @@ pub fn compile(
     let subset = subsets[index]
     let boundaries : Array[Int32] = []
     for id in subset {
-      for (chars, _) in nfa[id].edges {
+      for (chars, _, _) in nfa[id].edges {
         for (lo, hi) in chars.ranges {
           boundaries.push(lo)
           boundaries.push(hi + 1)
@@ -153,16 +158,23 @@ pub fn compile(
         continue
       }
       let seeds : Array[Int32] = []
+      let mut precedence : Int32? = None
+      let mut has_precedence = false
       for id in subset {
-        for (chars, target) in nfa[id].edges {
+        for (chars, target, weight) in nfa[id].edges {
           if chars.contains(lo) {
             seeds.push(target)
+            has_precedence = has_precedence || weight is Some(_)
+            precedence = Some(
+              Int32::max(precedence.unwrap_or(-2147483648), weight.unwrap_or(0)),
+            )
           }
         }
       }
       if seeds.is_empty() {
         continue
       }
+      let precedence = if has_precedence { precedence } else { None }
       let next = closure(nfa, seeds)
       let target = match ids.get(next) {
         Some(id) => id
@@ -175,16 +187,20 @@ pub fn compile(
       }
       if edges.last() is Some(previous) &&
         previous.target == target &&
+        previous.precedence == precedence &&
         previous.hi + 1 == lo {
-        edges[edges.length() - 1] = { lo: previous.lo, hi, target, }
+        edges[edges.length() - 1] = { lo: previous.lo, hi, target, precedence, }
       } else {
-        edges.push({ lo, hi, target, })
+        edges.push({ lo, hi, target, precedence, })
       }
     }
     states.push({ accepting: subset.contains(end), edges, })
     index += 1
   }
-  { states, }
+  {
+    weighted: states.any(s => s.edges.any(e => e.precedence is Some(_))),
+    states,
+  }
 }
 
 ///|
@@ -198,7 +214,14 @@ pub fn Dfa::nullable(self : Dfa) -> Bool {
 }
 
 ///|
-fn Dfa::step(self : Dfa, state : Int32, cp : Int32) -> Int32? {
+pub fn Dfa::transition(
+  self : Dfa,
+  state : Int32,
+  cp : Int32,
+) -> (Int32, Int32?)? {
+  if state < 0 || state >= self.states.length() {
+    return None
+  }
   let edges = self.states[state].edges
   for lo = 0, hi = edges.length(); lo < hi; {
     let mid = lo + (hi - lo) / 2
@@ -209,9 +232,19 @@ fn Dfa::step(self : Dfa, state : Int32, cp : Int32) -> Int32? {
     if cp > edge.hi {
       continue mid + 1, hi
     }
-    return Some(edge.target)
+    return Some((edge.target, edge.precedence))
   }
   None
+}
+
+///|
+pub fn Dfa::accepts(self : Dfa, state : Int32) -> Bool {
+  self.states.get(state).map(s => s.accepting).unwrap_or(false)
+}
+
+///|
+pub fn Dfa::has_precedence(self : Dfa) -> Bool {
+  self.weighted
 }
 
 ///|
@@ -230,9 +263,9 @@ pub fn Dfa::scan_prefix(
   let mut accepted = if self.states[0].accepting { Some(start) } else { None }
   while offset < input.length() {
     let (cp, size) = decode(input, offset)
-    match self.step(state, cp) {
+    match self.transition(state, cp) {
       None => break
-      Some(next) => {
+      Some((next, _)) => {
         state = next
         offset += size
       }

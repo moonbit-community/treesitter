@@ -22,6 +22,7 @@ pub(all) enum Expr {
   Many(Expr)
   Repeat(Expr, Int32, Int32?, Bool)
   Assert(Assertion)
+  Precedence(Int32, Expr)
 } derive(Debug, Eq)
 
 ///|
