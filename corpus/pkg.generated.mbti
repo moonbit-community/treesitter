@@ -2,6 +2,7 @@
 package "bobzhang/treesitter/corpus"
 
 import {
+  "bobzhang/treesitter",
   "bobzhang/treesitter/language",
 }
 
@@ -10,7 +11,7 @@ pub fn normalize_sexp(String) -> String
 
 pub fn parse(String) -> Array[Case] raise CorpusError
 
-pub fn run(@language.Language, Array[Case]) -> Array[Result] raise
+pub fn run(@language.Language, Array[Case], scanner? : @treesitter.ExternalScanner) -> Array[Result] raise
 
 // Errors
 pub suberror CorpusError {

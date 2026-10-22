@@ -125,6 +125,7 @@ pub fn Tree::copy(self : Tree) -> Tree {
     reused_subtrees: self.reused_subtrees,
     parse_steps: self.parse_steps,
     source_ranges: self.source_ranges.copy(),
+    scanner: self.scanner,
   }
 }
 
@@ -153,7 +154,8 @@ fn reuse_candidates(
   // A previously selected GLR derivation is not sufficient to reconstruct all
   // competing stacks. Reparse ambiguous tables until a shared parse forest is
   // available; reusing a single winner could change dynamic precedence.
-  if old_tree.language.states.any(row => {
+  if !old_tree.language.externals.is_empty() ||
+    old_tree.language.states.any(row => {
       row.actions.values().any(actions => actions.length() > 1)
     }) {
     return result

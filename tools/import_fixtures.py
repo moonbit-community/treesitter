@@ -20,7 +20,7 @@ names = ['associativity_left','associativity_right','aliases_in_root','aliased_r
          'aliased_inlined_rules', 'inlined_aliased_rules', 'nested_inlined_rules',
          'precedence_on_single_child_missing', 'precedence_on_single_child_negative',
          'precedence_on_single_child_positive', 'precedence_on_subsequence',
-         'unused_rules', 'lexical_conflicts_due_to_state_merging', 'terminal_supertype']
+         'unused_rules', 'lexical_conflicts_due_to_state_merging', 'terminal_supertype', 'external_extra_tokens', 'epsilon_external_extra_tokens', 'external_unicode_column_alignment', 'epsilon_external_tokens', 'external_and_internal_anonymous_tokens']
 parts=['// Ported from Tree-sitter '+expected+'. See LICENSE.\n']
 for name in names:
     fixture=root/'test/fixtures/test_grammars'/name
@@ -35,5 +35,6 @@ for name in names:
     elif not re.search(r'^-{3,}\r?$', corpus, re.M):
         parts.append(f'\n///|\ntest "upstream generation {name}" {{\n  // Upstream supplies no corpus expectations for this grammar.\n  let grammar =\n{multiline(grammar)}\n  let language = @generate.generate(@grammar.Grammar::parse(grammar))\n  language.validate()\n}}\n')
     else:
-        parts.append(f'\n///|\ntest "upstream {name}" {{\n  let grammar =\n{multiline(grammar)}\n  let corpus = {json.dumps(corpus, ensure_ascii=False)}\n  let language = @generate.generate(@grammar.Grammar::parse(grammar))\n  for result in @corpus.run(language, @corpus.parse(corpus)) {{\n    assert_true(result.passed, msg="'+name+': \\{result.name}\\nexpected: \\{result.expected}\\nactual: \\{result.actual}")\n  }\n}\n')
+        scanner_arg = ', scanner=scanner_' + name + '()' if (fixture/'scanner.c').exists() else ''
+        parts.append(f'\n///|\ntest "upstream {name}" {{\n  let grammar =\n{multiline(grammar)}\n  let corpus = {json.dumps(corpus, ensure_ascii=False)}\n  let language = @generate.generate(@grammar.Grammar::parse(grammar))\n  for result in @corpus.run(language, @corpus.parse(corpus){scanner_arg}) {{\n    assert_true(result.passed, msg="'+name+': \\{result.name}\\nexpected: \\{result.expected}\\nactual: \\{result.actual}")\n  }\n}\n')
 Path('compat/upstream_test.mbt').write_text(''.join(parts))

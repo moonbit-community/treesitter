@@ -202,3 +202,16 @@ Supertype metadata survives language serialization. Terminal and multi-child
 supertypes are rejected, including the pinned upstream terminal-supertype fixture.
 72 tests pass across all backends. The upstream hidden-field/supertype fixture also
 uses nonterminal extras, so it remains outside the passing compatibility set.
+
+### External scanner checkpoint
+
+Grammar externals now generate terminal metadata, including internal-token
+fallbacks and anonymous externals. Pure MoonBit scanner callbacks receive valid
+symbols, a Unicode cursor and a per-branch serialized state (maximum 1024 bytes).
+The cursor supports skip, mark-end, EOF, Unicode columns, cancellation checks and
+included-range boundaries. Zero-width tokens and extras cannot spin unchanged.
+Snapshots are retained on nodes; scanner-aware incremental reuse remains disabled
+until scanner lookahead dependencies can be verified. Five upstream scanner
+fixtures are ported without changing their corpus expectations. 81 tests pass on
+all three targets. Native scanner libraries are never loaded; scanners must be
+written in MoonBit and supplied to the runtime.

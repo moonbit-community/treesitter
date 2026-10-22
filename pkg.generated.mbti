@@ -17,12 +17,18 @@ pub fn EditError::to_repr(Self) -> @debug.Repr
 pub suberror ParseError {
   Cancelled
   InvalidRanges(String)
+  ScannerError(String)
   ParseLimit(String)
   NoParse(Int32)
 } derive(@debug.Debug)
 pub fn ParseError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+pub struct ExternalScanner {
+  // private fields
+}
+pub fn ExternalScanner::new((ScannerInput, Array[Bool], Bytes) -> ScanResult?) -> Self
+
 pub(all) struct InputEdit {
   start_byte : Int32
   old_end_byte : Int32
@@ -73,7 +79,7 @@ pub struct Parser {
   language : @language.Language
   // private fields
 }
-pub fn Parser::new(@language.Language) -> Self raise @language.LanguageError
+pub fn Parser::new(@language.Language, scanner? : ExternalScanner) -> Self raise @language.LanguageError
 pub fn Parser::parse(Self, Bytes, old_tree? : Tree, included_ranges? : Array[Range], max_steps? : Int32, max_branches? : Int32, max_errors? : Int32, cancelled? : () -> Bool) -> Tree raise ParseError
 pub fn Parser::parse_string(Self, String) -> Tree raise ParseError
 
@@ -104,6 +110,22 @@ pub fn Range::not_equal(Self, Self) -> Bool
 pub fn Range::to_json(Self) -> Json
 pub fn Range::to_repr(Self) -> @debug.Repr
 
+pub(all) struct ScanResult {
+  token : Int32
+  state : Bytes
+}
+
+pub struct ScannerInput {
+  // private fields
+}
+pub fn ScannerInput::advance(Self, skip? : Bool) -> Unit
+pub fn ScannerInput::eof(Self) -> Bool
+pub fn ScannerInput::get_column(Self) -> Int32
+pub fn ScannerInput::is_at_included_range_start(Self) -> Bool
+pub fn ScannerInput::is_cancelled(Self) -> Bool
+pub fn ScannerInput::lookahead(Self) -> Int32
+pub fn ScannerInput::mark_end(Self) -> Unit
+
 pub struct Tree {
   reused_subtrees : Int32
   parse_steps : Int32
@@ -114,6 +136,7 @@ pub struct Tree {
 pub fn Tree::changed_ranges(Self, Self) -> Array[Range]
 pub fn Tree::copy(Self) -> Self
 pub fn Tree::edit(Self, InputEdit) -> Unit raise EditError
+pub fn Tree::external_scanner_state(Self) -> Bytes
 pub fn Tree::included_ranges(Self) -> Array[Range]
 pub fn Tree::root_node(Self) -> Node
 pub fn Tree::walk(Self) -> TreeCursor

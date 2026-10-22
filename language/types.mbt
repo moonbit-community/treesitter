@@ -61,6 +61,7 @@ pub struct Language {
   extras : Array[Int32]
   word_token : Int32?
   supertypes : Array[Int32]
+  externals : Array[Int32]
 } derive(Debug, Eq)
 
 ///|
@@ -79,6 +80,7 @@ pub fn Language::new(
   extras : Array[Int32],
   word_token? : Int32,
   supertypes~ : Array[Int32] = [],
+  externals~ : Array[Int32] = [],
 ) -> Language raise LanguageError {
   let language : Language = {
     name,
@@ -90,6 +92,7 @@ pub fn Language::new(
     extras,
     word_token,
     supertypes,
+    externals,
   }
   language.validate()
   language
@@ -114,6 +117,11 @@ pub fn Language::validate(self : Language) -> Unit raise LanguageError {
   }
   if self.word_token is Some(id) && !self.tokens.any(t => t.symbol == id) {
     invalid("word symbol must be a lexical token")
+  }
+  for id in self.externals {
+    if id <= 0 || id >= count || !self.symbols[id].terminal {
+      invalid("external symbols must be terminals")
+    }
   }
   for id in self.supertypes {
     if id <= 0 ||
@@ -174,7 +182,8 @@ pub fn Language::validate(self : Language) -> Unit raise LanguageError {
     }
   }
   for symbol in self.extras {
-    if !self.tokens.any(t => t.symbol == symbol) {
+    if !self.tokens.any(t => t.symbol == symbol) &&
+      !self.externals.contains(symbol) {
       invalid("extra is not a lexical token")
     }
   }

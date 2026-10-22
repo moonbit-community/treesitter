@@ -370,3 +370,98 @@ test "upstream rejection terminal_supertype" {
     _ => fail("accepted an upstream conflict fixture")
   }
 }
+
+///|
+test "upstream external_extra_tokens" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"external_extra_tokens","rules":{"assignment":{"type":"SEQ","members":[{"type":"SYMBOL","name":"variable"},{"type":"STRING","value":"="},{"type":"SYMBOL","name":"variable"}]},"variable":{"type":"PATTERN","value":"[a-z]+"}},"extras":[{"type":"PATTERN","value":"\\s"},{"type":"SYMBOL","name":"comment"}],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"comment"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "========================\nextra external tokens\n========================\n\nx = # a comment\ny\n\n---\n\n(assignment (variable) (comment) (variable))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_external_extra_tokens(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="external_extra_tokens: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream epsilon_external_extra_tokens" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"epsilon_external_extra_tokens","rules":{"document":{"type":"SEQ","members":[{"type":"STRING","value":"a"},{"type":"STRING","value":"b"}]}},"extras":[{"type":"PATTERN","value":"\\s"},{"type":"SYMBOL","name":"comment"}],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"comment"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "==========================\nA document\n==========================\n\na b\n\n---\n\n(document)\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_epsilon_external_extra_tokens(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="epsilon_external_extra_tokens: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream external_unicode_column_alignment" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"external_unicode_column_alignment","rules":{"expression":{"type":"REPEAT","content":{"type":"SYMBOL","name":"list"}},"list":{"type":"SEQ","members":[{"type":"SYMBOL","name":"_start_list"},{"type":"REPEAT1","content":{"type":"SYMBOL","name":"list_item"}},{"type":"SYMBOL","name":"_end_list"}]}},"extras":[{"type":"PATTERN","value":"\\s"},{"type":"STRING","value":"□"}],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"_start_list"},{"type":"SYMBOL","name":"list_item"},{"type":"SYMBOL","name":"_end_list"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "========================\nSingle list, no boxes\n========================\n\n-\n-\n-\n\n----------------------\n\n(expression\n  (list\n    (list_item)\n    (list_item)\n    (list_item)\n  )\n)\n\n========================\nTwo lists, no boxes\n========================\n\n -\n -\n -\n  -\n  -\n\n----------------------\n\n(expression\n  (list\n    (list_item)\n    (list_item)\n    (list_item)\n  )\n  (list\n    (list_item)\n    (list_item)\n  )\n)\n\n========================\nList with boxes\n========================\n\n -\n□-\n -\n\n----------------------\n\n(expression\n  (list\n    (list_item)\n    (list_item)\n    (list_item)\n  )\n)\n\n========================\nMultiple lists with boxes\n========================\n\n   -\n□ □-\n □ -\n□□□□□□-\n□ □ □ -\n      -\n□□□   -\n□□□-\n□ □-\n\n----------------------\n\n(expression\n  (list\n    (list_item)\n    (list_item)\n    (list_item)\n  )\n  (list\n    (list_item)\n    (list_item)\n    (list_item)\n    (list_item)\n  )\n  (list\n    (list_item)\n    (list_item)\n  )\n)\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_external_unicode_column_alignment(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="external_unicode_column_alignment: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream epsilon_external_tokens" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"epsilon_external_tokens","rules":{"document":{"type":"SEQ","members":[{"type":"SYMBOL","name":"zero_width"},{"type":"STRING","value":"hello"}]}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"zero_width"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "==========================\nA leading zero-width token\n==========================\n\nhello\n\n---\n\n(document (zero_width))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_epsilon_external_tokens(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="epsilon_external_tokens: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}
+
+///|
+test "upstream external_and_internal_anonymous_tokens" {
+  let grammar =
+    #|{"$schema":"https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json","name":"external_and_internal_anonymous_tokens","rules":{"statement":{"type":"SEQ","members":[{"type":"SYMBOL","name":"_expression"},{"type":"SYMBOL","name":"_expression"},{"type":"STRING","value":"\n"}]},"_expression":{"type":"CHOICE","members":[{"type":"SYMBOL","name":"string"},{"type":"SYMBOL","name":"variable"},{"type":"SYMBOL","name":"number"}]},"variable":{"type":"PATTERN","value":"[a-z]+"},"number":{"type":"PATTERN","value":"\\d+"}},"extras":[{"type":"PATTERN","value":"\\s"}],"conflicts":[],"precedences":[],"externals":[{"type":"SYMBOL","name":"string"},{"type":"STRING","value":"\n"}],"inline":[],"supertypes":[],"reserved":{}}
+  let corpus = "=========================================\nsingle-line statements - internal tokens\n=========================================\n\na b\n\n---\n\n(statement (variable) (variable))\n\n=========================================\nmulti-line statements - internal tokens\n=========================================\n\na\nb\n\n---\n\n(statement (variable) (variable))\n\n=========================================\nsingle-line statements - external tokens\n=========================================\n\n'hello' 'world'\n\n---\n\n(statement (string) (string))\n\n=========================================\nmulti-line statements - external tokens\n=========================================\n\n'hello'\n'world'\n\n---\n\n(statement (string) (string))\n"
+  let language = @generate.generate(@grammar.Grammar::parse(grammar))
+  for
+    result in @corpus.run(
+      language,
+      @corpus.parse(corpus),
+      scanner=scanner_external_and_internal_anonymous_tokens(),
+    ) {
+    assert_true(
+      result.passed,
+      msg="external_and_internal_anonymous_tokens: \{result.name}\nexpected: \{result.expected}\nactual: \{result.actual}",
+    )
+  }
+}

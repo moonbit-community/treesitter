@@ -80,9 +80,10 @@ fn Parser::parse_ranges(
     }
     previous_end = range.end_byte
   }
-  let parsed = self.parse(
+  let parsed = self.parse_source(
     Bytes::from_array(bytes),
     max_steps~,
+    projection=Some({ source, starts, ends, lines, }),
     max_branches~,
     max_errors~,
     cancelled~,
@@ -94,6 +95,7 @@ fn Parser::parse_ranges(
     edited: false,
     edited_length: source.length(),
     source_ranges: ranges.copy(),
+    scanner: self.scanner,
     reused_subtrees: 0,
     parse_steps: parsed.parse_steps,
   }

@@ -2,6 +2,7 @@
 pub suberror ParseError {
   Cancelled
   InvalidRanges(String)
+  ScannerError(String)
   ParseLimit(String)
   NoParse(Int32)
 } derive(Debug)
@@ -13,14 +14,16 @@ pub extend ParseError with @debug.Debug::{to_repr}
 pub struct Parser {
   language : @language.Language
   priv mut next_id : Int32
+  priv scanner : ExternalScanner?
 }
 
 ///|
 pub fn Parser::new(
   language : @language.Language,
+  scanner? : ExternalScanner,
 ) -> Parser raise @language.LanguageError {
   language.validate()
-  { language, next_id: 0, }
+  { language, next_id: 0, scanner, }
 }
 
 ///|
@@ -29,6 +32,7 @@ priv struct Lexeme {
   start : Int32
   end : Int32
   missing : Bool
+  scanner_state : Bytes?
 }
 
 ///|
@@ -47,6 +51,7 @@ priv struct Branch {
   cost : Int32
   dynamic : Int32
   insertions : Int32
+  scanner_state : Bytes
 }
 
 ///|
@@ -62,6 +67,8 @@ fn Parser::node(
   extra~ : Bool = false,
   missing~ : Bool = false,
   dynamic_score~ : Int32 = 0,
+  scan_before~ : Bytes = b"",
+  scan_after~ : Bytes = b"",
 ) -> Node {
   let id = self.next_id
   self.next_id += 1
@@ -83,6 +90,8 @@ fn Parser::node(
       origin_end: end,
       dynamic_score,
       supertypes: [],
+      scan_before,
+      scan_after,
       symbol,
       kind: meta.name,
       named: meta.named,
@@ -98,129 +107,6 @@ fn Parser::node(
       parse_state,
       next_state,
     },
-  }
-}
-
-///|
-fn better_token(
-  candidate : @language.Token,
-  end : Int32,
-  previous : @language.Token,
-  previous_end : Int32,
-) -> Bool {
-  if candidate.precedence != previous.precedence {
-    candidate.precedence > previous.precedence
-  } else if end != previous_end {
-    end > previous_end
-  } else if candidate.immediate != previous.immediate {
-    candidate.immediate
-  } else if candidate.literal != previous.literal {
-    candidate.literal
-  } else {
-    candidate.symbol < previous.symbol
-  }
-}
-
-///|
-fn Parser::lex(
-  self : Parser,
-  input : Bytes,
-  branch : Branch,
-  lines : Array[Int32],
-) -> Branch {
-  let state = branch.states.last().unwrap()
-  let valid = self.language.states[state].actions
-  let mut offset = branch.offset
-  let pending = branch.pending.copy()
-  let mut skipped = false
-  for ;; {
-    let mut word_end = offset
-    if self.language.word_token is Some(word) {
-      for t in self.language.tokens {
-        if t.symbol == word {
-          word_end = t.lexer.match_prefix(input, start=offset).unwrap_or(offset)
-          break
-        }
-      }
-    }
-    let mut best : (@language.Token, Int32)? = None
-    for token in self.language.tokens {
-      let extra = self.language.extras.contains(token.symbol)
-      if (!valid.contains(token.symbol) && !extra) ||
-        (skipped && token.immediate) {
-        continue
-      }
-      if token.lexer.match_prefix(input, start=offset) is Some(end) &&
-        end > offset {
-        if token.literal && word_end > end {
-          continue
-        }
-        let replace = match best {
-          None => true
-          Some((previous, previous_end)) =>
-            better_token(token, end, previous, previous_end)
-        }
-        if replace {
-          best = Some((token, end))
-        }
-      }
-    }
-    match best {
-      Some((token, end)) =>
-        if self.language.extras.contains(token.symbol) &&
-          !valid.contains(token.symbol) {
-          if self.language.symbols[token.symbol].named {
-            pending.push(
-              self.node(
-                token.symbol,
-                offset,
-                end,
-                lines,
-                [],
-                state,
-                state,
-                extra=true,
-              ),
-            )
-          }
-          skipped = true
-          offset = end
-        } else {
-          return {
-            ..branch,
-            offset,
-            pending,
-            lookahead: Some({
-              symbol: token.symbol,
-              start: offset,
-              end,
-              missing: false,
-            }),
-          }
-        }
-      None => {
-        let end = if offset == input.length() {
-          offset
-        } else {
-          offset + @lex.decode(input, offset).1
-        }
-        return {
-          ..branch,
-          offset,
-          pending,
-          lookahead: Some({
-            symbol: if offset == input.length() {
-              0
-            } else {
-              -1
-            },
-            start: offset,
-            end,
-            missing: false,
-          }),
-        }
-      }
-    }
   }
 }
 
@@ -317,6 +203,12 @@ fn Parser::reduce(
     previous_state,
     next_state,
     dynamic_score=score,
+    scan_before=if count == 0 {
+      branch.scanner_state
+    } else {
+      branch.entries[index].node.data.scan_before
+    },
+    scan_after=branch.scanner_state,
   )
   let entries = branch.entries[:index].to_owned()
   entries.push({ node, leading, })
@@ -339,7 +231,7 @@ fn Parser::finish(
   guard branch.entries.last() is Some(entry) else { return None }
   let root = entry.node
   if entry.leading.is_empty() && branch.pending.is_empty() {
-    return Some(root)
+    return Some({ data: { ..root.data, scan_after: branch.scanner_state, }, })
   }
   let children : Array[(String?, Node)] = []
   for extra in entry.leading {
@@ -368,6 +260,8 @@ fn Parser::finish(
       children,
       root.parse_state(),
       root.next_parse_state(),
+      scan_before=root.data.scan_before,
+      scan_after=branch.scanner_state,
     ),
   )
 }
@@ -394,10 +288,38 @@ pub fn Parser::parse(
       source, included_ranges, max_steps, max_branches, max_errors, cancelled,
     )
   }
+  self.parse_source(
+    source,
+    old_tree?,
+    max_steps~,
+    max_branches~,
+    max_errors~,
+    cancelled~,
+  )
+}
+
+///|
+fn Parser::parse_source(
+  self : Parser,
+  source : Bytes,
+  old_tree? : Tree,
+  projection~ : Projection? = None,
+  max_steps~ : Int32 = 100000,
+  max_branches~ : Int32 = 10000,
+  max_errors~ : Int32 = 20,
+  cancelled~ : () -> Bool = () => false,
+) -> Tree raise ParseError {
+  if cancelled() {
+    raise Cancelled
+  }
+  if !self.language.externals.is_empty() && self.scanner is None {
+    raise ScannerError("language requires an external scanner")
+  }
   let mut reused_subtrees = 0
   let reusable = match old_tree {
     Some(tree) if physical_equal(tree.language, self.language) &&
-      tree.source_ranges.is_empty() => {
+      tree.source_ranges.is_empty() &&
+      same_scanner(tree.scanner, self.scanner) => {
       self.next_id = Int32::max(self.next_id, tree.root.id() + 1)
       if !tree.edited && tree.source == source {
         return {
@@ -409,6 +331,7 @@ pub fn Parser::parse(
           reused_subtrees: 1,
           parse_steps: 0,
           source_ranges: [],
+          scanner: self.scanner,
         }
       }
       if tree.edited && tree.edited_length == source.length() {
@@ -430,10 +353,13 @@ pub fn Parser::parse(
       cost: 0,
       dynamic: 0,
       insertions: 0,
+      scanner_state: b"",
     },
   ]
-  let visited : Map[(Array[Int32], Int32, Int32, Bool, Int32), (Int32, Int32)] = Map([],
-  )
+  let visited : Map[
+    (Array[Int32], Int32, Int32, Bool, Int32, Bytes, Bytes?),
+    (Int32, Int32),
+  ] = Map([])
   let mut best : (Node, Int32, Int32)? = None
   let mut steps = 0
   let mut furthest = 0
@@ -455,7 +381,7 @@ pub fn Parser::parse(
       continue
     }
     let branch = if initial.lookahead is None {
-      self.lex(source, initial, lines)
+      self.lex(source, initial, lines, projection, cancelled)
     } else {
       initial
     }
@@ -467,6 +393,8 @@ pub fn Parser::parse(
       token.symbol,
       token.missing,
       branch.insertions,
+      branch.scanner_state,
+      token.scanner_state,
     )
     if visited.get(key) is Some((cost, dynamic)) &&
       (cost < branch.cost || (cost == branch.cost && dynamic >= branch.dynamic)) {
@@ -504,6 +432,7 @@ pub fn Parser::parse(
                 start: token.start,
                 end: token.start,
                 missing: true,
+                scanner_state: None,
               }),
               cost: branch.cost + 1,
               insertions: branch.insertions + 1,
@@ -527,6 +456,7 @@ pub fn Parser::parse(
           lookahead: None,
           pending: branch.pending + [error],
           cost: branch.cost + 1,
+          scanner_state: token.scanner_state.unwrap_or(branch.scanner_state),
           insertions: 0,
         })
       }
@@ -544,6 +474,8 @@ pub fn Parser::parse(
             state,
             next,
             missing=token.missing,
+            scan_before=branch.scanner_state,
+            scan_after=token.scanner_state.unwrap_or(branch.scanner_state),
           )
           work.push({
             ..branch,
@@ -551,6 +483,7 @@ pub fn Parser::parse(
             entries: branch.entries + [{ node, leading: branch.pending, }],
             pending: [],
             offset: token.end,
+            scanner_state: token.scanner_state.unwrap_or(branch.scanner_state),
             lookahead: None,
             insertions: if token.missing {
               branch.insertions
@@ -589,6 +522,7 @@ pub fn Parser::parse(
         reused_subtrees,
         parse_steps: steps,
         source_ranges: [],
+        scanner: self.scanner,
       }
     None => raise NoParse(furthest)
   }

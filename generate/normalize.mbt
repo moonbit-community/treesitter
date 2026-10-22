@@ -38,6 +38,7 @@ priv struct Builder {
   token_ids : Map[String, Int32]
   repeats : Map[String, Int32]
   max_productions : Int32
+  externals : Array[Int32]
 }
 
 ///|
@@ -367,9 +368,6 @@ fn normalize(
   max_productions : Int32,
 ) -> (Builder, Int32, Array[Int32]) raise {
   grammar.validate()
-  if !grammar.externals.is_empty() {
-    raise Unsupported("external scanners")
-  }
   if !grammar.reserved.is_empty() {
     raise Unsupported("reserved word contexts")
   }
@@ -381,6 +379,7 @@ fn normalize(
     names: Map([]),
     token_ids: Map([]),
     repeats: Map([]),
+    externals: [],
     max_productions,
   }
   ignore(builder.symbol("end", false, false, true))
@@ -402,6 +401,27 @@ fn normalize(
       )
     }
     builder.names[name] = id
+  }
+  for external in grammar.externals {
+    let id = match external {
+      Symbol(name) =>
+        match builder.names.get(name) {
+          Some(id) => id
+          None => {
+            let id = builder.symbol(name, true, !name.has_prefix("_"), true)
+            builder.names[name] = id
+            id
+          }
+        }
+      Literal(_) | Pattern(_, ..) | Token(_) | ImmediateToken(_) =>
+        builder.token(external)
+      _ =>
+        raise InvalidGrammar("external tokens must be symbols or lexical rules")
+    }
+    if !builder.symbols[id].terminal {
+      raise InvalidGrammar("external token cannot be a nonterminal")
+    }
+    builder.externals.push(id)
   }
   let start = builder.names[grammar.rules[0].0]
   let neutral : Context = {

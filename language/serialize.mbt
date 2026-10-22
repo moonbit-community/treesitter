@@ -17,6 +17,7 @@ priv struct EncodedLanguage {
   extras : Array[Int32]
   word_token : Int32?
   supertypes : Array[Int32]?
+  externals : Array[Int32]?
 } derive(ToJson, @json.FromJson)
 
 ///|
@@ -32,6 +33,7 @@ pub impl ToJson for Language with fn to_json(self) {
     extras: self.extras,
     word_token: self.word_token,
     supertypes: Some(self.supertypes),
+    externals: Some(self.externals),
     states: self.states.map(s => {
       let actions = s.actions.iter().to_array()
       actions.sort_by_key(p => p.0)
@@ -92,6 +94,7 @@ pub fn Language::from_json(value : Json) -> Language raise {
     decoded.extras,
     word_token?=decoded.word_token,
     supertypes=decoded.supertypes.unwrap_or([]),
+    externals=decoded.externals.unwrap_or([]),
   )
 }
 

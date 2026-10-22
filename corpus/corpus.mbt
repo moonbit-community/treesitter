@@ -118,8 +118,9 @@ pub fn normalize_sexp(source : String) -> String {
 pub fn run(
   language : @language.Language,
   cases : Array[Case],
+  scanner? : @ts.ExternalScanner,
 ) -> Array[Result] raise {
-  let parser = @ts.Parser::new(language)
+  let parser = @ts.Parser::new(language, scanner?)
   cases.map(case => {
     if case.skip {
       return {

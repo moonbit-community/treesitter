@@ -6,6 +6,8 @@ priv struct NodeData {
   origin_end : Int32
   dynamic_score : Int32
   supertypes : Array[String]
+  scan_before : Bytes
+  scan_after : Bytes
   symbol : Int32
   kind : String
   named : Bool
