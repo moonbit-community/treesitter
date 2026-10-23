@@ -48,6 +48,27 @@ with concrete evidence and remaining compatibility gaps.
       differential tests against the reference (development only), fuzz/edits,
       cross-target tests, representative benchmarks and user documentation.
 
+## Current release gate
+
+The latest checkpoint passes 356 native, 347 JavaScript and 347 Wasm GC tests,
+CLI integration checks, and the six pinned public grammar audits. Focused Codex
+CLI ultra reviews of the recent query changes are complete and their findings
+are fixed. This is not the final whole-port review.
+
+Remaining work includes query rooted/nonlocal/guaranteed-step analysis, query
+completion and range compatibility, runtime recovery and changed-range
+differences, remaining diagnostic/CLI features, and the full compatibility and
+performance inventory. The last runtime differential probe had 79 tree-output
+and 50 changed-range differences, with no fresh/incremental disagreement.
+The release criterion for exact C edge-case behavior versus documented differences
+has been raised with the user; continue exact compatibility as the working plan.
+
+After completion: run the final whole-port Codex CLI ultra review and fix its
+findings, apply the `moonbit-community/treesitter` namespace, create the community
+repository, verify hosted CI and the publish workflow, publish to Mooncakes,
+and verify installation and mbtx execution from the registry. None of the
+repository creation or publishing steps has happened yet.
+
 ## Architecture
 
 Public packages own their types: `grammar`, `language`, `generate`, runtime
