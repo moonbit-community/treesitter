@@ -6,9 +6,11 @@ fn match_root_run(
   parent : @ts.Node,
   index : Int32,
   budget : Budget,
+  node_in_range~ : Bool = true,
 ) -> Array[(Array[Capture], Int32)] raise QueryError {
   let result = []
-  for first in match_root_at(pattern, parent, index, budget) {
+  let entry = root_entry_pattern(pattern, include_rooted=node_in_range)
+  for first in match_at(entry, parent, index, budget) {
     if first.1 <= index {
       continue
     }
@@ -51,10 +53,27 @@ fn root_is_group(pattern : Pattern) -> Bool {
 ///|
 // Root alternatives enter through the pattern map in reverse source order;
 // subsequent alternatives inside an active match retain source order.
-fn root_entry_pattern(pattern : Pattern) -> Pattern {
+fn root_entry_pattern(
+  pattern : Pattern,
+  include_rooted~ : Bool = true,
+) -> Pattern {
   match pattern {
-    Capture(inner, name) => Capture(root_entry_pattern(inner), name)
-    Either(items) => Either(items.rev())
+    Capture(inner, name) =>
+      Capture(root_entry_pattern(inner, include_rooted~), name)
+    Either(items) =>
+      if include_rooted {
+        Either(items.rev())
+      } else {
+        // Every branch except the final one ends at an alternation jump.
+        // Upstream marks those entry points as rooted even when the enclosing
+        // pattern repeats. Only the final branch can start outside the range.
+        Either(
+          items
+          .last()
+          .map(p => [root_entry_pattern(p, include_rooted=false)])
+          .unwrap_or([]),
+        )
+      }
     _ => pattern
   }
 }

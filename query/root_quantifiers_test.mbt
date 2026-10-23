@@ -389,3 +389,41 @@ test "empty execution root preserves upstream optional paths" {
     ),
   )
 }
+
+///|
+test "ranged repeated alternatives distinguish rooted entry branches" {
+  // Frozen from the upstream C query cursor. A nonfinal alternative is rooted
+  // even inside a repetition; its continuation can still match out of range.
+  inspect(
+    root_query_output(
+      "1 2 true 3 4",
+      "[(number) @a (number) @b]+ _ @v",
+      start=3,
+      end=5,
+    ),
+    content=(
+      #|1 v:0..12
+      #|0 b:0..1 a:2..3
+      #|0 b:0..1 b:2..3
+      #|1 v:4..8
+      #|0 b:9..10 a:11..12
+      #|0 b:9..10 b:11..12
+    ),
+  )
+  inspect(
+    root_query_output(
+      "[1,2,true,3,4]",
+      "[(number) (true)]+ @root _ @v",
+      start=3,
+      end=5,
+    ),
+    content=(
+      #|1 v:0..14
+      #|1 v:0..14
+      #|1 v:3..4
+      #|0 root:3..4
+      #|1 v:4..5
+      #|0 root:5..9
+    ),
+  )
+}

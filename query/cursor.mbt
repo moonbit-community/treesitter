@@ -191,6 +191,7 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
               parent,
               index,
               self.budget,
+              node_in_range~,
             )
             for (_, after) in runs {
               self.root_runs[key] = Int32::max(

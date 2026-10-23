@@ -914,3 +914,14 @@ extends that range. Tree edits validate all point components and calculate
 fallible range updates before mutating the tree. Tests cover multiline suffixes,
 covered ranges, boundary insertion, unbounded ends, invalid coordinates and
 overflow. All 313 native / 305 JS / 305 Wasm GC tests pass without warnings.
+
+### Query alternative range-entry checkpoint
+
+Repeated alternatives now apply upstream's entry-specific rootedness: branches
+ending at an alternation jump require the current node to intersect the cursor
+range, while the final branch may start when its parent intersects. Once a
+match starts, all continuation alternatives remain available. Two frozen C
+outputs cover distinct and duplicate alternatives; 47 native query tests pass.
+The expanded 300-case differential improves from 31 to 15 mismatches. Remaining
+cases concern optional empty matches and hidden repetition traversal; the full
+query compatibility milestone remains open.
