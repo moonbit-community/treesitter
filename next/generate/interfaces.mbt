@@ -177,32 +177,3 @@ declare pub fn build_tables(
   optimizations : OptLevel,
   diagnostics : Array[Diagnostic],
 ) -> Tables raise
-
-///|
-/// `render::render_c_code`: the exact `parser.c` text.
-declare pub fn render_c_code(
-  name : StrId,
-  tables : Tables,
-  syntax_grammar : SyntaxGrammar,
-  lexical_grammar : LexicalGrammar,
-  default_aliases : AliasMap,
-  str_pool : StrPool,
-  abi_version : Int,
-  semantic_version : (Int, Int, Int)?,
-  supertype_symbol_map : @sorted_map.SortedMap[Symbol, Array[ChildType]],
-) -> String raise
-
-///|
-/// The portable equivalent of `render_c_code`: the same tables as a
-/// `@language.Language` value instead of C source.
-declare pub fn render_language(
-  name : StrId,
-  tables : Tables,
-  syntax_grammar : SyntaxGrammar,
-  lexical_grammar : LexicalGrammar,
-  default_aliases : AliasMap,
-  str_pool : StrPool,
-  abi_version : Int,
-  semantic_version : (Int, Int, Int)?,
-  supertype_symbol_map : @sorted_map.SortedMap[Symbol, Array[ChildType]],
-) -> @language.Language raise

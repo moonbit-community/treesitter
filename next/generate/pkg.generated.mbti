@@ -8,6 +8,10 @@ import {
 }
 
 // Values
+pub let abi_version_max : Int32
+
+pub let abi_version_min : Int32
+
 pub fn build_tables(SyntaxGrammar, LexicalGrammar, @sorted_map.SortedMap[Symbol, Alias], Array[VariableInfo], InlinedProductionMap, StrPool, String?, OptLevel, Array[Diagnostic]) -> Tables raise
 
 pub let char_set_end : Int32
@@ -55,6 +59,11 @@ pub let symbol_end : Symbol
 pub let symbol_end_of_nonterminal_extra : Symbol
 
 // Errors
+pub suberror RenderError {
+  ParseTable(Int32)
+  ABI(Int32)
+} derive(Eq, @debug.Debug)
+pub impl Show for RenderError
 
 // Types and methods
 pub(all) struct ActionListId {
