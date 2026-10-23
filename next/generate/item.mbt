@@ -515,7 +515,26 @@ fn ParseItem::step(
   self : ParseItem,
   grammar : SyntaxGrammar,
 ) -> ProductionStep? {
-  self.production(grammar).steps.get(self.step_index)
+  self.step_at(grammar, self.step_index)
+}
+
+///|
+/// `production(grammar).steps.get(index)` without building a `ProdRef`.
+fn ParseItem::step_at(
+  self : ParseItem,
+  grammar : SyntaxGrammar,
+  index : Int,
+) -> ProductionStep? {
+  if self.prod_id == start_production_id {
+    start_steps.get(index)
+  } else {
+    let production = grammar.productions[self.prod_id]
+    if index >= 0 && index < production.steps_len {
+      Some(grammar.steps[production.steps_start + index])
+    } else {
+      None
+    }
+  }
 }
 
 ///|
@@ -554,7 +573,7 @@ fn ParseItem::prev_step(
   grammar : SyntaxGrammar,
 ) -> ProductionStep? {
   if self.step_index > 0 {
-    Some(self.production(grammar).steps[self.step_index - 1])
+    self.step_at(grammar, self.step_index - 1)
   } else {
     None
   }
