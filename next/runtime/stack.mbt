@@ -8,6 +8,9 @@ let max_link_count : Int32 = 8
 let max_iterator_count : Int32 = 64
 
 ///|
+let max_node_pool_size : Int32 = 50
+
+///|
 pub type StackVersion = Int32
 
 ///|
@@ -38,7 +41,7 @@ priv struct StackLink {
 
 ///|
 priv struct StackNode {
-  state : Int32
+  mut state : Int32
   mut position : Length
   /// `links[0..link_count]`; a node rarely gains links after creation, so
   /// the array is replaced rather than grown.
@@ -48,7 +51,7 @@ priv struct StackNode {
   mut node_count : UInt32
   mut dynamic_precedence : Int32
   /// Stands in for the node's address in dot graphs.
-  id : Int32
+  mut id : Int32
 }
 
 ///|
@@ -92,6 +95,9 @@ pub struct Stack {
   priv mut slices : Array[StackSlice]
   priv iterators : Array[StackIterator]
   priv base_node : StackNode
+  /// Released nodes kept for reuse (`node_pool`), at most
+  /// `max_node_pool_size`.
+  priv node_pool : Array[StackNode]
   priv mut next_node_id : Int32
 }
 
@@ -112,7 +118,7 @@ fn stack_node_retain(node : StackNode?) -> Unit {
 }
 
 ///|
-fn stack_node_release(node : StackNode) -> Unit {
+fn stack_node_release(node : StackNode, pool : Array[StackNode]) -> Unit {
   let mut current = node
   for ;; {
     current.ref_count -= 1
@@ -126,13 +132,16 @@ fn stack_node_release(node : StackNode) -> Unit {
         if !link.subtree.is_null() {
           link.subtree.release()
         }
-        stack_node_release(link.node)
+        stack_node_release(link.node, pool)
       }
       let link = current.links[0]
       if !link.subtree.is_null() {
         link.subtree.release()
       }
       first_predecessor = Some(current.links[0].node)
+    }
+    if pool.length() < max_node_pool_size {
+      pool.push(current)
     }
     match first_predecessor {
       Some(predecessor) => current = predecessor
@@ -168,18 +177,39 @@ fn Stack::node_new(
 ) -> StackNode {
   let id = self.next_node_id
   self.next_node_id += 1
-  let node : StackNode = {
-    state,
-    position: length_zero(),
-    links: match previous_node {
-      Some(previous) => [{ node: previous, subtree, is_pending }]
-      None => []
-    },
-    ref_count: 1,
-    error_cost: 0,
-    node_count: 0,
-    dynamic_precedence: 0,
-    id,
+  let node = match self.node_pool.pop() {
+    Some(node) => {
+      node.state = state
+      node.position = length_zero()
+      match previous_node {
+        Some(previous) =>
+          if node.links.length() == 1 {
+            node.links[0] = { node: previous, subtree, is_pending }
+          } else {
+            node.links = [{ node: previous, subtree, is_pending }]
+          }
+        None => node.links = []
+      }
+      node.ref_count = 1
+      node.error_cost = 0
+      node.node_count = 0
+      node.dynamic_precedence = 0
+      node.id = id
+      node
+    }
+    None => {
+      state,
+      position: length_zero(),
+      links: match previous_node {
+        Some(previous) => [{ node: previous, subtree, is_pending }]
+        None => []
+      },
+      ref_count: 1,
+      error_cost: 0,
+      node_count: 0,
+      dynamic_precedence: 0,
+      id,
+    }
   }
   if previous_node is Some(previous) {
     node.position = previous.position
@@ -288,14 +318,14 @@ fn stack_node_add_link(target : StackNode, link : StackLink) -> Unit {
 }
 
 ///|
-fn stack_head_delete(head : StackHead) -> Unit {
+fn stack_head_delete(head : StackHead, pool : Array[StackNode]) -> Unit {
   if !head.last_external_token.is_null() {
     head.last_external_token.release()
   }
   if !head.lookahead_when_paused.is_null() {
     head.lookahead_when_paused.release()
   }
-  stack_node_release(head.node)
+  stack_node_release(head.node, pool)
 }
 
 ///|
@@ -433,6 +463,7 @@ pub fn Stack::new() -> Stack {
     heads: [],
     slices: [],
     iterators: [],
+    node_pool: [],
     base_node: {
       state: 1,
       position: length_zero(),
@@ -693,7 +724,7 @@ pub fn Stack::has_advanced_since_error(self : Stack, version : Int32) -> Bool {
 
 ///|
 pub fn Stack::remove_version(self : Stack, version : Int32) -> Unit {
-  stack_head_delete(self.heads[version])
+  stack_head_delete(self.heads[version], self.node_pool)
   ignore(self.heads.remove(version))
 }
 
@@ -708,7 +739,7 @@ pub fn Stack::renumber_version(self : Stack, v1 : Int32, v2 : Int32) -> Unit {
     source_head.summary = target_head.summary
     target_head.summary = None
   }
-  stack_head_delete(target_head)
+  stack_head_delete(target_head, self.node_pool)
   // `*target_head = *source_head` followed by erasing `v1`: the source head
   // record is moved rather than copied, since nothing else refers to it.
   self.heads[v2] = source_head
@@ -808,7 +839,7 @@ pub fn Stack::resume(self : Stack, version : Int32) -> Subtree {
 pub fn Stack::clear(self : Stack) -> Unit {
   stack_node_retain(Some(self.base_node))
   for head in self.heads {
-    stack_head_delete(head)
+    stack_head_delete(head, self.node_pool)
   }
   self.heads.clear()
   self.heads.push({
