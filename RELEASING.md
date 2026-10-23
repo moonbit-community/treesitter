@@ -7,7 +7,8 @@ the remaining porting work.
 ## Validate a release
 
 1. Update `moon.mod` and the versioned dependencies generated in
-   `loader/loader.mbt` together. Update installation examples and compatibility
+   `loader/loader.mbt` and the CLI version in `cli/cli.mbt` together.
+   Update installation examples and compatibility
    notes for the new version.
 2. Run `sh tools/check.sh`, `moon info`, `moon info --target native`, and
    `python3 tools/audit_grammars.py --fetch`. Review generated interface changes.
@@ -41,6 +42,9 @@ a successful publish for an already published version.
 ## Verify the registry artifact
 
 From a fresh directory outside this checkout, with `TREESITTER_MBT_ROOT` unset:
+
+The publish workflow runs `python3 tools/check_registry.py VERSION` to automate
+the checks below. This can also be run locally after publication.
 
 1. Create a MoonBit project and add `moonbit-community/treesitter@VERSION`.
    Import the runtime, compile a small grammar, and parse sample text.
