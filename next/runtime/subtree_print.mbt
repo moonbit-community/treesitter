@@ -232,9 +232,9 @@ fn write_dot_node(
 ///|
 priv struct DotGraphFrame {
   subtree : Subtree
-  id : Int
+  id : Int32
   // The id of the child written last (C prints its address).
-  mut last_child_id : Int
+  mut last_child_id : Int32
   mut child_index : Int32
   mut child_start_offset : UInt32
   mut child_info_offset : Int32
