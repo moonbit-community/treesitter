@@ -411,7 +411,7 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
     if !self.captures.contains(name) {
       self.captures.push(name)
     }
-    pattern = Capture(pattern, name)
+    pattern = capture_entries(pattern, name)
   }
   pattern
 }
@@ -552,7 +552,7 @@ fn Reader::child(
     if !self.captures.contains(name) {
       self.captures.push(name)
     }
-    pattern = Capture(pattern, name)
+    pattern = capture_entries(pattern, name)
   }
   { start_byte, pattern, field, anchor, min, max, }
 }

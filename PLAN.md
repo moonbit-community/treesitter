@@ -1104,3 +1104,15 @@ full six-grammar public matrix pass. Against the current 83-difference baseline,
 the edit probe fixes four tree outputs and one range with no regressions: 79 tree
 outputs and 50 changed-range cases remain different; fresh/incremental trees agree
 in every case and no parser call fails.
+
+### Captures on sibling groups and alternatives
+
+Captures following a group now attach to its concrete entry steps, including
+repeated entries and successors of nullable prefixes. Alternation distributes
+captures across its branches instead of capturing an enclosing parent node.
+Frozen C cases cover root groups, mixed alternatives, repeated and optional
+prefixes, nested nullability and multiple captures. All 58 query tests pass on
+native, JS and Wasm GC. A new 196-case differential probe improves from 87 to 27
+differences (60 fixes, no regressions); existing 1,224 unbounded query comparisons
+remain exact, while the 15 known ranged cases remain unchanged. Quantified
+alternative syntax and some nested/group completion behaviors remain open.
