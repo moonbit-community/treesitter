@@ -110,6 +110,9 @@ fn Parser::logging(self : Parser) -> Bool {
 ///|
 /// `LOG(...)` followed by `ts_parser__log`.
 fn Parser::log(self : Parser, message : String) -> Unit {
+  if self.logging() {
+    self.lexer.write_debug_buffer(message)
+  }
   // The C debug buffer holds at most 1023 characters.
   let message = truncate_debug_message(message)
   if self.lexer.logger is Some(log) {
@@ -1942,8 +1945,9 @@ fn Parser::has_outstanding_parse(self : Parser) -> Bool {
 ///|
 /// `ts_parser_new`.
 pub fn Parser::new() -> Parser {
+  let lexer = Lexer::new()
   let self : Parser = {
-    lexer: Lexer::new(),
+    lexer,
     stack: Stack::new(),
     language: None,
     scanner_factory: None,
@@ -1954,9 +1958,8 @@ pub fn Parser::new() -> Parser {
     token_cache: { token: Null, last_external_token: Null, byte_index: 0, },
     reusable_node: ReusableNode::new(),
     external_scanner_payload: None,
-    scanner_buffer: FixedArray::make(
-      @language.tree_sitter_serialization_buffer_size, 0,
-    ),
+    // C serializes external scanner state into `self->lexer.debug_buffer`.
+    scanner_buffer: lexer.debug_buffer,
     dot_graph_file: None,
     accept_count: 0,
     operation_count: 0,

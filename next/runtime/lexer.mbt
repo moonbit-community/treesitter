@@ -38,6 +38,25 @@ pub(all) struct Lexer {
   priv mut lookahead_size : UInt32
   priv mut did_get_column : Bool
   priv column_data : ColumnData
+  /// `debug_buffer`: every log message is formatted into it, and the parser
+  /// also passes it to the external scanner's `serialize`.
+  priv debug_buffer : FixedArray[Byte]
+}
+
+///|
+/// The effect of `snprintf(self->debug_buffer, 1024, ...)` producing
+/// `message`: its UTF-8 bytes, truncated to 1023, followed by a NUL.
+fn Lexer::write_debug_buffer(self : Lexer, message : String) -> Unit {
+  let bytes = @utf8.encode(message)
+  let n = if bytes.length() < self.debug_buffer.length() {
+    bytes.length()
+  } else {
+    self.debug_buffer.length() - 1
+  }
+  for i in 0..<n {
+    self.debug_buffer[i] = bytes[i]
+  }
+  self.debug_buffer[n] = 0
 }
 
 ///|
@@ -48,6 +67,7 @@ fn Lexer::log_char(self : Lexer, message : String, character : Int32) -> Unit {
     } else {
       "\{message} character:\{character}"
     }
+    self.write_debug_buffer(text)
     log(Lex, text)
   }
 }
@@ -393,6 +413,7 @@ pub fn Lexer::is_at_included_range_start(self : Lexer) -> Bool {
 /// `TSLexer.log`.
 pub fn Lexer::log(self : Lexer, message : String) -> Unit {
   if self.logger is Some(log) {
+    self.write_debug_buffer(message)
     // Upstream formats into a 1024-byte buffer.
     let bytes = @utf8.encode(message)
     let message = if bytes.length() <= 1023 {
@@ -423,6 +444,9 @@ pub fn Lexer::new() -> Lexer {
     lookahead_size: 0,
     did_get_column: false,
     column_data: { value: 0, valid: false, },
+    debug_buffer: FixedArray::make(
+      @language.tree_sitter_serialization_buffer_size, 0,
+    ),
   }
   ignore(self.set_included_ranges([]))
   self
