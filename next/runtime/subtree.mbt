@@ -925,15 +925,21 @@ pub fn Subtree::retain(self : Subtree) -> Unit {
 }
 
 ///|
+/// `pool->tree_stack` of `ts_subtree_release`: scratch space that is always
+/// empty between calls.
+let release_stack : Array[SubtreeHeapData] = []
+
+///|
 /// `ts_subtree_release`. Memory is reclaimed by the GC; the counts are kept
 /// so that `make_mut` and `compress` copy exactly when upstream does.
 pub fn Subtree::release(self : Subtree) -> Unit {
   guard self is Heap(d) else { return }
-  let stack : Array[SubtreeHeapData] = []
   d.ref_count -= 1
-  if d.ref_count == 0 {
-    stack.push(d)
+  if d.ref_count != 0 {
+    return
   }
+  let stack = release_stack
+  stack.push(d)
   while stack.pop() is Some(tree) {
     for child in tree.children {
       if child is Heap(c) {
