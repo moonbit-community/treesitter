@@ -9,7 +9,7 @@
 set -eu
 cd "$(dirname "$0")/../.."
 COMMIT=4a412a01a0147d0f50bf7e749572fa632d1ab203
-UPSTREAM=${UPSTREAM:-$PWD/.repos/ts-pinned}
+UPSTREAM=${UPSTREAM:-$(git rev-parse --path-format=absolute --git-common-dir)/../.repos/ts-pinned}
 CARGO=${CARGO:-cargo}
 
 if [ ! -d "$UPSTREAM/.git" ] && [ ! -f "$UPSTREAM/.git" ]; then
