@@ -183,6 +183,8 @@ budget or provide a cancellation callback.
 Queries include groups, quantifiers, ordered capture cursors, structural validation,
 text/property predicates, and cancellation. Highlighting supports locals and nested
 injections; tags support documentation and scope-aware name classification.
+Tag generation requires a UTF-8 tree; UTF-16/custom-encoded trees raise
+`UnsupportedEncoding` rather than returning incorrect line and column metadata.
 
 The pinned fixture suite, 229 frozen JSON changed-range edits, and 123 edited
 old-tree span cases pass. The public grammar matrix uses pinned revisions and

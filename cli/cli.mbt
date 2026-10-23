@@ -42,6 +42,7 @@ fn describe(error : Error) -> String {
     @ts.NoParse(offset) => "unable to recover a parse at byte \{offset}"
     @ts.Cancelled | @query.Cancelled => "cancelled"
     @query.MatchLimit => "query match/work limit exceeded"
+    @tags.UnsupportedEncoding => "tag generation requires a UTF-8 tree"
     _ => "\{error}"
   }
 }

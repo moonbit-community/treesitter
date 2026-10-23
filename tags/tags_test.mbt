@@ -52,6 +52,38 @@ test "tag columns distinguish UTF-8 bytes from UTF-16 units on multiple lines" {
 }
 
 ///|
+test "tag metadata rejects non-UTF-8 input instead of returning invalid columns" {
+  let language = @generate.generate(
+    @grammar.Grammar::new("numbers", [
+      ("document", Seq([Literal("["), Symbol("number"), Literal("]")])),
+      ("number", @grammar.pattern("[0-9]+")),
+    ]),
+  )
+  let config = @tags.Configuration::new(
+    language, "(number) @name @definition.number",
+  )
+  let parser = @ts.Parser::new(language)
+  let cases : Array[(Bytes, @ts.InputEncoding)] = [
+    (b"[\x001\x00]\x00", Utf16LE),
+    (b"\x00[\x001\x00]", Utf16BE),
+    (b"[1]", Custom(@ts.InputDecoder::new(input => (input[0].to_int(), 1)))),
+  ]
+  for (source, encoding) in cases {
+    let tree = parser.parse_encoded(source, encoding)
+    assert_false(tree.root_node().has_error())
+    try config.generate(tree) catch {
+      @tags.UnsupportedEncoding => ()
+      error => fail("unexpected tag error: \{error}")
+    } noraise {
+      _ => fail("expected unsupported encoding")
+    }
+  }
+  let tags = config.generate(parser.parse_string("[1]"))
+  assert_eq(tags[0].utf16_column_range, (1, 2))
+  assert_eq(tags[0].line_range, (0, 3))
+}
+
+///|
 test "documentation groups strip prefixes and select adjacent comments" {
   let language = @generate.generate(
     @grammar.Grammar::new(

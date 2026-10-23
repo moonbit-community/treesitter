@@ -4,7 +4,6 @@ package "moonbit-community/treesitter/tags"
 import {
   "moonbit-community/treesitter",
   "moonbit-community/treesitter/language",
-  "moonbit-community/treesitter/query",
 }
 
 // Values
@@ -12,6 +11,7 @@ import {
 // Errors
 pub suberror TagsError {
   InvalidCapture(String)
+  UnsupportedEncoding
 }
 
 // Types and methods
@@ -19,7 +19,7 @@ pub struct Configuration {
   language : @language.Language
   // private fields
 }
-pub fn Configuration::generate(Self, @treesitter.Tree, cancelled? : () -> Bool) -> Array[Tag] raise @query.QueryError
+pub fn Configuration::generate(Self, @treesitter.Tree, cancelled? : () -> Bool) -> Array[Tag] raise
 pub fn Configuration::new(@language.Language, String, locals? : String) -> Self raise
 
 pub(all) struct Tag {

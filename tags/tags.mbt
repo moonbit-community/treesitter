@@ -1,6 +1,7 @@
 ///|
 pub suberror TagsError {
   InvalidCapture(String)
+  UnsupportedEncoding
 }
 
 ///|
@@ -49,11 +50,16 @@ pub fn Configuration::new(
 ///|
 /// Extract definitions and references from @definition.*, @reference.*,
 /// @name and optional @doc captures. Ranges use UTF-8 byte coordinates.
+/// Non-UTF-8 trees raise `UnsupportedEncoding` because line metadata follows
+/// the upstream UTF-8 tagger contract.
 pub fn Configuration::generate(
   self : Configuration,
   tree : @ts.Tree,
   cancelled~ : () -> Bool = () => false,
-) -> Array[Tag] raise @query.QueryError {
+) -> Array[Tag] raise {
+  if tree.encoding() != @ts.Utf8 {
+    raise UnsupportedEncoding
+  }
   let locals = @query.Locals::new(self.locals, tree)
   // General predicates are consumer metadata, as in the upstream tagger.
   // Documentation directives are interpreted by Match.texts below.
@@ -79,7 +85,7 @@ pub fn Configuration::generate(
   let tags = []
   for matched in matches {
     if cancelled() {
-      raise Cancelled
+      raise @query.Cancelled
     }
     for capture in matched.captures {
       let definition = capture.name.has_prefix("definition.")
