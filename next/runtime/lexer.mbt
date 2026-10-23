@@ -289,10 +289,12 @@ fn Lexer::do_advance(self : Lexer, skip : Bool) -> Unit {
 /// retrieving a new chunk of source code if needed.
 pub fn Lexer::advance(self : Lexer, skip : Bool) -> Unit {
   guard self.chunk is Some(chunk) else { return }
-  if skip {
-    self.log_char("skip", self.lookahead)
-  } else {
-    self.log_char("consume", self.lookahead)
+  if self.logger is Some(_) {
+    if skip {
+      self.log_char("skip", self.lookahead)
+    } else {
+      self.log_char("consume", self.lookahead)
+    }
   }
   let next_position = self.current_position.bytes + 1
   let current_range_end = self.included_ranges[self.current_included_range_index].end_byte
