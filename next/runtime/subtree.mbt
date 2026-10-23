@@ -13,6 +13,7 @@ let ts_tree_state_none : Int32 = 65535
 let ts_max_inline_tree_length : UInt32 = 255
 
 ///|
+#valtype
 pub(all) struct SubtreeInlineData {
   visible : Bool
   named : Bool

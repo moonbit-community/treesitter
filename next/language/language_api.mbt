@@ -12,6 +12,7 @@ pub let language_version_with_primary_states : Int32 = 14
 ///|
 /// `TableEntry`: the actions for a state/symbol pair are
 /// `parse_actions[actions_start:actions_start + action_count]`.
+#valtype
 pub(all) struct TableEntry {
   actions_start : Int32
   action_count : Int32

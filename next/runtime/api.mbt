@@ -33,6 +33,7 @@ pub(all) struct Input {
 
 ///|
 /// `TSParseState`: what a progress callback can observe.
+#valtype
 pub(all) struct ParseState {
   current_byte_offset : UInt32
   has_error : Bool

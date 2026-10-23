@@ -2,6 +2,7 @@
 
 ///|
 /// `TSPoint`. Rows and columns are unsigned 32-bit values, as in C.
+#valtype
 pub(all) struct Point {
   row : UInt32
   column : UInt32
@@ -64,6 +65,7 @@ pub fn point_eq(a : Point, b : Point) -> Bool {
 }
 
 ///|
+#valtype
 pub(all) struct Length {
   bytes : UInt32
   extent : Point
