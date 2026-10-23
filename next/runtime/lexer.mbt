@@ -20,7 +20,7 @@ let default_range : Range = {
 ///|
 /// The lexer state. Its public methods form the `TSLexer` interface used by
 /// lex functions and external scanners.
-pub struct Lexer {
+pub(all) struct Lexer {
   /// `TSLexer.lookahead`.
   mut lookahead : Int32
   /// `TSLexer.result_symbol`.
