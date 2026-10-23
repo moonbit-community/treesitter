@@ -21,7 +21,38 @@ priv struct AuxiliarySymbolContexts {
   /// Each parent set's `(start, len)` slice of `parent_symbols`, by parent set id.
   parent_sets : Array[(Int32, Int32)]
   /// Parent set ids of every distinct parent set.
-  parent_set_ids : Map[Array[Symbol], Int32]
+  parent_set_ids : Map[SymbolListKey, Int32]
+}
+
+///|
+/// A list of symbols as a map key, hashed without `Hasher`'s allocation.
+priv struct SymbolListKey(Array[Symbol])
+
+///|
+impl Eq for SymbolListKey with fn equal(self, other) {
+  self.0 == other.0
+}
+
+///|
+impl Hash for SymbolListKey with fn hash_combine(self, hasher) {
+  hasher.combine_int(Hash::hash(self))
+}
+
+///|
+impl Hash for SymbolListKey with fn hash(self) {
+  let mut acc = hash_mix(HASH_SEED, self.0.length())
+  for symbol in self.0 {
+    acc = hash_mix(acc, symbol.code())
+  }
+  hash_finish(acc)
+}
+
+///|
+/// An auxiliary use: an auxiliary symbol's index in the upper half, and the index of
+/// the rule using it in the lower half, so that uses sort like `(symbol, parent)`
+/// pairs.
+fn auxiliary_use(symbol : Int32, parent : Int32) -> Int64 {
+  (symbol.to_int64() << 32) | parent.to_int64()
 }
 
 ///|
@@ -52,7 +83,7 @@ fn AuxiliarySymbolContexts::push(
   self : AuxiliarySymbolContexts,
   grammar : SyntaxGrammar,
   predecessor : Int32?,
-  uses : Array[(Int32, Int32)],
+  uses : Array[Int64],
 ) -> Int32? {
   if uses.is_empty() {
     return predecessor
@@ -64,18 +95,19 @@ fn AuxiliarySymbolContexts::push(
   let mut group_start = 0
   while group_start < uses.length() {
     let mut group_end = group_start + 1
-    while group_end < uses.length() && uses[group_end].0 == uses[group_start].0 {
+    let symbol = (uses[group_start] >> 32).to_int()
+    while group_end < uses.length() &&
+          (uses[group_end] >> 32).to_int() == symbol {
       group_end += 1
     }
     parents.clear()
     for i in group_start..<group_end {
-      let parent = uses[i].1
+      let parent = uses[i].to_int()
       if !grammar.variables[parent].is_auxiliary() {
         parents.push(Symbol::non_terminal(parent))
       }
     }
     let parent_set = self.intern(parents)
-    let symbol = uses[group_start].0
     self.entries.push((symbol, parent_set))
     group_start = group_end
   }
@@ -113,7 +145,7 @@ fn AuxiliarySymbolContexts::intern(
   self : AuxiliarySymbolContexts,
   parents : Array[Symbol],
 ) -> Int32 {
-  match self.parent_set_ids.get(parents) {
+  match self.parent_set_ids.get(SymbolListKey(parents)) {
     Some(id) => id
     None => {
       let id = self.parent_sets.length()
@@ -121,7 +153,7 @@ fn AuxiliarySymbolContexts::intern(
       for symbol in parents {
         self.parent_symbols.push(symbol)
       }
-      self.parent_set_ids[parents.copy()] = id
+      self.parent_set_ids[SymbolListKey(parents.copy())] = id
       id
     }
   }
@@ -204,8 +236,11 @@ priv struct SuccessorSets {
   indexer : SymbolIndexer
   /// Each symbol's successor item set, by `SymbolIndexer::index`.
   sets : Array[ParseItemSet?]
-  /// The symbols that have a set in `sets`, in the order their sets were added.
-  symbols : Array[Symbol]
+  /// The symbol of each set in `sets`, by `SymbolIndexer::index`.
+  set_symbols : Array[Symbol?]
+  /// The positions of the symbols that have a set in `sets`, in the order their sets were
+  /// added.
+  symbols : Array[Int32]
   /// Empty item sets to build successors in, so that most successors don't allocate.
   pool : Array[ParseItemSet]
   /// Entries of discarded successor sets, to reuse.
@@ -217,6 +252,7 @@ fn SuccessorSets::new(indexer : SymbolIndexer) -> SuccessorSets {
   {
     indexer,
     sets: Array::make(indexer.symbol_count(), None),
+    set_symbols: Array::make(indexer.symbol_count(), None),
     symbols: [],
     pool: [],
     spare_entries: [],
@@ -233,7 +269,8 @@ fn SuccessorSets::item_set(
   match self.sets[index] {
     Some(set) => set
     None => {
-      self.symbols.push(symbol)
+      self.symbols.push(index)
+      self.set_symbols[index] = Some(symbol)
       let set = match self.pool.pop() {
         Some(set) => set
         None => ParseItemSet::new()
@@ -249,14 +286,13 @@ fn SuccessorSets::item_set(
 fn SuccessorSets::take_all(
   self : SuccessorSets,
 ) -> Array[(Symbol, ParseItemSet)] {
-  // Symbols are distinct, so the order is total.
+  // Symbols are distinct, so the order is total. Positions follow symbol order.
   self.symbols.sort()
-  let result = self.symbols.map(symbol => {
-    let index = self.indexer.index(symbol)
+  let result = self.symbols.map(index => {
     // INVARIANT: every symbol in `symbols` has a set
     let set = self.sets[index].unwrap()
     self.sets[index] = None
-    (symbol, set)
+    (self.set_symbols[index].unwrap(), set)
   })
   self.symbols.clear()
   result
@@ -889,7 +925,7 @@ fn ParseTableBuilder::add_actions(
   item_set : ParseItemSet,
 ) -> Unit raise ParseTableBuilderError {
   let lookaheads_with_conflicts = TokenSet::new()
-  let auxiliary_uses : Array[(Int32, Int32)] = []
+  let auxiliary_uses : Array[Int64] = []
 
   // Each item in the item set contributes to either or a Shift action or a Reduce
   // action in this state.
@@ -909,7 +945,7 @@ fn ParseTableBuilder::add_actions(
         // for conflict resolution.
         if variable.is_auxiliary() {
           let parent = item.variable_index
-          auxiliary_uses.push((non_terminal_index, parent))
+          auxiliary_uses.push(auxiliary_use(non_terminal_index, parent))
         }
 
         // For most parse items, the symbols associated with the preceding children

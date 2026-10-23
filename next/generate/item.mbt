@@ -44,11 +44,9 @@ fn start_production() -> ProdRef {
 priv struct DotKeys {
   mut cmp : Int32
   mut eq_with_syms : Int32
-}
-
-///|
-fn DotKeys::default() -> DotKeys {
-  { cmp: 0, eq_with_syms: 0, }
+  /// The production's step at the dot, if the dot isn't at the end. (Not a key:
+  /// cached here so that items find their steps without the grammar.)
+  step : ProductionStep?
 }
 
 ///|
@@ -84,7 +82,12 @@ fn ItemKeyMap::new(grammar : SyntaxGrammar, str_pool : StrPool) -> ItemKeyMap {
   // their order decides how `eq_with_syms` numbers their symbol classes below.
   rust_sort_unstable_by(contents, (a, b) => content(a).cmp(content(b)) < 0)
   let slot_keys : Array[FixedArray[DotKeys]] = Array::makei(slot_count, pi => {
-    FixedArray::makei(prod(pi).steps.length() + 1, _ => DotKeys::default())
+    let steps = prod(pi).steps
+    FixedArray::makei(steps.length() + 1, dot => {
+      cmp: 0,
+      eq_with_syms: 0,
+      step: steps.get(dot),
+    })
   })
   // Dense ids in sorted order: equal content shares an id, distinct content gets the next up
   let mut cmp_id = 0
@@ -577,18 +580,14 @@ fn ParseItem::step(
 /// `production(grammar).steps.get(index)` without building a `ProdRef`.
 fn ParseItem::step_at(
   self : ParseItem,
-  grammar : SyntaxGrammar,
-  index : Int,
+  _grammar : SyntaxGrammar,
+  index : Int32,
 ) -> ProductionStep? {
-  if self.prod_id == start_production_id {
-    start_steps.get(index)
+  // `keys` has an entry for every dot, and each holds the step at its dot.
+  if index >= 0 && index < self.keys.length() {
+    self.keys[index].step
   } else {
-    let production = grammar.productions[self.prod_id]
-    if index >= 0 && index < production.steps_len {
-      Some(grammar.steps[production.steps_start + index])
-    } else {
-      None
-    }
+    None
   }
 }
 
@@ -986,7 +985,7 @@ impl Hash for ParseItem with fn hash(self) {
 
 ///|
 /// Mixes what `hash_combine` combines into `acc`.
-fn ParseItem::hash_acc(self : ParseItem, acc : UInt) -> UInt {
+fn ParseItem::hash_acc(self : ParseItem, acc : UInt32) -> UInt32 {
   let acc = hash_mix(hash_mix(acc, self.variable_index), self.step_index)
   let keys = self.dot_keys()
   if self.has_preceding_inherited_fields {
