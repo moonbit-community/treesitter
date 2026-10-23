@@ -13,8 +13,8 @@ The reference is Tree-sitter 0.28.0 at commit
 
 ## Install
 
-The public source repository is available now. Mooncakes publication is pending
-credentials for the community namespace. After 0.1.0 is published, add the
+The public source repository is available now. Mooncakes publication is being
+validated through the release workflow. After 0.1.0 is published, add the
 library to a MoonBit project:
 
 ```sh

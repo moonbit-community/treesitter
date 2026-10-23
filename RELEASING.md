@@ -24,9 +24,11 @@ when a GitHub release is published, or can be dispatched with an existing tag.
 The tag must be exactly `v` plus the version in `moon.mod`, for example `v0.1.0`.
 Publish only a commit whose CI checks passed.
 
-Configure the repository Actions secret `MOONCAKES_TOKEN` with the complete
-Mooncakes credentials JSON for the `moonbit-community` account. Credentials for
-a different namespace are rejected by the registry. Do not commit credentials
+The workflow uses the existing organization Actions secret
+`MOONCAKES_MOONBIT_COMMUNITY_TOKEN`, with repository secret `MOONCAKES_TOKEN` as
+a fallback. The value must be the complete Mooncakes credentials JSON for the
+`moonbit-community` account. Credentials for a different namespace are rejected
+by the registry. Do not commit credentials
 or paste them into issues or logs. The workflow writes the secret to a temporary
 credentials file with restricted permissions and removes it after publication.
 

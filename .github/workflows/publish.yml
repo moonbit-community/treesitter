@@ -45,11 +45,11 @@ jobs:
         run: sh tools/check.sh
       - name: Publish
         env:
-          MOONCAKES_CREDENTIALS: ${{ secrets.MOONCAKES_TOKEN }}
+          MOONCAKES_CREDENTIALS: ${{ secrets.MOONCAKES_MOONBIT_COMMUNITY_TOKEN || secrets.MOONCAKES_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$MOONCAKES_CREDENTIALS" || { echo 'MOONCAKES_TOKEN repository secret is required'; exit 1; }
+          test -n "$MOONCAKES_CREDENTIALS" || { echo 'Mooncakes community credentials are required'; exit 1; }
           umask 077
           mkdir -p "$HOME/.moon"
           trap 'rm -f "$HOME/.moon/credentials.json"' EXIT
