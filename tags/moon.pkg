@@ -2,9 +2,14 @@ import {
   "bobzhang/treesitter" @ts,
   "bobzhang/treesitter/language",
   "bobzhang/treesitter/query",
+  "bobzhang/treesitter/lex",
 }
 
 import {
   "bobzhang/treesitter/grammar",
   "bobzhang/treesitter/generate",
 } for "test"
+
+import {
+  "moonbitlang/core/encoding/utf8",
+} for "wbtest"

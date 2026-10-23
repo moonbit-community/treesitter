@@ -10,6 +10,10 @@ pub(all) struct Tag {
   is_definition : Bool
   range : @ts.Range
   name_range : @ts.Range
+  /// Trimmed UTF-8 byte range of the name's line, capped at 180 bytes.
+  line_range : (Int32, Int32)
+  /// UTF-16 code unit columns of the name, measured from its line start.
+  utf16_column_range : (Int32, Int32)
   docs : String?
 }
 
@@ -99,6 +103,10 @@ pub fn Configuration::generate(
         }
         seen[key] = true
         let docs = matched.texts("doc", tree.source)
+        let start = name.node.start_byte()
+        let end = name.node.end_byte()
+        let line_start = start - name.node.start_position().column
+        let utf16_start = utf16_len(tree.source, line_start, start)
         tags.push(Tag::{
           name: name.node.text(tree.source),
           syntax_type,
@@ -121,6 +129,11 @@ pub fn Configuration::generate(
             },
           },
           name_range: name.node.range(),
+          line_range: line_range(tree.source, line_start, 180),
+          utf16_column_range: (
+            utf16_start,
+            utf16_start + utf16_len(tree.source, start, end),
+          ),
           docs: if docs.is_empty() {
             None
           } else {

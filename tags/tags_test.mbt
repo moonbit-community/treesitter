@@ -26,6 +26,29 @@ test "tags distinguish definitions and references with source ranges" {
   assert_eq(tags[0].syntax_type, "variable")
   assert_eq(tags[0].name_range.start_byte, 0)
   assert_eq(tags[0].range.end_byte, 4)
+  assert_eq(tags[0].line_range, (0, 9))
+  assert_eq(tags[0].utf16_column_range, (0, 1))
+}
+
+///|
+test "tag columns distinguish UTF-8 bytes from UTF-16 units on multiple lines" {
+  let language = @generate.generate(
+    @grammar.Grammar::new("unicode_tags", [
+      ("document", Seq([Literal("😀"), Repeat(Symbol("binding"))])),
+      ("binding", Seq([Symbol("identifier"), Literal(";")])),
+      ("identifier", @grammar.pattern("[a-z❤😀]+")),
+    ]),
+  )
+  let tree = @ts.Parser::new(language).parse_string("😀 a❤; b😀;\r\n\tc;")
+  assert_false(tree.root_node().has_error())
+  let config = @tags.Configuration::new(
+    language, "(binding (identifier) @name) @definition.variable",
+  )
+  let tags = config.generate(tree)
+  assert_eq(tags.map(t => t.name), ["a❤", "b😀", "c"])
+  assert_eq(tags.map(t => t.line_range), [(0, 17), (0, 17), (20, 22)])
+  assert_eq(tags.map(t => t.utf16_column_range), [(3, 5), (7, 10), (1, 2)])
+  assert_eq(tags.map(t => t.name_range.start_byte), [5, 11, 20])
 }
 
 ///|

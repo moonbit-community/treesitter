@@ -878,3 +878,10 @@ because state zero is valid in the portable tables. Tests cover extras, conflict
 action ordering, auxiliary cycles, invalid indices and language replacement.
 All eight generator tests pass on native, JS and Wasm GC; formatting and public
 API generation pass.
+
+Tags now expose the trimmed source-line byte range and UTF-16 name columns in
+both the library and CLI JSON. The line preview follows upstream's 180-byte
+limit and avoids splitting UTF-8 scalars. Frozen upstream line tests and Unicode
+integration cases cover indentation, CRLF, supplementary-plane characters and
+malformed/incomplete UTF-8 chunk handling. All seven tag tests pass on native,
+JS and Wasm GC; formatting and API generation pass.

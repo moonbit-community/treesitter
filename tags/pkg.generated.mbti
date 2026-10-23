@@ -28,6 +28,8 @@ pub(all) struct Tag {
   is_definition : Bool
   range : @treesitter.Range
   name_range : @treesitter.Range
+  line_range : (Int32, Int32)
+  utf16_column_range : (Int32, Int32)
   docs : String?
 }
 

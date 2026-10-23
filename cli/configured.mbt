@@ -70,6 +70,8 @@ fn print_tags(tags : Array[@tags.Tag]) -> Unit {
         "definition": Json(tag.is_definition),
         "range": Json(tag.range),
         "name_range": Json(tag.name_range),
+        "line_range": Json(tag.line_range),
+        "utf16_column_range": Json(tag.utf16_column_range),
         "docs": Json(tag.docs),
       }).stringify(),
     )
