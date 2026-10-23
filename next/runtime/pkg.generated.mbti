@@ -134,7 +134,7 @@ pub(all) struct Length {
   extent : Point
 } derive(Eq, Hash, @debug.Debug)
 
-pub struct Lexer {
+pub(all) struct Lexer {
   mut lookahead : Int32
   mut result_symbol : Int32
   // private fields
