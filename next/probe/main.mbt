@@ -120,6 +120,18 @@ async fn main {
         println("exceeded \{b(cursor.did_exceed_match_limit())}")
       }
     }
+    "bench" => {
+      let language = load_language(args[2])
+      let parser = new_parser(language)
+      let text = @fs.read_file(args[3]).binary()
+      let n = parse_uint(args[4]).reinterpret_as_int()
+      let start = @env.now()
+      for _ in 0..<n {
+        ignore(parser.parse_string(None, text))
+      }
+      let elapsed = @env.now() - start
+      println("\{n} parses in \{elapsed} ms (\{elapsed.to_double() / n.to_double()} ms/parse)")
+    }
     "walk" => {
       let language = load_language(args[2])
       let parser = new_parser(language)

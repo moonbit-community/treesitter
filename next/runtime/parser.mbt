@@ -2221,7 +2221,7 @@ pub fn Parser::parse_string_encoding(
       if byte >= length {
         b""
       } else {
-        string[byte.reinterpret_as_int():].to_owned()
+        string[byte.reinterpret_as_int():]
       }
     },
     encoding,

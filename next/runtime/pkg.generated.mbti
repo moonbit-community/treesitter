@@ -108,7 +108,7 @@ pub(all) struct ExternalScanner {
 }
 
 pub(all) struct Input {
-  read : (UInt32, Point) -> Bytes
+  read : (UInt32, Point) -> BytesView
   encoding : InputEncoding
   decode : ((BytesView) -> (UInt32, Int32))?
 }

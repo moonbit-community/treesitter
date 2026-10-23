@@ -26,7 +26,7 @@ pub(all) struct Range {
 /// `TSInput`. `read(byte_index, position)` returns the chunk of text starting
 /// at `byte_index`; an empty chunk signals the end of the input.
 pub(all) struct Input {
-  read : (UInt32, Point) -> Bytes
+  read : (UInt32, Point) -> BytesView
   encoding : InputEncoding
   decode : DecodeFunction?
 }

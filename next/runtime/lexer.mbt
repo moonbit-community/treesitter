@@ -29,7 +29,7 @@ pub(all) struct Lexer {
   priv mut token_start_position : Length
   priv mut token_end_position : Length
   priv mut included_ranges : Array[Range]
-  priv mut chunk : Bytes?
+  priv mut chunk : BytesView?
   priv mut input : Input
   priv mut logger : Logger?
   priv mut current_included_range_index : Int32
