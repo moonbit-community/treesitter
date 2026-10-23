@@ -1,0 +1,14 @@
+import {
+  "moonbit-community/treesitter/next/api",
+  "moonbit-community/treesitter/next/fixtures",
+  "moonbit-community/treesitter/next/highlight",
+  "moonbit-community/treesitter/next/query_testing",
+  "moonbit-community/treesitter/next/tags",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/core/encoding/utf8",
+} for "test"
+
+supported_targets = "+native"
+
+warnings = "-implicit_impl_as_method-reserved_keyword"

@@ -1,0 +1,12 @@
+import {
+  "moonbit-community/treesitter/next/api",
+  "moonbit-community/treesitter/next/regex",
+  "moonbitlang/async/fs",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
+}
+
+supported_targets = "+native"
+
+warnings = "-implicit_impl_as_method-reserved_keyword"

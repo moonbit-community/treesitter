@@ -252,6 +252,7 @@ def main():
         if len(act) < len(exp):
             print('  probe output truncated:', ''.join(act)[-500:])
     print(f'TOTAL {same}/{total}')
+    sys.exit(0 if same == total else 1)
 
 
 if __name__ == '__main__':

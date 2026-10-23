@@ -232,14 +232,17 @@ fn write_dot_node(
 ///|
 priv struct DotGraphFrame {
   subtree : Subtree
-  id : String
+  id : Int32
+  // The id of the child written last (C prints its address).
+  mut last_child_id : Int32
   mut child_index : Int32
   mut child_start_offset : UInt32
   mut child_info_offset : Int32
 }
 
 ///|
-/// `ts_subtree_print_dot_graph`. Node addresses are replaced by paths.
+/// `ts_subtree_print_dot_graph`. Node addresses are replaced by sequence
+/// numbers (paths would make the output quadratic in the tree depth).
 pub fn Subtree::print_dot_graph(
   self : Subtree,
   language : @language.Language,
@@ -248,10 +251,12 @@ pub fn Subtree::print_dot_graph(
   f.write_string("digraph tree {\n")
   f.write_string("edge [arrowhead=none]\n")
   write_dot_node(self, "0", 0, language, 0, f)
+  let mut next_id = 1
   let stack : Array[DotGraphFrame] = [
     {
       subtree: self,
-      id: "0",
+      id: 0,
+      last_child_id: 0,
       child_index: 0,
       child_start_offset: 0,
       child_info_offset: language.max_alias_sequence_length *
@@ -264,7 +269,7 @@ pub fn Subtree::print_dot_graph(
     let i = frame.child_index
     if i > 0 {
       f.write_string(
-        "tree_\{frame.id} -> tree_\{frame.id}_\{i - 1} [tooltip=\{i - 1}]\n",
+        "tree_\{frame.id} -> tree_\{frame.last_child_id} [tooltip=\{i - 1}]\n",
       )
     }
     if i == subtree.child_count() {
@@ -279,10 +284,12 @@ pub fn Subtree::print_dot_graph(
       )
       frame.child_info_offset += 1
     }
-    let child_id = "\{frame.id}_\{i}"
+    let child_id = next_id
+    next_id += 1
+    frame.last_child_id = child_id
     write_dot_node(
       child,
-      child_id,
+      child_id.to_string(),
       frame.child_start_offset,
       language,
       subtree_alias_symbol,
@@ -291,6 +298,7 @@ pub fn Subtree::print_dot_graph(
     let child_frame : DotGraphFrame = {
       subtree: child,
       id: child_id,
+      last_child_id: 0,
       child_index: 0,
       child_start_offset: frame.child_start_offset,
       child_info_offset: language.max_alias_sequence_length *
