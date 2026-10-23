@@ -1034,3 +1034,16 @@ empty expectations, CST rendering, upstream formatter examples, idempotence and
 directory-wide rejection. Full portable/CLI checks pass 334 native / 325 JS /
 325 Wasm GC tests without warnings. The full public matrix is being rerun after
 these changes and the preceding node-view APIs.
+
+### Immediate tokens in recovery lexing
+
+Recovery lexing now admits immediate tokens before a separator has been skipped,
+matching the generated C error lexer's entry state. It still suppresses them
+after leading whitespace. Frozen JSON cases cover complete escape tokens,
+partial-token EOF and invalid escape diagnostics. The 1,153-edit differential
+improves from 187 to 130 tree differences: 57 fixes and no tree regressions;
+two changed-range cases also improve with no range regressions. There remain
+46 range differences among the newly enlarged set of matching trees, and no
+fresh/incremental disagreements or parse failures. All 141 compatibility tests
+pass natively. The preceding runtime/CLI commits passed the full six-grammar
+matrix (462 corpora, 15 queries, 90 annotations, 2,772 edits, ten examples).

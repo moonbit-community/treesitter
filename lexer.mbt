@@ -215,7 +215,7 @@ fn Parser::lex(
     if best is None && offset < input.length() {
       if weighted {
         let candidates = self.language.tokens.filter(token => {
-          !token.immediate &&
+          !(skipped && token.immediate) &&
           self.language.recovery_tokens.contains(token.symbol)
         })
         let (found, stopped) = scan_weighted_tokens(
@@ -232,7 +232,7 @@ fn Parser::lex(
         )
       } else {
         for token in self.language.tokens {
-          if token.immediate ||
+          if (skipped && token.immediate) ||
             !self.language.recovery_tokens.contains(token.symbol) {
             continue
           }
@@ -297,7 +297,7 @@ fn Parser::lex(
         }
         let mut failure = offset
         for token in self.language.tokens {
-          if !token.immediate &&
+          if !(skipped && token.immediate) &&
             self.language.recovery_tokens.contains(token.symbol) {
             failure = Int32::max(
               failure,

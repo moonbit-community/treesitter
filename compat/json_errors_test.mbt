@@ -59,3 +59,43 @@ test "replacement spanning siblings shrinks deleted content after insertion" {
   assert_eq(ranges.length(), 1)
   assert_eq((ranges[0].start_byte, ranges[0].end_byte), (1, 3))
 }
+
+///|
+test "recovery recognizes immediate tokens before skipped whitespace" {
+  // Frozen from the pinned C runtime and JSON grammar.
+  let parser = @ts.Parser::new(upstream_json_language())
+  assert_eq(
+    parser.parse_string("\\").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '\\0')))",
+  )
+  assert_eq(
+    parser.parse_string("\\2").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '2')) (number))",
+  )
+  assert_eq(
+    parser.parse_string("[1,\\,3]").root_node().to_sexp(),
+    "(document (array (number) (ERROR (UNEXPECTED ',')) (number)))",
+  )
+  assert_eq(
+    parser.parse_string("[\\n]").root_node().to_sexp(),
+    "(document (array (ERROR (escape_sequence))))",
+  )
+  assert_eq(
+    parser.parse_string("\\n").root_node().to_sexp(),
+    "(document (ERROR (escape_sequence)))",
+  )
+  assert_eq(
+    parser.parse_string("1\\n").root_node().to_sexp(),
+    "(document (number) (ERROR (escape_sequence)))",
+  )
+}
+
+///|
+test "recovery immediate tokens remain unavailable after leading whitespace" {
+  let parser = @ts.Parser::new(upstream_json_language())
+  for source in [" \\n", "1 \\n", "[ \\n]"] {
+    let root = parser.parse_string(source).root_node()
+    assert_true(root.has_error())
+    assert_false(root.to_sexp().contains("(escape_sequence)"))
+  }
+}
