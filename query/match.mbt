@@ -88,7 +88,16 @@ fn match_at(
       if !children.is_empty() {
         children[0] = { ..children[0], anchor: true, }
       }
-      match_children(children, trailing, parent, 0, index, [], budget)
+      match_children(
+        children,
+        trailing,
+        parent,
+        0,
+        index,
+        [],
+        budget,
+        strict_start=true,
+      )
     }
     Either(items) => {
       let results = []
@@ -99,7 +108,13 @@ fn match_at(
     }
     Capture(inner, name) =>
       match_at(inner, parent, index, budget).map(m => {
-        (m.0 + [{ name, node: parent.child(index).unwrap(), }], m.1)
+        let node = parent.child(index).unwrap()
+        let captures = m.0
+        let position = captures
+          .search_by(c => c.node.id() != node.id())
+          .unwrap_or(captures.length())
+        captures.insert(position, { name, node, })
+        (captures, m.1)
       })
     _ =>
       match_pattern(pattern, parent.child(index).unwrap(), budget).map(c => {
@@ -117,6 +132,7 @@ fn match_children(
   from : Int32,
   captures : Array[Capture],
   budget : Budget,
+  strict_start~ : Bool = false,
 ) -> Array[(Array[Capture], Int32)] raise QueryError {
   budget.tick()
   if pi == children.length() {
@@ -133,6 +149,9 @@ fn match_children(
   let result = []
   let mut skip_until = from
   for i in from..<parent.child_count() {
+    if strict_start && i != from {
+      break
+    }
     if i < skip_until {
       continue
     }
@@ -212,6 +231,7 @@ fn match_children(
       from,
       captures,
       budget,
+      strict_start~,
     )
     if result.is_empty() {
       return skipped

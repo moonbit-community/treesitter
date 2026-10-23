@@ -78,9 +78,25 @@ pub fn CaptureCursor::next_capture(
       let start = self.pending[0].0.captures[self.pending[0].1].node.start_byte()
       let pending_matches = self.cursor.pending_index <
         self.cursor.pending.length()
-      let remaining_before = self.cursor.nodes.last() is Some((node, _)) &&
-        node.start_byte() <= start
-      if self.exhausted || (!pending_matches && !remaining_before) {
+      let remaining_before = self.cursor.nodes.last() is Some(event) &&
+        event.node().start_byte() <= start
+      let deferred_before = self.cursor.deferred
+        .values()
+        .any(matches => {
+          matches.any(m => m.1.any(c => c.node.start_byte() <= start))
+        })
+      let ready_before = self.cursor.ready
+        .values()
+        .any(matches => {
+          matches.any(m => m.1.any(c => c.node.start_byte() <= start))
+        })
+      if self.exhausted ||
+        (
+          !pending_matches &&
+          !remaining_before &&
+          !deferred_before &&
+          !ready_before
+        ) {
         return Some(self.pending.remove(0))
       }
     } else if self.exhausted {
@@ -90,11 +106,11 @@ pub fn CaptureCursor::next_capture(
       Some(matched) =>
         for index in 0..<matched.captures.length() {
           let node = matched.captures[index].node
-          if node.end_byte() < self.cursor.start_byte ||
+          if node.end_byte() <= self.cursor.start_byte ||
             node.start_byte() >= self.cursor.end_byte ||
             (
               self.cursor.start_point is Some(point) &&
-              node.end_position() < point
+              node.end_position() <= point
             ) ||
             (
               self.cursor.end_point is Some(point) &&

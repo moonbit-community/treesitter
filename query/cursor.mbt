@@ -1,10 +1,26 @@
 ///|
+priv enum WalkEvent {
+  Enter(@ts.Node, Int32, @ts.Node?, Int32)
+  Leave(@ts.Node)
+}
+
+///|
+fn WalkEvent::node(self : WalkEvent) -> @ts.Node {
+  match self {
+    Enter(node, _, _, _) | Leave(node) => node
+  }
+}
+
+///|
 /// A lazy depth-first query execution. Work and cancellation limits cover the
 /// whole cursor lifetime; stopping iteration avoids visiting remaining nodes.
 pub struct Cursor {
   priv query : Query
   priv source : Bytes
-  priv nodes : Array[(@ts.Node, Int32)]
+  priv nodes : Array[WalkEvent]
+  priv ready : Map[Int32, Array[(Int32, Array[Capture])]]
+  priv deferred : Map[Int32, Array[(Int32, Array[Capture])]]
+  priv root_runs : Map[(Int32, Int32), Int32]
   priv mut pending : Array[Match]
   priv mut pending_index : Int32
   priv budget : Budget
@@ -44,7 +60,10 @@ pub fn Query::cursor(
   {
     query: self,
     source,
-    nodes: [(root, 0)],
+    nodes: [Enter(root, 0, None, 0)],
+    ready: Map([]),
+    deferred: Map([]),
+    root_runs: Map([]),
     pending: [],
     pending_index: 0,
     budget: {
@@ -101,57 +120,200 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
     }
     self.pending = []
     self.pending_index = 0
-    guard self.nodes.pop() is Some((node, depth)) else { return None }
+    let (node, depth, parent, index) = match self.nodes.pop() {
+      None => return None
+      Some(Leave(node)) => {
+        for pattern_index in 0..<self.query.patterns.length() {
+          self.root_runs.remove((pattern_index, node.id()))
+        }
+        if self.deferred.get(node.id()) is Some(matches) {
+          self.deferred.remove(node.id())
+          for (pattern_index, captures) in matches {
+            self.enqueue(pattern_index, captures)
+          }
+        }
+        continue
+      }
+      Some(Enter(node, depth, parent, index)) => (node, depth, parent, index)
+    }
     self.budget.tick()
-    if node.end_byte() < self.start_byte ||
-      node.start_byte() >= self.end_byte ||
-      (self.start_point is Some(point) && node.end_position() < point) ||
-      (self.end_point is Some(point) && node.start_position() >= point) {
+    self.nodes.push(Leave(node))
+    let parent_in_range = parent.map(p => self.intersects(p)).unwrap_or(true)
+    let node_in_range = parent_in_range && self.intersects(node)
+    if !node_in_range && !parent_in_range {
       continue
     }
     if depth < self.max_depth {
       for i = node.child_count() - 1; i >= 0; i = i - 1 {
-        self.nodes.push((node.child(i).unwrap(), depth + 1))
+        self.nodes.push(Enter(node.child(i).unwrap(), depth + 1, Some(node), i))
       }
     }
     for pattern_index, pattern in self.query.patterns {
       if self.query.disabled_patterns.contains(pattern_index) {
         continue
       }
-      for captures in match_pattern(pattern.pattern, node, self.budget) {
-        if !predicates_match(
-            pattern.predicates,
-            captures,
-            self.source,
-            self.budget,
-            self.property,
-            self.predicate,
-          ) {
-          continue
-        }
-        let properties : Map[String, String] = Map([])
-        for predicate in pattern.predicates {
-          if predicate.name == "#set!" && predicate.args[0] is Text(key) {
-            properties[key] = match predicate.args.get(1) {
-              Some(Text(value)) => value
-              _ => ""
-            }
+      if self.ready.get(node.id()) is Some(matches) {
+        for (index, captures) in matches {
+          if index == pattern_index {
+            self.enqueue(pattern_index, captures)
           }
         }
-        let directives = pattern.predicates
-          .filter(p => p.name.has_suffix("!") && p.name != "#set!")
-          .map(p => Directive::{ name: p.name, args: p.args.copy(), })
-        self.pending.push({
-          id: self.next_id,
-          pattern_index,
-          captures: captures.filter(c => {
-            !self.query.disabled_captures.contains(c.name)
-          }),
-          properties,
-          directives,
-        })
-        self.next_id += 1
+      }
+      if (pattern.max is None || pattern.min == 0) &&
+        root_is_group(pattern.pattern) {
+        if node_in_range && depth < self.max_depth {
+          for (captures, after) in match_root_groups(pattern, node, self.budget) {
+            let last = node.child(after - 1).unwrap().id()
+            let target = if pattern.max is None ||
+              root_delayed(pattern.pattern) ||
+              captures.is_empty() {
+              self.deferred
+            } else {
+              self.ready
+            }
+            if !target.contains(last) {
+              target[last] = []
+            }
+            target[last].push((pattern_index, captures))
+          }
+        }
+      } else if pattern.max is None {
+        if !parent_in_range {
+          continue
+        }
+        let matches = if parent is Some(parent) {
+          let key = (pattern_index, parent.id())
+          if index < self.root_runs.get(key).unwrap_or(0) {
+            []
+          } else {
+            let runs = match_root_run(
+              pattern.pattern,
+              parent,
+              index,
+              self.budget,
+            )
+            for (_, after) in runs {
+              self.root_runs[key] = Int32::max(
+                self.root_runs.get(key).unwrap_or(0),
+                after,
+              )
+            }
+            runs.map(run => (run.0, parent.child(run.1 - 1).unwrap().id()))
+          }
+        } else {
+          match_pattern(root_entry_pattern(pattern.pattern), node, self.budget).map(c => {
+              (c, node.id())
+            },
+          )
+        }
+        for (captures, last) in matches {
+          if parent is None && node.child_count() == 0 {
+            self.enqueue(pattern_index, captures)
+            if pattern.min == 0 {
+              // Upstream reports both captured paths for zero-or-more at a
+              // leaf execution root, before its separate empty match.
+              self.enqueue(pattern_index, captures)
+            }
+            continue
+          }
+          if !self.deferred.contains(last) {
+            self.deferred[last] = []
+          }
+          self.deferred[last].push((pattern_index, captures))
+        }
+      } else {
+        if !node_in_range {
+          continue
+        }
+        let matches = match_pattern(
+          root_entry_pattern(pattern.pattern),
+          node,
+          self.budget,
+        )
+        for captures in matches {
+          self.enqueue(pattern_index, captures)
+        }
+      }
+    }
+    self.ready.remove(node.id())
+    // Zero-occurrence matches finish after the node's concrete matches, even
+    // when the optional pattern also matched this node.
+    for pattern_index, pattern in self.query.patterns {
+      if pattern.min == 0 &&
+        parent_in_range &&
+        (
+          pattern.max is None ||
+          root_is_group(pattern.pattern) ||
+          node.end_byte() > self.start_byte ||
+          (
+            node.start_byte() == node.end_byte() &&
+            node.end_byte() == self.start_byte
+          )
+        ) &&
+        !self.query.disabled_patterns.contains(pattern_index) {
+        self.enqueue(pattern_index, [])
       }
     }
   }
+}
+
+///|
+fn Cursor::enqueue(
+  self : Cursor,
+  pattern_index : Int32,
+  captures : Array[Capture],
+) -> Unit raise QueryError {
+  if self.query.disabled_patterns.contains(pattern_index) {
+    return
+  }
+  let pattern = self.query.patterns[pattern_index]
+
+  if !predicates_match(
+      pattern.predicates,
+      captures,
+      self.source,
+      self.budget,
+      self.property,
+      self.predicate,
+    ) {
+    return
+  }
+  let properties : Map[String, String] = Map([])
+  for predicate in pattern.predicates {
+    if predicate.name == "#set!" && predicate.args[0] is Text(key) {
+      properties[key] = match predicate.args.get(1) {
+        Some(Text(value)) => value
+        _ => ""
+      }
+    }
+  }
+  let directives = pattern.predicates
+    .filter(p => p.name.has_suffix("!") && p.name != "#set!")
+    .map(p => Directive::{ name: p.name, args: p.args.copy(), })
+  self.pending.push({
+    id: self.next_id,
+    pattern_index,
+    captures: captures.filter(c => {
+      !self.query.disabled_captures.contains(c.name)
+    }),
+    properties,
+    directives,
+  })
+  self.next_id += 1
+}
+
+///|
+fn Cursor::intersects(self : Cursor, node : @ts.Node) -> Bool {
+  let empty = node.start_byte() == node.end_byte()
+  (
+    node.end_byte() > self.start_byte ||
+    (empty && node.end_byte() == self.start_byte)
+  ) &&
+  node.start_byte() < self.end_byte &&
+  self.start_point
+  .map(point => {
+    node.end_position() > point || (empty && node.end_position() == point)
+  })
+  .unwrap_or(true) &&
+  self.end_point.map(point => node.start_position() < point).unwrap_or(true)
 }

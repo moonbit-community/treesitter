@@ -56,6 +56,8 @@ priv struct QueryPattern {
   start_byte : Int32
   end_byte : Int32
   pattern : Pattern
+  min : Int32
+  max : Int32?
   predicates : Array[Predicate]
 }
 

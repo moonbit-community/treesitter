@@ -885,3 +885,23 @@ limit and avoids splitting UTF-8 scalars. Frozen upstream line tests and Unicode
 integration cases cover indentation, CRLF, supplementary-plane characters and
 malformed/incomplete UTF-8 chunk handling. All seven tag tests pass on native,
 JS and Wasm GC; formatting and API generation pass.
+
+Top-level query `+`, `*` and `?` now parse through the same capture/quantifier
+syntax as child patterns. The cursor distinguishes entry and exit events so
+repetitions finish after their last sibling's descendants; optional roots also
+produce their upstream empty matches. Quantified groups retain overlapping
+maximal capture sequences, captures on groups attach to the first matched
+sibling, and capture cursors account for deferred matches before yielding later
+captures. Root alternative entry order and half-open range boundaries now match
+the corresponding C behavior. Cancellation, work limits, disabled patterns and
+root capture quantifiers have regression coverage.
+
+Fifteen frozen/runtime regression tests bring the suite to 309 native / 301 JS /
+301 Wasm GC, with CLI smoke checks passing. The six-grammar public audit passes
+all 462 corpora, 15 query files, 90 annotations, 2,772 edit/undo checks and ten
+large named-tree comparisons. A development-only C query probe matches all 144
+initial cases; an expanded 300-case probe matches every one of its 150 unbounded
+cases but retains 31 range-limited differences (alternative entry rooting and
+optional-pattern traversal beyond the end range). These remain compatibility
+gaps, not accepted golden output. General query automaton/grammar analysis and
+rooted/non-local/guaranteed-step metadata remain open.

@@ -452,7 +452,8 @@ pub fn Query::new(
   while reader.pos < reader.tokens.length() {
     reader.predicates = []
     let start_byte = reader.tokens[reader.pos].offset
-    let pattern = reader.pattern(0)
+    let root = reader.child(0, None, false)
+    let pattern = root.pattern
     validate_structure(schema, pattern, start_byte)
     for predicate in reader.predicates {
       for arg in predicate.args {
@@ -463,6 +464,8 @@ pub fn Query::new(
     }
     patterns.push({
       pattern,
+      min: root.min,
+      max: root.max,
       predicates: reader.predicates,
       start_byte,
       end_byte: reader.tokens[reader.pos - 1].end_offset,
