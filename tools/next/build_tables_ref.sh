@@ -20,5 +20,12 @@ for g in _build/ref/*/src/grammar.json; do
   mkdir -p "$OUT/$name"
   "$DUMP" "$g" "$OUT/$name" > "$OUT/$name/time_us" || echo "$name harness FAILED"
 done
+# Grammars for paths the reference grammars don't reach (ambiguous extras,
+# unnecessary conflicts).
+for g in tools/next/build_tables_extra/*.json; do
+  name=extra_$(basename "$g" .json)
+  mkdir -p "$OUT/$name"
+  "$DUMP" "$g" "$OUT/$name" > "$OUT/$name/time_us" || echo "$name harness FAILED"
+done
 moon build --target native --release next/generate/tools/build_tables_diff || exit 1
 _build/native/release/build/next/generate/tools/build_tables_diff/build_tables_diff.exe "$OUT" "$@"
