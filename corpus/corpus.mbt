@@ -31,7 +31,23 @@ fn delimiter(line : String, c : Char) -> Bool {
 /// Parse standard Tree-sitter s-expression corpus entries. Unsupported header
 /// modes are diagnosed instead of silently treating them as ordinary tests.
 pub fn parse(source : String) -> Array[Case] raise CorpusError {
+  parse_entries(source).map(entry => entry.case)
+}
+
+///|
+priv struct Entry {
+  case : Case
+  output_start : Int32
+  output_end : Int32
+}
+
+///|
+fn parse_entries(source : String) -> Array[Entry] raise CorpusError {
   let lines = source.split("\n").map(s => s.to_owned()).to_array()
+  let offsets = [0]
+  for line in lines {
+    offsets.push(offsets.last().unwrap() + line.length() + 1)
+  }
   let cases = []
   let mut i = 0
   while i < lines.length() {
@@ -77,7 +93,11 @@ pub fn parse(source : String) -> Array[Case] raise CorpusError {
       i += 1
     }
     let expected = lines[expected_start:i].join("\n").trim().to_owned()
-    cases.push({ name: names.join(" "), input, expected, skip, error, cst, })
+    cases.push({
+      case: { name: names.join(" "), input, expected, skip, error, cst, },
+      output_start: Int32::min(offsets[expected_start], source.length()),
+      output_end: Int32::min(offsets[i], source.length()),
+    })
   }
   cases
 }
@@ -137,33 +157,44 @@ pub fn run(
   scanner? : @ts.ExternalScanner,
 ) -> Array[Result] raise {
   let parser = @ts.Parser::new(language, scanner?)
-  cases.map(case => {
-    if case.skip {
-      return {
+  cases.map(case => run_case(parser, case).0)
+}
+
+///|
+fn run_case(parser : @ts.Parser, case : Case) -> (Result, Bool) {
+  if case.skip {
+    return (
+      {
         name: case.name,
         passed: true,
         skipped: true,
         expected: case.expected,
         actual: "",
-      }
-    }
-    let root = parser.parse_string(case.input).root_node() catch {
-        error => {
-          parser.reset()
-          return {
+      },
+      false,
+    )
+  }
+  let root = parser.parse_string(case.input).root_node() catch {
+      error => {
+        parser.reset()
+        return (
+          {
             name: case.name,
             passed: false,
             skipped: false,
             expected: case.expected,
             actual: "parse failed: \{error.to_repr()}",
-          }
-        }
+          },
+          true,
+        )
       }
-    let actual = if case.cst {
-      render_cst(root, case.input)
-    } else {
-      root.to_sexp(fields=has_fields(case.expected))
     }
+  let actual = if case.cst {
+    render_cst(root, case.input)
+  } else {
+    root.to_sexp(fields=has_fields(case.expected))
+  }
+  (
     {
       name: case.name,
       skipped: false,
@@ -176,8 +207,9 @@ pub fn run(
       } else {
         normalize_sexp(actual) == normalize_sexp(case.expected)
       },
-    }
-  })
+    },
+    root.has_error(),
+  )
 }
 
 ///|

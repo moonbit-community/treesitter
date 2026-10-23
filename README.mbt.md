@@ -78,7 +78,7 @@ Upstream `grammar.json` is accepted as a migration input.
 | `languages` | `[config.json]` | Discovered language configurations |
 | `init-config` | `output.json` | Initial parser-directory configuration |
 | `parse` | `[language.json] source` | Named-node s-expression; fails on syntax errors |
-| `test` | `language.json corpus-file-or-directory` | Corpus results; fails on mismatches |
+| `test` | `language.json corpus-file-or-directory [--update]` | Verify cases or update changed expectations |
 | `fuzz` | `language.json corpus-file-or-directory` | Seeded edits, fresh/incremental checks, and undo validation |
 | `query` | `language.json query.scm source` | Capture JSON lines |
 | `query --check` | `language.json query.scm` | Validate query syntax and grammar references |
@@ -98,6 +98,11 @@ node's kind, byte/point ranges, flags and fields against a fresh parse, validate
 child ordering and bounds, and checks restoration after undo. Failures include
 the seed, original bytes and complete edit history as JSON. Its deterministic
 ChaCha8 stream is specific to this CLI and does not reproduce Rust StdRng seeds.
+
+`test --update` (or `-u`) replaces failed expectations with formatted syntax trees.
+It preserves test inputs, headers, skipped cases, and passing expectations.
+Unexpected parse errors and failed `:error` assertions stop the update before
+any corpus file is written. Review the resulting diff after changing a grammar.
 
 Use `--scanner scanner.mbtx` before a command to compile a pure MoonBit scanner
 registry with the CLI. The registry exports

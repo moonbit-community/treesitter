@@ -1022,3 +1022,15 @@ the original tree unchanged. Validation checks descendant coordinates as well
 as root endpoints before exposing a view, rejecting portable-coordinate overflow.
 Full checks pass 329 native / 321 JS / 321 Wasm GC tests plus CLI integration;
 the final warning-enabled check is clean.
+
+### Corpus expectation updates
+
+Added portable corpus.update and formatted s-expression output, plus native
+`test --update` / `test -u`. Updates preserve inputs, headers, skipped cases and
+passing expectations, including Unicode offsets and CRLF files. Unexpected
+ERROR/MISSING results, parser failures and failed :error assertions reject an
+update; the CLI prepares every file before writing any changes. Tests cover
+empty expectations, CST rendering, upstream formatter examples, idempotence and
+directory-wide rejection. Full portable/CLI checks pass 334 native / 325 JS /
+325 Wasm GC tests without warnings. The full public matrix is being rerun after
+these changes and the preceding node-view APIs.
