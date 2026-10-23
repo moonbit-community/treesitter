@@ -171,9 +171,10 @@ def main():
     ap.add_argument('--ranges', type=int, default=0, help='random included ranges per input')
     ap.add_argument('--log', action='store_true', help='compare parser logs')
     ap.add_argument('--edits', type=int, default=0, help='random edits per input (incremental mode)')
+    ap.add_argument('--exclude', action='append', default=[], help='skip this grammar (repeatable)')
     ap.add_argument('names', nargs='*')
     args = ap.parse_args()
-    names = args.names or sorted(p.stem for p in LANG.glob('*.json'))
+    names = [n for n in (args.names or sorted(p.stem for p in LANG.glob('*.json'))) if n not in args.exclude]
     total = same = 0
     for name in names:
         lang = json.loads((LANG / f'{name}.json').read_text())
