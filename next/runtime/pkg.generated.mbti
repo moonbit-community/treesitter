@@ -47,6 +47,8 @@ pub let min_compatible_language_version : Int32
 
 pub fn point_add(Point, Point) -> Point
 
+pub fn point_edit(Point, UInt32, InputEdit) -> (Point, UInt32)
+
 pub fn point_eq(Point, Point) -> Bool
 
 pub fn point_gt(Point, Point) -> Bool
@@ -81,6 +83,8 @@ pub fn subtree_array_remove_trailing_extras(Array[Subtree], Array[Subtree]) -> U
 
 pub fn subtree_array_reverse(Array[Subtree]) -> Unit
 
+pub fn subtree_get_changed_ranges(SubtreeSlot, SubtreeSlot, @language.Language, Array[Range]) -> Array[Range]
+
 pub let ts_decode_error : Int32
 
 pub fn write_symbol_as_dot_string(@language.Language, StringBuilder, Int32) -> Unit
@@ -88,6 +92,14 @@ pub fn write_symbol_as_dot_string(@language.Language, StringBuilder, Int32) -> U
 // Errors
 
 // Types and methods
+pub(all) struct CursorStatus {
+  field_id : Int32
+  has_later_siblings : Bool
+  has_later_named_siblings : Bool
+  can_have_later_siblings_with_this_field : Bool
+  supertypes : Array[Int32]
+}
+
 pub(all) struct ExternalScanner {
   scan : (Lexer, ArrayView[Bool]) -> Bool
   serialize : (FixedArray[Byte]) -> Int32
@@ -151,6 +163,58 @@ pub(all) enum LogType {
   Parse
   Lex
 } derive(Eq, @debug.Debug)
+
+pub struct Node {
+  // private fields
+}
+pub fn Node::alias(Self) -> Int32
+pub fn Node::child(Self, UInt32) -> Self
+pub fn Node::child_by_field_id(Self, Int32) -> Self
+pub fn Node::child_by_field_name(Self, StringView) -> Self
+pub fn Node::child_count(Self) -> UInt32
+pub fn Node::child_with_descendant(Self, Self) -> Self
+pub fn Node::descendant_count(Self) -> UInt32
+pub fn Node::descendant_for_byte_range(Self, UInt32, UInt32) -> Self
+pub fn Node::descendant_for_point_range(Self, Point, Point) -> Self
+pub fn Node::edit(Self, InputEdit) -> Self
+pub fn Node::end_byte(Self) -> UInt32
+pub fn Node::end_point(Self) -> Point
+pub fn Node::field_name_for_child(Self, UInt32) -> String?
+pub fn Node::field_name_for_named_child(Self, UInt32) -> String?
+pub fn Node::first_child_for_byte(Self, UInt32) -> Self
+pub fn Node::first_named_child_for_byte(Self, UInt32) -> Self
+pub fn Node::grammar_kind(Self) -> String
+pub fn Node::grammar_symbol(Self) -> Int32
+pub fn Node::has_changes(Self) -> Bool
+pub fn Node::has_error(Self) -> Bool
+pub fn Node::is_error(Self) -> Bool
+pub fn Node::is_extra(Self) -> Bool
+pub fn Node::is_missing(Self) -> Bool
+pub fn Node::is_named(Self) -> Bool
+pub fn Node::is_null(Self) -> Bool
+pub fn Node::kind(Self) -> String
+pub fn Node::language(Self) -> @language.Language
+pub fn Node::named_child(Self, UInt32) -> Self
+pub fn Node::named_child_count(Self) -> UInt32
+pub fn Node::named_descendant_for_byte_range(Self, UInt32, UInt32) -> Self
+pub fn Node::named_descendant_for_point_range(Self, Point, Point) -> Self
+pub fn Node::new(Tree?, SubtreeSlot?, Length, Int32) -> Self
+pub fn Node::next_named_sibling(Self) -> Self
+pub fn Node::next_parse_state(Self) -> Int32
+pub fn Node::next_sibling(Self) -> Self
+pub fn Node::node_id(Self) -> UInt64
+pub fn Node::parent(Self) -> Self
+pub fn Node::parse_state(Self) -> Int32
+pub fn Node::prev_named_sibling(Self) -> Self
+pub fn Node::prev_sibling(Self) -> Self
+pub fn Node::slot(Self) -> SubtreeSlot?
+pub fn Node::start_byte(Self) -> UInt32
+pub fn Node::start_point(Self) -> Point
+pub fn Node::subtree(Self) -> Subtree
+pub fn Node::symbol(Self) -> Int32
+pub fn Node::to_sexp(Self) -> String
+pub fn Node::tree(Self) -> Tree?
+pub impl Eq for Node
 
 pub(all) struct ParseOptions {
   progress_callback : ((ParseState) -> Bool)?
@@ -246,6 +310,7 @@ pub(all) enum Subtree {
 }
 pub fn Subtree::address(Self) -> Int32
 pub fn Subtree::child_count(Self) -> Int32
+pub fn Subtree::child_slot(Self, Int32) -> SubtreeSlot
 pub fn Subtree::children(Self) -> Array[Self]
 pub fn Subtree::clone(Self) -> Self
 pub fn Subtree::compare_to(Self, Self) -> Int32
@@ -352,18 +417,73 @@ pub(all) struct SubtreeInlineData {
   size_bytes : UInt32
 } derive(Eq, @debug.Debug)
 
-pub struct Tree {
-  mut root : Subtree
-  language : @language.Language
-  included_ranges : Array[Range]
+pub(all) struct SubtreeSlot {
+  array : Array[Subtree]
+  index : Int32
+  owner : Int32
 }
+pub fn SubtreeSlot::get(Self) -> Subtree
+pub fn SubtreeSlot::same(Self, Self) -> Bool
+
+pub struct Tree {
+  language : @language.Language
+  // private fields
+}
+pub fn Tree::changed_ranges(Self, Self) -> Array[Range]
 pub fn Tree::copy(Self) -> Self
 pub fn Tree::delete(Self) -> Unit
 pub fn Tree::edit(Self, InputEdit) -> Unit
 pub fn Tree::included_ranges(Self) -> Array[Range]
 pub fn Tree::language(Self) -> @language.Language
 pub fn Tree::new(Subtree, @language.Language, Array[Range]) -> Self
+pub fn Tree::print_dot_graph(Self, StringBuilder) -> Unit
 pub fn Tree::root(Self) -> Subtree
+pub fn Tree::root_node(Self) -> Node
+pub fn Tree::root_node_with_offset(Self, UInt32, Point) -> Node
+
+pub struct TreeCursor {
+  // private fields
+}
+pub fn TreeCursor::copy(Self) -> Self
+pub fn TreeCursor::current_depth(Self) -> UInt32
+pub fn TreeCursor::current_descendant_index(Self) -> UInt32
+pub fn TreeCursor::current_field_id(Self) -> Int32
+pub fn TreeCursor::current_field_name(Self) -> String?
+pub fn TreeCursor::current_node(Self) -> Node
+pub fn TreeCursor::current_status(Self, Int32) -> CursorStatus
+pub fn TreeCursor::current_subtree(Self) -> Subtree
+pub fn TreeCursor::entries(Self) -> Array[TreeCursorEntry]
+pub fn TreeCursor::goto_descendant(Self, UInt32) -> Unit
+pub fn TreeCursor::goto_first_child(Self) -> Bool
+pub fn TreeCursor::goto_first_child_for_byte(Self, UInt32) -> Int64
+pub fn TreeCursor::goto_first_child_for_point(Self, Point) -> Int64
+pub fn TreeCursor::goto_first_child_internal(Self) -> TreeCursorStep
+pub fn TreeCursor::goto_last_child(Self) -> Bool
+pub fn TreeCursor::goto_last_child_internal(Self) -> TreeCursorStep
+pub fn TreeCursor::goto_next_sibling(Self) -> Bool
+pub fn TreeCursor::goto_next_sibling_internal(Self) -> TreeCursorStep
+pub fn TreeCursor::goto_parent(Self) -> Bool
+pub fn TreeCursor::goto_previous_sibling(Self) -> Bool
+pub fn TreeCursor::goto_previous_sibling_internal(Self) -> TreeCursorStep
+pub fn TreeCursor::new(Node) -> Self
+pub fn TreeCursor::parent_node(Self) -> Node
+pub fn TreeCursor::reset(Self, Node) -> Unit
+pub fn TreeCursor::reset_to(Self, Self) -> Unit
+pub fn TreeCursor::tree(Self) -> Tree?
+
+pub(all) struct TreeCursorEntry {
+  subtree : SubtreeSlot
+  position : Length
+  child_index : Int32
+  structural_child_index : Int32
+  descendant_index : UInt32
+}
+
+pub(all) enum TreeCursorStep {
+  StepNone
+  StepHidden
+  StepVisible
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 pub type DecodeFunction = (BytesView) -> (UInt32, Int32)

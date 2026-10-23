@@ -2082,14 +2082,14 @@ pub fn Parser::parse(self : Parser, old_tree : Tree?, input : Input) -> Tree? {
     }
     match old_tree {
       Some(old_tree) => {
-        old_tree.root.retain()
-        self.old_tree = old_tree.root
+        old_tree.root().retain()
+        self.old_tree = old_tree.root()
         range_array_get_changed_ranges(
-          old_tree.included_ranges,
+          old_tree.included_ranges_ref(),
           self.lexer.included_ranges,
           self.included_range_differences,
         )
-        self.reusable_node.reset(old_tree.root)
+        self.reusable_node.reset(old_tree.root())
         if self.logging() {
           self.log("parse_after_edit")
         }
