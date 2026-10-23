@@ -902,18 +902,16 @@ fn ParseTableBuilder::add_actions(
   // unambiguous endings.
   if is_end_of_non_terminal_extra {
     if self.terminal_entries.length() > 1 {
-      // NOTE: upstream collects these into an `FxHashSet<u32>` and lists them
-      // in its iteration order. Here they are listed in the order they're first
-      // found, which only differs when several rules are involved.
-      let parent_symbols : Array[Int32] = []
+      let parent_symbol_ids : Array[Int32] = []
       for entry in item_set.entries {
         let item = entry.item
-        if !item.is_augmented() &&
-          item.step_index > 0 &&
-          !parent_symbols.contains(item.variable_index) {
-          parent_symbols.push(item.variable_index)
+        if !item.is_augmented() && item.step_index > 0 {
+          parent_symbol_ids.push(item.variable_index)
         }
       }
+      // Upstream collects these into an `FxHashSet<u32>`, so they're listed in
+      // that set's iteration order.
+      let parent_symbols = fx_hash_set_u32_order(parent_symbol_ids)
       let parent_symbol_names = parent_symbols.map(variable_index => {
         self.str_pool.resolve(
           self.syntax_grammar.variables[variable_index].name,
@@ -994,6 +992,124 @@ fn ParseTableBuilder::add_actions(
     )
   }
   self.terminal_entries.clear()
+}
+
+///|
+/// The iteration order of an `FxHashSet<u32>` (Rust 1.97 `std`, 64-bit,
+/// `rustc-hash` 2.1) collected from `values` in order. The set's table is
+/// simulated: `std`'s hashbrown places each value by its hash, growing the
+/// table as it fills, and iterates its buckets in index order.
+fn fx_hash_set_u32_order(values : Array[Int32]) -> Array[Int32] {
+  // An empty table has one (empty) bucket and no room.
+  let mut slots : Array[Int32?] = [None]
+  let mut growth_left = 0
+  let mut items = 0
+  for value in values {
+    // `HashMap::insert` reserves room for one more item before looking
+    // the value up.
+    if growth_left == 0 {
+      let new_capacity = {
+        let full_capacity = fx_bucket_mask_to_capacity(slots.length() - 1)
+        if items + 1 > full_capacity + 1 {
+          items + 1
+        } else {
+          full_capacity + 1
+        }
+      }
+      let new_slots : Array[Int32?] = Array::make(
+        fx_capacity_to_buckets(new_capacity),
+        None,
+      )
+      for slot in slots {
+        if slot is Some(old) {
+          new_slots[fx_find_insert_slot(new_slots, old)] = Some(old)
+        }
+      }
+      growth_left = fx_bucket_mask_to_capacity(new_slots.length() - 1) - items
+      slots = new_slots
+    }
+    if slots.contains(Some(value)) {
+      continue
+    }
+    slots[fx_find_insert_slot(slots, value)] = Some(value)
+    growth_left -= 1
+    items += 1
+  }
+  let result = []
+  for slot in slots {
+    if slot is Some(value) {
+      result.push(value)
+    }
+  }
+  result
+}
+
+///|
+/// hashbrown's `capacity_to_buckets`.
+fn fx_capacity_to_buckets(capacity : Int32) -> Int32 {
+  if capacity < 8 {
+    return if capacity < 4 { 4 } else { 8 }
+  }
+  let adjusted = capacity * 8 / 7
+  let mut buckets = 1
+  while buckets < adjusted {
+    buckets *= 2
+  }
+  buckets
+}
+
+///|
+/// hashbrown's `bucket_mask_to_capacity`.
+fn fx_bucket_mask_to_capacity(bucket_mask : Int32) -> Int32 {
+  if bucket_mask < 8 {
+    bucket_mask
+  } else {
+    (bucket_mask + 1) / 8 * 7
+  }
+}
+
+///|
+/// hashbrown's `find_insert_slot`, with 8-byte control groups (NEON and
+/// generic). A table smaller than a group sees its own buckets, then empty
+/// padding, then a mirror of its first buckets.
+fn fx_find_insert_slot(slots : Array[Int32?], value : Int32) -> Int32 {
+  // `FxHasher::write_u32` then `finish`.
+  let product = value.to_uint64() * 0xf1357aea2e62a9c5UL
+  let hash = (product << 26) | (product >> 38)
+  let buckets = slots.length()
+  let mask = buckets - 1
+  let mut pos = (hash & mask.to_uint64()).to_int()
+  let mut stride = 0
+  while true {
+    for j in 0..<8 {
+      let p = pos + j
+      let empty = if buckets >= 8 {
+        slots[p & mask] is None
+      } else if p < buckets {
+        slots[p] is None
+      } else if p < 8 {
+        true
+      } else {
+        slots[p - 8] is None
+      }
+      if empty {
+        let index = p & mask
+        if slots[index] is None {
+          return index
+        }
+        // Only possible in a table smaller than a group: take the first empty
+        // bucket instead.
+        for i in 0..<buckets {
+          if slots[i] is None {
+            return i
+          }
+        }
+      }
+    }
+    stride += 8
+    pos = (pos + stride) & mask
+  }
+  abort("unreachable")
 }
 
 ///|

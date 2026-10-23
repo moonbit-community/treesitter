@@ -15,6 +15,7 @@ cp "$UPSTREAM/Cargo.lock" "$OUT/Cargo.lock"
 cp "$HERE/Cargo.toml" "$OUT/Cargo.toml"
 cp "$HERE/harness.rs" "$OUT/src/harness.rs"
 cp "$HERE/main.rs" "$OUT/dump/main.rs"
+cp "$HERE/fxset.rs" "$OUT/dump/fxset.rs"
 python3 -I - "$OUT/src" <<'EOF'
 import sys
 src = sys.argv[1]

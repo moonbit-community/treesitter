@@ -123,3 +123,32 @@ test "rust_str_cmp orders by code point" {
   // U+FF21 (one UTF-16 unit) sorts before U+1F600 (a surrogate pair).
   assert_true(rust_str_cmp("\u{FF21}", "\u{1F600}") < 0)
 }
+
+///|
+/// Iteration orders of `FxHashSet<u32>`s, compared by FNV-1a hash with the
+/// output of tools/next/build_tables_harness/fxset.rs built with Rust 1.97.1.
+test "fx_hash_set_u32_order matches Rust" {
+  let mut state : UInt64 = 12345
+  let buf = StringBuilder()
+  for len in 0..<60 {
+    for modulus in [8U, 100, 3000] {
+      let values = []
+      for _ in 0..<len {
+        state = state * 6364136223846793005UL + 1442695040888963407UL
+        values.push(((state >> 33).to_uint() % modulus).reinterpret_as_int())
+      }
+      buf.write_string(
+        fx_hash_set_u32_order(values).map(v => v.to_string()).join(" "),
+      )
+      buf.write_char('\n')
+    }
+  }
+  let text = buf.to_string()
+  let mut h : UInt64 = 0xcbf29ce484222325
+  for i in 0..<text.length() {
+    h = h ^ text[i].to_uint64()
+    h = h * 0x100000001b3UL
+  }
+  inspect(text.length(), content="13291")
+  assert_eq(h, 0x0c8a945c5c530226UL)
+}
