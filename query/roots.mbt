@@ -14,7 +14,7 @@ fn match_root_run(
     if first.1 <= index {
       continue
     }
-    let pending = [(first.0, first.1, 1)]
+    let pending = [(first.0.captures, first.1, 1)]
     let mut best_count = 0
     let best = []
     while pending.pop() is Some((captures, next, count)) {
@@ -31,7 +31,7 @@ fn match_root_run(
         for i = continuations.length() - 1; i >= 0; i = i - 1 {
           let (additional, after) = continuations[i]
           if after > next {
-            pending.push((captures + additional, after, count + 1))
+            pending.push((captures + additional.captures, after, count + 1))
           }
         }
       }
@@ -85,7 +85,9 @@ fn match_root_at(
   index : Int32,
   budget : Budget,
 ) -> Array[(Array[Capture], Int32)] raise QueryError {
-  match_at(root_entry_pattern(pattern), parent, index, budget)
+  match_at(root_entry_pattern(pattern), parent, index, budget).map(m => {
+    (m.0.captures, m.1)
+  })
 }
 
 ///|
@@ -142,7 +144,7 @@ fn root_prefix_end(
           parent,
           0,
           index,
-          [],
+          Completion::at(parent),
           budget,
           strict_start=true,
         )

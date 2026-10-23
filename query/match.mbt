@@ -1,4 +1,24 @@
 ///|
+// A structural match records the traversal event that completes its final step.
+// Captures may include earlier ancestors, so capture positions alone cannot
+// determine when the match becomes observable to the cursor.
+priv struct Completion {
+  captures : Array[Capture]
+  finish : @ts.Node
+  delayed : Bool
+}
+
+///|
+fn Completion::at(node : @ts.Node) -> Completion {
+  { captures: [], finish: node, delayed: false, }
+}
+
+///|
+fn Completion::then(self : Completion, next : Completion) -> Completion {
+  { ..next, captures: self.captures + next.captures, }
+}
+
+///|
 priv struct Budget {
   mut steps : Int32
   limit : Int32
@@ -36,14 +56,14 @@ fn Budget::contains(self : Budget, node : @ts.Node) -> Bool {
 // Different uncaptured choices may complete at different siblings but must not
 // produce duplicate matches, or an empty subset of an already captured match.
 fn maximal_captures(
-  candidates : Array[Array[Capture]],
+  candidates : Array[Completion],
   budget : Budget,
-) -> Array[Array[Capture]] raise QueryError {
+) -> Array[Completion] raise QueryError {
   let unique = []
   let seen : Map[String, Unit] = Map([])
   for candidate in candidates {
     budget.tick()
-    let key = candidate
+    let key = candidate.captures
       .map(c => "\{c.name.length()}:\{c.name}:\{c.node.id()};")
       .join("")
     if !seen.contains(key) {
@@ -51,18 +71,18 @@ fn maximal_captures(
       unique.push(candidate)
     }
   }
-  let largest = unique.fold(init=0, (n, c) => Int32::max(n, c.length()))
+  let largest = unique.fold(init=0, (n, c) => Int32::max(n, c.captures.length()))
   let result = []
   for candidate in unique {
-    if candidate.length() == largest {
+    if candidate.captures.length() == largest {
       result.push(candidate)
       continue
     }
     let mut contained = false
     for other in unique {
-      if other.length() > candidate.length() {
+      if other.captures.length() > candidate.captures.length() {
         budget.tick()
-        if captures_contain(other, candidate) {
+        if captures_contain(other.captures, candidate.captures) {
           contained = true
           break
         }
@@ -80,16 +100,17 @@ fn match_pattern(
   pattern : Pattern,
   node : @ts.Node,
   budget : Budget,
-) -> Array[Array[Capture]] raise QueryError {
+) -> Array[Completion] raise QueryError {
   budget.tick()
   match pattern {
     Capture(inner, name) =>
-      match_pattern(inner, node, budget).map(captures => {
+      match_pattern(inner, node, budget).map(completed => {
+        let captures = completed.captures.copy()
         let index = captures
           .search_by(c => c.node.id() != node.id())
           .unwrap_or(captures.length())
         captures.insert(index, { name, node, })
-        captures
+        { ..completed, captures, }
       })
     Either(alternatives) => {
       let result = []
@@ -99,7 +120,15 @@ fn match_pattern(
       result
     }
     Group(children, trailing) =>
-      match_children(children, trailing, node, 0, 0, [], budget).map(m => m.0)
+      match_children(
+        children,
+        trailing,
+        node,
+        0,
+        0,
+        Completion::at(node),
+        budget,
+      ).map(m => m.0)
     Node(p) => {
       if !budget.contains(node) {
         return []
@@ -125,7 +154,7 @@ fn match_pattern(
         node,
         0,
         0,
-        [],
+        Completion::at(node),
         budget,
       )
       matches.sort_by_key(m => m.1)
@@ -140,7 +169,7 @@ fn match_at(
   parent : @ts.Node,
   index : Int32,
   budget : Budget,
-) -> Array[(Array[Capture], Int32)] raise QueryError {
+) -> Array[(Completion, Int32)] raise QueryError {
   match pattern {
     Group(children, trailing) => {
       let children = children.copy()
@@ -153,7 +182,7 @@ fn match_at(
         parent,
         0,
         index,
-        [],
+        Completion::at(parent),
         budget,
         strict_start=true,
       )
@@ -168,12 +197,12 @@ fn match_at(
     Capture(inner, name) =>
       match_at(inner, parent, index, budget).map(m => {
         let node = parent.child(index).unwrap()
-        let captures = m.0
+        let captures = m.0.captures.copy()
         let position = captures
           .search_by(c => c.node.id() != node.id())
           .unwrap_or(captures.length())
         captures.insert(position, { name, node, })
-        (captures, m.1)
+        ({ ..m.0, captures, }, m.1)
       })
     _ =>
       match_pattern(pattern, parent.child(index).unwrap(), budget).map(c => {
@@ -189,10 +218,10 @@ fn match_children(
   parent : @ts.Node,
   pi : Int32,
   from : Int32,
-  captures : Array[Capture],
+  completed : Completion,
   budget : Budget,
   strict_start~ : Bool = false,
-) -> Array[(Array[Capture], Int32)] raise QueryError {
+) -> Array[(Completion, Int32)] raise QueryError {
   budget.tick()
   if pi == children.length() {
     if trailing_anchor {
@@ -202,7 +231,7 @@ fn match_children(
         }
       }
     }
-    return [(captures, from)]
+    return [(completed, from)]
   }
   let spec = children[pi]
   let result = []
@@ -230,12 +259,12 @@ fn match_children(
             parent,
             pi + 1,
             after,
-            captures + matched,
+            completed.then(matched),
             budget,
           ),
         )
       } else {
-        let runs = [(after, 1, captures + matched)]
+        let runs = [(after, 1, completed.then(matched))]
         let stops = []
         while runs.pop() is Some((next, count, accumulated)) {
           budget.tick()
@@ -248,7 +277,7 @@ fn match_children(
               let found = match_at(spec.pattern, parent, next, budget)
               for (additional, after) in found {
                 if after > next {
-                  runs.push((after, count + 1, accumulated + additional))
+                  runs.push((after, count + 1, accumulated.then(additional)))
                 }
               }
             }
@@ -262,7 +291,11 @@ fn match_children(
             parent,
             pi + 1,
             next,
-            accumulated,
+            {
+              ..accumulated,
+              finish: parent.child(next - 1).unwrap(),
+              delayed: true,
+            },
             budget,
           )
           if !found.is_empty() {
@@ -288,7 +321,7 @@ fn match_children(
       parent,
       pi + 1,
       from,
-      captures,
+      completed,
       budget,
       strict_start~,
     )
@@ -300,8 +333,8 @@ fn match_children(
     // when it contains all the captures of an otherwise identical match.
     for candidate in skipped {
       if !result.any(existing => {
-          candidate.0.all(capture => {
-            existing.0.any(other => {
+          candidate.0.captures.all(capture => {
+            existing.0.captures.any(other => {
               other.name == capture.name && other.node.id() == capture.node.id()
             })
           })

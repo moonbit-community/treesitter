@@ -513,3 +513,70 @@ test "containing ranges apply to empty optional matches" {
     [],
   ])
 }
+
+///|
+test "nested matches finish at their final descendant traversal event" {
+  inspect(
+    root_query_output("[[1]]", "(array (array (number) @n)) @a _ @v"),
+    content=(
+      #|1 v:0..5
+      #|1 v:0..5
+      #|1 v:0..1
+      #|1 v:1..4
+      #|1 v:1..2
+      #|0 a:0..5 n:2..3
+      #|1 v:2..3
+      #|1 v:3..4
+      #|1 v:4..5
+    ),
+  )
+  inspect(
+    root_query_output("[1,2]", "(array (number)+ @n) _ @v"),
+    content=(
+      #|1 v:0..5
+      #|1 v:0..5
+      #|1 v:0..1
+      #|1 v:1..2
+      #|0 n:1..2
+      #|1 v:2..3
+      #|1 v:3..4
+      #|0 n:3..4
+      #|1 v:4..5
+    ),
+  )
+}
+
+///|
+test "range and start depth limits still finish active descendant matches" {
+  let language = root_query_language()
+  let tree = @ts.Parser::new(language).parse_string("[[1]]")
+  let query = @query.Query::new(
+    language, "(document (array (array (number) @n))) (number) @other",
+  )
+  for
+    cursor in [
+      query.cursor(tree.root_node(), tree.source, max_start_depth=0),
+      query.cursor(
+        tree.root_node(),
+        tree.source,
+        start_byte=0,
+        end_byte=1,
+        max_start_depth=0,
+      ),
+    ] {
+    let matched = cursor.next_match().unwrap()
+    assert_eq(matched.pattern_index, 0)
+    assert_eq(matched.captures.map(c => (c.name, c.node.text(tree.source))), [
+      ("n", "1"),
+    ])
+    assert_true(cursor.next_match() is None)
+  }
+  let captures = query.capture_cursor(
+    tree.root_node(),
+    tree.source,
+    max_start_depth=0,
+  )
+  let (matched, index) = captures.next_capture().unwrap()
+  assert_eq(matched.captures[index].name, "n")
+  assert_true(captures.next_capture() is None)
+}

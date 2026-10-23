@@ -958,3 +958,18 @@ Wasm GC tests. The expanded root differential remains at 15 range-traversal
 mismatches. The preceding symbol/API revision also passed the complete six-grammar
 audit (462 corpora, 15 queries, 90 annotations, 2,772 edits, ten large examples).
 Nested-pattern completion timing relative to other query patterns remains open.
+
+### Nested query completion events checkpoint
+
+Structural matching now retains the node entry/exit event that completes a
+match. The cursor emits nested captures at their final descendant rather than
+at the ancestor's entry, and repeated children finish after their last matched
+node. Pending matches can descend beyond start-depth and intersection limits
+without starting new patterns there. Frozen C tests cover nested captures,
+repetition timing, capture cursors and depth-zero ranged execution.
+All 321 native / 313 JS / 313 Wasm GC tests pass. A new 216-case nested-query
+probe improves from 97 to 38 mismatches (59 fixes, no previously matching case
+regressed); remaining cases involve optional paths waiting for unfinished
+alternatives and groups extending across a failed repetition. The earlier
+144-case probe still matches completely and the expanded 300-case root probe
+retains its 15 hidden-traversal differences. Full query compatibility remains open.

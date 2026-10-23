@@ -140,13 +140,11 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
     self.nodes.push(Leave(node))
     let parent_in_range = parent.map(p => self.intersects(p)).unwrap_or(true)
     let node_in_range = parent_in_range && self.intersects(node)
-    if !node_in_range && !parent_in_range {
+    if !node_in_range &&
+      !parent_in_range &&
+      self.ready.is_empty() &&
+      self.deferred.is_empty() {
       continue
-    }
-    if depth < self.max_depth {
-      for i = node.child_count() - 1; i >= 0; i = i - 1 {
-        self.nodes.push(Enter(node.child(i).unwrap(), depth + 1, Some(node), i))
-      }
     }
     for pattern_index, pattern in self.query.patterns {
       if self.query.disabled_patterns.contains(pattern_index) {
@@ -158,6 +156,9 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
             self.enqueue(pattern_index, captures)
           }
         }
+      }
+      if depth > self.max_depth {
+        continue
       }
       if (pattern.max is None || pattern.min == 0) &&
         root_is_group(pattern.pattern) {
@@ -203,7 +204,7 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
           }
         } else {
           match_pattern(root_entry_pattern(pattern.pattern), node, self.budget).map(c => {
-              (c, node.id())
+              (c.captures, node.id())
             },
           )
         }
@@ -231,8 +232,21 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
           node,
           self.budget,
         )
-        for captures in matches {
-          self.enqueue(pattern_index, captures)
+        for completed in matches {
+          let finish = completed.finish.id()
+          if finish == node.id() && !completed.delayed {
+            self.enqueue(pattern_index, completed.captures)
+          } else {
+            let target = if completed.delayed {
+              self.deferred
+            } else {
+              self.ready
+            }
+            if !target.contains(finish) {
+              target[finish] = []
+            }
+            target[finish].push((pattern_index, completed.captures))
+          }
         }
       }
     }
@@ -240,7 +254,8 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
     // Zero-occurrence matches finish after the node's concrete matches, even
     // when the optional pattern also matched this node.
     for pattern_index, pattern in self.query.patterns {
-      if pattern.min == 0 &&
+      if depth <= self.max_depth &&
+        pattern.min == 0 &&
         self.budget.contains(node) &&
         parent_in_range &&
         (
@@ -254,6 +269,13 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
         ) &&
         !self.query.disabled_patterns.contains(pattern_index) {
         self.enqueue(pattern_index, [])
+      }
+    }
+    if depth < self.max_depth ||
+      !self.ready.is_empty() ||
+      !self.deferred.is_empty() {
+      for i = node.child_count() - 1; i >= 0; i = i - 1 {
+        self.nodes.push(Enter(node.child(i).unwrap(), depth + 1, Some(node), i))
       }
     }
   }
