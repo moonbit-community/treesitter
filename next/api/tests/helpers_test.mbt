@@ -66,7 +66,15 @@ async fn get_language(name : String) -> @api.Language? {
 ///|
 /// Grammars whose external scanner has been ported to `next/scanners` (the
 /// registry still contains placeholders for the others, which abort).
-let ported_scanners : Array[String] = ["bash", "ruby", "python", "cpp", "jsdoc"]
+let ported_scanners : Array[String] = [
+  "bash", "ruby", "python", "cpp", "jsdoc", "html", "javascript", "rust", "typescript",
+  "tsx", "php", "php_only", "depends_on_column", "depends_on_column_failed_scan",
+  "depends_on_column_repetition", "epsilon_external_extra_tokens", "epsilon_external_tokens",
+  "external_and_internal_anonymous_tokens", "external_and_internal_tokens", "external_extra_tokens",
+  "external_lookahead_eof_boundary", "external_tokens", "external_unicode_column_alignment",
+  "external_word_token", "get_col_eof", "get_col_should_hang_not_crash", "inverted_external_token",
+  "uses_current_column", "utf16_surrogate_oob", "wasm_realloc_clobber_region", "wasm_realloc_overflow_heap",
+]
 
 ///|
 /// Like [`get_language`], but `None` (with a notice) when the language
