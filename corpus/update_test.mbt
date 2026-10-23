@@ -103,3 +103,23 @@ test "corpus updates render concrete syntax expectations" {
     .to_owned(),
   )
 }
+
+///|
+test "formatter accepts verbatim quoted names from runtime diagnostics" {
+  inspect(
+    @corpus.format_sexp("(document (MISSING \"\"\"))"),
+    content=(
+      #|(document
+      #|  (MISSING """))
+    ),
+  )
+  inspect(
+    @corpus.format_sexp("(document (ERROR (UNEXPECTED '\\')) (number))"),
+    content=(
+      #|(document
+      #|  (ERROR
+      #|    (UNEXPECTED '\'))
+      #|  (number))
+    ),
+  )
+}

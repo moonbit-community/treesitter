@@ -68,16 +68,15 @@ pub fn format_sexp(source : String) -> String {
     if char == '"' || char == '\'' {
       token.write_char(char)
       i += 1
-      let mut escaped = false
       while i < chars.length() {
         let next = chars[i]
         token.write_char(next)
         i += 1
-        if escaped {
-          escaped = false
-        } else if next == '\\' {
-          escaped = true
-        } else if next == char {
+        // Tree-sitter's diagnostic strings quote token names verbatim. A
+        // quote inside the token (including a missing quote token itself) is
+        // not the closing delimiter until it ends the atom.
+        if next == char &&
+          (i == chars.length() || chars[i] is (' ' | '\n' | '\r' | '\t' | ')')) {
           break
         }
       }

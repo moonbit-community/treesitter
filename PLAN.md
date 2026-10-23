@@ -1047,3 +1047,14 @@ two changed-range cases also improve with no range regressions. There remain
 fresh/incremental disagreements or parse failures. All 141 compatibility tests
 pass natively. The preceding runtime/CLI commits passed the full six-grammar
 matrix (462 corpora, 15 queries, 90 annotations, 2,772 edits, ten examples).
+
+### Runtime diagnostic s-expression compatibility
+
+Error nodes now use C's diagnostic notation: printable ASCII is quoted verbatim,
+non-ASCII and other control characters use numeric codes, and anonymous missing
+token names are enclosed in quotes without JSON escaping. Corpus formatting
+accepts those verbatim names, including quote and backslash tokens. Frozen C
+regressions cover these cases. This removes another 33 output differences from
+the edit differential, leaving 97 tree-output differences and 48 range differences
+among cases with matching outputs; no previously matching tree case regresses.
+These output fixes do not resolve the remaining structural recovery differences.

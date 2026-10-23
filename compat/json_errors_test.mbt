@@ -99,3 +99,41 @@ test "recovery immediate tokens remain unavailable after leading whitespace" {
     assert_false(root.to_sexp().contains("(escape_sequence)"))
   }
 }
+
+///|
+test "error s expressions preserve upstream character and missing-token notation" {
+  // Frozen C strings distinguish diagnostic text from JSON escaping.
+  let parser = @ts.Parser::new(upstream_json_language())
+  assert_eq(
+    parser.parse_string(" \\n").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '\\')))",
+  )
+  assert_eq(
+    parser.parse_string("'").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED ''')))",
+  )
+  assert_eq(
+    parser.parse_string("é").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED 233)))",
+  )
+  assert_eq(
+    parser.parse_string("😀").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED 128512)))",
+  )
+  assert_eq(
+    parser.parse_string("\u{0001}").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED 1)))",
+  )
+  assert_eq(
+    parser.parse_string("").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED 127)))",
+  )
+  assert_eq(
+    parser.parse_string("\"x").root_node().to_sexp(),
+    "(document (string (string_content) (MISSING \"\"\")))",
+  )
+  assert_eq(
+    parser.parse_string("[1,\"").root_node().to_sexp(),
+    "(document (ERROR (number)))",
+  )
+}

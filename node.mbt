@@ -252,17 +252,21 @@ pub fn Node::text(self : Node, source : Bytes) -> String {
 ///|
 fn Node::write_sexp(self : Node, output : StringBuilder, fields : Bool) -> Unit {
   if self.data.unexpected is Some(code) {
-    output.write_string("(UNEXPECTED '")
+    output.write_string("(UNEXPECTED ")
     match code {
-      0 => output.write_string("\\0")
-      10 => output.write_string("\\n")
-      13 => output.write_string("\\r")
-      9 => output.write_string("\\t")
-      39 => output.write_string("\\'")
-      92 => output.write_string("\\\\")
-      _ => output.write_char(code.unsafe_to_char())
+      -1 => output.write_string("INVALID")
+      0 => output.write_string("'\\0'")
+      10 => output.write_string("'\\n'")
+      13 => output.write_string("'\\r'")
+      9 => output.write_string("'\\t'")
+      32..<127 => {
+        output.write_char('\'')
+        output.write_char(code.unsafe_to_char())
+        output.write_char('\'')
+      }
+      _ => output.write_string(code.to_string())
     }
-    output.write_string("')")
+    output.write_char(')')
     return
   }
   if self.is_missing() {
@@ -271,7 +275,7 @@ fn Node::write_sexp(self : Node, output : StringBuilder, fields : Bool) -> Unit 
       if self.is_named() {
         self.kind()
       } else {
-        Json(self.kind()).stringify()
+        "\"" + self.kind() + "\""
       },
     )
     output.write_char(')')
