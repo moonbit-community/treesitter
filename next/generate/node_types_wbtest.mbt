@@ -1733,11 +1733,6 @@ fn find_node(nodes : Array[NodeInfoJSON], kind : StrId) -> NodeInfoJSON? {
   None
 }
 
-///|
-fn named(p : RulePool, name : String) -> RuleId {
-  let name = p.intern(name)
-  p.named_symbol(name)
-}
 
 ///|
 fn string(p : RulePool, value : String) -> RuleId {
@@ -1745,11 +1740,6 @@ fn string(p : RulePool, value : String) -> RuleId {
   p.string(value)
 }
 
-///|
-fn pattern(p : RulePool, value : String) -> RuleId {
-  let (value, flags) = (p.intern(value), p.intern(""))
-  p.pattern(value, flags)
-}
 
 ///|
 fn field(p : RulePool, name : String, content : RuleId) -> RuleId {

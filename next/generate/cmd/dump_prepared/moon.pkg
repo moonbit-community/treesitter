@@ -1,0 +1,11 @@
+import {
+  "moonbit-community/treesitter/next/generate",
+  "moonbitlang/core/env",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/async/stdio",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "+native"

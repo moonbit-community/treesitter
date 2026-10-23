@@ -18,6 +18,10 @@ pub let default_opt_level : OptLevel
 
 pub let default_params : MetadataParams
 
+pub fn dump_grammar_json(String) -> String
+
+pub fn dump_prepared_grammar(PreparedGrammar) -> String
+
 pub let empty_str_id : StrId
 
 pub let end_name_id : StrId
@@ -55,10 +59,76 @@ pub let symbol_end : Symbol
 pub let symbol_end_of_nonterminal_extra : Symbol
 
 // Errors
+pub(all) suberror EmptyStringExtraError {
+  EmptyStringExtraError(String)
+} derive(Eq, @debug.Debug)
+pub impl Show for EmptyStringExtraError
+
+pub(all) suberror ExpandRepeatsError {
+  ExpandRepeatsError(String)
+} derive(Eq, @debug.Debug)
+pub impl Show for ExpandRepeatsError
+
+pub(all) suberror ExtractTokensError {
+  EmptyString(String)
+  SupertypeTerminal(String)
+  ExternalTokenNonTerminal(String)
+  NonSymbolExternalToken
+  WordToken(NonTerminalWordTokenError)
+  NonTokenReservedWord(String)
+} derive(Eq, @debug.Debug)
+pub impl Show for ExtractTokensError
+
+pub(all) suberror FlattenGrammarError {
+  NoReservedWordSet(String)
+  TooManyReservedWordSets(Int32)
+  EmptyString(String)
+  RecursiveInline(String)
+  NoReachableProductions(String)
+} derive(Eq, @debug.Debug)
+pub impl Show for FlattenGrammarError
+
+pub(all) suberror IndirectRecursionError {
+  IndirectRecursionError(Array[String])
+} derive(Eq, @debug.Debug)
+pub impl Show for IndirectRecursionError
+
+pub(all) suberror InternSymbolsError {
+  HiddenStartRule
+  Undefined(String)
+  UndefinedSupertype(String)
+  UndefinedConflict(String)
+  UndefinedWordToken(String)
+} derive(Eq, @debug.Debug)
+pub impl Show for InternSymbolsError
+
+pub(all) suberror ParseGrammarError {
+  Serialization(String)
+  InvalidExtra
+  Unexpected
+  InvalidReservedWordSet
+  UnexpectedRule(String)
+} derive(Eq, @debug.Debug)
+pub impl Show for ParseGrammarError
+
+pub(all) suberror ProcessInlinesError {
+  ExternalToken(String)
+  Token(String)
+  FirstRule(String)
+  NoReachableProductions(String)
+} derive(Eq, @debug.Debug)
+pub impl Show for ProcessInlinesError
+
 pub(all) suberror SuperTypeCycleError {
   SuperTypeCycleError(items~ : Array[String])
 } derive(Eq, @debug.Debug)
 pub impl Show for SuperTypeCycleError
+
+pub(all) suberror ValidatePrecedenceError {
+  UndeclaredPrecedenceError(precedence~ : String, rule~ : String)
+  ConflictingPrecedenceOrderingError(precedence_1~ : String, precedence_2~ : String)
+} derive(Eq, @debug.Debug)
+pub impl Show for ValidatePrecedenceError
 
 pub(all) suberror VariableInfoError {
   InvalidSupertype(InvalidSupertypeError)
@@ -312,6 +382,12 @@ pub(all) struct NfaTransition {
   precedence : Int32
   states : Array[Int32]
 } derive(Eq, @debug.Debug)
+
+pub(all) struct NonTerminalWordTokenError {
+  symbol_name : String
+  conflicting_symbol_name : String?
+} derive(Eq, @debug.Debug)
+pub impl Show for NonTerminalWordTokenError
 
 pub(all) struct OptLevel {
   merge_states : Bool
