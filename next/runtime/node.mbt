@@ -99,7 +99,7 @@ pub fn Node::node_id(self : Node) -> UInt64 {
   match self.id {
     None => 0
     Some(slot) =>
-      (slot.owner.to_uint64() << 24) | ((slot.index & 0xFFFFFF).to_uint64() + 1)
+      (slot.owner.to_uint64() << 32) | (slot.index.to_uint64() + 1)
   }
 }
 

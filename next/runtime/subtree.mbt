@@ -834,10 +834,11 @@ pub fn Subtree::summarize_children(
       !s.visible &&
       !s.named &&
       first_child.symbol() == s.symbol {
+      // `repeat_depth` is a `uint16_t` upstream.
       if first_child.repeat_depth() > last_child.repeat_depth() {
-        s.repeat_depth = first_child.repeat_depth() + 1
+        s.repeat_depth = (first_child.repeat_depth() + 1) & 0xFFFFU
       } else {
-        s.repeat_depth = last_child.repeat_depth() + 1
+        s.repeat_depth = (last_child.repeat_depth() + 1) & 0xFFFFU
       }
     }
   }

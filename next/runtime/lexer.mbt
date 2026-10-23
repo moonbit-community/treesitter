@@ -412,6 +412,13 @@ pub fn Lexer::is_at_included_range_start(self : Lexer) -> Bool {
 pub fn Lexer::log(self : Lexer, message : String) -> Unit {
   if self.logger is Some(log) {
     self.write_debug_buffer(message)
+    // Upstream formats into a 1024-byte buffer.
+    let bytes = @utf8.encode(message)
+    let message = if bytes.length() <= 1023 {
+      message
+    } else {
+      @utf8.decode_lossy(bytes[0:1023])
+    }
     log(Lex, message)
   }
 }

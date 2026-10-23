@@ -975,7 +975,10 @@ fn Parser::reduce(
           symbol, next_slice_children, production_id, language,
         )
       } else {
-        self.trailing_extras2.clear()
+        // Upstream trims a copy of the array header, so deleting
+        // `next_slice.subtrees` still releases the trailing extras. Here the
+        // array is shared, so release the extras that were moved out.
+        subtree_array_clear(self.trailing_extras2)
         subtree_array_delete(next_slice.subtrees)
       }
     }

@@ -1,0 +1,387 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-community/treesitter/next/api"
+
+import {
+  "moonbit-community/treesitter/next/language",
+  "moonbit-community/treesitter/next/query",
+  "moonbit-community/treesitter/next/runtime",
+  "moonbitlang/core/builtin",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn format_sexp(String, Int32) -> String
+
+pub let language_version : Int32
+
+pub let min_compatible_language_version : Int32
+
+// Errors
+pub(all) suberror IncludedRangesError {
+  IncludedRangesError(Int32)
+} derive(Eq, @debug.Debug)
+pub impl Show for IncludedRangesError
+
+pub(all) suberror LanguageError {
+  Version(Int32)
+  NotParseable
+} derive(Eq, @debug.Debug)
+pub impl Show for LanguageError
+
+pub(all) suberror QueryError {
+  QueryError(row~ : Int32, column~ : Int32, offset~ : Int32, message~ : String, kind~ : QueryErrorKind)
+} derive(Eq, @debug.Debug)
+pub fn QueryError::column(Self) -> Int32
+pub fn QueryError::kind(Self) -> QueryErrorKind
+pub fn QueryError::message(Self) -> String
+pub fn QueryError::offset(Self) -> Int32
+pub fn QueryError::row(Self) -> Int32
+pub impl Show for QueryError
+
+// Types and methods
+pub(all) enum CaptureQuantifier {
+  Zero
+  ZeroOrOne
+  ZeroOrMore
+  One
+  OneOrMore
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ControlFlow {
+  Continue
+  Break
+} derive(Eq, @debug.Debug)
+
+pub(all) struct InputEdit {
+  start_byte : Int32
+  old_end_byte : Int32
+  new_end_byte : Int32
+  start_position : Point
+  old_end_position : Point
+  new_end_position : Point
+} derive(Eq, @debug.Debug)
+pub fn InputEdit::edit_point(Self, Point, Int32) -> (Point, Int32)
+pub fn InputEdit::edit_range(Self, Range) -> Range
+
+pub struct Language {
+  // private fields
+}
+pub fn Language::abi_version(Self) -> Int32
+pub fn Language::external_scanner(Self) -> (() -> @runtime.ExternalScanner)?
+pub fn Language::field_count(Self) -> Int32
+pub fn Language::field_id_for_name(Self, StringView) -> Int32?
+pub fn Language::field_name_for_id(Self, Int32) -> String?
+pub fn Language::id_for_node_kind(Self, StringView, Bool) -> Int32
+pub fn Language::is_parseable(Self) -> Bool
+pub fn Language::lookahead_iterator(Self, Int32) -> LookaheadIterator?
+pub fn Language::metadata(Self) -> LanguageMetadata?
+pub fn Language::name(Self) -> String?
+pub fn Language::new(@language.Language, external_scanner? : () -> @runtime.ExternalScanner) -> Self
+pub fn Language::next_state(Self, Int32, Int32) -> Int32
+pub fn Language::node_kind_count(Self) -> Int32
+pub fn Language::node_kind_for_id(Self, Int32) -> String?
+pub fn Language::node_kind_is_named(Self, Int32) -> Bool
+pub fn Language::node_kind_is_supertype(Self, Int32) -> Bool
+pub fn Language::node_kind_is_visible(Self, Int32) -> Bool
+pub fn Language::parse_state_count(Self) -> Int32
+pub fn Language::raw(Self) -> @language.Language
+pub fn Language::subtypes_for_supertype(Self, Int32) -> ArrayView[Int32]
+pub fn Language::supertypes(Self) -> ArrayView[Int32]
+pub impl Eq for Language
+pub impl @debug.Debug for Language
+
+pub(all) struct LanguageMetadata {
+  major_version : Int32
+  minor_version : Int32
+  patch_version : Int32
+} derive(Eq, @debug.Debug)
+
+pub(all) enum LogType {
+  Parse
+  Lex
+} derive(Eq, @debug.Debug)
+
+pub struct LookaheadIterator {
+  // private fields
+}
+pub fn LookaheadIterator::current_symbol(Self) -> Int32?
+pub fn LookaheadIterator::current_symbol_name(Self) -> String?
+pub fn LookaheadIterator::iter(Self) -> Iter[Int32]
+pub fn LookaheadIterator::iter_names(Self) -> Iter[String]
+pub fn LookaheadIterator::language(Self) -> Language
+pub fn LookaheadIterator::next(Self) -> Int32?
+pub fn LookaheadIterator::reset(Self, Language, Int32) -> Bool
+pub fn LookaheadIterator::reset_state(Self, Int32) -> Bool
+
+pub struct LossyUtf8 {
+  // private fields
+}
+pub fn LossyUtf8::iter(Self) -> Iter[String]
+pub fn LossyUtf8::new(BytesView) -> Self
+pub fn LossyUtf8::next(Self) -> String?
+
+pub struct Node {
+  // private fields
+}
+pub fn Node::byte_range(Self) -> (Int32, Int32)
+pub fn Node::child(Self, Int32) -> Self?
+pub fn Node::child_by_field_id(Self, Int32) -> Self?
+pub fn Node::child_by_field_name(Self, StringView) -> Self?
+pub fn Node::child_count(Self) -> Int32
+pub fn Node::child_with_descendant(Self, Self) -> Self?
+pub fn Node::children(Self, TreeCursor) -> Iter[Self]
+pub fn Node::children_by_field_id(Self, Int32, TreeCursor) -> Iter[Self]
+pub fn Node::children_by_field_name(Self, StringView, TreeCursor) -> Iter[Self]
+pub fn Node::descendant_count(Self) -> Int32
+pub fn Node::descendant_for_byte_range(Self, Int32, Int32) -> Self?
+pub fn Node::descendant_for_point_range(Self, Point, Point) -> Self?
+pub fn Node::edit(Self, InputEdit) -> Self
+pub fn Node::end_byte(Self) -> Int32
+pub fn Node::end_position(Self) -> Point
+pub fn Node::field_name_for_child(Self, Int32) -> String?
+pub fn Node::field_name_for_named_child(Self, Int32) -> String?
+pub fn Node::first_child_for_byte(Self, Int32) -> Self?
+pub fn Node::first_named_child_for_byte(Self, Int32) -> Self?
+pub fn Node::grammar_id(Self) -> Int32
+pub fn Node::grammar_name(Self) -> String
+pub fn Node::has_changes(Self) -> Bool
+pub fn Node::has_error(Self) -> Bool
+pub fn Node::id(Self) -> UInt64
+pub fn Node::is_error(Self) -> Bool
+pub fn Node::is_extra(Self) -> Bool
+pub fn Node::is_missing(Self) -> Bool
+pub fn Node::is_named(Self) -> Bool
+pub fn Node::kind(Self) -> String
+pub fn Node::kind_id(Self) -> Int32
+pub fn Node::language(Self) -> Language
+pub fn Node::named_child(Self, Int32) -> Self?
+pub fn Node::named_child_count(Self) -> Int32
+pub fn Node::named_children(Self, TreeCursor) -> Iter[Self]
+pub fn Node::named_descendant_for_byte_range(Self, Int32, Int32) -> Self?
+pub fn Node::named_descendant_for_point_range(Self, Point, Point) -> Self?
+pub fn Node::next_named_sibling(Self) -> Self?
+pub fn Node::next_parse_state(Self) -> Int32
+pub fn Node::next_sibling(Self) -> Self?
+pub fn Node::parent(Self) -> Self?
+pub fn Node::parse_state(Self) -> Int32
+pub fn Node::prev_named_sibling(Self) -> Self?
+pub fn Node::prev_sibling(Self) -> Self?
+pub fn Node::range(Self) -> Range
+pub fn Node::raw(Self) -> @runtime.Node
+pub fn Node::start_byte(Self) -> Int32
+pub fn Node::start_position(Self) -> Point
+pub fn Node::to_sexp(Self) -> String
+pub fn Node::utf16_text(Self, ArrayView[UInt16]) -> ArrayView[UInt16]
+pub fn Node::utf8_text(Self, BytesView) -> String raise
+pub fn Node::walk(Self) -> TreeCursor
+pub impl Eq for Node
+pub impl Hash for Node
+pub impl Show for Node
+pub impl @debug.Debug for Node
+
+pub(all) struct ParseOptions {
+  progress_callback : ((ParseState) -> ControlFlow)?
+}
+pub fn ParseOptions::new(progress_callback? : (ParseState) -> ControlFlow) -> Self
+
+pub struct ParseState {
+  // private fields
+}
+pub fn ParseState::current_byte_offset(Self) -> Int32
+pub fn ParseState::has_error(Self) -> Bool
+
+pub struct Parser {
+  // private fields
+}
+pub fn Parser::included_ranges(Self) -> Array[Range]
+pub fn Parser::language(Self) -> Language?
+pub fn Parser::logger(Self) -> ((LogType, String) -> Unit)?
+pub fn Parser::new() -> Self
+pub fn Parser::parse(Self, BytesView, old_tree? : Tree) -> Tree?
+pub fn Parser::parse_custom_encoding(Self, (BytesView) -> (Int32, Int32), (Int32, Point) -> BytesView, old_tree? : Tree, options? : ParseOptions) -> Tree?
+pub fn Parser::parse_utf16_be(Self, ArrayView[UInt16], old_tree? : Tree) -> Tree?
+pub fn Parser::parse_utf16_be_with_options(Self, (Int32, Point) -> ArrayView[UInt16], old_tree? : Tree, options? : ParseOptions) -> Tree?
+pub fn Parser::parse_utf16_le(Self, ArrayView[UInt16], old_tree? : Tree) -> Tree?
+pub fn Parser::parse_utf16_le_with_options(Self, (Int32, Point) -> ArrayView[UInt16], old_tree? : Tree, options? : ParseOptions) -> Tree?
+pub fn Parser::parse_with_options(Self, (Int32, Point) -> BytesView, old_tree? : Tree, options? : ParseOptions) -> Tree?
+pub fn Parser::print_dot_graphs(Self, (String) -> Unit) -> Unit
+pub fn Parser::reset(Self) -> Unit
+pub fn Parser::set_included_ranges(Self, ArrayView[Range]) -> Unit raise IncludedRangesError
+pub fn Parser::set_language(Self, Language) -> Unit raise LanguageError
+pub fn Parser::set_logger(Self, ((LogType, String) -> Unit)?) -> Unit
+pub fn Parser::stop_printing_dot_graphs(Self) -> Unit
+
+pub(all) struct Point {
+  row : Int32
+  column : Int32
+} derive(Compare, Default, Eq, Hash, @debug.Debug)
+pub fn Point::new(Int32, Int32) -> Self
+pub impl Show for Point
+
+pub struct Query {
+  // private fields
+}
+pub fn Query::capture_index_for_name(Self, StringView) -> Int32?
+pub fn Query::capture_names(Self) -> ArrayView[String]
+pub fn Query::capture_quantifiers(Self, Int32) -> ArrayView[CaptureQuantifier]
+pub fn Query::deep_clone(Self) -> Self
+pub fn Query::disable_capture(Self, StringView) -> Unit
+pub fn Query::disable_pattern(Self, Int32) -> Unit
+pub fn Query::end_byte_for_pattern(Self, Int32) -> Int32
+pub fn Query::general_predicates(Self, Int32) -> ArrayView[QueryPredicate]
+pub fn Query::is_pattern_guaranteed_at_step(Self, Int32) -> Bool
+pub fn Query::is_pattern_non_local(Self, Int32) -> Bool
+pub fn Query::is_pattern_rooted(Self, Int32) -> Bool
+pub fn Query::new(Language, String) -> Self raise QueryError
+pub fn Query::new_raw(Language, Bytes) -> @query.Query raise QueryError
+pub fn Query::pattern_count(Self) -> Int32
+pub fn Query::property_predicates(Self, Int32) -> ArrayView[(QueryProperty, Bool)]
+pub fn Query::property_settings(Self, Int32) -> ArrayView[QueryProperty]
+pub fn Query::raw(Self) -> @query.Query
+pub fn Query::start_byte_for_pattern(Self, Int32) -> Int32
+pub impl Eq for Query
+
+pub(all) struct QueryCapture {
+  node : Node
+  index : Int32
+}
+pub impl @debug.Debug for QueryCapture
+
+pub struct QueryCaptures[T] {
+  // private fields
+}
+pub fn[T : TextProvider] QueryCaptures::iter(Self[T]) -> Iter[(QueryMatch, Int32)]
+pub fn[T : TextProvider] QueryCaptures::next(Self[T]) -> (QueryMatch, Int32)?
+pub fn[T] QueryCaptures::set_byte_range(Self[T], Int32, Int32) -> Unit
+pub fn[T] QueryCaptures::set_point_range(Self[T], Point, Point) -> Unit
+
+pub struct QueryCursor {
+  // private fields
+}
+pub fn[T] QueryCursor::captures(Self, Query, Node, T) -> QueryCaptures[T]
+pub fn[T] QueryCursor::captures_with_options(Self, Query, Node, T, QueryCursorOptions) -> QueryCaptures[T]
+pub fn QueryCursor::did_exceed_match_limit(Self) -> Bool
+pub fn QueryCursor::match_limit(Self) -> Int32
+pub fn[T] QueryCursor::matches(Self, Query, Node, T) -> QueryMatches[T]
+pub fn[T] QueryCursor::matches_with_options(Self, Query, Node, T, QueryCursorOptions) -> QueryMatches[T]
+pub fn QueryCursor::new() -> Self
+pub fn QueryCursor::set_byte_range(Self, Int32, Int32) -> Self
+pub fn QueryCursor::set_containing_byte_range(Self, Int32, Int32) -> Self
+pub fn QueryCursor::set_containing_point_range(Self, Point, Point) -> Self
+pub fn QueryCursor::set_match_limit(Self, Int32) -> Unit
+pub fn QueryCursor::set_max_start_depth(Self, Int32?) -> Self
+pub fn QueryCursor::set_point_range(Self, Point, Point) -> Self
+
+pub(all) struct QueryCursorOptions {
+  progress_callback : ((QueryCursorState) -> ControlFlow)?
+}
+pub fn QueryCursorOptions::new(progress_callback? : (QueryCursorState) -> ControlFlow) -> Self
+
+pub struct QueryCursorState {
+  // private fields
+}
+pub fn QueryCursorState::current_byte_offset(Self) -> Int32
+
+pub(all) enum QueryErrorKind {
+  Syntax
+  NodeType
+  Field
+  Capture
+  Predicate
+  Structure
+  Language
+} derive(Eq, @debug.Debug)
+
+pub struct QueryMatch {
+  pattern_index : Int32
+  // private fields
+}
+pub fn QueryMatch::captures(Self) -> ArrayView[QueryCapture]
+pub fn QueryMatch::id(Self) -> UInt32
+pub fn QueryMatch::nodes_for_capture_index(Self, Int32) -> Iter[Node]
+pub fn QueryMatch::remove(Self) -> Unit
+pub fn[T : TextProvider] QueryMatch::satisfies_text_predicates(Self, Query, T) -> Bool
+pub impl @debug.Debug for QueryMatch
+
+pub struct QueryMatches[T] {
+  // private fields
+}
+pub fn[T : TextProvider] QueryMatches::iter(Self[T]) -> Iter[QueryMatch]
+pub fn[T : TextProvider] QueryMatches::next(Self[T]) -> QueryMatch?
+pub fn[T] QueryMatches::set_byte_range(Self[T], Int32, Int32) -> Unit
+pub fn[T] QueryMatches::set_point_range(Self[T], Point, Point) -> Unit
+
+pub(all) struct QueryPredicate {
+  operator : String
+  args : Array[QueryPredicateArg]
+} derive(Eq, @debug.Debug)
+
+pub(all) enum QueryPredicateArg {
+  Capture(Int32)
+  String(String)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct QueryProperty {
+  key : String
+  value : String?
+  capture_id : Int32?
+} derive(Eq, @debug.Debug)
+pub fn QueryProperty::new(String, String?, Int32?) -> Self
+
+pub(all) struct Range {
+  start_byte : Int32
+  end_byte : Int32
+  start_point : Point
+  end_point : Point
+} derive(Eq, Hash, @debug.Debug)
+
+pub struct TextCallback {
+  // private fields
+}
+pub fn TextCallback::new((Node) -> Iter[BytesView]) -> Self
+pub impl TextProvider for TextCallback
+
+pub struct Tree {
+  // private fields
+}
+pub fn Tree::changed_ranges(Self, Self) -> Array[Range]
+pub fn Tree::clone(Self) -> Self
+pub fn Tree::edit(Self, InputEdit) -> Unit
+pub fn Tree::included_ranges(Self) -> Array[Range]
+pub fn Tree::language(Self) -> Language
+pub fn Tree::print_dot_graph(Self, StringBuilder) -> Unit
+pub fn Tree::raw(Self) -> @runtime.Tree
+pub fn Tree::root_node(Self) -> Node
+pub fn Tree::root_node_with_offset(Self, Int32, Point) -> Node
+pub fn Tree::walk(Self) -> TreeCursor
+pub impl @debug.Debug for Tree
+
+pub struct TreeCursor {
+  // private fields
+}
+pub fn TreeCursor::clone(Self) -> Self
+pub fn TreeCursor::depth(Self) -> Int32
+pub fn TreeCursor::descendant_index(Self) -> Int32
+pub fn TreeCursor::field_id(Self) -> Int32?
+pub fn TreeCursor::field_name(Self) -> String?
+pub fn TreeCursor::goto_descendant(Self, Int32) -> Unit
+pub fn TreeCursor::goto_first_child(Self) -> Bool
+pub fn TreeCursor::goto_first_child_for_byte(Self, Int32) -> Int32?
+pub fn TreeCursor::goto_first_child_for_point(Self, Point) -> Int32?
+pub fn TreeCursor::goto_last_child(Self) -> Bool
+pub fn TreeCursor::goto_next_sibling(Self) -> Bool
+pub fn TreeCursor::goto_parent(Self) -> Bool
+pub fn TreeCursor::goto_previous_sibling(Self) -> Bool
+pub fn TreeCursor::node(Self) -> Node
+pub fn TreeCursor::reset(Self, Node) -> Unit
+pub fn TreeCursor::reset_to(Self, Self) -> Unit
+
+// Type aliases
+pub type Logger = (LogType, String) -> Unit
+
+// Traits
+pub(open) trait TextProvider {
+  fn text(Self, Node) -> Iter[BytesView]
+}
+pub impl TextProvider for Bytes
+pub impl TextProvider for BytesView

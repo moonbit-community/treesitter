@@ -1,0 +1,15 @@
+[package]
+name = "api_harness"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+tree-sitter = { path = "../../../_build/api_harness/ts-lib" }
+tree-sitter-language = { path = "../../../_build/api_harness/ts-language" }
+streaming-iterator = "0.1.9"
+
+[build-dependencies]
+cc = "1.2.63"
+
+[workspace]

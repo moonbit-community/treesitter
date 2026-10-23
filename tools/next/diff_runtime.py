@@ -8,6 +8,7 @@ compare the S-expressions.
 Usage: python3 tools/next/diff_runtime.py [--mutate N] [names...]
 """
 import argparse
+import os
 import hashlib
 import json
 import random
@@ -18,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 REF = ROOT / '_build/ref'
-LANG = ROOT / '_build/reflang'
+LANG = Path(os.environ['NEXT_LANG_DIR']) if os.environ.get('NEXT_LANG_DIR') else ROOT / '_build/reflang'
 BIN = ROOT / '_build/refbin'
 TMP = ROOT / '_build/difftmp'
 UPSTREAM = Path(subprocess.check_output(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], cwd=ROOT, text=True).strip()).parent / '.repos/ts-pinned'
@@ -166,6 +167,8 @@ def main():
     ap.add_argument('--mutate', type=int, default=0)
     ap.add_argument('--show', type=int, default=3)
     ap.add_argument('--externals', action='store_true', help='include grammars with external scanners')
+    ap.add_argument('--encoding', choices=['utf8', 'utf16le', 'utf16be'], help='re-encode inputs and parse with this encoding')
+    ap.add_argument('--ranges', type=int, default=0, help='random included ranges per input')
     ap.add_argument('--log', action='store_true', help='compare parser logs')
     ap.add_argument('--edits', type=int, default=0, help='random edits per input (incremental mode)')
     ap.add_argument('names', nargs='*')
@@ -202,6 +205,30 @@ def main():
                     eargs += [paths[i], str(q), str(start), str(old_end), str(start + len(insert))]
             groups = [eargs[k:k + 5] for k in range(0, len(eargs), 5)]
             exp, act, code = run_pair([str(ref)], [str(PROBE), 'edit', str(LANG / f'{name}.json')], groups)
+        elif args.encoding or args.ranges:
+            ref = build_ref(name, 'reference_modes.c', '.modes')
+            enc = args.encoding or 'utf8'
+            expected_parts, actual_parts = [], []
+            for i, data in enumerate(inputs):
+                text = data.decode('utf-8', errors='replace')
+                if enc == 'utf16le':
+                    data = text.encode('utf-16-le')
+                elif enc == 'utf16be':
+                    data = text.encode('utf-16-be')
+                q = work / f'{i}.{enc}'
+                q.write_bytes(data)
+                spec = '-'
+                if args.ranges:
+                    unit = 1 if enc == 'utf8' else 2
+                    cuts = sorted(rng.randrange(len(data) + 2) // unit * unit for _ in range(2 * args.ranges))
+                    spec = ','.join(f'{cuts[k]}-{cuts[k + 1]}' for k in range(0, len(cuts), 2))
+                (e, _), (a, code) = run([[str(ref), enc, spec, str(q)],
+                                         [str(PROBE), 'modes', str(LANG / f'{name}.json'), enc, spec, str(q)]],
+                                        BATCH_TIMEOUT)
+                expected_parts.append('== <hang>' if e is None else e)
+                actual_parts.append('== <hang>' if a is None else a)
+            exp = ''.join(expected_parts).split('== ')[1:]
+            act = ''.join(actual_parts).split('== ')[1:]
         elif args.log:
             ref = build_ref(name, 'reference_log.c', '.log')
             exp, act, code = run_pair([str(ref)], [str(PROBE), 'log', str(LANG / f'{name}.json')], [[p] for p in paths])

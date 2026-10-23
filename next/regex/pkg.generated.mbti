@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-community/treesitter/next/regex"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub(all) suberror RegexError {
+  Syntax(String)
+  CompiledTooBig(Int32)
+} derive(Eq, @debug.Debug)
+pub impl Show for RegexError
+
+// Types and methods
+pub struct Regex {
+  // private fields
+}
+pub fn Regex::as_str(Self) -> String
+pub fn Regex::is_match(Self, BytesView) -> Bool
+pub fn Regex::new(String) -> Self raise RegexError
+pub impl Show for Regex
+
+// Type aliases
+
+// Traits
