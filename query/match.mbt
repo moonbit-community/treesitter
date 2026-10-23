@@ -383,7 +383,13 @@ fn match_children(
         }
         stops.sort_by((a, b) => b.1.compare(a.1))
         let followers = terminal_followers(
-          children, pi, trailing_anchor, parent, after, budget,
+          children,
+          pi,
+          trailing_anchor,
+          parent,
+          after,
+          budget,
+          retain_stops=retain_terminal_stops,
         )
         for (next, _, accumulated) in stops {
           let found = if followers is Some(followers) {

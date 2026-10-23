@@ -43,3 +43,19 @@ test "capture metadata scales with independent query patterns" {
   assert_eq(query.capture_quantifier(0, 3999), Some(Zero))
   assert_eq(query.capture_quantifier(3999, 0), Some(Zero))
 }
+
+///|
+test "cached followers retain stops required by an enclosing continuation" {
+  assert_eq(
+    root_query_output(
+      "1 2 3", "(document ((number)+ ((number)+ @n)) (number) @t)",
+    ),
+    "0 n:2..3 t:4..5",
+  )
+  assert_eq(
+    root_query_output(
+      "1 2 3", "(document ((number)+ (number)+ @n) (number) @t)",
+    ),
+    "0 n:2..3 t:4..5",
+  )
+}

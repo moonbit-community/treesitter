@@ -1172,3 +1172,14 @@ comparisons and 378 quantified-alternative comparisons remain exact. The known
 15 ranged differences and 21 group-capture differences remain. Full-suite and
 public-grammar revalidation follows this focused review; final whole-port review
 and publication are still pending.
+
+### Ultra review follow-up
+
+The focused Codex CLI ultra follow-up confirmed all three original findings were
+addressed at `6c3b63e`, and found one regression in the new suffix cache: it omitted
+the caller's request to retain shorter repetition stops. The flag now propagates
+through cached terminal matches. Both the exact grouped reproducer and its
+ungrouped control are frozen tests; all 67 query tests pass across native, JS and
+Wasm GC. Before this final flag correction, the complete 353 native / 344 JS /
+344 Wasm GC suite and all six public grammars passed. The correction is being
+revalidated against the complete suite and public matrix.

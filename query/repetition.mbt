@@ -9,6 +9,7 @@ fn terminal_followers(
   parent : @ts.Node,
   from : Int32,
   budget : Budget,
+  retain_stops~ : Bool,
 ) -> Array[(Int32, Completion, Int32)]? raise QueryError {
   guard !trailing_anchor && pi + 2 == children.length() else { return None }
   let spec = children[pi + 1]
@@ -23,7 +24,14 @@ fn terminal_followers(
   for index in from..<parent.child_count() {
     budget.tick()
     if spec.field is None || spec.field == parent.field_name_for_child(index) {
-      for (completed, after) in match_at(spec.pattern, parent, index, budget) {
+      for
+        (completed, after) in match_at(
+          spec.pattern,
+          parent,
+          index,
+          budget,
+          retain_stops~,
+        ) {
         matches.push((index, completed, after))
       }
     }
