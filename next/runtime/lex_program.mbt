@@ -204,15 +204,60 @@ priv struct CompiledLexProgram {
   /// `set_ranges[2 * set_start[i]:2 * set_start[i + 1]]`.
   set_start : FixedArray[Int]
   set_ranges : FixedArray[Int]
+  /// The outcome of `ADVANCE_MAP` and the transitions of state `s` for an
+  /// ASCII `lookahead` `c` when not at EOF, at `ascii[s * 128 + c]`:
+  /// `2 * next_state + skip`, `ascii_end` for `END_STATE()`, or
+  /// `ascii_unknown` until the state is first entered. The conditions have
+  /// no side effects, so this caches exactly what evaluating them yields.
+  ascii : FixedArray[Int]
 }
+
+///|
+let ascii_unknown : Int = -1
+
+///|
+let ascii_end : Int = -2
 
 ///|
 let transition_width : Int = 6
 
 ///|
+///|
+/// Whether `compile` can represent `program`: every target state is
+/// non-negative and below 2^29 (so that `ascii` can encode it), and every
+/// large character set index is valid. Tables produced by the generator
+/// always qualify; others are run by `run_lex_program`.
+fn compilable(program : @language.LexProgram) -> Bool {
+  let valid_state = (state : Int) => state >= 0 && state < 0x20000000
+  for code in program.states {
+    if code.eof_advance is Some(next) && !valid_state(next) {
+      return false
+    }
+    for entry in code.advance_map {
+      if !valid_state(entry.1) {
+        return false
+      }
+    }
+    for transition in code.transitions {
+      if !valid_state(transition.state) {
+        return false
+      }
+      if transition.condition.large_set is Some((index, _)) &&
+        (index < 0 || index >= program.large_character_sets.length()) {
+        return false
+      }
+    }
+  }
+  true
+}
+
+///|
 fn CompiledLexProgram::compile(
   program : @language.LexProgram,
-) -> CompiledLexProgram {
+) -> CompiledLexProgram? {
+  if !compilable(program) {
+    return None
+  }
   let states = program.states
   let n = states.length()
   let has_accept = FixedArray::make(n, false)
@@ -284,7 +329,7 @@ fn CompiledLexProgram::compile(
     }
     set_start.push(set_ranges.length() / 2)
   }
-  {
+  Some({
     has_accept,
     accept,
     has_eof_advance,
@@ -298,6 +343,40 @@ fn CompiledLexProgram::compile(
     rc_ranges: FixedArray::from_array(rc_ranges),
     set_start: FixedArray::from_array(set_start),
     set_ranges: FixedArray::from_array(set_ranges),
+    ascii: FixedArray::make(n * 128, ascii_unknown),
+  })
+}
+
+///|
+/// The `ADVANCE_MAP` and transition outcome of `state` for `lookahead`, as
+/// encoded in `ascii`.
+fn CompiledLexProgram::advance_outcome(
+  self : CompiledLexProgram,
+  state : Int,
+  lookahead : Int32,
+  eof : Bool,
+) -> Int {
+  let map = self.map
+  for k in self.map_start[state]..<self.map_start[state + 1] {
+    if map[2 * k] == lookahead {
+      return 2 * map[2 * k + 1]
+    }
+  }
+  let trans = self.trans
+  for k in self.trans_start[state]..<self.trans_start[state + 1] {
+    let t = k * transition_width
+    if self.lex_condition(t, lookahead, eof) {
+      return 2 * trans[t] + trans[t + 1]
+    }
+  }
+  ascii_end
+}
+
+///|
+/// Fill the `ascii` row of `state`.
+fn CompiledLexProgram::fill_ascii(self : CompiledLexProgram, state : Int) -> Unit {
+  for c in 0..<128 {
+    self.ascii[state * 128 + c] = self.advance_outcome(state, c, false)
   }
 }
 
@@ -416,8 +495,7 @@ fn CompiledLexProgram::run(
   let mut state = start_state
   let mut first = true
   let state_count = self.has_accept.length()
-  let map = self.map
-  let trans = self.trans
+  let ascii = self.ascii
   for ;; {
     if !first {
       // next_state:
@@ -442,32 +520,23 @@ fn CompiledLexProgram::run(
       state = self.eof_advance[state]
       continue
     }
-    let mut advanced = false
-    for k in self.map_start[state]..<self.map_start[state + 1] {
-      if map[2 * k] == lookahead {
-        state = map[2 * k + 1]
-        advanced = true
-        break
+    // ADVANCE_MAP and the transitions, in order.
+    let outcome = if !eof && lookahead >= 0 && lookahead < 128 {
+      let index = state * 128 + lookahead
+      if ascii[index] == ascii_unknown {
+        self.fill_ascii(state)
       }
+      ascii[index]
+    } else {
+      self.advance_outcome(state, lookahead, eof)
     }
-    if advanced {
-      continue
+    if outcome == ascii_end {
+      // END_STATE()
+      return result
     }
-    for k in self.trans_start[state]..<self.trans_start[state + 1] {
-      let t = k * transition_width
-      if self.lex_condition(t, lookahead, eof) {
-        if trans[t + 1] != 0 {
-          skip = true
-        }
-        state = trans[t]
-        advanced = true
-        break
-      }
+    if (outcome & 1) != 0 {
+      skip = true
     }
-    if advanced {
-      continue
-    }
-    // END_STATE()
-    return result
+    state = outcome >> 1
   }
 }

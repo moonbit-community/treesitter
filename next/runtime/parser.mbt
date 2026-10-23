@@ -338,14 +338,21 @@ fn Parser::call_main_lex_fn(
   self : Parser,
   lex_mode : @language.LexMode,
 ) -> Bool {
-  self.lex_program.unwrap().run(self.lexer, lex_mode.lex_state)
+  match self.lex_program {
+    Some(program) => program.run(self.lexer, lex_mode.lex_state)
+    None => run_lex_program(self.lang().lex_fn, self.lexer, lex_mode.lex_state)
+  }
 }
 
 ///|
 fn Parser::call_keyword_lex_fn(self : Parser) -> Bool {
   match self.keyword_lex_program {
     Some(program) => program.run(self.lexer, 0)
-    None => false
+    None =>
+      match self.lang().keyword_lex_fn {
+        Some(program) => run_lex_program(program, self.lexer, 0)
+        None => false
+      }
   }
 }
 
@@ -1999,9 +2006,9 @@ pub fn Parser::set_language(
   self.scanner_factory = scanner
   match language {
     Some(language) => {
-      self.lex_program = Some(CompiledLexProgram::compile(language.lex_fn))
+      self.lex_program = CompiledLexProgram::compile(language.lex_fn)
       self.keyword_lex_program = match language.keyword_lex_fn {
-        Some(program) => Some(CompiledLexProgram::compile(program))
+        Some(program) => CompiledLexProgram::compile(program)
         None => None
       }
     }
