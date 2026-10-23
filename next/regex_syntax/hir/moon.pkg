@@ -1,0 +1,7 @@
+import {
+  "moonbit-community/treesitter/next/regex_syntax/ast",
+  "moonbit-community/treesitter/next/regex_syntax/unicode_tables",
+  "moonbitlang/core/cmp",
+}
+
+warnings = "-implicit_impl_as_method-reserved_keyword-unused_error_type"

@@ -41,7 +41,6 @@ fn syntax_summary(prepared : PreparedGrammar) -> Array[(String, VariableType)] {
 // extract_tokens.rs ------------------------------------------------------------
 
 ///|
-#skip("needs expand_tokens")
 test "extraction" {
   let grammar = extraction_grammar()
   let (ext, lexical_grammar) = extract(grammar)
@@ -98,7 +97,6 @@ test "extraction" {
 }
 
 ///|
-#skip("needs expand_tokens")
 test "start_rule_is_token" {
   // The start rule is a bare token. The token is extracted, but the start
   // rule is never absorbed. It stays as a reference to terminal 0.
@@ -118,7 +116,6 @@ test "start_rule_is_token" {
 }
 
 ///|
-#skip("needs expand_tokens")
 test "extracting_extra_symbols" {
   let pool = RulePool::new()
   let r0 = str(pool, "x")
@@ -135,7 +132,6 @@ test "extracting_extra_symbols" {
 }
 
 ///|
-#skip("needs expand_tokens")
 test "extract_externals" {
   let pool = RulePool::new()
   // rule_0: seq(external_0, "a", rule_1, rule_2)
@@ -178,7 +174,6 @@ test "extract_externals" {
 }
 
 ///|
-#skip("needs expand_tokens")
 test "extraction_on_hidden_terminal" {
   let pool = RulePool::new()
   let r0 = n_sym(pool, "_rule_1")
@@ -207,7 +202,6 @@ test "extraction_on_hidden_terminal" {
 // prepare_grammar.rs -----------------------------------------------------------
 
 ///|
-#skip("needs expand_tokens")
 test "validate_indirect_recursion" {
   // a -> b -> a
   let case1 = build_grammar(p => {
@@ -303,7 +297,6 @@ fn extras_grammar(
 }
 
 ///|
-#skip("needs expand_tokens")
 test "validate_extras" {
   let cases : Array[(InputGrammar, Bool)] = [
     // A token
@@ -406,7 +399,6 @@ test "validate_extras" {
 }
 
 ///|
-#skip("needs expand_tokens")
 test "validate_extras_with_shared_nullable_rules" {
   let grammar = build_grammar(p => {
     let source = leaf(p, "a")
@@ -455,7 +447,6 @@ test "validate_extras_with_shared_nullable_rules" {
 }
 
 ///|
-#skip("needs expand_tokens")
 test "nullable_syntactic_tokens_and_anonymous_extras" {
   let grammar = build_grammar(p => {
     let quote = leaf(p, "\"")
@@ -471,7 +462,6 @@ test "nullable_syntactic_tokens_and_anonymous_extras" {
 }
 
 ///|
-#skip("needs expand_tokens")
 test "token_body_shared_with_syntax" {
   let grammar = build_grammar(p => {
     let a = leaf(p, "a")
@@ -499,7 +489,6 @@ test "token_body_shared_with_syntax" {
 }
 
 ///|
-#skip("needs expand_tokens")
 test "token_body_shared_with_syntax_reversed" {
   let grammar = build_grammar(p => {
     let a = leaf(p, "a")
@@ -527,7 +516,6 @@ test "token_body_shared_with_syntax_reversed" {
 }
 
 ///|
-#skip("needs expand_tokens")
 test "separator_body_shared_with_syntax" {
   let pool = RulePool::new()
   let a = leaf(pool, "a")
@@ -546,7 +534,6 @@ test "separator_body_shared_with_syntax" {
 }
 
 ///|
-#skip("needs expand_tokens")
 test "shared_extra_symbol_is_renumbered_once" {
   let pool = RulePool::new()
   let target_ref = named(pool, "target")
@@ -590,7 +577,6 @@ test "shared_extra_symbol_is_renumbered_once" {
 }
 
 ///|
-#skip("needs expand_tokens")
 test "shared_syntax_subtree_is_renumbered_once" {
   let grammar = build_grammar(p => {
     let pair = {

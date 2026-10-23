@@ -8,7 +8,7 @@
 // differential oracle (`tools/next/node_types_oracle.sh`).
 
 ///|
-let prepare_grammar_ported : Bool = false
+let prepare_grammar_ported : Bool = true
 
 ///|
 test "test_node_types_simple" {

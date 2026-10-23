@@ -1,0 +1,5 @@
+import {
+  "moonbit-community/treesitter/next/regex_syntax/unicode_tables",
+}
+
+warnings = "-implicit_impl_as_method-reserved_keyword"
