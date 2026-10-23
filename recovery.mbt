@@ -15,7 +15,10 @@ fn Parser::recover_pending(
   if leading.last() is Some(previous) && previous.is_error() {
     ignore(leading.pop())
     if previous.child_count() > 0 {
-      discarded.push({ data: { ..previous.data, error_repeat: true, }, })
+      discarded.push({
+        context: None,
+        data: { ..previous.data, error_repeat: true, },
+      })
     }
   }
   for i in index..<branch.entries.length() {
@@ -226,7 +229,10 @@ fn Parser::recover_history(
       let pending = if depth == 0 {
         branch.pending.map(n => {
           if n.data.error_repeat {
-            { data: { ..n.data, error_repeat: false, extra: true, }, }
+            {
+              context: None,
+              data: { ..n.data, error_repeat: false, extra: true, },
+            }
           } else {
             n
           }

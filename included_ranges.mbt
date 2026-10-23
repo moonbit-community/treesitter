@@ -18,6 +18,7 @@ fn project_node(
     ends[node.end_byte()]
   }
   {
+    context: None,
     data: {
       ..node.data,
       encoding,

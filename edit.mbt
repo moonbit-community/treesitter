@@ -82,6 +82,7 @@ fn edit_node(node : Node, edit : InputEdit) -> Node {
   }
   let end_point = if end_point < start_point { start_point } else { end_point }
   {
+    context: None,
     data: {
       ..data,
       changed,
@@ -143,6 +144,7 @@ fn reset_origin(node : Node, lines : Array[Int32]) -> Node {
     return node
   }
   {
+    context: None,
     data: {
       ..node.data,
       dependency_end: node.data.dependency_end +
@@ -182,6 +184,7 @@ fn restore_lookahead_extra(
   let start = node.start_byte() + delta
   let end = node.end_byte() + delta
   {
+    context: None,
     data: {
       ..node.data,
       changed: false,

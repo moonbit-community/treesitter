@@ -195,6 +195,7 @@ fn Parser::node(
     }
   }
   {
+    context: None,
     data: {
       language: self.language,
       id,
@@ -299,7 +300,10 @@ fn Parser::reduce(
       let child = if child.is_extra() {
         child
       } else {
-        { data: { ..child.data, supertypes: child.data.supertypes + [name], }, }
+        {
+          context: None,
+          data: { ..child.data, supertypes: child.data.supertypes + [name], },
+        }
       }
       children.push(Item(field, child))
     }
@@ -343,6 +347,7 @@ fn Parser::reduce(
   )
   let entries = branch.entries[:index].to_owned()
   let node = {
+    context: None,
     data: {
       ..node.data,
       continuation: branch.lookahead.map(token => {
@@ -373,6 +378,7 @@ fn Parser::finish(
     // The accepted EOF includes skipped trailing input. It extends the root's
     // extent without changing the final syntax child's range.
     return Some({
+      context: None,
       data: {
         ..root.data,
         end_byte: Int32::max(root.end_byte(), branch.offset),
@@ -893,7 +899,10 @@ fn Parser::parse_source(
       ..branch,
       pending: branch.pending.map(n => {
         if n.data.error_repeat {
-          { data: { ..n.data, error_repeat: false, extra: true, }, }
+          {
+            context: None,
+            data: { ..n.data, error_repeat: false, extra: true, },
+          }
         } else {
           n
         }

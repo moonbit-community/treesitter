@@ -263,3 +263,24 @@ test "root groups can restart after an anchored optional prefix fails" {
     content="",
   )
 }
+
+///|
+test "queries use shifted node views for captures and range navigation" {
+  let language = root_query_language()
+  let tree = @ts.Parser::new(language).parse_string("[1,2]")
+  let node = tree.root_node_with_offset(6, { row: 1, column: 2, })
+  let source = b"xxx\n  [1,2]"
+  let query = @query.Query::new(language, "(array (number) @n)")
+  let matches = query.matches(node, source)
+  assert_eq(matches.map(m => m.captures[0].node.start_byte()), [7, 9])
+  assert_eq(matches.map(m => m.captures[0].node.text(source)), ["1", "2"])
+  let cursor = @query.Query::new(language, "(number) @n").cursor(
+    node,
+    source,
+    start_point={ row: 1, column: 5, },
+    end_point={ row: 1, column: 6, },
+  )
+  let matched = cursor.next_match().unwrap()
+  assert_eq(matched.captures[0].node.text(source), "2")
+  assert_true(cursor.next_match() is None)
+}

@@ -1011,3 +1011,14 @@ ranges or numeric ids cannot masquerade as a descendant; persistent tree copies
 retain valid shared identities. Parser::logger exposes the installed callback
 and preserves it across reset. The 78 root-package tests pass on native, JS and
 Wasm GC; checking and generated-interface validation pass without warnings.
+
+### Shifted roots and retained node handles
+
+Tree::root_node_with_offset and Node::edited now expose immutable location views
+that share syntax data and identities. Byte positions and multiline point
+extents follow frozen C outputs. Child/field lookup, cursors, descendant search
+and query captures propagate the view context; editing a retained handle leaves
+the original tree unchanged. Validation checks descendant coordinates as well
+as root endpoints before exposing a view, rejecting portable-coordinate overflow.
+Full checks pass 329 native / 321 JS / 321 Wasm GC tests plus CLI integration;
+the final warning-enabled check is clean.

@@ -46,6 +46,7 @@ priv struct NodeData {
 /// A persistent syntax node. Children and their field names cannot be mutated.
 pub struct Node {
   priv data : NodeData
+  priv context : NodeContext?
 }
 
 ///|
@@ -107,22 +108,26 @@ pub fn Node::has_error(self : Node) -> Bool {
 
 ///|
 pub fn Node::start_byte(self : Node) -> Int32 {
-  self.data.start_byte
+  self.data.start_byte + self.context.map(c => c.byte_delta).unwrap_or(0)
 }
 
 ///|
 pub fn Node::end_byte(self : Node) -> Int32 {
-  self.data.end_byte
+  self.data.end_byte + self.context.map(c => c.byte_delta).unwrap_or(0)
 }
 
 ///|
 pub fn Node::start_position(self : Node) -> Point {
-  self.data.start_point
+  self.context
+  .map(c => c.point(self.data.start_point))
+  .unwrap_or(self.data.start_point)
 }
 
 ///|
 pub fn Node::end_position(self : Node) -> Point {
-  self.data.end_point
+  self.context
+  .map(c => c.point(self.data.end_point))
+  .unwrap_or(self.data.end_point)
 }
 
 ///|
@@ -157,7 +162,7 @@ pub fn Node::named_child_count(self : Node) -> Int32 {
 
 ///|
 pub fn Node::child(self : Node, index : Int32) -> Node? {
-  self.data.children.entries().get(index).map(c => c.1)
+  self.data.children.entries().get(index).map(c => self.contextual_child(c.1))
 }
 
 ///|
@@ -169,7 +174,7 @@ pub fn Node::named_child(self : Node, index : Int32) -> Node? {
   for (_, child) in self.data.children.entries() {
     if child.is_named() {
       if current == index {
-        return Some(child)
+        return Some(self.contextual_child(child))
       }
       current += 1
     }
@@ -179,7 +184,7 @@ pub fn Node::named_child(self : Node, index : Int32) -> Node? {
 
 ///|
 pub fn Node::children(self : Node) -> Array[Node] {
-  self.data.children.entries().map(c => c.1)
+  self.data.children.entries().map(c => self.contextual_child(c.1))
 }
 
 ///|
@@ -199,7 +204,7 @@ pub fn Node::field_name_for_child(self : Node, index : Int32) -> String? {
 pub fn Node::child_by_field_name(self : Node, name : String) -> Node? {
   for (field, child) in self.data.children.entries() {
     if field == Some(name) {
-      return Some(child)
+      return Some(self.contextual_child(child))
     }
   }
   None
@@ -207,7 +212,10 @@ pub fn Node::child_by_field_name(self : Node, name : String) -> Node? {
 
 ///|
 pub fn Node::children_by_field_name(self : Node, name : String) -> Array[Node] {
-  self.data.children.entries().filter(c => c.0 == Some(name)).map(c => c.1)
+  self.data.children
+  .entries()
+  .filter(c => c.0 == Some(name))
+  .map(c => self.contextual_child(c.1))
 }
 
 ///|
@@ -220,7 +228,7 @@ pub fn Node::descendant_for_byte_range(
   if start < self.start_byte() || end > self.end_byte() || end < start {
     return None
   }
-  for (_, child) in self.data.children.entries() {
+  for child in self.children() {
     if child.start_byte() <= start &&
       child.end_byte() >= end &&
       (child.end_byte() > start || child.start_byte() == child.end_byte()) {
@@ -293,7 +301,7 @@ pub fn Node::to_sexp(self : Node, fields~ : Bool = true) -> String {
 
 ///|
 fn Node::renamed(self : Node, name : String, named : Bool) -> Node {
-  { data: { ..self.data, kind: name, named, visible: true, }, }
+  { context: None, data: { ..self.data, kind: name, named, visible: true, }, }
 }
 
 ///|
@@ -310,8 +318,8 @@ fn Node::as_extra(self : Node) -> Node {
     child_entries(
       self.data.children
       .entries()
-      .map(c => (c.0, { data: { ..c.1.data, extra: true, }, })),
+      .map(c => (c.0, { context: None, data: { ..c.1.data, extra: true, }, })),
     )
   }
-  { data: { ..self.data, extra: true, children, }, }
+  { context: None, data: { ..self.data, extra: true, children, }, }
 }
