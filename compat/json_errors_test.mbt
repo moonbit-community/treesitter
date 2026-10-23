@@ -186,6 +186,8 @@ test "invalid UTF8 diagnostics differ from a valid replacement character" {
   let parser = @ts.Parser::new(upstream_json_language())
   let malformed : Array[Bytes] = [
     [0xff],
+    [0xc2],
+    [0xf0, 0x9f],
     [0xed, 0xa0, 0x80],
     [0xc0, 0x80],
     [0xf4, 0x90, 0x80, 0x80],
@@ -203,5 +205,47 @@ test "invalid UTF8 diagnostics differ from a valid replacement character" {
   assert_eq(
     parser.parse([0x40, 0xff]).root_node().to_sexp(),
     "(document (ERROR (UNEXPECTED '@')))",
+  )
+}
+
+///|
+test "comments remain outside recovered errors and inside continued errors" {
+  // Frozen from the pinned C runtime.
+  let parser = @ts.Parser::new(upstream_json_language())
+  assert_eq(
+    parser.parse_string("@/*x*/1").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@')) (comment) (number))",
+  )
+  assert_eq(
+    parser.parse_string("@/*x*/").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@')) (comment))",
+  )
+  assert_eq(
+    parser.parse_string("@/*x*/@").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@') (comment) (UNEXPECTED '@')))",
+  )
+  assert_eq(
+    parser.parse_string("@/*x*/\\n").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@') (comment) (escape_sequence)))",
+  )
+  assert_eq(
+    parser.parse_string("@/*x*/ @").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@') (comment) (UNEXPECTED '@')))",
+  )
+  assert_eq(
+    parser.parse_string("[ @/*x*/ 1]").root_node().to_sexp(),
+    "(document (array (ERROR (UNEXPECTED '@')) (comment) (number)))",
+  )
+  assert_eq(
+    parser.parse_string("@/*x*/true").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@')) (comment) (true))",
+  )
+  assert_eq(
+    parser.parse_string("@//hi\n@").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@') (comment) (UNEXPECTED '@')))",
+  )
+  assert_eq(
+    parser.parse_string("@/*x*/\\n/*y*/@").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@') (comment) (escape_sequence) (comment) (UNEXPECTED '@')))",
   )
 }

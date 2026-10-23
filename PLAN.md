@@ -1079,3 +1079,14 @@ malformed input, while an encoded U+FFFD retains its numeric diagnostic. Frozen
 C tests cover overlong, surrogate, out-of-range and truncated sequences and
 preservation of an earlier invalid-run diagnostic. All 144 compatibility tests
 pass on native, JS and Wasm GC, with a clean warning-enabled check.
+
+### Comments within continuing recovery runs
+
+A pending error now absorbs intervening extras only when another token is
+actually discarded. Successful recovery and EOF retain trailing comments outside
+the error, matching C; continuing errors include comments in source order and
+avoid counting the same recovery twice. Nine frozen C examples cover line/block
+comments, nested arrays, immediate escapes and multiple interruptions. All 342
+native tests and 145 compatibility tests on each portable backend pass, with a
+clean warning-enabled check. The malformed UTF-8 regression also covers truncated
+multibyte sequences explicitly.

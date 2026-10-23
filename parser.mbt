@@ -881,7 +881,12 @@ fn Parser::parse_source(
             repeating=true,
           ),
           errors: branch.errors +
-          (if branch.pending.last() is Some(n) && n.is_error() { 0 } else { 1 }),
+          (if branch.pending.any(n => n.data.error_repeat) ||
+            (branch.pending.last() is Some(n) && n.is_error()) {
+            0
+          } else {
+            1
+          }),
           scanner_state: token.scanner_state.unwrap_or(branch.scanner_state),
           insertions: 0,
         }
@@ -1084,10 +1089,25 @@ fn Parser::error_pending(
   let discarded = discarded[:count]
   let children : Array[ChildPart] = []
   let mut start = discarded[0].start_byte()
-  if result.last() is Some(previous) && previous.data.error_repeat {
-    ignore(result.pop())
+  // Comments and other extras remain outside an error when recovery succeeds.
+  // If another token is discarded, fold those intervening extras into the
+  // still-open error instead of splitting one recovery run into two errors.
+  let mut previous_index = result.length() - 1
+  while previous_index >= 0 &&
+        result[previous_index].is_extra() &&
+        !result[previous_index].is_error() {
+    previous_index -= 1
+  }
+  if previous_index >= 0 && result[previous_index].data.error_repeat {
+    let previous = result[previous_index]
     start = previous.start_byte()
     children.push(Nested(None, previous.data.children))
+    for extra in result[previous_index + 1:] {
+      append_visible(children, extra, None)
+    }
+    while result.length() > previous_index {
+      ignore(result.pop())
+    }
   }
   for node in discarded {
     if node.data.error_repeat {
