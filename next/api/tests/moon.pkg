@@ -1,5 +1,6 @@
 import {
   "moonbit-community/treesitter/next/api",
+  "moonbit-community/treesitter/next/generate",
   "moonbit-community/treesitter/next/language",
   "moonbit-community/treesitter/next/scanners",
   "moonbitlang/async",
@@ -9,6 +10,8 @@ import {
   "moonbitlang/core/hashset",
   "moonbitlang/core/debug",
   "moonbitlang/core/string",
+  "moonbitlang/core/env",
+  "moonbitlang/core/random",
 } for "test"
 
 supported_targets = "+native"
