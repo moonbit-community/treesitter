@@ -4,39 +4,92 @@
 // `Symbol`'s order, so keys sort like their symbols. Keys are plain `Int`s here.
 
 ///|
-/// A sorted list for each parse state, all in one buffer.
-priv struct StateLists[T] {
-  items : Array[T]
-  /// Where each state's list starts in `items`, by state id, then where the last one ends.
-  /// State `i`'s list is `items[starts[i]..starts[i + 1]]`.
+/// A sorted list for each parse state, all in one buffer. Every list item is a
+/// pair of `Int`s: a key (which the list is sorted by) and a value, kept in two
+/// parallel arrays.
+priv struct StateLists {
+  keys : FixedArray[Int32]
+  values : FixedArray[Int32]
+  /// Where each state's list starts, by state id, then where the last one ends.
+  /// State `i`'s list is `keys[starts[i]..starts[i + 1]]` (and the same of `values`).
+  starts : FixedArray[Int32]
+}
+
+///|
+/// Builds `StateLists`: one list per state, in state order.
+priv struct StateListsBuilder {
+  /// Each item, with its key in the upper half and its value in the lower half,
+  /// so that sorting sorts by key.
+  packed : Array[Int64]
   starts : Array[Int32]
 }
 
 ///|
-/// Collects one list per state, in state order, each sorted by `key`. Keys are
-/// distinct within a list, so the sort is total.
-fn[T] StateLists::collect(
-  lists : Array[Array[T]],
-  key : (T) -> Int32,
-) -> StateLists[T] {
-  let starts = Array(capacity=lists.length() + 1)
+fn StateListsBuilder::new(state_count : Int32) -> StateListsBuilder {
+  let starts = Array(capacity=state_count + 1)
   starts.push(0)
-  let items = []
-  for list in lists {
-    list.sort_by_key(key)
-    for item in list {
-      items.push(item)
-    }
-    starts.push(items.length())
-  }
-  { items, starts, }
+  { packed: [], starts, }
 }
 
 ///|
-/// The list of `state`.
-fn[T] StateLists::get(self : StateLists[T], state : ParseState) -> ArrayView[T] {
-  let id = state.id
-  self.items[self.starts[id]:self.starts[id + 1]]
+/// Adds an item to the current state's list.
+fn StateListsBuilder::push(
+  self : StateListsBuilder,
+  key : Int32,
+  value : Int32,
+) -> Unit {
+  self.packed.push((key.to_int64() << 32) | (value.to_int64() & 0xFFFFFFFFL))
+}
+
+///|
+/// Ends the current state's list, sorting it by key. Keys are distinct within a
+/// list, so the sort is total.
+fn StateListsBuilder::end_list(self : StateListsBuilder) -> Unit {
+  let start = self.starts[self.starts.length() - 1]
+  self.packed.mut_view(start~).sort()
+  self.starts.push(self.packed.length())
+}
+
+///|
+fn StateListsBuilder::finish(self : StateListsBuilder) -> StateLists {
+  {
+    keys: FixedArray::makei(self.packed.length(), i => {
+      (self.packed[i] >> 32).to_int()
+    }),
+    values: FixedArray::makei(self.packed.length(), i => self.packed[i].to_int()),
+    starts: FixedArray::from_array(self.starts),
+  }
+}
+
+///|
+/// Where the list of the state with this id starts.
+fn StateLists::start(self : StateLists, id : Int32) -> Int32 {
+  self.starts[id]
+}
+
+///|
+/// Where the list of the state with this id ends.
+fn StateLists::end(self : StateLists, id : Int32) -> Int32 {
+  self.starts[id + 1]
+}
+
+///|
+/// The position of `key` in the list of the state with this id, or `-1`.
+fn StateLists::find(self : StateLists, id : Int32, key : Int32) -> Int32 {
+  let mut low = self.starts[id]
+  let mut high = self.starts[id + 1]
+  while low < high {
+    let mid = low + (high - low) / 2
+    let k = self.keys[mid]
+    if k < key {
+      low = mid + 1
+    } else if k > key {
+      high = mid
+    } else {
+      return mid
+    }
+  }
+  -1
 }
 
 ///|
@@ -178,14 +231,15 @@ fn ConflictBits::state_row_word(
 /// entries can't be merged.
 priv struct ConflictPass {
   minimizer : Minimizer
-  /// Each state's terminal entries, sorted by symbol.
-  entry_maps : StateLists[(Int32, ActionListId)]
+  /// Each state's terminal entries, sorted by symbol: keys, and the index of each
+  /// entry's action list.
+  entry_maps : StateLists
   bits : ConflictBits
   /// A hash of each state's reserved words and terminal entries, apart from its shift
   /// targets, whose groups change as groups split.
   static_signatures : Array[Int32]
   /// Each state's shift targets, sorted by symbol.
-  shift_maps : StateLists[(Int32, Int32)]
+  shift_maps : StateLists
   /// Scratch for `compatible_with_all`.
   kept : KeptStates
 }
@@ -193,29 +247,31 @@ priv struct ConflictPass {
 ///|
 fn ConflictPass::new(
   minimizer : Minimizer,
-  shift_maps : StateLists[(Int32, Int32)],
+  shift_maps : StateLists,
 ) -> ConflictPass {
   // Precompute sorted terminal entry references for merge-join in states_conflict.
-  // entry_maps.get(state)[i] = (symbol_key, action_list_id). Keys are symbol positions
-  // for easy comparison.
-  let entry_maps = StateLists::collect(
-    minimizer.parse_table.states.map(state => {
-      state.terminal_entries
-      .items()
-      .map(entry => (minimizer.indexer.index(entry.0), entry.1))
-    }),
-    entry => entry.0,
-  )
+  // Keys are symbol positions for easy comparison.
+  let states = minimizer.parse_table.states
+  let builder = StateListsBuilder::new(states.length())
+  for state in states {
+    for entry in state.terminal_entries.items() {
+      builder.push(minimizer.indexer.index(entry.0), entry.1.index)
+    }
+    builder.end_list()
+  }
+  let entry_maps = builder.finish()
 
   // Hash each state's terminal entries once, apart from its shift targets, whose groups
   // change as groups split.
-  let static_signatures = minimizer.parse_table.states.map(state => {
+  let static_signatures = states.map(state => {
     let hasher = Hasher()
     hasher.combine(state.reserved_words)
-    for entry in entry_maps.get(state) {
-      let (key, id) = entry
-      hasher.combine_int(key)
-      for action in minimizer.parse_table.action_lists.get(id) {
+    for i in entry_maps.start(state.id)..<entry_maps.end(state.id) {
+      hasher.combine_int(entry_maps.keys[i])
+      for
+        action in minimizer.parse_table.action_lists.get_index(
+          entry_maps.values[i],
+        ) {
         match action {
           Shift(is_repetition~, ..) => hasher.combine_bool(is_repetition)
           action => hasher.combine(action)
@@ -241,13 +297,12 @@ fn ConflictPass::has_token(
   state : ParseState,
   key : Int32,
 ) -> Bool {
-  match self.minimizer.indexer.symbol(key).terminal_index() {
-    Some(index) =>
-      (self.bits.state_row_word(state.id, index / 64) & (1UL << (index % 64))) !=
-      0
-    None =>
-      self.entry_maps.get(state).binary_search_by(e => e.0.compare(key))
-      is Ok(_)
+  let index = self.minimizer.indexer.terminal_index_of(key)
+  if index >= 0 {
+    (self.bits.state_row_word(state.id, index / 64) & (1UL << (index % 64))) !=
+    0
+  } else {
+    self.entry_maps.find(state.id, key) >= 0
   }
 }
 
@@ -272,12 +327,16 @@ fn ConflictPass::compatible_with_merged(
   group_ids_by_state_id : Array[Int32],
 ) -> Bool {
   let states = self.minimizer.parse_table.states
-  for entry in self.entry_maps.get(state) {
-    let (key, action_list) = entry
+  let entry_maps = self.entry_maps
+  for i in entry_maps.start(state.id)..<entry_maps.end(state.id) {
+    let key = entry_maps.keys[i]
+    let action_list = entry_maps.values[i]
     let token = kept_states.tokens[key]
-    if token.action_list is Some(kept_action_list) &&
+    if token.action_list >= 0 &&
       self.minimizer.entries_conflict(
-        kept_action_list, action_list, group_ids_by_state_id,
+        token.action_list,
+        action_list,
+        group_ids_by_state_id,
       )
       is Some(_) {
       return false
@@ -289,7 +348,12 @@ fn ConflictPass::compatible_with_merged(
       return false
     }
   }
-  kept_states.merged_tokens.iter().all(key => self.can_take(state, key))
+  for key in kept_states.merged_tokens {
+    if !self.can_take(state, key) {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -310,8 +374,9 @@ priv struct KeptStates {
 ///|
 /// What the kept states have for a token. See `KeptStates`.
 priv struct KeptToken {
-  /// The action list of the first merged state with this token.
-  mut action_list : ActionListId?
+  /// The index of the action list of the first merged state with this token, or
+  /// `-1`.
+  mut action_list : Int32
   /// How many merged states have this token.
   mut count : Int32
   /// Whether this token can be added to the kept states that lack it, as far as
@@ -323,12 +388,12 @@ priv struct KeptToken {
 
 ///|
 fn KeptToken::default() -> KeptToken {
-  { action_list: None, count: 0, addable: 0, }
+  { action_list: -1, count: 0, addable: 0, }
 }
 
 ///|
 fn KeptToken::reset(self : KeptToken) -> Unit {
-  self.action_list = None
+  self.action_list = -1
   self.count = 0
   self.addable = 0
 }
@@ -362,16 +427,15 @@ fn KeptStates::clear(self : KeptStates) -> Unit {
 fn KeptStates::merge(
   self : KeptStates,
   kept : ArrayView[Int32],
-  states : Array[ParseState],
-  entry_maps : StateLists[(Int32, ActionListId)],
+  entry_maps : StateLists,
 ) -> Unit {
   for i in self.merged_count..<kept.length() {
     let state_id = kept[i]
-    for entry in entry_maps.get(states[state_id]) {
-      let (key, action_list) = entry
+    for j in entry_maps.start(state_id)..<entry_maps.end(state_id) {
+      let key = entry_maps.keys[j]
       let token = self.tokens[key]
-      if token.action_list is None {
-        token.action_list = Some(action_list)
+      if token.action_list < 0 {
+        token.action_list = entry_maps.values[j]
         self.merged_tokens.push(key)
       }
       token.count += 1
@@ -421,35 +485,37 @@ fn ConflictPass::criterion(self : ConflictPass) -> SplitCriterion[ParseState] {
       )
     },
     signature: (state, group_ids_by_state_id) => {
-      let hasher = Hasher()
-      hasher.combine_int(self.static_signatures[state.id])
-      for entry in self.shift_maps.get(state) {
-        hasher.combine_int(group_ids_by_state_id[entry.1])
+      let shift_maps = self.shift_maps
+      let mut acc = hash_mix(HASH_SEED, self.static_signatures[state.id])
+      for i in shift_maps.start(state.id)..<shift_maps.end(state.id) {
+        acc = hash_mix(acc, group_ids_by_state_id[shift_maps.values[i]])
       }
-      Some(hasher.finalize())
+      Some(hash_finish(acc))
     },
     // Whether two states have the same reserved words and terminal entries, with shift
     // targets compared by group. Then `Minimizer::states_conflict` never separates them,
     // and separates either from exactly the same states.
     equivalent: (left, right, group_ids_by_state_id) => {
-      let entries1 = self.entry_maps.get(left)
-      let entries2 = self.entry_maps.get(right)
+      let entry_maps = self.entry_maps
+      let start1 = entry_maps.start(left.id)
+      let start2 = entry_maps.start(right.id)
+      let len = entry_maps.end(left.id) - start1
       let action_lists = self.minimizer.parse_table.action_lists
       if left.reserved_words != right.reserved_words ||
-        entries1.length() != entries2.length() {
+        len != entry_maps.end(right.id) - start2 {
         return false
       }
-      for i in 0..<entries1.length() {
-        let (key1, id1) = entries1[i]
-        let (key2, id2) = entries2[i]
-        if key1 != key2 {
+      for i in 0..<len {
+        if entry_maps.keys[start1 + i] != entry_maps.keys[start2 + i] {
           return false
         }
-        if id1.index == id2.index {
+        let id1 = entry_maps.values[start1 + i]
+        let id2 = entry_maps.values[start2 + i]
+        if id1 == id2 {
           continue
         }
-        let actions1 = action_lists.get(id1)
-        let actions2 = action_lists.get(id2)
+        let actions1 = action_lists.get_index(id1)
+        let actions2 = action_lists.get_index(id2)
         if actions1.length() != actions2.length() {
           return false
         }
@@ -477,7 +543,7 @@ fn ConflictPass::criterion(self : ConflictPass) -> SplitCriterion[ParseState] {
     // - `state`'s tokens that some kept state lacks, which must be addable to it.
     // - the kept states' tokens that `state` lacks, which must be addable to `state`.
     compatible_with_all: (state, kept, group_ids_by_state_id) => {
-      self.kept.merge(kept, self.minimizer.parse_table.states, self.entry_maps)
+      self.kept.merge(kept, self.entry_maps)
       self.compatible_with_merged(self.kept, state, kept, group_ids_by_state_id)
     },
   }
@@ -489,27 +555,34 @@ fn ConflictPass::criterion(self : ConflictPass) -> SplitCriterion[ParseState] {
 priv struct SuccessorPass {
   minimizer : Minimizer
   /// Each state's shift targets, sorted by symbol.
-  shift_maps : StateLists[(Int32, Int32)]
-  /// Each state's nonterminal entries, sorted by symbol.
-  nonterminal_maps : StateLists[(Int32, GotoAction)]
+  shift_maps : StateLists
+  /// Each state's nonterminal entries, sorted by symbol: nonterminal indices, and each
+  /// entry's `Goto` target, or `-1` for `ShiftExtra`.
+  nonterminal_maps : StateLists
 }
 
 ///|
 fn SuccessorPass::new(
   minimizer : Minimizer,
-  shift_maps : StateLists[(Int32, Int32)],
+  shift_maps : StateLists,
 ) -> SuccessorPass {
   // Store only the symbol index: all nonterminal entries share the same kind,
   // so index alone is sufficient for sorting and comparison.
-  let nonterminal_maps = StateLists::collect(
-    minimizer.parse_table.states.map(state => {
-      state.nonterminal_entries
-      .items()
-      .map(entry => (entry.0.non_terminal_index().unwrap(), entry.1))
-    }),
-    entry => entry.0,
-  )
-  { minimizer, shift_maps, nonterminal_maps, }
+  let states = minimizer.parse_table.states
+  let builder = StateListsBuilder::new(states.length())
+  for state in states {
+    for entry in state.nonterminal_entries.items() {
+      builder.push(
+        entry.0.non_terminal_index().unwrap(),
+        match entry.1 {
+          Goto(successor) => successor
+          ShiftExtra => -1
+        },
+      )
+    }
+    builder.end_list()
+  }
+  { minimizer, shift_maps, nonterminal_maps: builder.finish(), }
 }
 
 ///|
@@ -525,54 +598,58 @@ fn SuccessorPass::criterion(self : SuccessorPass) -> SplitCriterion[ParseState] 
       )
     },
     signature: (state, group_ids_by_state_id) => {
-      let hasher = Hasher()
-      for entry in self.shift_maps.get(state) {
-        hasher.combine_int(entry.0)
-        hasher.combine_int(group_ids_by_state_id[entry.1])
+      let shift_maps = self.shift_maps
+      let nonterminal_maps = self.nonterminal_maps
+      let mut acc = HASH_SEED
+      for i in shift_maps.start(state.id)..<shift_maps.end(state.id) {
+        acc = hash_mix(acc, shift_maps.keys[i])
+        acc = hash_mix(acc, group_ids_by_state_id[shift_maps.values[i]])
       }
-      for entry in self.nonterminal_maps.get(state) {
-        hasher.combine_int(entry.0)
-        match entry.1 {
-          Goto(successor) => {
-            hasher.combine_int(1)
-            hasher.combine_int(group_ids_by_state_id[successor])
-          }
-          ShiftExtra => hasher.combine_int(0)
+      for i in nonterminal_maps.start(state.id)..<nonterminal_maps.end(state.id) {
+        acc = hash_mix(acc, nonterminal_maps.keys[i])
+        let successor = nonterminal_maps.values[i]
+        acc = if successor >= 0 {
+          hash_mix(hash_mix(acc, 1), group_ids_by_state_id[successor])
+        } else {
+          hash_mix(acc, 0)
         }
       }
-      Some(hasher.finalize())
+      Some(hash_finish(acc))
     },
     // Whether two states shift and go to on the same symbols, with successors in the same
     // groups. Then `Minimizer::state_successors_differ` never separates them, and separates
     // either from exactly the same states.
     equivalent: (left, right, group_ids_by_state_id) => {
-      let shifts1 = self.shift_maps.get(left)
-      let shifts2 = self.shift_maps.get(right)
-      let gotos1 = self.nonterminal_maps.get(left)
-      let gotos2 = self.nonterminal_maps.get(right)
-      if shifts1.length() != shifts2.length() ||
-        gotos1.length() != gotos2.length() {
+      let shift_maps = self.shift_maps
+      let nonterminal_maps = self.nonterminal_maps
+      let shifts1 = shift_maps.start(left.id)
+      let shifts2 = shift_maps.start(right.id)
+      let shift_count = shift_maps.end(left.id) - shifts1
+      let gotos1 = nonterminal_maps.start(left.id)
+      let gotos2 = nonterminal_maps.start(right.id)
+      let goto_count = nonterminal_maps.end(left.id) - gotos1
+      if shift_count != shift_maps.end(right.id) - shifts2 ||
+        goto_count != nonterminal_maps.end(right.id) - gotos2 {
         return false
       }
-      for i in 0..<shifts1.length() {
-        let (key1, s1) = shifts1[i]
-        let (key2, s2) = shifts2[i]
-        if key1 != key2 ||
-          group_ids_by_state_id[s1] != group_ids_by_state_id[s2] {
+      for i in 0..<shift_count {
+        if shift_maps.keys[shifts1 + i] != shift_maps.keys[shifts2 + i] ||
+          group_ids_by_state_id[shift_maps.values[shifts1 + i]] !=
+          group_ids_by_state_id[shift_maps.values[shifts2 + i]] {
           return false
         }
       }
-      for i in 0..<gotos1.length() {
-        let (index1, action1) = gotos1[i]
-        let (index2, action2) = gotos2[i]
-        if index1 != index2 {
+      for i in 0..<goto_count {
+        if nonterminal_maps.keys[gotos1 + i] !=
+          nonterminal_maps.keys[gotos2 + i] {
           return false
         }
-        let same = match (action1, action2) {
-          (Goto(s1), Goto(s2)) =>
-            group_ids_by_state_id[s1] == group_ids_by_state_id[s2]
-          (ShiftExtra, ShiftExtra) => true
-          _ => false
+        let s1 = nonterminal_maps.values[gotos1 + i]
+        let s2 = nonterminal_maps.values[gotos2 + i]
+        let same = if s1 >= 0 && s2 >= 0 {
+          group_ids_by_state_id[s1] == group_ids_by_state_id[s2]
+        } else {
+          s1 < 0 && s2 < 0
         }
         if !same {
           return false
@@ -748,19 +825,17 @@ fn Minimizer::merge_compatible_states(self : Minimizer) -> Unit {
   // Precompute per-state sorted shift actions, for both passes.
   // State actions are stable across loop iterations; only group assignments change.
   // Keys are symbol positions, for single-instruction comparison.
-  let shift_maps = StateLists::collect(
-    self.parse_table.states.map(state => {
-      let list = []
-      for entry in state.terminal_entries.items() {
-        if self.parse_table.action_lists.get(entry.1).last()
-          is Some(Shift(state=s, ..)) {
-          list.push((self.indexer.index(entry.0), s))
-        }
+  let builder = StateListsBuilder::new(self.parse_table.states.length())
+  for state in self.parse_table.states {
+    for entry in state.terminal_entries.items() {
+      if self.parse_table.action_lists.get(entry.1).last()
+        is Some(Shift(state=s, ..)) {
+        builder.push(self.indexer.index(entry.0), s)
       }
-      list
-    }),
-    entry => entry.0,
-  )
+    }
+    builder.end_list()
+  }
+  let shift_maps = builder.finish()
   let conflict_pass = ConflictPass::new(self, shift_maps)
   ignore(
     split_state_id_groups(
@@ -795,10 +870,13 @@ fn Minimizer::merge_compatible_states(self : Minimizer) -> Unit {
   // Scratch for merging: the position of each symbol's entry in the new state, by
   // `SymbolIndexer::index`.
   let positions : Array[Int32?] = Array::make(self.indexer.symbol_count(), None)
+  // What upstream's `mem::take` leaves behind. The old states are never read again,
+  // so one placeholder does for all of them.
+  let taken = ParseState::new()
   for state_ids in state_ids_by_group_id {
     // Initialize the new state based on the first old state in the group.
     let parse_state = self.parse_table.states[state_ids[0]]
-    self.parse_table.states[state_ids[0]] = ParseState::new()
+    self.parse_table.states[state_ids[0]] = taken
     set_positions(parse_state.terminal_entries, positions, self.indexer)
     set_positions(parse_state.nonterminal_entries, positions, self.indexer)
 
@@ -807,7 +885,7 @@ fn Minimizer::merge_compatible_states(self : Minimizer) -> Unit {
     for k in 1..<state_ids.length() {
       let state_id = state_ids[k]
       let other_parse_state = self.parse_table.states[state_id]
-      self.parse_table.states[state_id] = ParseState::new()
+      self.parse_table.states[state_id] = taken
       parse_state.has_eof_gated_reduce = parse_state.has_eof_gated_reduce ||
         other_parse_state.has_eof_gated_reduce
       merge_entries(
@@ -854,41 +932,40 @@ fn Minimizer::states_conflict(
   state1 : ParseState,
   state2 : ParseState,
   group_ids_by_state_id : Array[Int32],
-  entry_maps : StateLists[(Int32, ActionListId)],
+  entry_maps : StateLists,
   bits : ConflictBits,
 ) -> Bool {
-  let entries1 = entry_maps.get(state1)
-  let entries2 = entry_maps.get(state2)
-  let len1 = entries1.length()
-  let len2 = entries2.length()
-  let mut i = 0
-  let mut j = 0
-  while i < len1 || j < len2 {
-    let ord = if i < len1 && j < len2 {
-      entries1[i].0.compare(entries2[j].0)
-    } else if i < len1 {
+  let mut i = entry_maps.start(state1.id)
+  let end1 = entry_maps.end(state1.id)
+  let mut j = entry_maps.start(state2.id)
+  let end2 = entry_maps.end(state2.id)
+  while i < end1 || j < end2 {
+    let ord = if i < end1 && j < end2 {
+      entry_maps.keys[i].compare(entry_maps.keys[j])
+    } else if i < end1 {
       -1
     } else {
       1
     }
     if ord == 0 {
-      let e1 = entries1[i]
-      let e2 = entries2[j]
-      if self.entries_conflict(e1.1, e2.1, group_ids_by_state_id) is Some(_) {
+      if self.entries_conflict(
+          entry_maps.values[i],
+          entry_maps.values[j],
+          group_ids_by_state_id,
+        )
+        is Some(_) {
         // (Upstream logs the conflict at debug level.)
         return true
       }
       i += 1
       j += 1
     } else if ord < 0 {
-      let e1 = entries1[i]
-      if self.token_conflicts(state2, bits, e1.0) is Some(_) {
+      if self.token_conflicts(state2, bits, entry_maps.keys[i]) is Some(_) {
         return true
       }
       i += 1
     } else {
-      let e2 = entries2[j]
-      if self.token_conflicts(state1, bits, e2.0) is Some(_) {
+      if self.token_conflicts(state1, bits, entry_maps.keys[j]) is Some(_) {
         return true
       }
       j += 1
@@ -903,23 +980,23 @@ fn Minimizer::state_successors_differ(
   state1 : ParseState,
   state2 : ParseState,
   group_ids_by_state_id : Array[Int32],
-  shift_maps : StateLists[(Int32, Int32)],
-  nonterminal_maps : StateLists[(Int32, GotoAction)],
+  shift_maps : StateLists,
+  nonterminal_maps : StateLists,
 ) -> Bool {
-  let shifts1 = shift_maps.get(state1)
-  let shifts2 = shift_maps.get(state2)
-  let mut i = 0
-  let mut j = 0
-  while i < shifts1.length() && j < shifts2.length() {
-    let (k1, s1) = shifts1[i]
-    let (k2, s2) = shifts2[j]
+  let mut i = shift_maps.start(state1.id)
+  let end1 = shift_maps.end(state1.id)
+  let mut j = shift_maps.start(state2.id)
+  let end2 = shift_maps.end(state2.id)
+  while i < end1 && j < end2 {
+    let k1 = shift_maps.keys[i]
+    let k2 = shift_maps.keys[j]
     if k1 < k2 {
       i += 1
     } else if k1 > k2 {
       j += 1
     } else {
-      let group1 = group_ids_by_state_id[s1]
-      let group2 = group_ids_by_state_id[s2]
+      let group1 = group_ids_by_state_id[shift_maps.values[i]]
+      let group2 = group_ids_by_state_id[shift_maps.values[j]]
       if group1 != group2 {
         // (Upstream logs the split at debug level.)
         return true
@@ -928,28 +1005,29 @@ fn Minimizer::state_successors_differ(
       j += 1
     }
   }
-  let nonterms1 = nonterminal_maps.get(state1)
-  let nonterms2 = nonterminal_maps.get(state2)
-  let mut i = 0
-  let mut j = 0
-  while i < nonterms1.length() && j < nonterms2.length() {
-    let (idx1, s1) = nonterms1[i]
-    let (idx2, s2) = nonterms2[j]
+  let mut i = nonterminal_maps.start(state1.id)
+  let end1 = nonterminal_maps.end(state1.id)
+  let mut j = nonterminal_maps.start(state2.id)
+  let end2 = nonterminal_maps.end(state2.id)
+  while i < end1 && j < end2 {
+    let idx1 = nonterminal_maps.keys[i]
+    let idx2 = nonterminal_maps.keys[j]
     if idx1 < idx2 {
       i += 1
     } else if idx1 > idx2 {
       j += 1
     } else {
-      match (s1, s2) {
-        (ShiftExtra, ShiftExtra) => ()
-        (Goto(s1), Goto(s2)) => {
-          let group1 = group_ids_by_state_id[s1]
-          let group2 = group_ids_by_state_id[s2]
-          if group1 != group2 {
-            return true
-          }
+      // A `Goto` target, or `-1` for `ShiftExtra`.
+      let s1 = nonterminal_maps.values[i]
+      let s2 = nonterminal_maps.values[j]
+      if s1 >= 0 && s2 >= 0 {
+        let group1 = group_ids_by_state_id[s1]
+        let group2 = group_ids_by_state_id[s2]
+        if group1 != group2 {
+          return true
         }
-        _ => return true
+      } else if s1 >= 0 || s2 >= 0 {
+        return true
       }
       i += 1
       j += 1
@@ -962,12 +1040,12 @@ fn Minimizer::state_successors_differ(
 /// Why two entries for the same token can't be merged.
 fn Minimizer::entries_conflict(
   self : Minimizer,
-  id1 : ActionListId,
-  id2 : ActionListId,
+  id1 : Int32,
+  id2 : Int32,
   group_ids_by_state_id : Array[Int32],
 ) -> Conflict? {
   // To be compatible, entries need to have the same actions.
-  if id1.index == id2.index {
+  if id1 == id2 {
     None
   } else {
     self.action_lists_conflict(id1, id2, group_ids_by_state_id)
@@ -978,12 +1056,12 @@ fn Minimizer::entries_conflict(
 /// `Self::entries_conflict` for entries with different action lists.
 fn Minimizer::action_lists_conflict(
   self : Minimizer,
-  id1 : ActionListId,
-  id2 : ActionListId,
+  id1 : Int32,
+  id2 : Int32,
   group_ids_by_state_id : Array[Int32],
 ) -> Conflict? {
-  let actions1 = self.parse_table.action_lists.get(id1)
-  let actions2 = self.parse_table.action_lists.get(id2)
+  let actions1 = self.parse_table.action_lists.get_index(id1)
+  let actions2 = self.parse_table.action_lists.get_index(id2)
   if actions1.length() != actions2.length() {
     return Some(ActionCounts)
   }
@@ -1017,15 +1095,20 @@ fn Minimizer::token_conflicts(
   bits : ConflictBits,
   new_token : Int32,
 ) -> Conflict? {
-  let symbol = self.indexer.symbol(new_token)
-  let (new_token_index, new_token_is_terminal) = match symbol.kind {
-    EndOfNonTerminalExtra => return Some(EndOfNonTerminalExtra)
-    // Do not add external tokens, as they could conflict lexically with
-    // any of the state's existing lookahead tokens.
-    External => return Some(ExternalToken)
-    End => (0, false)
-    Terminal => (symbol.index, true)
-    NonTerminal => abort("unreachable")
+  // `self.indexer.symbol(new_token)`'s kind and index, without building the symbol.
+  let terminal_index = self.indexer.terminal_index_of(new_token)
+  let new_token_is_terminal = terminal_index >= 0
+  // `End` uses terminal 0.
+  let new_token_index = if new_token_is_terminal { terminal_index } else { 0 }
+  if !new_token_is_terminal {
+    match self.indexer.symbol(new_token).kind {
+      EndOfNonTerminalExtra => return Some(EndOfNonTerminalExtra)
+      // Do not add external tokens, as they could conflict lexically with
+      // any of the state's existing lookahead tokens.
+      External => return Some(ExternalToken)
+      End => ()
+      Terminal | NonTerminal => abort("unreachable")
+    }
   }
   let is_reserved = if new_token_is_terminal {
     right_state.reserved_words.contains_terminal(new_token_index)
