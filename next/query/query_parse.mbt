@@ -160,7 +160,7 @@ fn Query::parse_string_literal(self : Query, stream : Stream) -> Int {
   let mut prev_position = stream.input
   let mut is_escaped = false
   self.string_buffer.clear()
-  let extend = (start : Int, length : Int) => {
+  let push_range = (start : Int, length : Int) => {
     for i in start..<(start + length) {
       self.string_buffer.push(stream.source[i])
     }
@@ -173,15 +173,15 @@ fn Query::parse_string_literal(self : Query, stream : Stream) -> Int {
         'r' => self.string_buffer.push(b'\r')
         't' => self.string_buffer.push(b'\t')
         '0' => self.string_buffer.push(b'\x00')
-        _ => extend(stream.input, stream.next_size)
+        _ => push_range(stream.input, stream.next_size)
       }
       prev_position = stream.input + stream.next_size
     } else if stream.next == '\\' {
-      extend(prev_position, stream.input - prev_position)
+      push_range(prev_position, stream.input - prev_position)
       prev_position = stream.input + 1
       is_escaped = true
     } else if stream.next == '"' {
-      extend(prev_position, stream.input - prev_position)
+      push_range(prev_position, stream.input - prev_position)
       ignore(stream.advance())
       return err_none
     } else if stream.next == '\n' {

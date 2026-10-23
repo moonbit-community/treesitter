@@ -62,6 +62,89 @@ async fn main {
         ignore(parser.parse_string(None, source))
       }
     }
+    "query" => {
+      let language = load_language(args[2])
+      let source = @fs.read_file(args[3]).binary()
+      let query = @query.Query::new(language, source) catch {
+        QueryError(kind~, offset~) => {
+          let code = match kind {
+            Syntax => 1
+            NodeType => 2
+            Field => 3
+            Capture => 4
+            Structure => 5
+            Language => 6
+          }
+          println("error \{code} \{offset}")
+          return
+        }
+      }
+      println(
+        "patterns \{query.pattern_count()} captures \{query.capture_count()} strings \{query.string_count()}",
+      )
+      let b = (x : Bool) => if x { 1 } else { 0 }
+      for i in 0..<query.pattern_count() {
+        println(
+          "pattern \{i} rooted \{b(query.is_pattern_rooted(i))} nonlocal \{b(query.is_pattern_non_local(i))} start \{query.start_byte_for_pattern(i)} end \{query.end_byte_for_pattern(i)}",
+        )
+      }
+      for byte in 0..<source.length() {
+        if query.is_pattern_guaranteed_at_step(byte.reinterpret_as_uint()) {
+          println("guaranteed \{byte}")
+        }
+      }
+      let parser = new_parser(language)
+      let cursor = @query.QueryCursor::new()
+      for i in 4..<args.length() {
+        let text = @fs.read_file(args[i]).binary()
+        println("== \{args[i]}")
+        let tree = parser.parse_string(None, text).unwrap()
+        cursor.exec(query, tree.root_node())
+        while cursor.next_match() is Some(m) {
+          let line = StringBuilder()
+          line.write_string("M \{m.pattern_index} \{m.id}")
+          for capture in m.captures {
+            line.write_string(
+              " \{capture.index}:\{capture.node.start_byte()}-\{capture.node.end_byte()}",
+            )
+          }
+          println(line.to_string())
+        }
+        cursor.exec(query, tree.root_node())
+        while cursor.next_capture() is Some((m, ci)) {
+          let capture = m.captures[ci]
+          println(
+            "C \{m.pattern_index} \{ci} \{capture.index} \{capture.node.start_byte()}-\{capture.node.end_byte()}",
+          )
+        }
+        println("exceeded \{b(cursor.did_exceed_match_limit())}")
+      }
+    }
+    "walk" => {
+      let language = load_language(args[2])
+      let parser = new_parser(language)
+      let text = @fs.read_file(args[3]).binary()
+      let tree = parser.parse_string(None, text).unwrap()
+      let cursor = @runtime.TreeCursor::new(tree.root_node())
+      let mut ascending = false
+      let mut steps = 0
+      while steps < 200 {
+        steps += 1
+        if ascending {
+          match cursor.goto_next_sibling_internal() {
+            StepNone => if !cursor.goto_parent() { break } else { println("up") }
+            step => { println("sibling \{to_repr(step)}"); ascending = false }
+          }
+        } else {
+          let node = cursor.current_node()
+          println("enter \{node.kind()} \{node.start_byte()}-\{node.end_byte()} depth=\{cursor.current_depth()}")
+          match cursor.goto_first_child_internal() {
+            StepNone => ascending = true
+            step => println("child \{to_repr(step)}")
+          }
+        }
+      }
+    }
     "edit" => {
       let language = load_language(args[2])
       let parser = new_parser(language)

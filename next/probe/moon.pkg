@@ -2,6 +2,7 @@ import {
   "moonbit-community/treesitter/next/runtime",
   "moonbit-community/treesitter/next/language",
   "moonbit-community/treesitter/next/scanners",
+  "moonbit-community/treesitter/next/query",
   "moonbitlang/async/fs",
   "moonbitlang/async",
   "moonbitlang/core/env",

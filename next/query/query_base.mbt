@@ -251,9 +251,9 @@ priv struct QueryState {
   mut id : UInt
   mut capture_list_id : UInt
   mut heap_insert_order : UInt
-  mut start_depth : Int
+  start_depth : Int
   mut step_index : Int
-  mut pattern_index : Int
+  pattern_index : Int
   mut consumed_capture_count : Int
   mut seeking_immediate_match : Bool
   mut has_in_progress_alternatives : Bool
@@ -479,72 +479,72 @@ priv type CaptureQuantifiers = Array[Quantifier]
 
 ///|
 fn capture_quantifiers_replace(
-  self : Array[Quantifier],
+  qs : Array[Quantifier],
   quantifiers : Array[Quantifier],
 ) -> Unit {
-  self.clear()
+  qs.clear()
   for q in quantifiers {
-    self.push(q)
+    qs.push(q)
   }
 }
 
 ///|
-fn capture_quantifier_for_id(self : Array[Quantifier], id : Int) -> Quantifier {
-  if self.length() <= id {
+fn capture_quantifier_for_id(qs : Array[Quantifier], id : Int) -> Quantifier {
+  if qs.length() <= id {
     Zero
   } else {
-    self[id]
+    qs[id]
   }
 }
 
 ///|
 fn capture_quantifiers_add_for_id(
-  self : Array[Quantifier],
+  qs : Array[Quantifier],
   id : Int,
   quantifier : Quantifier,
 ) -> Unit {
-  while self.length() <= id {
-    self.push(Zero)
+  while qs.length() <= id {
+    qs.push(Zero)
   }
-  self[id] = quantifier_add(self[id], quantifier)
+  qs[id] = quantifier_add(qs[id], quantifier)
 }
 
 ///|
 fn capture_quantifiers_add_all(
-  self : Array[Quantifier],
+  qs : Array[Quantifier],
   quantifiers : Array[Quantifier],
 ) -> Unit {
-  while self.length() < quantifiers.length() {
-    self.push(Zero)
+  while qs.length() < quantifiers.length() {
+    qs.push(Zero)
   }
   for id in 0..<(quantifiers.length() & 0xFFFF) {
-    self[id] = quantifier_add(self[id], quantifiers[id])
+    qs[id] = quantifier_add(qs[id], quantifiers[id])
   }
 }
 
 ///|
 fn capture_quantifiers_mul(
-  self : Array[Quantifier],
+  qs : Array[Quantifier],
   quantifier : Quantifier,
 ) -> Unit {
-  for id in 0..<(self.length() & 0xFFFF) {
-    self[id] = quantifier_mul(self[id], quantifier)
+  for id in 0..<(qs.length() & 0xFFFF) {
+    qs[id] = quantifier_mul(qs[id], quantifier)
   }
 }
 
 ///|
 fn capture_quantifiers_join_all(
-  self : Array[Quantifier],
+  qs : Array[Quantifier],
   quantifiers : Array[Quantifier],
 ) -> Unit {
-  while self.length() < quantifiers.length() {
-    self.push(Zero)
+  while qs.length() < quantifiers.length() {
+    qs.push(Zero)
   }
   for id in 0..<quantifiers.length() {
-    self[id] = quantifier_join(self[id], quantifiers[id])
+    qs[id] = quantifier_join(qs[id], quantifiers[id])
   }
-  for id in quantifiers.length()..<self.length() {
-    self[id] = quantifier_join(self[id], Zero)
+  for id in quantifiers.length()..<qs.length() {
+    qs[id] = quantifier_join(qs[id], Zero)
   }
 }
 
@@ -611,11 +611,11 @@ priv struct QueryStep {
   mut supertype_symbol : Int
   mut field : Int
   capture_ids : FixedArray[Int]
-  mut depth : Int
+  depth : Int
   mut alternative_index : Int
   mut negated_field_list_id : Int
   mut is_named : Bool
-  mut is_immediate : Bool
+  is_immediate : Bool
   mut is_last_child : Bool
   mut is_pass_through : Bool
   mut is_dead_end : Bool

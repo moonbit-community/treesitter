@@ -352,8 +352,12 @@ fn TreeCursor::goto_sibling_internal(
   forward : Bool,
 ) -> TreeCursorStep {
   let initial_size = self.stack.length()
+  // Upstream restores `stack.size = initial_size` on failure, which brings
+  // back the popped entries that are still in the buffer.
+  let popped : Array[TreeCursorEntry] = []
   while self.stack.length() > 1 {
     let entry = self.stack.pop().unwrap()
+    popped.push(entry)
     let iterator = self.iterate_children()
     iterator.child_index = entry.child_index
     iterator.structural_child_index = entry.structural_child_index
@@ -384,7 +388,10 @@ fn TreeCursor::goto_sibling_internal(
       }
     }
   }
-  self.stack.truncate(initial_size)
+  while popped.pop() is Some(entry) {
+    self.stack.push(entry)
+  }
+  ignore(initial_size)
   StepNone
 }
 

@@ -207,6 +207,7 @@ pub fn Node::parent(Self) -> Self
 pub fn Node::parse_state(Self) -> Int32
 pub fn Node::prev_named_sibling(Self) -> Self
 pub fn Node::prev_sibling(Self) -> Self
+pub fn Node::same_id(Self, Self) -> Bool
 pub fn Node::slot(Self) -> SubtreeSlot?
 pub fn Node::start_byte(Self) -> UInt32
 pub fn Node::start_point(Self) -> Point

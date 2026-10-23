@@ -85,7 +85,7 @@ fn Node::lang(self : Node) -> @language.Language {
 }
 
 ///|
-fn Node::same_id(self : Node, other : Node) -> Bool {
+pub fn Node::same_id(self : Node, other : Node) -> Bool {
   match (self.id, other.id) {
     (None, None) => true
     (Some(a), Some(b)) => a.same(b)
