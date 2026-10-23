@@ -9,11 +9,17 @@ import {
 // Values
 pub let language_version : Int32
 
+pub let language_version_with_primary_states : Int32
+
+pub let language_version_with_reserved_words : Int32
+
 pub let tree_sitter_serialization_buffer_size : Int32
 
 pub let ts_builtin_sym_end : Int32
 
 pub let ts_builtin_sym_error : Int32
+
+pub let ts_builtin_sym_error_repeat : Int32
 
 // Errors
 
@@ -72,6 +78,34 @@ pub(all) struct Language {
   supertype_map_entries : Array[Int32]
   metadata : LanguageMetadata
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn Language::actions(Self, Int32, Int32) -> ArrayView[ParseActionEntry]
+pub fn Language::actions_of(Self, TableEntry) -> ArrayView[ParseActionEntry]
+pub fn Language::alias_at(Self, Int32, Int32) -> Int32
+pub fn Language::alias_sequence(Self, Int32) -> Int32?
+pub fn Language::aliases_for_symbol(Self, Int32) -> ArrayView[Int32]
+pub fn Language::enabled_external_tokens(Self, Int32) -> ArrayView[Bool]?
+pub fn Language::field_id_for_name(Self, StringView) -> Int32
+pub fn Language::field_map(Self, Int32) -> (Int32, Int32)
+pub fn Language::field_name_for_id(Self, Int32) -> String?
+pub fn Language::has_actions(Self, Int32, Int32) -> Bool
+pub fn Language::has_reduce_action(Self, Int32, Int32) -> Bool
+pub fn Language::is_reserved_word(Self, Int32, Int32) -> Bool
+pub fn Language::language_metadata(Self) -> LanguageMetadata?
+pub fn Language::language_name(Self) -> String?
+pub fn Language::lex_mode_for_state(Self, Int32) -> LexMode
+pub fn Language::lookaheads(Self, Int32) -> LookaheadIterator
+pub fn Language::lookup(Self, Int32, Int32) -> Int32
+pub fn Language::next_state(Self, Int32, Int32) -> Int32
+pub fn Language::public_symbol(Self, Int32) -> Int32
+pub fn Language::state_is_primary(Self, Int32) -> Bool
+pub fn Language::subtypes(Self, Int32) -> ArrayView[Int32]
+pub fn Language::supertypes(Self) -> ArrayView[Int32]
+pub fn Language::symbol_count_with_aliases(Self) -> Int32
+pub fn Language::symbol_for_name(Self, StringView, Bool) -> Int32
+pub fn Language::symbol_metadata_of(Self, Int32) -> SymbolMetadata
+pub fn Language::symbol_name(Self, Int32) -> String?
+pub fn Language::symbol_type(Self, Int32) -> SymbolType
+pub fn Language::table_entry(Self, Int32, Int32) -> TableEntry
 
 pub(all) struct LanguageMetadata {
   major_version : Int32
@@ -109,6 +143,19 @@ pub(all) struct LexTransition {
   skip : Bool
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 
+pub struct LookaheadIterator {
+  // private fields
+}
+pub fn LookaheadIterator::actions(Self) -> ArrayView[ParseActionEntry]
+pub fn LookaheadIterator::current_symbol(Self) -> Int32
+pub fn LookaheadIterator::current_symbol_name(Self) -> String?
+pub fn LookaheadIterator::language(Self) -> Language
+pub fn LookaheadIterator::new(Language, Int32) -> Self?
+pub fn LookaheadIterator::next(Self) -> Bool
+pub fn LookaheadIterator::next_state(Self) -> Int32
+pub fn LookaheadIterator::reset(Self, Language, Int32) -> Bool
+pub fn LookaheadIterator::reset_state(Self, Int32) -> Bool
+
 pub(all) struct MapSlice {
   index : Int32
   length : Int32
@@ -132,6 +179,19 @@ pub(all) struct SymbolMetadata {
   named : Bool
   supertype : Bool
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) enum SymbolType {
+  Regular
+  Anonymous
+  Supertype
+  Auxiliary
+} derive(Eq, @debug.Debug)
+
+pub(all) struct TableEntry {
+  actions_start : Int32
+  action_count : Int32
+  is_reusable : Bool
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 
