@@ -9,16 +9,25 @@ async fn load_language(path : String) -> @language.Language {
 }
 
 ///|
+fn new_parser(language : @language.Language) -> @runtime.Parser {
+  let parser = @runtime.Parser::new()
+  let ok = match @scanners.scanner_for(language.name) {
+    Some(scanner) => parser.set_language(Some(language), scanner~)
+    None => parser.set_language(Some(language))
+  }
+  if !ok {
+    println("error: incompatible language")
+  }
+  parser
+}
+
+///|
 async fn main {
   let args = @env.args()
   match args[1] {
     "parse" => {
       let language = load_language(args[2])
-      let parser = @runtime.Parser::new()
-      if !parser.set_language(Some(language)) {
-        println("error: incompatible language")
-        return
-      }
+      let parser = new_parser(language)
       for i in 3..<args.length() {
         let source = @fs.read_file(args[i]).binary()
         println("== \{args[i]}")
@@ -32,8 +41,7 @@ async fn main {
     }
     "log" => {
       let language = load_language(args[2])
-      let parser = @runtime.Parser::new()
-      ignore(parser.set_language(Some(language)))
+      let parser = new_parser(language)
       parser.set_logger(
         Some((kind, message) => {
           let prefix = match kind {
@@ -51,8 +59,7 @@ async fn main {
     }
     "edit" => {
       let language = load_language(args[2])
-      let parser = @runtime.Parser::new()
-      ignore(parser.set_language(Some(language)))
+      let parser = new_parser(language)
       let mut a = 3
       while a + 4 < args.length() {
         let old_text = @fs.read_file(args[a]).binary()

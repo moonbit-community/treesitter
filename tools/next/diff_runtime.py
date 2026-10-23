@@ -54,9 +54,17 @@ def build_ref(name, main='reference_parse.c', suffix=''):
     BIN.mkdir(parents=True, exist_ok=True)
     language = re.search(r'const TSLanguage \*tree_sitter_(\w+)\(void\)', (src / 'parser.c').read_text()).group(1)
     sources = [str(src / 'parser.c')]
-    for scanner in ['scanner.c', 'scanner.cc']:
-        if (src / scanner).exists():
-            sources.append(str(src / scanner))
+    candidates = [REF / name / 'scanner.c', src / 'scanner.c']
+    if name.startswith('fixture_'):
+        parts = name[len('fixture_'):].split('_', 1)
+        fixture = UPSTREAM / 'test/fixtures/grammars' / parts[0]
+        if len(parts) > 1:
+            fixture = fixture / parts[1]
+        candidates.append(fixture / 'src/scanner.c')
+    for scanner in candidates:
+        if scanner.exists():
+            sources.append(str(scanner))
+            break
     cmd = ['cc', '-O1', '-w', '-I', str(UPSTREAM / 'lib/include'), '-I', str(UPSTREAM / 'lib/src'), '-I', str(src),
            f'-DLANGUAGE=tree_sitter_{language}', str(UPSTREAM / 'lib/src/lib.c'), *sources,
            str(ROOT / 'tools/next' / main), '-o', str(exe)]
@@ -88,6 +96,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--mutate', type=int, default=0)
     ap.add_argument('--show', type=int, default=3)
+    ap.add_argument('--externals', action='store_true', help='include grammars with external scanners')
     ap.add_argument('--log', action='store_true', help='compare parser logs')
     ap.add_argument('--edits', type=int, default=0, help='random edits per input (incremental mode)')
     ap.add_argument('names', nargs='*')
@@ -96,7 +105,7 @@ def main():
     total = same = 0
     for name in names:
         lang = json.loads((LANG / f'{name}.json').read_text())
-        if lang['external_token_count'] and not args.names:
+        if lang['external_token_count'] and not args.names and not args.externals:
             continue
         inputs = corpus_inputs(name)
         rng = random.Random(name)
