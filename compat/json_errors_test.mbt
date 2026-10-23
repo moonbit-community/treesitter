@@ -137,3 +137,45 @@ test "error s expressions preserve upstream character and missing-token notation
     "(document (ERROR (number)))",
   )
 }
+
+///|
+test "error lexing restarts after partial tokens and separators" {
+  // Frozen from the C error lexer, including immediate tokens after a retry.
+  let parser = @ts.Parser::new(upstream_json_language())
+  assert_eq(
+    parser.parse_string("@\\n").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@') (escape_sequence)))",
+  )
+  assert_eq(
+    parser.parse_string("@ \\n").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@') (escape_sequence)))",
+  )
+  assert_eq(
+    parser.parse_string("\\x\\n").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED 'x') (escape_sequence)))",
+  )
+  assert_eq(
+    parser.parse_string("[ @\\n ]").root_node().to_sexp(),
+    "(document (array (ERROR (UNEXPECTED '@') (escape_sequence))))",
+  )
+  assert_eq(
+    parser.parse_string("@ tru").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@')))",
+  )
+  assert_eq(
+    parser.parse_string("@ 1").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@')) (number))",
+  )
+  assert_eq(
+    parser.parse_string("@   ").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@')))",
+  )
+  assert_eq(
+    parser.parse_string("@fa 1").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@')) (number))",
+  )
+  assert_eq(
+    parser.parse_string("@\\x1").root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@')) (number))",
+  )
+}

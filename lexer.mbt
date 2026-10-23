@@ -315,14 +315,22 @@ fn Parser::lex(
         // token. Preserve the first failing code point, including EOF after
         // a partial token such as `nul`.
         while end < input.length() {
-          if self.language.tokens.any(t => {
-              !t.immediate &&
-              self.language.recovery_tokens.contains(t.symbol) &&
-              scanned(t.lexer, end).unwrap_or(end) > end
-            }) {
+          let (recognized, stopped, observed) = recovery_restart(
+            self.language,
+            input,
+            end,
+            weighted,
+            cancelled,
+          )
+          dependency_end = Int32::max(dependency_end, observed)
+          if recognized {
             break
           }
-          end += @lex.decode(input, end).1
+          end = if stopped > end {
+            stopped
+          } else {
+            end + @lex.decode(input, end).1
+          }
         }
         dependency_end = Int32::max(
           dependency_end,

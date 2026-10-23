@@ -90,3 +90,44 @@ test "stack recovery leaves trailing comments outside the error subtree" {
   let error = tree.root_node().named_child(0).unwrap()
   assert_eq((error.start_byte(), error.end_byte()), (0, 2))
 }
+
+///|
+test "weighted error lexing restarts after a partial token" {
+  let language = @generate.generate(
+    @grammar.Grammar::new("weighted_error", [
+      ("document", Repeat(Symbol("word"))),
+      ("word", Token(Seq([@grammar.prec(1, Literal("a")), Literal("b")]))),
+    ]),
+  )
+  assert_true(language.tokens.any(t => t.lexer.has_precedence()))
+  let parser = @treesitter.Parser::new(language)
+  // Frozen from the pinned generator and C runtime.
+  for
+    (source, expected) in [
+      ("@ ab", "(document (ERROR (UNEXPECTED '@')) (word))"),
+      ("@ aXab", "(document (ERROR (UNEXPECTED '@')) (word))"),
+      ("@ a", "(document (ERROR (UNEXPECTED '@')))"),
+    ] {
+    assert_eq(parser.parse_string(source).root_node().to_sexp(), expected)
+  }
+  let mut checks = 0
+  assert_true(
+    try {
+      ignore(
+        parser.parse(b"@ aXab", cancelled=() => {
+          checks += 1
+          checks > 4
+        }),
+      )
+      false
+    } catch {
+      Cancelled => true
+      _ => false
+    },
+  )
+  assert_true(parser.has_pending_parse())
+  assert_eq(
+    parser.resume_parse().root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@')) (word))",
+  )
+}

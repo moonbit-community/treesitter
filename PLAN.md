@@ -1058,3 +1058,15 @@ regressions cover these cases. This removes another 33 output differences from
 the edit differential, leaving 97 tree-output differences and 48 range differences
 among cases with matching outputs; no previously matching tree case regresses.
 These output fixes do not resolve the remaining structural recovery differences.
+
+### Error-lexer restart progression
+
+Invalid runs now retry the recovery vocabulary after partial tokens and skipped
+separators, preserving the first diagnostic character while allowing a later
+immediate token to start. Scoped lexical precedence participates in retries;
+lookahead dependencies include failed attempts, and retries remain cancellable.
+Frozen C cases cover ordinary and weighted lexers, immediate escapes, whitespace,
+EOF and successful cancellation/resumption. All 340 native / 331 JS / 331 Wasm GC
+tests and CLI integration checks pass. The edit probe now has 85 differing tree
+outputs, 49 range differences among matching trees, no fresh/incremental failures,
+12 additional tree fixes and one range fix with no regressions.
