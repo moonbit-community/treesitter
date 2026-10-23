@@ -24,6 +24,38 @@ TMP = ROOT / '_build/difftmp'
 UPSTREAM = Path(subprocess.check_output(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], cwd=ROOT, text=True).strip()).parent / '.repos/ts-pinned'
 PROBE = ROOT / '_build/native/debug/build/next/probe/probe.exe'
 
+# Inputs for test grammars whose corpus is empty or does not reach the
+# scanner's interesting paths, taken from upstream's crates/cli/src/tests.
+EXTRA_INPUTS = {
+    'get_col_eof': [b'a', b'ab', b'a\nb', b'\n', b''],
+    'get_col_should_hang_not_crash': [b'\nHello'],
+    'depends_on_column': [b'\n x', b'\n  x', b'\n\n  x'],
+    'depends_on_column_failed_scan': [b'ax', b'\nx'],
+    'depends_on_column_repetition': [b'\nax\na', b'\nax\n\na'],
+    'utf16_surrogate_oob': [b'', b'\n  '],
+    # Scanner edge cases: an indent one column deep (stored as -1), percent
+    # strings and comments unterminated at EOF (the C scanners loop forever),
+    # a line break followed by a member access, boxes before list items.
+    'uses_current_column': [
+        b'\na = b\nc = do d\n       e + f\n       g\nh + i\n    ',
+        b'\na = b\nc1234 = do d\n       e + f\n       g\nh + i\n    ',
+        b'do\n x\ny\n', b'do\n  a\n b\nc\n', b'a = do b\n c\n  d\ne\n',
+    ],
+    'external_tokens': [b'%(abc', b'%{a #{b} c', b'x + %[a [b] c] + y'],
+    'external_extra_tokens': [b'x = # c', b'x = # a\n# b\ny'],
+    'inverted_external_token': [b'a\n.b\nc\n', b'a\n\n  b\n.c'],
+    'external_unicode_column_alignment': ['\u25a1 -\n-\n \u25a1-\n'.encode(), b'-\n -\n'],
+    'external_lookahead_eof_boundary': [b'`', b'``', b'```', b'` `'],
+}
+
+# Wall-clock limits. Some test scanners loop forever by design (or on
+# unterminated input, e.g. external_tokens at EOF); a batch that times out is
+# rerun one input at a time, and an input on which both runtimes time out
+# counts as identical ("hang").
+# A batch may take BATCH_TIMEOUT seconds plus one per input.
+BATCH_TIMEOUT = 30
+SINGLE_TIMEOUT = 2
+
 HEADER = re.compile(r'^(={3,})[^\n]*\n(.*?)\n\1[^\n]*\n(.*?)\n-{3,}[^\n]*\n', re.S | re.M)
 
 
@@ -43,7 +75,7 @@ def corpus_inputs(name):
         text = f.read_text(errors='replace')
         for m in HEADER.finditer(text):
             inputs.append(m.group(3).encode())
-    return inputs
+    return inputs + EXTRA_INPUTS.get(name, [])
 
 
 def build_ref(name, main='reference_parse.c', suffix=''):
@@ -87,9 +119,46 @@ def mutate(data, rng):
     return bytes(data)
 
 
-def run(cmd):
-    p = subprocess.run(cmd, capture_output=True, timeout=600)
-    return p.stdout.decode(errors='replace'), p.returncode
+def run(cmds, timeout):
+    """Run the commands concurrently; returns [(stdout or None on timeout,
+    exit code or 'timeout')]."""
+    procs = [subprocess.Popen(c, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) for c in cmds]
+    results = []
+    for p in procs:
+        try:
+            out, _ = p.communicate(timeout=timeout)
+            results.append((out.decode(errors='replace'), p.returncode))
+        except subprocess.TimeoutExpired:
+            p.kill()
+            p.communicate()
+            results.append((None, 'timeout'))
+        timeout = 1  # the others ran concurrently
+    return results
+
+
+def run_pair(ref_cmd, probe_cmd, groups):
+    """Run both commands over `groups` (argument lists, one per output
+    record); on a timeout, rerun each group alone. Returns the per-record
+    outputs of both sides and the probe's exit code."""
+    args = [a for g in groups for a in g]
+    (expected, ref_code), (actual, code) = run([ref_cmd + args, probe_cmd + args], BATCH_TIMEOUT + len(groups))
+    if ref_code == 0 and code == 0:
+        return expected.split('== ')[1:], actual.split('== ')[1:], code
+    exp, act, code = [], [], 0
+    for g in groups:
+        (e, ec), (a, c) = run([ref_cmd + g, probe_cmd + g], SINGLE_TIMEOUT)
+        e = ['<hang>'] if e is None else e.split('== ')[1:]
+        a = ['<hang>'] if a is None else a.split('== ')[1:]
+        # Keep the records aligned when a side crashed before printing.
+        if len(e) != 1:
+            e = [f'<exit {ec}> ' + ''.join(e)]
+        if len(a) != 1:
+            a = [f'<exit {c}> ' + ''.join(a)]
+        if c not in (0, 'timeout'):
+            code = c
+        exp += e
+        act += a
+    return exp, act, code
 
 
 def main():
@@ -131,22 +200,21 @@ def main():
                     q = work / f'{i}.{k}.new'
                     q.write_bytes(new)
                     eargs += [paths[i], str(q), str(start), str(old_end), str(start + len(insert))]
-            expected, _ = run([str(ref), *eargs])
-            actual, code = run([str(PROBE), 'edit', str(LANG / f'{name}.json'), *eargs])
+            groups = [eargs[k:k + 5] for k in range(0, len(eargs), 5)]
+            exp, act, code = run_pair([str(ref)], [str(PROBE), 'edit', str(LANG / f'{name}.json')], groups)
         elif args.log:
             ref = build_ref(name, 'reference_log.c', '.log')
-            expected, _ = run([str(ref), *paths])
-            actual, code = run([str(PROBE), 'log', str(LANG / f'{name}.json'), *paths])
+            exp, act, code = run_pair([str(ref)], [str(PROBE), 'log', str(LANG / f'{name}.json')], [[p] for p in paths])
         else:
             ref = build_ref(name)
-            expected, _ = run([str(ref), *paths])
-            actual, code = run([str(PROBE), 'parse', str(LANG / f'{name}.json'), *paths])
-        exp = expected.split('== ')[1:]
-        act = actual.split('== ')[1:]
+            exp, act, code = run_pair([str(ref)], [str(PROBE), 'parse', str(LANG / f'{name}.json')], [[p] for p in paths])
         n_same = sum(1 for a, b in zip(exp, act) if a == b)
         total += len(exp)
         same += n_same
         status = 'ok' if n_same == len(exp) and len(act) == len(exp) else 'DIFF'
+        hangs = sum(1 for a, b in zip(exp, act) if a == b == '<hang>')
+        if hangs:
+            status += f' ({hangs} hang in both)'
         print(f'{name}: {n_same}/{len(exp)} {status}' + ('' if code == 0 else f' (probe exit {code})'), flush=True)
         shown = 0
         for a, b in zip(exp, act):
@@ -155,7 +223,7 @@ def main():
                 print('  expected:', a.strip()[:400])
                 print('  actual:  ', b.strip()[:400])
         if len(act) < len(exp):
-            print('  probe output truncated:', actual[-500:])
+            print('  probe output truncated:', ''.join(act)[-500:])
     print(f'TOTAL {same}/{total}')
 
 
