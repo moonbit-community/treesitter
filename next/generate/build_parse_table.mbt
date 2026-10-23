@@ -1587,28 +1587,6 @@ fn ParseTableBuilder::compare_precedence(
   right : Precedence,
   right_symbols : Array[Symbol],
 ) -> Int32 {
-  let precedence_entry_matches = (
-    entry : PrecedenceEntry,
-    precedence : Precedence,
-    symbols : Array[Symbol],
-  ) => {
-    match entry {
-      Name(n) =>
-        match precedence {
-          Name(p) => n == p
-          _ => false
-        }
-      Symbol(n) =>
-        symbols
-        .iter()
-        .any(s => {
-          match s.kind {
-            NonTerminal => grammar.variables[s.index].name == n
-            _ => false
-          }
-        })
-    }
-  }
   match (left, right) {
     // Integer precedences can be compared to other integer precedences,
     // and to the default precedence, which is zero.
@@ -1621,16 +1599,14 @@ fn ParseTableBuilder::compare_precedence(
         let mut saw_left = false
         let mut saw_right = false
         for entry in list {
-          let matches_left = precedence_entry_matches(entry, left, left_symbols)
-          let matches_right = precedence_entry_matches(
-            entry, right, right_symbols,
-          )
-          if matches_left {
+          if precedence_entry_matches(grammar, entry, left, left_symbols) {
             saw_left = true
             if saw_right {
               return -1
             }
-          } else if matches_right {
+          } else if precedence_entry_matches(
+              grammar, entry, right, right_symbols,
+            ) {
             saw_right = true
             if saw_left {
               return 1
@@ -1639,6 +1615,33 @@ fn ParseTableBuilder::compare_precedence(
         }
       }
       0
+    }
+  }
+}
+
+///|
+/// `compare_precedence`'s `precedence_entry_matches` closure. (`compare_precedence`
+/// only evaluates the right side's match when the left side's doesn't hold, which is
+/// unobservable: matching has no effects.)
+fn precedence_entry_matches(
+  grammar : SyntaxGrammar,
+  entry : PrecedenceEntry,
+  precedence : Precedence,
+  symbols : Array[Symbol],
+) -> Bool {
+  match entry {
+    Name(n) =>
+      match precedence {
+        Name(p) => n == p
+        _ => false
+      }
+    Symbol(n) => {
+      for s in symbols {
+        if s.kind is NonTerminal && grammar.variables[s.index].name == n {
+          return true
+        }
+      }
+      false
     }
   }
 }
