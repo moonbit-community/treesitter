@@ -8,6 +8,8 @@ import {
 }
 
 // Values
+pub const LARGE_CHARACTER_RANGE_COUNT : Int32 = 8
+
 pub fn build_tables(SyntaxGrammar, LexicalGrammar, @sorted_map.SortedMap[Symbol, Alias], Array[VariableInfo], InlinedProductionMap, StrPool, String?, OptLevel, Array[Diagnostic]) -> Tables raise
 
 pub let char_set_end : Int32
@@ -55,6 +57,13 @@ pub let symbol_end : Symbol
 pub let symbol_end_of_nonterminal_extra : Symbol
 
 // Errors
+pub(all) suberror ParseTableBuilderError {
+  Conflict(ConflictError)
+  AmbiguousExtra(AmbiguousExtraError)
+  ImproperNonTerminalExtra(String)
+  StateCount(Int32)
+}
+pub impl Show for ParseTableBuilderError
 
 // Types and methods
 pub(all) struct ActionListId {
@@ -85,6 +94,11 @@ pub(all) struct Alias {
   is_named : Bool
 } derive(Compare, Eq, Hash, @debug.Debug)
 pub fn Alias::kind(Self) -> VariableType
+
+pub(all) struct AmbiguousExtraError {
+  parent_symbols : Array[String]
+} derive(Eq, @debug.Debug)
+pub impl Show for AmbiguousExtraError
 
 pub(all) enum Associativity {
   Left
@@ -159,6 +173,14 @@ pub(all) enum ChildType {
   Aliased(Alias)
 } derive(Compare, Eq, Hash, @debug.Debug)
 
+pub(all) struct ConflictError {
+  symbol_sequence : Array[String]
+  conflicting_lookahead : String
+  possible_interpretations : Array[Interpretation]
+  possible_resolutions : Array[Resolution]
+} derive(Eq, @debug.Debug)
+pub impl Show for ConflictError
+
 pub(all) enum Diagnostic {
   UnnecessaryConflicts(Array[Array[String]])
   UnaryChoice(name~ : String?)
@@ -218,6 +240,19 @@ pub(all) struct InputGrammar {
   mut precedence_orderings : Array[Array[PrecedenceEntry]]
 }
 pub fn InputGrammar::new() -> Self
+
+pub(all) struct Interpretation {
+  preceding_symbols : Array[String]
+  variable_name : String
+  production_step_symbols : Array[String]
+  step_index : Int32
+  done : Bool
+  conflicting_lookahead : String
+  precedence : String?
+  associativity : String?
+  requires_eof_lookahead : Bool
+} derive(Eq, @debug.Debug)
+pub impl Show for Interpretation
 
 pub(all) struct LexState {
   mut accept_action : Symbol?
@@ -427,6 +462,13 @@ pub(all) struct ReservedWordContext {
 } derive(@debug.Debug)
 
 pub(all) struct ReservedWordSetId(Int32) derive(Compare, Eq, Hash, @debug.Debug)
+
+pub(all) enum Resolution {
+  Precedence(symbols~ : Array[String])
+  Associativity(symbols~ : Array[String])
+  AddConflict(symbols~ : Array[String])
+} derive(Eq, @debug.Debug)
+pub impl Show for Resolution
 
 pub(all) enum Rule {
   Blank

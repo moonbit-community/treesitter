@@ -165,20 +165,6 @@ declare pub fn generate_node_types_json(
 ) -> String raise
 
 ///|
-/// `build_tables::build_tables`.
-declare pub fn build_tables(
-  syntax_grammar : SyntaxGrammar,
-  lexical_grammar : LexicalGrammar,
-  simple_aliases : AliasMap,
-  variable_info : Array[VariableInfo],
-  inlines : InlinedProductionMap,
-  str_pool : StrPool,
-  report_symbol_name : String?,
-  optimizations : OptLevel,
-  diagnostics : Array[Diagnostic],
-) -> Tables raise
-
-///|
 /// `render::render_c_code`: the exact `parser.c` text.
 declare pub fn render_c_code(
   name : StrId,
