@@ -488,10 +488,9 @@ fn report_state_info(
       }
     }
   }
-  // NOTE: upstream uses `sort_unstable_by_key` on 32-byte elements, which takes
-  // a different small-sort path than `rust_sort_unstable_by_key`; this only
-  // affects this report's order of rules with equal state counts.
-  rust_sort_unstable_by_key(symbols_with_state_indices, entry => {
+  // Upstream sorts `(usize, BTreeSet<usize>)` elements (32 bytes) with
+  // `sort_unstable_by_key`, and rules with as many states tie.
+  rust_sort_unstable_by_key_large(symbols_with_state_indices, entry => {
     -entry.1.length()
   })
   let mut max_symbol_name_length = 0

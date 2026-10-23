@@ -1,6 +1,8 @@
 // Port of Rust's `slice::sort_unstable_by` (core::slice::sort::unstable, the
 // "ipnsort" of Rust 1.97), specialized to the code paths taken for `Copy`
-// element types of at most 8 bytes, such as `usize` and `(u32, u32)`.
+// element types of at most 8 bytes, such as `usize` and `(u32, u32)`, and
+// (`rust_sort_unstable_by_key_large`) for element types of more than 16 bytes
+// without interior mutability, such as `(usize, BTreeSet<usize>)`.
 //
 // Upstream's generator sorts with `sort_unstable*` where elements can tie but
 // still be told apart (`reorder_states_by_descending_size`, `ItemKeyMap::new`).
@@ -11,17 +13,26 @@
 priv struct UnstableSorter[T] {
   v : Array[T]
   is_less : (T, T) -> Bool
+  /// Elements are `Copy` and at most 8 bytes: small slices are sorted with
+  /// sorting networks, and partitioning handles two elements per step.
+  /// Otherwise elements are more than 16 bytes: small slices are sorted with
+  /// `small_sort_general`, and partitioning handles one element per step.
+  small : Bool
 }
 
 ///|
 /// Rust's `v.sort_unstable_by(|a, b| ...)`, with `is_less(a, b)` meaning
 /// `compare(a, b) == Less`.
-fn[T] rust_sort_unstable_by(v : Array[T], is_less : (T, T) -> Bool) -> Unit {
+fn[T] rust_sort_unstable_by(
+  v : Array[T],
+  is_less : (T, T) -> Bool,
+  small~ : Bool = true,
+) -> Unit {
   let len = v.length()
   if len < 2 {
     return
   }
-  let sorter = { v, is_less, }
+  let sorter = { v, is_less, small, }
   if len <= 20 {
     sorter.insertion_sort_shift_left(0, len, 1)
     return
@@ -36,6 +47,15 @@ fn[T, K : Compare] rust_sort_unstable_by_key(
   key : (T) -> K,
 ) -> Unit {
   rust_sort_unstable_by(v, (a, b) => key(a) < key(b))
+}
+
+///|
+/// Rust's `v.sort_unstable_by_key(key)` for elements of more than 16 bytes.
+fn[T, K : Compare] rust_sort_unstable_by_key_large(
+  v : Array[T],
+  key : (T) -> K,
+) -> Unit {
+  rust_sort_unstable_by(v, (a, b) => key(a) < key(b), small=false)
 }
 
 ///|
@@ -101,7 +121,11 @@ fn[T] UnstableSorter::quicksort(
   while true {
     // `small_sort_threshold` of `small_sort_network`.
     if len <= 32 {
-      self.small_sort_network(base, len)
+      if self.small {
+        self.small_sort_network(base, len)
+      } else {
+        self.small_sort_general(base, len)
+      }
       return
     }
     if limit == 0 {
@@ -176,9 +200,11 @@ fn[T] UnstableSorter::partition_lomuto_branchless_cyclic(
     right += 1
   }
   // Elements of at most 16 bytes are processed two at a time.
-  while right < len - 1 {
-    body(v[base + right])
-    body(v[base + right])
+  if self.small {
+    while right < len - 1 {
+      body(v[base + right])
+      body(v[base + right])
+    }
   }
   while true {
     if right == len {
@@ -518,4 +544,91 @@ fn[T] UnstableSorter::insertion_sort_shift_left(
   for tail in (base + offset)..<(base + len) {
     self.insert_tail(base, tail)
   }
+}
+
+///|
+/// `small_sort_general_with_scratch` for elements of more than 16 bytes.
+fn[T] UnstableSorter::small_sort_general(
+  self : UnstableSorter[T],
+  base : Int32,
+  len : Int32,
+) -> Unit {
+  if len < 2 {
+    return
+  }
+  let v = self.v
+  let len_div_2 = len / 2
+  let scratch = v[base:base + len].to_owned()
+  let presorted_len = if len >= 8 {
+    self.sort4_stable(base, scratch, 0)
+    self.sort4_stable(base + len_div_2, scratch, len_div_2)
+    4
+  } else {
+    scratch[0] = v[base]
+    scratch[len_div_2] = v[base + len_div_2]
+    1
+  }
+  for offset in [0, len_div_2] {
+    let desired_len = if offset == 0 { len_div_2 } else { len - len_div_2 }
+    for i in presorted_len..<desired_len {
+      scratch[offset + i] = v[base + offset + i]
+      // `insert_tail` within `scratch[offset..]`.
+      let tail = offset + i
+      let mut sift = tail - 1
+      if (self.is_less)(scratch[tail], scratch[sift]) {
+        let tmp = scratch[tail]
+        let mut dst = tail
+        while true {
+          scratch[dst] = scratch[sift]
+          dst = sift
+          if sift == offset {
+            break
+          }
+          sift -= 1
+          if !(self.is_less)(tmp, scratch[sift]) {
+            break
+          }
+        }
+        scratch[dst] = tmp
+      }
+    }
+  }
+  // Merge `scratch` back into `v[base..base + len]`.
+  let merged = scratch.copy()
+  let sorter = { v: scratch, is_less: self.is_less, small: self.small, }
+  sorter.bidirectional_merge(0, len, merged)
+  for i in 0..<len {
+    v[base + i] = merged[i]
+  }
+}
+
+///|
+/// `sort4_stable`: sorts `v[base..base + 4]` into `dst[at..at + 4]`.
+fn[T] UnstableSorter::sort4_stable(
+  self : UnstableSorter[T],
+  base : Int32,
+  dst : Array[T],
+  at : Int32,
+) -> Unit {
+  let v = self.v
+  let is_less = self.is_less
+  let c1 = is_less(v[base + 1], v[base])
+  let c2 = is_less(v[base + 3], v[base + 2])
+  let a = base + (if c1 { 1 } else { 0 })
+  let b = base + (if c1 { 0 } else { 1 })
+  let c = base + 2 + (if c2 { 1 } else { 0 })
+  let d = base + 2 + (if c2 { 0 } else { 1 })
+  let c3 = is_less(v[c], v[a])
+  let c4 = is_less(v[d], v[b])
+  let min = if c3 { c } else { a }
+  let max = if c4 { b } else { d }
+  let unknown_left = if c3 { a } else if c4 { c } else { b }
+  let unknown_right = if c4 { d } else if c3 { b } else { c }
+  let c5 = is_less(v[unknown_right], v[unknown_left])
+  let lo = if c5 { unknown_right } else { unknown_left }
+  let hi = if c5 { unknown_left } else { unknown_right }
+  dst[at] = v[min]
+  dst[at + 1] = v[lo]
+  dst[at + 2] = v[hi]
+  dst[at + 3] = v[max]
 }

@@ -35,3 +35,37 @@ test "rust_sort_unstable_by_key matches Rust 1.97" {
   inspect(text.length(), content="693420")
   assert_eq(h, 0x7a6af8aebbf3c27bUL)
 }
+
+///|
+/// The same for 32-byte elements, as upstream's `report_state_info` sorts
+/// `(usize, BTreeSet<usize>)` with `sort_unstable_by_key`.
+test "rust_sort_unstable_by_key_large matches Rust 1.97" {
+  let mut state : UInt64 = 12345
+  let buf = StringBuilder()
+  let sizes = []
+  for n in 0..<200 {
+    sizes.push(n)
+  }
+  for n in [255, 256, 300, 500, 1000, 1500, 3000] {
+    sizes.push(n)
+  }
+  for n in sizes {
+    for modulus in [1U, 2, 3, 7, 50] {
+      let v = Array::makei(n, i => {
+        state = state * 6364136223846793005UL + 1442695040888963407UL
+        (i, ((state >> 33).to_uint() % modulus).reinterpret_as_int())
+      })
+      rust_sort_unstable_by_key_large(v, e => -e.1)
+      buf.write_string(v.map(e => e.0.to_string()).join(" "))
+      buf.write_char('\n')
+    }
+  }
+  let mut h : UInt64 = 0xcbf29ce484222325
+  let text = buf.to_string()
+  for i in 0..<text.length() {
+    h = h ^ text[i].to_uint64()
+    h = h * 0x100000001b3UL
+  }
+  inspect(text.length(), content="458400")
+  assert_eq(h, 0x4a9bf7cfc48a0dd1UL)
+}
