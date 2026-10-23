@@ -40,7 +40,9 @@ priv struct StackLink {
 priv struct StackNode {
   state : Int32
   mut position : Length
-  links : Array[StackLink]
+  /// `links[0..link_count]`; a node rarely gains links after creation, so
+  /// the array is replaced rather than grown.
+  mut links : FixedArray[StackLink]
   mut ref_count : Int32
   mut error_cost : UInt32
   mut node_count : UInt32
@@ -169,7 +171,10 @@ fn Stack::node_new(
   let node : StackNode = {
     state,
     position: length_zero(),
-    links: [],
+    links: match previous_node {
+      Some(previous) => [{ node: previous, subtree, is_pending }]
+      None => []
+    },
     ref_count: 1,
     error_cost: 0,
     node_count: 0,
@@ -177,7 +182,6 @@ fn Stack::node_new(
     id,
   }
   if previous_node is Some(previous) {
-    node.links.push({ node: previous, subtree, is_pending, })
     node.position = previous.position
     node.error_cost = previous.error_cost
     node.dynamic_precedence = previous.dynamic_precedence
@@ -266,7 +270,10 @@ fn stack_node_add_link(target : StackNode, link : StackLink) -> Unit {
   stack_node_retain(Some(link.node))
   let mut node_count = link.node.node_count
   let mut dynamic_precedence = link.node.dynamic_precedence
-  target.links.push(link)
+  let link_count = target.links.length()
+  let links = FixedArray::make(link_count + 1, link)
+  links.unsafe_blit(0, target.links, 0, link_count)
+  target.links = links
   if !link.subtree.is_null() {
     link.subtree.retain()
     node_count += stack_subtree_node_count(link.subtree)
@@ -332,22 +339,27 @@ fn Stack::add_slice(
 }
 
 ///|
-fn Stack::iter(
+fn[P] Stack::iter(
   self : Stack,
   version : Int32,
-  callback : (StackIterator) -> Int32,
+  callback : (P, StackIterator) -> Int32,
+  payload : P,
   goal_subtree_count : Int32,
 ) -> Array[StackSlice] {
   self.slices = []
   self.iterators.clear()
   let head = self.heads[version]
+  let include_subtrees = goal_subtree_count >= 0
   let new_iterator : StackIterator = {
     node: head.node,
-    subtrees: [],
+    subtrees: if include_subtrees {
+      Array(capacity=goal_subtree_count)
+    } else {
+      []
+    },
     subtree_count: 0,
     is_pending: true,
   }
-  let include_subtrees = goal_subtree_count >= 0
   self.iterators.push(new_iterator)
   while self.iterators.length() > 0 {
     let mut i = 0
@@ -355,7 +367,7 @@ fn Stack::iter(
     while i < size {
       let iterator = self.iterators[i]
       let node = iterator.node
-      let action = callback(iterator)
+      let action = callback(payload, iterator)
       let should_pop = (action & stack_action_pop) != 0
       let should_stop = (action & stack_action_stop) != 0 ||
         node.links.length() == 0
@@ -524,41 +536,39 @@ pub fn Stack::push(
 }
 
 ///|
+fn pop_count_callback(goal_subtree_count : Int32, iterator : StackIterator) -> Int32 {
+  if iterator.subtree_count == goal_subtree_count {
+    stack_action_pop | stack_action_stop
+  } else {
+    stack_action_none
+  }
+}
+
+///|
 pub fn Stack::pop_count(
   self : Stack,
   version : Int32,
   count : Int32,
 ) -> Array[StackSlice] {
-  self.iter(
-    version,
-    iterator => {
-      if iterator.subtree_count == count {
-        stack_action_pop | stack_action_stop
-      } else {
-        stack_action_none
-      }
-    },
-    count,
-  )
+  self.iter(version, pop_count_callback, count, count)
+}
+
+///|
+fn pop_pending_callback(_payload : Unit, iterator : StackIterator) -> Int32 {
+  if iterator.subtree_count >= 1 {
+    if iterator.is_pending {
+      stack_action_pop | stack_action_stop
+    } else {
+      stack_action_stop
+    }
+  } else {
+    stack_action_none
+  }
 }
 
 ///|
 pub fn Stack::pop_pending(self : Stack, version : Int32) -> Array[StackSlice] {
-  let pop = self.iter(
-    version,
-    iterator => {
-      if iterator.subtree_count >= 1 {
-        if iterator.is_pending {
-          stack_action_pop | stack_action_stop
-        } else {
-          stack_action_stop
-        }
-      } else {
-        stack_action_none
-      }
-    },
-    0,
-  )
+  let pop = self.iter(version, pop_pending_callback, (), 0)
   if pop.length() > 0 {
     self.renumber_version(pop[0].version, version)
     pop[0] = { ..pop[0], version, }
@@ -567,27 +577,26 @@ pub fn Stack::pop_pending(self : Stack, version : Int32) -> Array[StackSlice] {
 }
 
 ///|
+fn pop_error_callback(found_error : Ref[Bool], iterator : StackIterator) -> Int32 {
+  if iterator.subtrees.length() > 0 {
+    if !found_error.val && iterator.subtrees[0].is_error() {
+      found_error.val = true
+      stack_action_pop | stack_action_stop
+    } else {
+      stack_action_stop
+    }
+  } else {
+    stack_action_none
+  }
+}
+
+///|
 pub fn Stack::pop_error(self : Stack, version : Int32) -> Array[Subtree] {
   let node = self.heads[version].node
   for i in 0..<node.links.length() {
     if !node.links[i].subtree.is_null() && node.links[i].subtree.is_error() {
-      let mut found_error = false
-      let pop = self.iter(
-        version,
-        iterator => {
-          if iterator.subtrees.length() > 0 {
-            if !found_error && iterator.subtrees[0].is_error() {
-              found_error = true
-              stack_action_pop | stack_action_stop
-            } else {
-              stack_action_stop
-            }
-          } else {
-            stack_action_none
-          }
-        },
-        1,
-      )
+      let found_error = Ref(false)
+      let pop = self.iter(version, pop_error_callback, found_error, 1)
       if pop.length() > 0 {
         self.renumber_version(pop[0].version, version)
         return pop[0].subtrees
@@ -599,18 +608,17 @@ pub fn Stack::pop_error(self : Stack, version : Int32) -> Array[Subtree] {
 }
 
 ///|
+fn pop_all_callback(_payload : Unit, iterator : StackIterator) -> Int32 {
+  if iterator.node.links.length() == 0 {
+    stack_action_pop
+  } else {
+    stack_action_none
+  }
+}
+
+///|
 pub fn Stack::pop_all(self : Stack, version : Int32) -> Array[StackSlice] {
-  self.iter(
-    version,
-    iterator => {
-      if iterator.node.links.length() == 0 {
-        stack_action_pop
-      } else {
-        stack_action_none
-      }
-    },
-    0,
-  )
+  self.iter(version, pop_all_callback, (), 0)
 }
 
 ///|
@@ -623,7 +631,7 @@ pub fn Stack::record_summary(
   ignore(
     self.iter(
       version,
-      iterator => {
+      (_, iterator) => {
         let state = iterator.node.state
         let depth = iterator.subtree_count
         if depth > max_depth {
@@ -641,6 +649,7 @@ pub fn Stack::record_summary(
         summary.push({ position: iterator.node.position, depth, state, })
         stack_action_none
       },
+      (),
       -1,
     ),
   )
