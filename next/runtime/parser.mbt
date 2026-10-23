@@ -26,6 +26,14 @@ priv struct TokenCache {
 }
 
 ///|
+/// The `TSStateId *state` and `TableEntry *table_entry` out-parameters of
+/// `ts_parser__reuse_node` and `ts_parser__get_cached_token`.
+priv struct AdvanceOut {
+  mut state : Int32
+  mut table_entry : @language.TableEntry
+}
+
+///|
 pub struct Parser {
   priv lexer : Lexer
   priv stack : Stack
@@ -56,6 +64,7 @@ pub struct Parser {
   /// `set_language`.
   priv mut lex_program : CompiledLexProgram?
   priv mut keyword_lex_program : CompiledLexProgram?
+  priv advance_out : AdvanceOut
 }
 
 ///|
@@ -627,19 +636,21 @@ fn Parser::get_cached_token(
   state : Int32,
   position : UInt32,
   last_external_token : Subtree,
-) -> (Subtree, @language.TableEntry?) {
+  out : AdvanceOut,
+) -> Subtree {
   let cache = self.token_cache
   if !cache.token.is_null() &&
     cache.byte_index == position &&
     cache.last_external_token.external_scanner_state_eq(last_external_token) {
     let table_entry = self.lang().table_entry(state, cache.token.symbol())
+    out.table_entry = table_entry
     if self.can_reuse_first_leaf(state, cache.token, table_entry) {
       cache.token.retain()
-      return (cache.token, Some(table_entry))
+      return cache.token
     }
-    return (Null, Some(table_entry))
+    return Null
   }
-  (Null, None)
+  Null
 }
 
 ///|
@@ -682,18 +693,18 @@ fn Parser::has_included_range_difference(
 }
 
 ///|
-/// `ts_parser__reuse_node`. Returns the reused node, the possibly updated
-/// state, and the table entry it computed (if any).
+/// `ts_parser__reuse_node`. Returns the reused node; `out.state` is the
+/// possibly updated state and `out.table_entry` the table entry it computed
+/// (if any).
 fn Parser::reuse_node(
   self : Parser,
   version : Int32,
-  state : Int32,
+  out : AdvanceOut,
   position : UInt32,
   last_external_token : Subtree,
-) -> (Subtree, Int32, @language.TableEntry?) {
-  let mut state = state
-  let mut table_entry : @language.TableEntry? = None
+) -> Subtree {
   for ;; {
+    let state = out.state
     let result = self.reusable_node.tree()
     if result.is_null() {
       break
@@ -758,13 +769,13 @@ fn Parser::reuse_node(
       if !self.reusable_node.descend() {
         self.reusable_node.advance()
         ignore(self.breakdown_top_of_stack(version))
-        state = self.stack.state(version)
+        out.state = self.stack.state(version)
       }
       continue
     }
     let leaf_symbol = result.leaf_symbol()
     let entry = self.lang().table_entry(state, leaf_symbol)
-    table_entry = Some(entry)
+    out.table_entry = entry
     if !self.can_reuse_first_leaf(state, result, entry) {
       if self.logging() {
         self.log(
@@ -778,9 +789,9 @@ fn Parser::reuse_node(
       self.log("reuse_node symbol:\{self.tree_name(result)}")
     }
     result.retain()
-    return (result, state, table_entry)
+    return result
   }
-  (Null, state, table_entry)
+  Null
 }
 
 ///|
@@ -1568,34 +1579,23 @@ fn Parser::advance(
   let last_external_token = self.stack.last_external_token(version)
   let mut did_reuse = true
   let mut lookahead = Subtree::Null
-  let mut table_entry : @language.TableEntry = {
-    actions_start: 0,
-    action_count: 0,
-    is_reusable: false,
-  }
+  let out = self.advance_out
+  out.state = state
+  out.table_entry = { actions_start: 0, action_count: 0, is_reusable: false }
   // If possible, reuse a node from the previous syntax tree.
   if allow_node_reuse {
-    let (result, new_state, entry) = self.reuse_node(
-      version, state, position, last_external_token,
-    )
-    lookahead = result
-    state = new_state
-    if entry is Some(entry) {
-      table_entry = entry
-    }
+    lookahead = self.reuse_node(version, out, position, last_external_token)
+    state = out.state
   }
   // If no node from the previous syntax tree could be reused, then try to
   // reuse the token previously returned by the lexer.
   if lookahead.is_null() {
     did_reuse = false
-    let (result, entry) = self.get_cached_token(
-      state, position, last_external_token,
+    lookahead = self.get_cached_token(
+      state, position, last_external_token, out,
     )
-    lookahead = result
-    if entry is Some(entry) {
-      table_entry = entry
-    }
   }
+  let mut table_entry = out.table_entry
   let mut needs_lex = lookahead.is_null()
   for ;; {
     // Otherwise, re-run the lexer.
@@ -1971,6 +1971,10 @@ pub fn Parser::new() -> Parser {
     balance_stack: [],
     lex_program: None,
     keyword_lex_program: None,
+    advance_out: {
+      state: 0,
+      table_entry: { actions_start: 0, action_count: 0, is_reusable: false },
+    },
   }
   self.set_cached_token(0, Null, Null)
   self
