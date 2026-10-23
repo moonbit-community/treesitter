@@ -146,21 +146,58 @@ fn Parser::prepare_recovery(
             token.symbol,
             max_branches,
           ) {
-          inserted.push({
-            ..current,
-            histories: [],
-            lookahead: Some({
-              dependency_end: token.dependency_end,
-              unexpected: None,
-              symbol: expected,
-              start: token.start,
-              end: token.start,
-              missing: true,
-              scanner_state: None,
-            }),
-            errors: current.errors + 1,
-            insertions: 1,
-          })
+          let position = current.position()
+          if token.symbol == 0 {
+            inserted.push({
+              ..current,
+              histories: [],
+              lookahead: Some({
+                dependency_end: token.dependency_end,
+                unexpected: None,
+                symbol: expected,
+                start: position,
+                end: position,
+                missing: true,
+                scanner_state: None,
+              }),
+              errors: current.errors + 1,
+              insertions: 1,
+            })
+          } else {
+            let missing = self.node(
+              expected,
+              position,
+              position,
+              lines,
+              [],
+              state,
+              next,
+              dependency_end=token.dependency_end,
+              fragile=true,
+              missing=true,
+              scan_before=current.scanner_state,
+              scan_after=current.scanner_state,
+            )
+            inserted.append(
+              self.reduce_after_missing(
+                {
+                  ..current,
+                  histories: [],
+                  status: Active,
+                  states: current.states + [next],
+                  entries: current.entries +
+                  [{ node: missing, leading: current.pending, }],
+                  pending: [],
+                  lookahead: Some(token),
+                  errors: current.errors + 1,
+                  insertions: 1,
+                },
+                token.symbol,
+                lines,
+                max_branches,
+              ),
+            )
+          }
           if self.logger is Some(log) {
             log(
               Parse,
@@ -193,6 +230,7 @@ fn Parser::recover_history(
   branch : Branch,
   token : Lexeme,
   lines : Array[Int32],
+  active : Array[Branch],
 ) -> Array[Branch] {
   let histories = if branch.histories.is_empty() {
     [
@@ -219,6 +257,13 @@ fn Parser::recover_history(
         continue
       }
       let state = history.states[index]
+      if active.any(other => {
+          other.status == Active &&
+          other.position() == branch.position() &&
+          other.states.last() == Some(state)
+        }) {
+        continue
+      }
       if goal >= 0 && state != goal {
         continue
       }

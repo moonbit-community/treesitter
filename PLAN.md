@@ -1090,3 +1090,17 @@ comments, nested arrays, immediate escapes and multiple interruptions. All 342
 native tests and 145 compatibility tests on each portable backend pass, with a
 clean warning-enabled check. The malformed UTF-8 regression also covers truncated
 multibyte sequences explicitly.
+
+### Missing-token candidate scheduling and insertion positions
+
+Non-EOF missing-token candidates now reduce to ready parser states before
+alternate recovery histories are examined. Recovery avoids states already held
+by an active version at the same stack position, matching upstream's redundant
+version check. Missing punctuation is placed after consumed syntax/comments and
+before skipped anonymous whitespace, including EOF insertions and included-range
+projection. Frozen C tests cover competing recovery paths, exact positions and
+changed ranges. All 343 native / 334 JS / 334 Wasm GC tests, CLI checks and the
+full six-grammar public matrix pass. Against the current 83-difference baseline,
+the edit probe fixes four tree outputs and one range with no regressions: 79 tree
+outputs and 50 changed-range cases remain different; fresh/incremental trees agree
+in every case and no parser call fails.

@@ -791,7 +791,7 @@ fn Parser::parse_source(
       if token.missing {
         continue
       }
-      let recovered = self.recover_history(branch, token, lines)
+      let recovered = self.recover_history(branch, token, lines, work)
       let did_recover = !recovered.is_empty()
       work.append(recovered)
       if token.symbol == 0 && branch.extras.is_empty() && branch.insertions < 3 {

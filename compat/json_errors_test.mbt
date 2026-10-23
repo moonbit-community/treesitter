@@ -249,3 +249,62 @@ test "comments remain outside recovered errors and inside continued errors" {
     "(document (ERROR (UNEXPECTED '@') (comment) (escape_sequence) (comment) (UNEXPECTED '@')))",
   )
 }
+
+///|
+test "missing candidates reduce before competing recovery and precede padding" {
+  // Frozen C trees and ranges, including missing punctuation before whitespace.
+  let parser = @ts.Parser::new(upstream_json_language())
+  for
+    (source, expected, missing_at) in [
+      (
+        "1 2 {3", "(document (number) (number) (object (MISSING \"}\")) (number))",
+        5,
+      ),
+      (
+        "1{ 2 3", "(document (number) (object (MISSING \"}\")) (number) (number))",
+        2,
+      ),
+      ("[1  ", "(document (array (number) (MISSING \"]\")))", 2),
+      ("[1 /*x*/  ", "(document (array (number) (comment) (MISSING \"]\")))", 8),
+      (
+        "1 { /*x*/ 2", "(document (number) (object (comment) (MISSING \"}\")) (number))",
+        9,
+      ),
+    ] {
+    let root = parser.parse_string(source).root_node()
+    assert_eq(root.to_sexp(), expected)
+    let cursor = root.walk()
+    let mut found = false
+    for i in 0..<root.descendant_count() {
+      assert_true(cursor.goto_descendant(i))
+      let node = cursor.node()
+      if node.is_missing() {
+        found = true
+        assert_eq(
+          (node.start_byte(), node.end_byte()),
+          (missing_at, missing_at),
+        )
+        assert_eq(node.start_position(), { row: 0, column: missing_at, })
+      }
+    }
+    assert_true(found)
+  }
+  // With no existing prefix, the cheaper error path remains available.
+  assert_eq(
+    parser.parse_string("{3").root_node().to_sexp(),
+    "(document (ERROR) (number))",
+  )
+  let old = parser.parse_string("1 2 3")
+  old.edit({
+    start_byte: 1,
+    old_end_byte: 1,
+    new_end_byte: 2,
+    start_point: { row: 0, column: 1, },
+    old_end_point: { row: 0, column: 1, },
+    new_end_point: { row: 0, column: 2, },
+  })
+  let next = parser.parse(b"1{ 2 3", old_tree=old)
+  assert_eq(old.changed_ranges(next).map(r => (r.start_byte, r.end_byte)), [
+    (1, 2),
+  ])
+}
