@@ -19,6 +19,41 @@ fn Completion::then(self : Completion, next : Completion) -> Completion {
 }
 
 ///|
+// A skipped optional path stays pending while its other branch can still
+// consume a sibling. With no remaining siblings it completes on node exit.
+fn Completion::wait_for_siblings(
+  self : Completion,
+  parent : @ts.Node,
+  from : Int32,
+  anchor~ : Bool = false,
+) -> Completion {
+  let mut boundary = parent.child_count() - 1
+  if anchor {
+    for i in from..<parent.child_count() {
+      if parent.child(i).unwrap().is_named() {
+        boundary = i
+        break
+      }
+    }
+  }
+  match parent.child(boundary) {
+    Some(last) =>
+      { ..self, finish: last, delayed: from >= parent.child_count(), }
+    None => { ..self, finish: parent, delayed: true, }
+  }
+}
+
+///|
+fn pattern_has_captures(pattern : Pattern) -> Bool {
+  match pattern {
+    Capture(_, _) => true
+    Node(node) => node.children.any(c => pattern_has_captures(c.pattern))
+    Group(children, _) => children.any(c => pattern_has_captures(c.pattern))
+    Either(items) => items.any(pattern_has_captures)
+  }
+}
+
+///|
 priv struct Budget {
   mut steps : Int32
   limit : Int32
@@ -171,11 +206,7 @@ fn match_at(
   budget : Budget,
 ) -> Array[(Completion, Int32)] raise QueryError {
   match pattern {
-    Group(children, trailing) => {
-      let children = children.copy()
-      if !children.is_empty() {
-        children[0] = { ..children[0], anchor: true, }
-      }
+    Group(children, trailing) =>
       match_children(
         children,
         trailing,
@@ -186,7 +217,6 @@ fn match_at(
         budget,
         strict_start=true,
       )
-    }
     Either(items) => {
       let results = []
       for item in items {
@@ -236,6 +266,7 @@ fn match_children(
   let spec = children[pi]
   let result = []
   let mut skip_until = from
+  let started = []
   for i in from..<parent.child_count() {
     if strict_start && i != from {
       break
@@ -251,7 +282,12 @@ fn match_children(
       []
     }
     for (matched, after) in matches {
-      if spec.max == Some(1) {
+      if after > i {
+        started.push((completed.captures + matched.captures, after))
+      }
+      if spec.max == Some(1) || after == i {
+        // A nullable group may complete without consuming this sibling. Keep
+        // its completion event, but never loop back without making progress.
         result.append(
           match_children(
             children,
@@ -293,7 +329,7 @@ fn match_children(
             next,
             {
               ..accumulated,
-              finish: parent.child(next - 1).unwrap(),
+              finish: parent.child(next - 1).unwrap_or(accumulated.finish),
               delayed: true,
             },
             budget,
@@ -309,8 +345,20 @@ fn match_children(
     if spec.anchor && node.is_named() {
       break
     }
+    // An uncaptured, successful step with no immediately constrained successor
+    // advances in place upstream. Do not invent a second path skipping it.
+    if spec.max == Some(1) &&
+      !pattern_has_captures(spec.pattern) &&
+      !children.get(pi + 1).map(c => c.anchor).unwrap_or(false) &&
+      !result.is_empty() {
+      break
+    }
   }
   if spec.min == 0 {
+    let anchored_successor = children
+      .get(pi + 1)
+      .map(c => c.anchor)
+      .unwrap_or(false)
     let children = children.copy()
     if pi + 1 < children.length() {
       children[pi + 1] = { ..children[pi + 1], anchor: spec.anchor, }
@@ -325,8 +373,23 @@ fn match_children(
       budget,
       strict_start~,
     )
+    // Once a nonempty path reaches an anchored successor, upstream merges
+    // its zero-skip state into that path. Do not revive the discarded state
+    // after the populated path subsequently fails its adjacency constraint.
+    let skipped = if anchored_successor {
+      skipped.filter(m => !started.any(prefix => prefix.1 < m.1))
+    } else {
+      skipped
+    }
     if result.is_empty() {
-      return skipped
+      return skipped.map(m => {
+        if pi + 1 == children.length() ||
+          started.any(prefix => captures_contain(prefix.0, m.0.captures)) {
+          (m.0.wait_for_siblings(parent, from, anchor=spec.anchor), m.1)
+        } else {
+          m
+        }
+      })
     }
     // An optional prefix can be absent before one sibling and present before
     // another. Keep both matches, while preferring the populated alternative

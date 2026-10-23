@@ -973,3 +973,20 @@ regressed); remaining cases involve optional paths waiting for unfinished
 alternatives and groups extending across a failed repetition. The earlier
 144-case probe still matches completely and the expanded 300-case root probe
 retains its 15 hidden-traversal differences. Full query compatibility remains open.
+
+### Optional query path lifetime checkpoint
+
+Optional completions now remain pending only while a competing captured path
+can supersede them, and anchored failures complete at the first named mismatch.
+A populated path reaching an anchored successor absorbs the earlier zero-skip
+state; that state no longer reappears after the populated path fails. Uncaptured
+successful steps advance without inventing skip branches, fixing repeated
+optional separators. Nullable repetitions keep their completion event and never
+loop without consuming a sibling. Completion regressions now live separately
+in query/completion_test.mbt.
+
+The nested differential passes 216/216 cases and a new mixed optional/anchor
+probe passes 864/864. The original root probe passes 144/144; the 300-case ranged
+probe still has 15 hidden-repetition traversal differences. All 324 native /
+316 JS / 316 Wasm GC tests and CLI checks pass. These probes cover concrete
+cases, not the still-open full query grammar-analysis and compatibility gate.
