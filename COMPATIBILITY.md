@@ -48,8 +48,8 @@ whole-port review and broader performance comparison are still outstanding.
 
 ## Validation evidence
 
-The release preparation checkpoint passed 356 native, 347 JavaScript and
-347 Wasm GC tests, plus the CLI integration suite. The public grammar audit
+The release preparation checkpoint passed 357 native, 348 JavaScript and
+348 Wasm GC tests, plus the CLI integration suite. The public grammar audit
 passes all 462 unchanged corpus cases across JSON, C, JavaScript, Go, Regex and
 Rust, all 15 query-file compilation checks, 90 highlight/tag position assertions,
 2,772 incremental/fresh/undo checks and named-tree hashes for 10 larger examples

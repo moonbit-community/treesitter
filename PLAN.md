@@ -55,7 +55,7 @@ release with a public document of missing functionality. This does not mark the
 full-port milestones complete. See [COMPATIBILITY.md](COMPATIBILITY.md) for the
 0.1.0 compatibility limits and remaining work.
 
-The latest checkpoint passes 356 native, 347 JavaScript and 347 Wasm GC tests,
+The latest checkpoint passes 357 native, 348 JavaScript and 348 Wasm GC tests,
 CLI integration checks, and the six pinned public grammar audits. Focused Codex
 CLI ultra reviews of the recent query changes are complete and their findings
 are fixed. The final whole-port review remains part of full-port completion.
@@ -1216,3 +1216,24 @@ do not create reference cycles. Frozen C identity relationships cover repeated
 lookups, copies, reparses, offset views, edited handles and the edited root.
 All 83 runtime tests pass on native, JS and Wasm GC; the full suite now passes
 356 native / 347 JS / 347 Wasm GC tests and all six public grammar audits.
+
+## Experimental release preparation
+
+The user authorized creating the repository and publishing the current work
+with missing functionality documented. The public repository is now
+https://github.com/moonbit-community/treesitter, and COMPATIBILITY.md documents
+the known gaps. The package, imports, mbtx loader and emitted factories now use
+the community namespace. CI and the release workflow are pushed; publication
+uses the existing organization Mooncakes secret. Local bobzhang credentials
+were correctly rejected for this namespace and were not retained in repository
+secrets.
+
+The release-readiness ultra review exposed identity reuse in unchanged UTF-16
+and custom-decoder parses. The fix preserves reused syntax but allocates a new
+tree identity, with all-encoding regression coverage. The complete local check
+script now passes 357 native, 348 JavaScript and 348 Wasm GC tests plus all CLI
+integration and formatting checks. The archive includes compatibility and
+license documents and excludes development checkouts/build products. Registry
+installation verification is automated in tools/check_registry.py and runs
+after publishing. Hosted CI, final review conclusions and publication results
+will be recorded when they complete.
