@@ -1,6 +1,5 @@
-// Port of tree-sitter crates/cli/src/tests/text_provider_test.rs. Rust's
-// many byte containers (`&str`, `String`, `Box<[u8]>`, `Arc<[u8]>`, ...)
-// all become `Bytes`/`BytesView` here, and closures become `TextCallback`.
+// Helpers of the port of tree-sitter crates/cli/src/tests/text_provider_test.rs
+// (text_provider_suite_test.mbt), and further text provider checks.
 
 ///|
 async fn parse_text(text : BytesView) -> (@api.Tree, @api.Language)? {
@@ -69,39 +68,10 @@ fn comment_reader() -> (Int32, @api.Point) -> BytesView {
 }
 
 ///|
-async test "text_provider_for_bytes" {
-  let text = utf8(comment_text)
-  check_parsing(text, text)
-  check_parsing(text[:], text[:])
-  check_parsing(text, text[:])
-}
-
-///|
 async test "text_provider_for_sliced_bytes" {
   // The provider only needs the node's range to be in bounds.
   let text = utf8(comment_text + "\n\nint x;")
   check_parsing(text, text[0:text.length()])
-}
-
-///|
-async test "text_provider_callback_with_bytes" {
-  let text = utf8(comment_text)
-  check_parsing(text, @api.TextCallback::new(_ => Iter::singleton(text[:])))
-  check_parsing_callback(
-    comment_reader(),
-    @api.TextCallback::new(_ => Iter::singleton(text[:])),
-  )
-}
-
-///|
-async test "text_provider_callback_with_owned_bytes" {
-  check_parsing_callback(
-    comment_reader(),
-    @api.TextCallback::new(_ => {
-      let owned : Bytes = utf8(comment_text)
-      Iter::singleton(owned[:])
-    }),
-  )
 }
 
 ///|
