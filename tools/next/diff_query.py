@@ -82,6 +82,7 @@ def main():
             if len(act) < len(exp):
                 print('  probe output truncated:', actual[-400:])
     print(f'TOTAL {same}/{total}')
+    sys.exit(0 if same == total else 1)
 
 
 if __name__ == '__main__':
