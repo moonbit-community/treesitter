@@ -17,3 +17,12 @@ Rust compatibility scanner: tree-sitter/tree-sitter-rust v0.24.2,
 revision 77a3747266f4d621d0757825e6b11edcbf991ca5, MIT license.
 Copyright (c) 2017 Maxim Sokolov. The MoonBit translation is in
 examples/rust/scanner.mbtx; its license is preserved alongside it.
+
+Fixture grammar scanners (next/scanners): faithful MoonBit ports of the
+src/scanner.c files of the fixture grammars pinned in Tree-sitter's
+test/fixtures/fixtures.json, all distributed under the MIT license:
+- tree-sitter-bash v0.25.0, Copyright (c) 2017 Max Brunsfeld (bash.mbt)
+- tree-sitter-cpp v0.23.4, Copyright (c) 2014 Max Brunsfeld (cpp.mbt)
+- tree-sitter-jsdoc v0.23.2, Copyright (c) 2018 Max Brunsfeld (jsdoc.mbt)
+- tree-sitter-python v0.23.6, Copyright (c) 2016 Max Brunsfeld (python.mbt)
+- tree-sitter-ruby v0.23.1, Copyright (c) 2016 Rob Rix (ruby.mbt)
