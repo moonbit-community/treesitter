@@ -39,12 +39,22 @@ pub impl Show for RegexError with fn output(self, logger) {
 pub struct Regex {
   priv pattern : String
   priv program : Program
+  priv hir : @hir.Hir
+  /// UTF-8 mode (`regex::Regex` rather than `regex::bytes::Regex`).
+  priv utf8 : Bool
+  /// The NFA used by `find`, compiled on first use (find.mbt).
+  priv mut find_program : FindProgram?
 }
 
 ///|
 /// Compile `pattern` with the default configuration of
-/// `regex::bytes::Regex::new`.
-pub fn Regex::new(pattern : String) -> Regex raise RegexError {
+/// `regex::bytes::Regex::new`, or of `regex::Regex::new` when `utf8` is true
+/// (UTF-8 mode: the pattern must only match valid UTF-8, and empty matches
+/// never split a code point).
+pub fn Regex::new(
+  pattern : String,
+  utf8~ : Bool = false,
+) -> Regex raise RegexError {
   let parser = @ast.ParserBuilder::new()
     .nest_limit(250)
     .octal(false)
@@ -54,7 +64,7 @@ pub fn Regex::new(pattern : String) -> Regex raise RegexError {
     err => raise Syntax(err.kind().to_string())
   }
   let translator = @hir.TranslatorBuilder::new()
-    .utf8(false)
+    .utf8(utf8)
     .unicode(true)
     .case_insensitive(false)
     .multi_line(false)
@@ -69,7 +79,7 @@ pub fn Regex::new(pattern : String) -> Regex raise RegexError {
   if estimate_size(hir) > nfa_size_limit {
     raise CompiledTooBig(nfa_size_limit)
   }
-  { pattern, program: compile(hir), }
+  { pattern, program: compile(hir), hir, utf8, find_program: None, }
 }
 
 ///|
