@@ -313,7 +313,7 @@ async test "feature_corpus_files" {
     let grammar_path = "\{test_path}/src/grammar.json"
     let error_message_path = "\{test_path}/expected_error.txt"
     let grammar_json = @fs.read_file(grammar_path).text()
-    let generate_result : Result[@generate.GeneratedParser, Error] = Ok(
+    let generate_result : Result[(String, @generate.GeneratedParser), Error] = Ok(
       generate_parser(grammar_json),
     ) catch {
       e => Err(e)
@@ -351,7 +351,7 @@ async test "feature_corpus_files" {
           failure_count += 1
           continue
         }
-        Ok(parser_code) => parser_code
+        Ok((_, parser_code)) => parser_code
       }
       let corpus_path = "\{test_path}/corpus.txt"
       // `get_test_language(language_name, &c_code, Some(&test_path))`: with
@@ -359,16 +359,11 @@ async test "feature_corpus_files" {
       guard scanner_available(language_name, parser_code.language) else {
         continue
       }
-      let scanner = if parser_code.language.external_token_count > 0 {
-        @scanners.scanner_for(language_name)
-      } else {
-        None
-      }
-      let language = match scanner {
-        Some(scanner) =>
-          @api.Language::new(parser_code.language, external_scanner=scanner)
-        None => get_test_language(parser_code)
-      }
+      let language = get_test_language(
+        language_name,
+        parser_code,
+        Some(test_path),
+      )
       let test_entry = @cli_test.parse_tests(corpus_path)
       let tests = @cli_test.flatten_tests(
         test_entry,

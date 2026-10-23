@@ -507,9 +507,11 @@ async test "node_named_child" {
 
 ///|
 test "node_named_child_with_aliases_and_extras" {
-  let parser_code = generate_parser(grammar_with_aliases_and_extras)
+  let (parser_name, parser_code) = generate_parser(
+    grammar_with_aliases_and_extras,
+  )
   let parser = @api.Parser::new()
-  parser.set_language(get_test_language(parser_code))
+  parser.set_language(get_test_language(parser_name, parser_code, None))
   let tree = parse(parser, "b ... b ... c")
   let root = tree.root_node()
   assert_eq(root.to_sexp(), "(a (b) (comment) (B) (comment) (C))")
@@ -899,7 +901,7 @@ test "node_field_names" {
   //   unit reduction.
   // - "_hidden_rule1": Fields pointing to hidden nodes with a single child resolve to the child.
   // - "_hidden_rule2": Fields within hidden nodes can be referenced through the parent node.
-  let parser_code = generate_parser(
+  let (parser_name, parser_code) = generate_parser(
     (
       #|
       #|        {
@@ -967,7 +969,7 @@ test "node_field_names" {
     ),
   )
   let parser = @api.Parser::new()
-  let language = get_test_language(parser_code)
+  let language = get_test_language(parser_name, parser_code, None)
   parser.set_language(language)
   let tree = parse(parser, "child-0 child-1 child-2 child-3 child-4")
   let root_node = tree.root_node()
@@ -997,7 +999,7 @@ test "node_field_names" {
 
 ///|
 test "node_field_calls_in_language_without_fields" {
-  let parser_code = generate_parser(
+  let (parser_name, parser_code) = generate_parser(
     (
       #|
       #|        {
@@ -1029,7 +1031,7 @@ test "node_field_calls_in_language_without_fields" {
     ),
   )
   let parser = @api.Parser::new()
-  let language = get_test_language(parser_code)
+  let language = get_test_language(parser_name, parser_code, None)
   parser.set_language(language)
   let tree = parse(parser, "b c d")
   let root_node = tree.root_node()
@@ -1047,9 +1049,9 @@ async test "node_is_named_but_aliased_as_anonymous" {
     is Some(grammar_json) else {
     return
   }
-  let parser_code = generate_parser(grammar_json)
+  let (parser_name, parser_code) = generate_parser(grammar_json)
   let parser = @api.Parser::new()
-  let language = get_test_language(parser_code)
+  let language = get_test_language(parser_name, parser_code, None)
   parser.set_language(language)
   let tree = parse(parser, "B C B")
   let root_node = tree.root_node()
@@ -1141,7 +1143,7 @@ async test "hidden_zero_width_node_with_visible_child" {
 
 ///|
 fn parse_deeply_nested_tree(depth : Int32) -> @api.Tree raise {
-  let parser_code = generate_parser(
+  let (parser_name, parser_code) = generate_parser(
     (
       #|{
       #|            "name": "deeply_nested",
@@ -1165,7 +1167,7 @@ fn parse_deeply_nested_tree(depth : Int32) -> @api.Tree raise {
       #|        }
     ),
   )
-  let language = get_test_language(parser_code)
+  let language = get_test_language(parser_name, parser_code, None)
   let source = "(".repeat(depth) + "x" + ")".repeat(depth)
   let parser = @api.Parser::new()
   parser.set_language(language)
@@ -1220,7 +1222,7 @@ test "previous_sibling_of_identical_zero_width_leaves" {
 
 ///|
 test "previous_sibling_of_zero_width_nodes_in_hidden_rules" {
-  let parser_code = generate_parser(
+  let (parser_name, parser_code) = generate_parser(
     (
       #|{
       #|            "name": "deeply_nested_hidden_siblings",
@@ -1244,7 +1246,7 @@ test "previous_sibling_of_zero_width_nodes_in_hidden_rules" {
       #|        }
     ),
   )
-  let language = get_test_language(parser_code)
+  let language = get_test_language(parser_name, parser_code, None)
   let parser = @api.Parser::new()
   parser.set_language(language)
   for depth in [3, 63, 64, 65, 66, 128] {
@@ -1297,7 +1299,7 @@ test "deeply_nested_node_searches_do_not_overflow_stack" {
 
 ///|
 test "deeply_nested_trailing_empty_descendant_search" {
-  let parser_code = generate_parser(
+  let (parser_name, parser_code) = generate_parser(
     (
       #|{
       #|            "name": "deeply_nested_with_marker",
@@ -1334,7 +1336,7 @@ test "deeply_nested_trailing_empty_descendant_search" {
       #|        }
     ),
   )
-  let language = get_test_language(parser_code)
+  let language = get_test_language(parser_name, parser_code, None)
   let parser = @api.Parser::new()
   parser.set_language(language)
   for depth in [63, 64, 65, 100_000] {
@@ -1360,7 +1362,7 @@ test "deeply_nested_trailing_empty_descendant_search" {
 
 ///|
 test "deeply_nested_field_search_does_not_overflow_stack" {
-  let parser_code = generate_parser(
+  let (parser_name, parser_code) = generate_parser(
     (
       #|{
       #|            "name": "deeply_nested_fields",
@@ -1393,7 +1395,7 @@ test "deeply_nested_field_search_does_not_overflow_stack" {
       #|        }
     ),
   )
-  let language = get_test_language(parser_code)
+  let language = get_test_language(parser_name, parser_code, None)
   let depth = 100_000
   let source = "(".repeat(depth) + "x" + ")z".repeat(depth)
   let parser = @api.Parser::new()

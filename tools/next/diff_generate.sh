@@ -27,3 +27,4 @@ for d in _build/ref/*/; do
   fi
 done
 echo "identical=$ok different=$fail"
+[ "$fail" -eq 0 ]
