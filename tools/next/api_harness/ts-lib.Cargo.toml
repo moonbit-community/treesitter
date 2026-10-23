@@ -1,0 +1,21 @@
+[package]
+name = "tree-sitter"
+version = "0.28.0"
+edition = "2024"
+build = "binding_rust/build.rs"
+links = "tree-sitter"
+
+[features]
+default = [ "std" ]
+std = [ "regex/std", "regex/perf" ]
+
+[dependencies]
+regex = { default-features = false, features = [ "unicode" ], version = "1.12.3" }
+streaming-iterator = "0.1.9"
+tree-sitter-language = { path = "../ts-language" }
+
+[build-dependencies]
+cc = "1.2.63"
+
+[lib]
+path = "binding_rust/lib.rs"

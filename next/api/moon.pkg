@@ -1,0 +1,10 @@
+import {
+  "moonbit-community/treesitter/next/runtime",
+  "moonbit-community/treesitter/next/query",
+  "moonbit-community/treesitter/next/language",
+  "moonbit-community/treesitter/next/regex",
+  "moonbit-community/treesitter/next/regex_syntax/hir",
+  "moonbitlang/core/encoding/utf8",
+}
+
+warnings = "-implicit_impl_as_method-reserved_keyword"

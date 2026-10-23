@@ -14,6 +14,14 @@ Packages:
 - `next/generate`: port of `crates/generate`.
 - `next/regex_syntax`: port of the subset of `regex-syntax 0.8.11` that the
   generator uses (AST parser, HIR translator, smart constructors, Unicode).
+- `next/regex`: an `is_match` equivalent of `regex::bytes::Regex` (used for
+  `#match?` predicates) over `next/regex_syntax`'s HIR. Differential oracle:
+  tools/next/regex_corpus.py, tools/next/regex_harness, next/regex/probe and
+  tools/next/regex_compare.py.
+- `next/api`: port of the Rust binding `lib/binding_rust/lib.rs`, the public
+  API (it will become the module's root package). Tests that need fixture
+  languages live in the native-only `next/api/tests`; expected outputs of the
+  adapted tests come from tools/next/api_harness (the upstream binding).
 
 ## Rules
 

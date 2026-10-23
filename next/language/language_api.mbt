@@ -612,11 +612,11 @@ pub fn Language::symbol_type(self : Language, symbol : Int32) -> SymbolType {
 }
 
 ///|
-/// `ts_language_field_name_for_id`.
+/// `ts_language_field_name_for_id`. `field_names[0]` is `NULL` in C (stored
+/// as `""` here), so id 0 has no name.
 pub fn Language::field_name_for_id(self : Language, id : Int32) -> String? {
   let count = self.field_count
-  // `field_names[0]` is `NULL` upstream.
-  if count != 0 && id <= count && id != 0 {
+  if count != 0 && id <= count && id > 0 {
     Some(self.field_names[id])
   } else {
     None
