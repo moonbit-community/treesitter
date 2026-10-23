@@ -1,0 +1,7 @@
+import {
+  "moonbit-community/treesitter/next/runtime",
+  "moonbit-community/treesitter/next/language",
+  "moonbitlang/core/encoding/utf8",
+}
+
+warnings = "-implicit_impl_as_method-reserved_keyword"
