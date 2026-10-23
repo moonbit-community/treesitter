@@ -34,7 +34,10 @@ test "find_iter: tags strip patterns" {
     find_all("(^['\"\\s]*)|(['\"\\s]*$)", "\"\"\"\n  Data\n  \"\"\""),
     content="0-6 10-16",
   )
-  inspect(find_all("^[\\s\\*/]+|^[\\s\\*/]$", "/**\n * Get\n */"), content="0-7")
+  inspect(
+    find_all("^[\\s\\*/]+|^[\\s\\*/]$", "/**\n * Get\n */"),
+    content="0-7",
+  )
   inspect(find_all("^#\\s*", "# hi # there"), content="0-2")
 }
 
