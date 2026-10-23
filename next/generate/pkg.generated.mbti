@@ -1,0 +1,619 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-community/treesitter/next/generate"
+
+import {
+  "moonbit-community/treesitter/next/language",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/sorted_map",
+}
+
+// Values
+pub fn build_tables(SyntaxGrammar, LexicalGrammar, @sorted_map.SortedMap[Symbol, Alias], Array[VariableInfo], InlinedProductionMap, StrPool, String?, OptLevel, Array[Diagnostic]) -> Tables raise
+
+pub let char_set_end : Int32
+
+pub fn[T : Eq] dedup(Array[T]) -> Unit
+
+pub let default_opt_level : OptLevel
+
+pub let default_params : MetadataParams
+
+pub let empty_str_id : StrId
+
+pub let end_name_id : StrId
+
+pub fn expand_tokens(RulePool, ArrayView[LexicalToken], ArrayView[RuleId]) -> LexicalGrammar raise
+
+pub fn generate_node_types_json(SyntaxGrammar, LexicalGrammar, @sorted_map.SortedMap[Symbol, Alias], Array[VariableInfo], InlinedProductionMap, StrPool) -> String raise
+
+pub fn get_supertype_symbol_map(SyntaxGrammar, @sorted_map.SortedMap[Symbol, Alias], Array[VariableInfo], InlinedProductionMap) -> @sorted_map.SortedMap[Symbol, Array[ChildType]]
+
+pub fn get_variable_info(SyntaxGrammar, LexicalGrammar, @sorted_map.SortedMap[Symbol, Alias], InlinedProductionMap, StrPool) -> Array[VariableInfo] raise
+
+pub let no_reserved_words : Int32
+
+pub fn parse_grammar(String, Array[Diagnostic]) -> InputGrammar raise
+
+pub fn prepare_grammar(InputGrammar, Array[Diagnostic]) -> PreparedGrammar raise
+
+pub fn render_c_code(StrId, Tables, SyntaxGrammar, LexicalGrammar, @sorted_map.SortedMap[Symbol, Alias], StrPool, Int32, (Int32, Int32, Int32)?, @sorted_map.SortedMap[Symbol, Array[ChildType]]) -> String raise
+
+pub fn render_language(StrId, Tables, SyntaxGrammar, LexicalGrammar, @sorted_map.SortedMap[Symbol, Alias], StrPool, Int32, (Int32, Int32, Int32)?, @sorted_map.SortedMap[Symbol, Array[ChildType]]) -> @language.Language raise
+
+pub fn set_bits(Array[UInt64]) -> Array[Int32]
+
+pub fn[S] split_state_id_groups(Array[S], Array[Array[Int32]], Array[Int32], Int32, SplitCriterion[S]) -> Bool
+
+pub fn[T] stable_sort_by(Array[T], (T, T) -> Int32) -> Unit
+
+pub fn[T, K : Compare] stable_sort_by_key(Array[T], (T) -> K) -> Unit
+
+pub fn[T] swap_remove(Array[T], Int32) -> T
+
+pub let symbol_end : Symbol
+
+pub let symbol_end_of_nonterminal_extra : Symbol
+
+// Errors
+
+// Types and methods
+pub(all) struct ActionListId {
+  index : Int32
+  reusable : Bool
+} derive(Eq, Hash, @debug.Debug)
+pub fn ActionListId::new(Int32, Bool) -> Self
+pub fn ActionListId::with_reusable(Self, Bool) -> Self
+
+pub struct ActionListPool {
+  mut lists : Array[Array[ParseAction]]
+}
+pub fn ActionListPool::canonicalize(Self, Array[ParseState]) -> Unit
+pub fn ActionListPool::get(Self, ActionListId) -> Array[ParseAction]
+pub fn ActionListPool::get_index(Self, Int32) -> Array[ParseAction]
+pub fn ActionListPool::intern(Self, Map[Array[ParseAction], Int32], Array[ParseAction]) -> Int32
+pub fn ActionListPool::len(Self) -> Int32
+pub fn ActionListPool::new() -> Self
+pub fn ActionListPool::push(Self, Array[ParseAction]) -> Int32
+
+pub(all) struct AdvanceAction {
+  state : Int32
+  in_main_token : Bool
+} derive(Compare, Eq, Hash, @debug.Debug)
+
+pub(all) struct Alias {
+  value : StrId
+  is_named : Bool
+} derive(Compare, Eq, Hash, @debug.Debug)
+pub fn Alias::kind(Self) -> VariableType
+
+pub(all) enum Associativity {
+  Left
+  Right
+} derive(Compare, Eq, Hash, @debug.Debug)
+
+pub struct BitVec {
+  // private fields
+}
+pub fn BitVec::at(Self, Int32) -> Bool
+pub fn BitVec::copy(Self) -> Self
+pub fn BitVec::get(Self, Int32) -> Bool?
+pub fn BitVec::insert_all(Self, Self) -> Bool
+pub fn BitVec::last(Self) -> Bool?
+pub fn BitVec::len(Self) -> Int32
+pub fn BitVec::new() -> Self
+pub fn BitVec::pop(Self) -> Bool?
+pub fn BitVec::resize(Self, Int32, Bool) -> Unit
+pub fn BitVec::set(Self, Int32, Bool) -> Unit
+pub fn BitVec::unset_all(Self) -> Unit
+pub fn BitVec::with_capacity(Int32) -> Self
+pub fn BitVec::words(Self) -> Array[UInt64]
+pub impl Compare for BitVec
+pub impl Eq for BitVec
+pub impl Hash for BitVec
+pub impl @debug.Debug for BitVec
+
+pub(all) struct CharRange {
+  start : Int32
+  end : Int32
+} derive(Eq, Hash, @debug.Debug)
+
+pub struct CharacterSet {
+  // private fields
+} derive(Eq, Hash)
+pub fn CharacterSet::add(Self, Self) -> Self
+pub fn CharacterSet::add_char(Self, Int32) -> Self
+pub fn CharacterSet::add_char_in_place(Self, Int32) -> Unit
+pub fn CharacterSet::add_in_place(Self, Self) -> Unit
+pub fn CharacterSet::add_range(Self, Int32, Int32) -> Self
+pub fn CharacterSet::add_range_in_place(Self, Int32, Int32) -> Unit
+pub fn CharacterSet::assign(Self, Self) -> Unit
+pub fn CharacterSet::char_codes(Self) -> Array[Int32]
+pub fn CharacterSet::chars(Self) -> Array[Int32]
+pub fn CharacterSet::contains(Self, Int32) -> Bool
+pub fn CharacterSet::contains_codepoint_range(Self, Int32, Int32) -> Bool
+pub fn CharacterSet::copy(Self) -> Self
+pub fn CharacterSet::difference(Self, Self) -> Self
+pub fn CharacterSet::does_intersect(Self, Self) -> Bool
+pub fn CharacterSet::empty() -> Self
+pub fn CharacterSet::from_char(Int32) -> Self
+pub fn CharacterSet::from_range(Int32, Int32) -> Self
+pub fn CharacterSet::is_empty(Self) -> Bool
+pub fn CharacterSet::negate(Self) -> Self
+pub fn CharacterSet::range_count(Self) -> Int32
+pub fn CharacterSet::ranges(Self) -> Array[(Int32, Int32)]
+pub fn CharacterSet::raw_ranges(Self) -> Array[CharRange]
+pub fn CharacterSet::remove_intersection(Self, Self) -> Self
+pub fn CharacterSet::simplify_ignoring(Self, Self) -> Self
+pub fn CharacterSet::symmetric_difference(Self, Self) -> Self
+pub impl Compare for CharacterSet
+pub impl @debug.Debug for CharacterSet
+
+pub(all) struct ChildQuantity {
+  mut exists : Bool
+  mut required : Bool
+  mut multiple : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ChildType {
+  Normal(Symbol)
+  Aliased(Alias)
+} derive(Compare, Eq, Hash, @debug.Debug)
+
+pub(all) enum Diagnostic {
+  UnnecessaryConflicts(Array[Array[String]])
+  UnaryChoice(name~ : String?)
+  UnarySeq(name~ : String?)
+  UnsupportedRegexFlag(flag~ : Char, pattern~ : String)
+  SupertypeInlined(name~ : String)
+} derive(Eq, @debug.Debug)
+pub impl Show for Diagnostic
+
+pub(all) struct ExternalToken {
+  name : StrId
+  kind : VariableType
+  corresponding_internal_token : Symbol?
+} derive(Eq, @debug.Debug)
+
+pub(all) struct FieldInfo {
+  mut quantity : ChildQuantity
+  mut types : Array[ChildType]
+} derive(Eq, @debug.Debug)
+
+pub(all) struct FieldLocation {
+  index : Int32
+  inherited : Bool
+} derive(Compare, Eq, Hash, @debug.Debug)
+
+pub(all) enum GotoAction {
+  Goto(Int32)
+  ShiftExtra
+} derive(Eq, Hash, @debug.Debug)
+
+pub(all) struct InlinedProductionMap {
+  map : Map[(Int32, Int32), Array[Int32]]
+  mut fully_inlined : Map[Int32, InlinedProductionRange]
+  mut fully_inlined_ids : Array[Int32]
+}
+pub fn InlinedProductionMap::discard_fully_inlined(Self) -> Unit
+pub fn InlinedProductionMap::fully_inlined_prod_ids(Self, Int32) -> ArrayView[Int32]?
+pub fn InlinedProductionMap::inlined_prod_ids(Self, Int32, Int32) -> Array[Int32]?
+pub fn InlinedProductionMap::new() -> Self
+
+pub(all) struct InlinedProductionRange {
+  start : Int32
+  end : Int32
+} derive(Eq, @debug.Debug)
+
+pub(all) struct InputGrammar {
+  pool : RulePool
+  mut name : StrId
+  mut variables : Array[Variable]
+  mut external_roots : Array[RuleId]
+  mut extra_roots : Array[RuleId]
+  mut reserved_sets : Array[ReservedWordContext]
+  mut supertype_names : Array[StrId]
+  mut conflict_names : Array[Array[StrId]]
+  mut inline_names : Array[StrId]
+  mut word_name : StrId?
+  mut precedence_orderings : Array[Array[PrecedenceEntry]]
+}
+pub fn InputGrammar::new() -> Self
+
+pub(all) struct LexState {
+  mut accept_action : Symbol?
+  mut eof_action : AdvanceAction?
+  mut advance_actions : Array[(CharacterSet, AdvanceAction)]
+} derive(Eq, Hash, @debug.Debug)
+pub fn LexState::new() -> Self
+
+pub(all) struct LexTable {
+  mut states : Array[LexState]
+} derive(Eq, @debug.Debug)
+pub fn LexTable::new() -> Self
+
+pub(all) struct LexicalGrammar {
+  nfa : Nfa
+  variables : Array[LexicalVariable]
+} derive(Eq, @debug.Debug)
+pub fn LexicalGrammar::new() -> Self
+pub fn LexicalGrammar::variable_index_for_nfa_state(Self, Int32) -> Int32
+pub fn LexicalGrammar::variable_indices_for_nfa_states(Self, ArrayView[Int32]) -> Array[Int32]
+
+pub(all) struct LexicalToken {
+  name : StrId
+  kind : VariableType
+  root : RuleId
+} derive(@debug.Debug)
+
+pub(all) struct LexicalVariable {
+  name : StrId
+  kind : VariableType
+  implicit_precedence : Int32
+  start_state : Int32
+} derive(Eq, @debug.Debug)
+
+pub(all) struct MetadataParams {
+  precedence : Precedence
+  associativity : Associativity?
+  dynamic_precedence : Int32
+  alias : Alias?
+  field : StrId?
+  is_token : Bool
+  is_main_token : Bool
+} derive(Eq, Hash, @debug.Debug)
+
+pub(all) struct Nfa {
+  states : Array[NfaState]
+} derive(Eq, @debug.Debug)
+pub fn Nfa::last_state_id(Self) -> Int32
+pub fn Nfa::new() -> Self
+
+pub struct NfaCursor {
+  mut state_ids : Array[Int32]
+  // private fields
+}
+pub fn NfaCursor::add_states(Self, Array[Int32]) -> Unit
+pub fn NfaCursor::completions(Self) -> Array[(Int32, Int32)]
+pub fn NfaCursor::force_reset(Self, Array[Int32]) -> Unit
+pub fn NfaCursor::new(Nfa, Array[Int32]) -> Self
+pub fn NfaCursor::reset(Self, Array[Int32]) -> Unit
+pub fn NfaCursor::state_ids(Self) -> Array[Int32]
+pub fn NfaCursor::transition_chars(Self) -> Array[(CharacterSet, Bool)]
+pub fn NfaCursor::transitions(Self) -> Array[NfaTransition]
+pub fn NfaCursor::transitions_and_any_sep(Self) -> (Array[NfaTransition], Bool)
+
+pub(all) enum NfaState {
+  Advance(chars~ : CharacterSet, state_id~ : Int32, is_sep~ : Bool, precedence~ : Int32)
+  Split(Int32, Int32)
+  Accept(variable_index~ : Int32, precedence~ : Int32)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct NfaTransition {
+  characters : CharacterSet
+  is_separator : Bool
+  precedence : Int32
+  states : Array[Int32]
+} derive(Eq, @debug.Debug)
+
+pub(all) struct OptLevel {
+  merge_states : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ParamsId(Int32) derive(Eq, Hash, @debug.Debug)
+
+pub(all) enum ParseAction {
+  Accept
+  Shift(state~ : Int32, is_repetition~ : Bool)
+  ShiftExtra
+  Recover
+  Reduce(symbol~ : Symbol, child_count~ : Int32, dynamic_precedence~ : Int32, production_id~ : Int32)
+} derive(Compare, Eq, Hash, @debug.Debug)
+
+pub(all) struct ParseState {
+  mut id : Int32
+  mut terminal_entries : ParseStateEntries[ActionListId]
+  mut nonterminal_entries : ParseStateEntries[GotoAction]
+  mut reserved_words : TokenSet
+  mut lex_state_id : Int32
+  mut external_lex_state_id : Int32
+  mut core_id : Int32
+  mut has_eof_gated_reduce : Bool
+}
+pub fn ParseState::is_end_of_non_terminal_extra(Self) -> Bool
+pub fn ParseState::new() -> Self
+pub fn ParseState::referenced_states(Self, ActionListPool) -> Array[Int32]
+pub fn ParseState::update_nonterminal_references(Self, (Int32, Self) -> Int32) -> Unit
+
+pub struct ParseStateEntries[V] {
+  // private fields
+}
+pub fn[V] ParseStateEntries::clear(Self[V]) -> Unit
+pub fn[V] ParseStateEntries::contains_key(Self[V], Symbol) -> Bool
+pub fn[V] ParseStateEntries::copy(Self[V]) -> Self[V]
+pub fn[V] ParseStateEntries::get(Self[V], Symbol) -> V?
+pub fn[V] ParseStateEntries::get_index(Self[V], Int32) -> (Symbol, V)
+pub fn[V] ParseStateEntries::insert(Self[V], Symbol, V) -> Unit
+pub fn[V] ParseStateEntries::insert_if_missing(Self[V], Symbol, V) -> Unit
+pub fn[V] ParseStateEntries::items(Self[V]) -> Array[(Symbol, V)]
+pub fn[V] ParseStateEntries::keys(Self[V]) -> Array[Symbol]
+pub fn[V] ParseStateEntries::len(Self[V]) -> Int32
+pub fn[V] ParseStateEntries::new() -> Self[V]
+pub fn[V] ParseStateEntries::push(Self[V], Symbol, V) -> Unit
+pub fn[V] ParseStateEntries::retain(Self[V], (Symbol, V) -> Bool) -> Unit
+pub fn[V] ParseStateEntries::set_index(Self[V], Int32, Symbol, V) -> Unit
+pub fn[V] ParseStateEntries::values(Self[V]) -> Array[V]
+
+pub(all) struct ParseTable {
+  mut states : Array[ParseState]
+  action_lists : ActionListPool
+  mut symbols : Array[Symbol]
+  mut production_infos : Array[ProductionInfo]
+  mut max_aliased_production_length : Int32
+  mut external_lex_states : Array[TokenSet]
+}
+pub fn ParseTable::new() -> Self
+pub fn ParseTable::remap_terminal_references(Self, (Int32) -> Int32) -> Unit
+
+pub(all) enum Precedence {
+  NoPrecedence
+  Integer(Int32)
+  Name(StrId)
+} derive(Compare, Eq, Hash, @debug.Debug)
+
+pub(all) enum PrecedenceEntry {
+  Name(StrId)
+  Symbol(StrId)
+} derive(Compare, Eq, Hash, @debug.Debug)
+
+pub(all) struct PreparedGrammar {
+  syntax_grammar : SyntaxGrammar
+  lexical_grammar : LexicalGrammar
+  inlines : InlinedProductionMap
+  default_aliases : @sorted_map.SortedMap[Symbol, Alias]
+  str_pool : StrPool
+}
+
+pub(all) struct ProdRef {
+  steps : ArrayView[ProductionStep]
+  dynamic_precedence : Int32
+  requires_eof_lookahead : Bool
+}
+pub fn ProdRef::first_symbol(Self) -> Symbol?
+pub impl Eq for ProdRef
+pub impl Hash for ProdRef
+
+pub(all) struct Production {
+  steps_start : Int32
+  steps_len : Int32
+  dynamic_precedence : Int32
+  requires_eof_lookahead : Bool
+} derive(Eq, Hash, @debug.Debug)
+pub fn Production::contents(Self, Array[ProductionStep]) -> ProdRef
+
+pub(all) struct ProductionInfo {
+  alias_sequence : Array[Alias?]
+  field_map : @sorted_map.SortedMap[StrId, Array[FieldLocation]]
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ProductionStep {
+  symbol : Symbol
+  precedence : Precedence
+  associativity : Associativity?
+  alias : Alias?
+  field : StrId?
+  reserved : Int32
+} derive(Eq, Hash, @debug.Debug)
+pub fn ProductionStep::child_type(Self, @sorted_map.SortedMap[Symbol, Alias]) -> ChildType
+pub fn ProductionStep::non_terminal_index(Self) -> Int32?
+pub fn ProductionStep::pack(Symbol, Precedence, Associativity?, Alias?, StrId?, Int32) -> Self
+pub fn ProductionStep::with_alias(Self, Alias?) -> Self
+pub fn ProductionStep::with_associativity(Self, Associativity?) -> Self
+pub fn ProductionStep::with_field(Self, StrId?) -> Self
+pub fn ProductionStep::with_precedence(Self, Precedence) -> Self
+pub fn ProductionStep::with_reserved(Self, Int32) -> Self
+pub fn ProductionStep::with_symbol(Self, Symbol) -> Self
+
+pub(all) struct ProductionStore {
+  steps : Array[ProductionStep]
+  productions : Array[Production]
+  var_prods : Array[(Int32, Int32)]
+}
+pub fn ProductionStore::new() -> Self
+pub fn ProductionStore::production(Self, Int32) -> ProdRef
+
+pub(all) struct ReservedWordContext {
+  name : StrId
+  roots : Array[RuleId]
+} derive(@debug.Debug)
+
+pub(all) struct ReservedWordSetId(Int32) derive(Compare, Eq, Hash, @debug.Debug)
+
+pub(all) enum Rule {
+  Blank
+  String(StrId)
+  Pattern(StrId, StrId)
+  NamedSymbol(StrId)
+  Sym(Symbol)
+  Seq(RuleIdRange)
+  Choice(RuleIdRange)
+  Repeat(RuleId)
+  Eof
+  Metadata(params~ : ParamsId, rule~ : RuleId)
+  Reserved(rule~ : RuleId, ctx~ : StrId)
+} derive(Eq, Hash, @debug.Debug)
+pub fn Rule::symbol(Self) -> Symbol?
+
+pub(all) struct RuleId(Int32) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn RuleId::index(Self) -> Int32
+
+pub(all) struct RuleIdRange {
+  start : Int32
+  len : Int32
+} derive(Eq, Hash, @debug.Debug)
+
+pub struct RulePool {
+  str_pool : StrPool
+  // private fields
+}
+pub fn RulePool::alias(Self, RuleId, StrId, Bool) -> RuleId
+pub fn RulePool::blank(Self) -> RuleId
+pub fn RulePool::child_slice(Self, RuleIdRange) -> ArrayView[RuleId]
+pub fn RulePool::choice(Self, ArrayView[RuleId]) -> RuleId
+pub fn RulePool::collect_referenced_ids(Self, RuleId, Bool, Array[StrId]) -> Unit
+pub fn RulePool::eof(Self) -> RuleId
+pub fn RulePool::field(Self, StrId, RuleId) -> RuleId
+pub fn RulePool::immediate_token(Self, RuleId) -> RuleId
+pub fn RulePool::intern(Self, StringView) -> StrId
+pub fn RulePool::named_symbol(Self, StrId) -> RuleId
+pub fn RulePool::new() -> Self
+pub fn RulePool::node(Self, RuleId) -> Rule
+pub fn RulePool::node_count(Self) -> Int32
+pub fn RulePool::params(Self, ParamsId) -> MetadataParams
+pub fn RulePool::pattern(Self, StrId, StrId) -> RuleId
+pub fn RulePool::prec(Self, Precedence, RuleId) -> RuleId
+pub fn RulePool::prec_dynamic(Self, Int32, RuleId) -> RuleId
+pub fn RulePool::prec_left(Self, Precedence, RuleId) -> RuleId
+pub fn RulePool::prec_right(Self, Precedence, RuleId) -> RuleId
+pub fn RulePool::push_children(Self, ArrayView[RuleId]) -> RuleIdRange
+pub fn RulePool::push_node(Self, Rule) -> RuleId
+pub fn RulePool::push_params(Self, MetadataParams) -> ParamsId
+pub fn RulePool::repeat(Self, RuleId) -> RuleId
+pub fn RulePool::reserved(Self, RuleId, StrId) -> RuleId
+pub fn RulePool::resolve(Self, StrId) -> String
+pub fn RulePool::rule_is_referenced(Self, RuleId, StrId, Bool) -> Bool
+pub fn RulePool::seq(Self, ArrayView[RuleId]) -> RuleId
+pub fn RulePool::set_node(Self, RuleId, Rule) -> Unit
+pub fn RulePool::set_params(Self, ParamsId, MetadataParams) -> Unit
+pub fn RulePool::string(Self, StrId) -> RuleId
+pub fn RulePool::subtree_eq(Self, RuleId, RuleId) -> Bool
+pub fn RulePool::subtree_hash(Self, RuleId) -> Int32
+pub fn RulePool::subtree_matches_empty_str(Self, RuleId) -> Bool
+pub fn RulePool::token(Self, RuleId) -> RuleId
+pub fn[T, E : Error] RulePool::try_seq(Self, ArrayView[T], (Self, T) -> RuleId raise E) -> RuleId raise E
+
+pub(all) struct SplitCriterion[S] {
+  should_split : (S, S, Array[Int32]) -> Bool
+  signature : (S, Array[Int32]) -> Int32?
+  equivalent : (S, S, Array[Int32]) -> Bool
+  start_group : () -> Unit
+  compatible_with_all : (S, ArrayView[Int32], Array[Int32]) -> Bool
+}
+pub fn[S] SplitCriterion::simple((S, S, Array[Int32]) -> Bool) -> Self[S]
+
+pub(all) struct StrId(Int32) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn StrId::index(Self) -> Int32
+pub fn StrId::raw(Self) -> Int32
+
+pub struct StrPool {
+  // private fields
+}
+pub fn StrPool::get(Self, String) -> StrId?
+pub fn StrPool::intern(Self, StringView) -> StrId
+pub fn StrPool::new() -> Self
+pub fn StrPool::resolve(Self, StrId) -> String
+
+pub(all) struct Symbol {
+  kind : SymbolType
+  index : Int32
+} derive(Compare, Eq, Hash, @debug.Debug)
+pub fn Symbol::external(Int32) -> Self
+pub fn Symbol::external_index(Self) -> Int32?
+pub fn Symbol::is_eof(Self) -> Bool
+pub fn Symbol::is_external(Self) -> Bool
+pub fn Symbol::is_non_terminal(Self) -> Bool
+pub fn Symbol::is_terminal(Self) -> Bool
+pub fn Symbol::non_terminal(Int32) -> Self
+pub fn Symbol::non_terminal_index(Self) -> Int32?
+pub fn Symbol::terminal(Int32) -> Self
+pub fn Symbol::terminal_index(Self) -> Int32?
+
+pub(all) enum SymbolType {
+  External
+  End
+  EndOfNonTerminalExtra
+  Terminal
+  NonTerminal
+} derive(Compare, Eq, Hash, @debug.Debug)
+
+pub(all) struct SyntaxGrammar {
+  variables : Array[SyntaxVariable]
+  extra_symbols : Array[Symbol]
+  expected_conflicts : Array[Array[Symbol]]
+  external_tokens : Array[ExternalToken]
+  supertype_symbols : Array[Symbol]
+  variables_to_inline : Array[Symbol]
+  word_token : Symbol?
+  precedence_orderings : Array[Array[PrecedenceEntry]]
+  reserved_word_sets : Array[TokenSet]
+  steps : Array[ProductionStep]
+  productions : Array[Production]
+  var_prods : Array[(Int32, Int32)]
+}
+pub fn SyntaxGrammar::production(Self, Int32) -> ProdRef
+pub fn SyntaxGrammar::variable_prod_ids(Self, Int32) -> (Int32, Int32)
+
+pub(all) struct SyntaxVariable {
+  name : StrId
+  kind : VariableType
+} derive(Eq, @debug.Debug)
+pub fn SyntaxVariable::is_auxiliary(Self) -> Bool
+pub fn SyntaxVariable::is_hidden(Self) -> Bool
+
+pub(all) struct Tables {
+  parse_table : ParseTable
+  main_lex_table : LexTable
+  keyword_lex_table : LexTable
+  large_character_sets : Array[(Symbol?, CharacterSet)]
+}
+
+pub struct TokenSet {
+  // private fields
+}
+pub fn TokenSet::contains(Self, Symbol) -> Bool
+pub fn TokenSet::contains_terminal(Self, Int32) -> Bool
+pub fn TokenSet::copy(Self) -> Self
+pub fn TokenSet::externals(Self) -> Array[Int32]
+pub fn TokenSet::from_array(Array[Symbol]) -> Self
+pub fn TokenSet::insert(Self, Symbol) -> Unit
+pub fn TokenSet::insert_all(Self, Self) -> Bool
+pub fn TokenSet::insert_all_terminals(Self, Self) -> Bool
+pub fn TokenSet::is_empty(Self) -> Bool
+pub fn TokenSet::iter(Self) -> Array[Symbol]
+pub fn TokenSet::len(Self) -> Int32
+pub fn TokenSet::new() -> Self
+pub fn TokenSet::remove(Self, Symbol) -> Bool
+pub fn TokenSet::terminal_bits_words(Self) -> Array[UInt64]
+pub fn TokenSet::terminals(Self) -> Array[Int32]
+pub impl Compare for TokenSet
+pub impl Eq for TokenSet
+pub impl Hash for TokenSet
+pub impl @debug.Debug for TokenSet
+
+pub(all) struct Variable {
+  name : StrId
+  root : RuleId
+} derive(Eq, @debug.Debug)
+
+pub(all) struct VariableInfo {
+  mut fields : Map[StrId, FieldInfo]
+  mut children : FieldInfo
+  mut children_without_fields : FieldInfo
+  mut has_multi_step_production : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) enum VariableType {
+  Hidden
+  Auxiliary
+  Anonymous
+  Named
+} derive(Compare, Eq, Hash, @debug.Debug)
+pub fn VariableType::is_visible(Self) -> Bool
+
+// Type aliases
+pub type AliasMap = @sorted_map.SortedMap[Symbol, Alias]
+
+pub type NonterminalEntries = ParseStateEntries[GotoAction]
+
+pub type TerminalEntries = ParseStateEntries[ActionListId]
+
+// Traits

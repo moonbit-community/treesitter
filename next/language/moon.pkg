@@ -1,0 +1,5 @@
+import {
+  "moonbitlang/core/json",
+}
+
+warnings = "-implicit_impl_as_method-reserved_keyword"
