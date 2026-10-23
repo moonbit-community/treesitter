@@ -1,6 +1,7 @@
 import {
   "moonbitlang/core/debug",
   "moonbitlang/core/sorted_map",
+  "moonbitlang/core/sorted_set",
   "moonbit-community/treesitter/next/language",
 }
 

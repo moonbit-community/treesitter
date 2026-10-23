@@ -55,6 +55,16 @@ pub let symbol_end : Symbol
 pub let symbol_end_of_nonterminal_extra : Symbol
 
 // Errors
+pub(all) suberror SuperTypeCycleError {
+  SuperTypeCycleError(items~ : Array[String])
+} derive(Eq, @debug.Debug)
+pub impl Show for SuperTypeCycleError
+
+pub(all) suberror VariableInfoError {
+  InvalidSupertype(InvalidSupertypeError)
+  SupertypeAliasCollision(String)
+} derive(Eq, @debug.Debug)
+pub impl Show for VariableInfoError
 
 // Types and methods
 pub(all) struct ActionListId {
@@ -153,6 +163,7 @@ pub(all) struct ChildQuantity {
   mut required : Bool
   mut multiple : Bool
 } derive(Eq, @debug.Debug)
+pub impl Default for ChildQuantity
 
 pub(all) enum ChildType {
   Normal(Symbol)
@@ -178,6 +189,7 @@ pub(all) struct FieldInfo {
   mut quantity : ChildQuantity
   mut types : Array[ChildType]
 } derive(Eq, @debug.Debug)
+pub impl Default for FieldInfo
 
 pub(all) struct FieldLocation {
   index : Int32
@@ -218,6 +230,12 @@ pub(all) struct InputGrammar {
   mut precedence_orderings : Array[Array[PrecedenceEntry]]
 }
 pub fn InputGrammar::new() -> Self
+
+pub(all) struct InvalidSupertypeError {
+  supertype : String
+  child : String?
+} derive(Eq, @debug.Debug)
+pub impl Show for InvalidSupertypeError
 
 pub(all) struct LexState {
   mut accept_action : Symbol?
@@ -600,6 +618,7 @@ pub(all) struct VariableInfo {
   mut children_without_fields : FieldInfo
   mut has_multi_step_production : Bool
 } derive(Eq, @debug.Debug)
+pub impl Default for VariableInfo
 
 pub(all) enum VariableType {
   Hidden

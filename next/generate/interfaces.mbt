@@ -135,36 +135,6 @@ declare pub fn prepare_grammar(
 ) -> PreparedGrammar raise
 
 ///|
-/// `node_types::get_variable_info`.
-declare pub fn get_variable_info(
-  syntax_grammar : SyntaxGrammar,
-  lexical_grammar : LexicalGrammar,
-  default_aliases : AliasMap,
-  inlines : InlinedProductionMap,
-  str_pool : StrPool,
-) -> Array[VariableInfo] raise
-
-///|
-/// `node_types::get_supertype_symbol_map`.
-declare pub fn get_supertype_symbol_map(
-  syntax_grammar : SyntaxGrammar,
-  default_aliases : AliasMap,
-  variable_info : Array[VariableInfo],
-  inlines : InlinedProductionMap,
-) -> @sorted_map.SortedMap[Symbol, Array[ChildType]]
-
-///|
-/// `node_types::generate_node_types_json`: the exact `node-types.json` text.
-declare pub fn generate_node_types_json(
-  syntax_grammar : SyntaxGrammar,
-  lexical_grammar : LexicalGrammar,
-  default_aliases : AliasMap,
-  variable_info : Array[VariableInfo],
-  inlines : InlinedProductionMap,
-  str_pool : StrPool,
-) -> String raise
-
-///|
 /// `build_tables::build_tables`.
 declare pub fn build_tables(
   syntax_grammar : SyntaxGrammar,
