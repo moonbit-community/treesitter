@@ -143,7 +143,7 @@ pub fn Parser::parse_encoded(
     if !old.edited &&
       old.source == source &&
       old.source_ranges == included_ranges {
-      return { ..old, reused_subtrees: 1, parse_steps: 0, }
+      return { ..old, identity: Ref(0), reused_subtrees: 1, parse_steps: 0, }
     }
   }
   let lines = input_lines(source, encoding)

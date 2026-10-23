@@ -52,3 +52,29 @@ test "cursor and descendant navigation retain node ownership" {
     }
   }
 }
+
+///|
+test "encoded no-change parses reuse syntax with a distinct tree identity" {
+  let parser = @treesitter.Parser::new(arithmetic())
+  let cases : Array[(Bytes, @treesitter.InputEncoding)] = [
+    (b"1 + 2", Utf8),
+    (b"1\x00 \x00+\x00 \x002\x00", Utf16LE),
+    (b"\x001\x00 \x00+\x00 \x002", Utf16BE),
+    (
+      b"1 + 2",
+      Custom(@treesitter.InputDecoder::new(input => (input[0].to_int(), 1))),
+    ),
+  ]
+  for (source, encoding) in cases {
+    let old = parser.parse_encoded(source, encoding)
+    let new = parser.parse_encoded(source, encoding, old_tree=old)
+    assert_eq(new.reused_subtrees, 1)
+    assert_eq(old.root_node().id(), new.root_node().id())
+    assert_true(old.root_node() != new.root_node())
+    assert_true(
+      old.root_node().child(0).unwrap() != new.root_node().child(0).unwrap(),
+    )
+    assert_true(new.root_node() == new.walk().node())
+    assert_eq(old.root_node().to_sexp(), new.root_node().to_sexp())
+  }
+}
