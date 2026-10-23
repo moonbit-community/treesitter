@@ -32,11 +32,16 @@ fn RenderedParser::to_language(self : RenderedParser) -> @language.Language {
   }
   let parse_actions : Array[@language.ParseActionEntry] = []
   for list in self.parse_actions {
+    // The C compiler truncates these fields to the widths of the
+    // `TSParseActionEntry` union; do the same.
     parse_actions.push(
-      Entry(count=list.actions.length(), reusable=list.reusable),
+      @language.ParseActionEntry::Entry(
+        count=list.actions.length(),
+        reusable=list.reusable,
+      ).normalized(),
     )
     for action in list.actions {
-      parse_actions.push(action)
+      parse_actions.push(action.normalized())
     }
   }
   let has_fields = !self.field_names.is_empty()

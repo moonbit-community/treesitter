@@ -571,7 +571,8 @@ pub fn Language::symbol_for_name(
   string : StringView,
   is_named : Bool,
 ) -> Int32 {
-  if is_named && string == "ERROR" {
+  let string_bytes = @utf8.encode(string)
+  if is_named && string_bytes.length() == 5 && c_name_equals(b"ERROR", string_bytes) {
     return ts_builtin_sym_error
   }
   let count = self.symbol_count_with_aliases() & 0xFFFF
@@ -580,7 +581,7 @@ pub fn Language::symbol_for_name(
     if (!metadata.visible && !metadata.supertype) || metadata.named != is_named {
       continue
     }
-    if self.symbol_names[i][:] == string {
+    if c_name_equals(@utf8.encode(self.symbol_names[i]), @utf8.encode(string)) {
       return self.public_symbol_map[i]
     }
   }
@@ -614,7 +615,8 @@ pub fn Language::symbol_type(self : Language, symbol : Int32) -> SymbolType {
 /// `ts_language_field_name_for_id`.
 pub fn Language::field_name_for_id(self : Language, id : Int32) -> String? {
   let count = self.field_count
-  if count != 0 && id <= count {
+  // `field_names[0]` is `NULL` upstream.
+  if count != 0 && id <= count && id != 0 {
     Some(self.field_names[id])
   } else {
     None
@@ -666,4 +668,49 @@ fn strncmp(a : StringView, b : StringView, n : Int32) -> Int32 {
 /// row read the next row; past the end of the array this returns 0.
 pub fn Language::alias_sequence_value(self : Language, index : Int) -> Int {
   self.alias_sequences.get(index).unwrap_or(0)
+}
+
+///|
+/// Truncate an action's fields to the widths of the C `TSParseActionEntry`
+/// union (`uint8_t` counts and child counts, `int16_t` dynamic precedence,
+/// `uint16_t` states, symbols and production ids), as compiling `parser.c`
+/// does.
+pub fn ParseActionEntry::normalized(self : ParseActionEntry) -> ParseActionEntry {
+  match self {
+    Entry(count~, reusable~) => Entry(count=count & 0xFF, reusable~)
+    Shift(state~, extra~, repetition~) =>
+      Shift(state=state & 0xFFFF, extra~, repetition~)
+    Reduce(symbol~, child_count~, dynamic_precedence~, production_id~) => {
+      let precedence = dynamic_precedence & 0xFFFF
+      Reduce(
+        symbol=symbol & 0xFFFF,
+        child_count=child_count & 0xFF,
+        dynamic_precedence=if precedence >= 0x8000 {
+          precedence - 0x10000
+        } else {
+          precedence
+        },
+        production_id=production_id & 0xFFFF,
+      )
+    }
+    Accept | Recover => self
+  }
+}
+
+///|
+/// `!strncmp(name, string, length) && !name[length]` over bytes, where
+/// `length` is the length of `string`.
+fn c_name_equals(name : Bytes, string : Bytes) -> Bool {
+  let length = string.length()
+  for i in 0..<length {
+    let a = if i < name.length() { name[i] } else { b'\x00' }
+    let b = string[i]
+    if a != b {
+      return false
+    }
+    if a == 0 {
+      return true
+    }
+  }
+  name.length() <= length || name[length] == 0
 }

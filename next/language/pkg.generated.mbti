@@ -169,6 +169,7 @@ pub(all) enum ParseActionEntry {
   Accept
   Recover
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn ParseActionEntry::normalized(Self) -> Self
 
 pub(all) struct RangeCondition {
   ranges : Array[CharacterRange]
