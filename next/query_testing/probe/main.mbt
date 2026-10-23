@@ -324,8 +324,8 @@ fn regex_find(source : String) -> Unit {
     let hay = lines[i + 1].replace_all(old="\\n", new="\n")
     i += 2
     let regex = @regex.Regex::new(pattern, utf8=true) catch {
-      _ => {
-        println("ERR")
+      e => {
+        println("ERR \{escape(e.to_string())}")
         continue
       }
     }
