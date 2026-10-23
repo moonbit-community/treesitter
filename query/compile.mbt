@@ -37,5 +37,32 @@ fn compile_child(child : Child) -> Child {
   } else {
     pattern
   }
-  { ..child, pattern, min: if nullable_alternative { 0 } else { child.min }, }
+  {
+    ..child,
+    pattern: if child.min == 1 && child.max is None {
+      flatten_positive_runs(pattern)
+    } else {
+      pattern
+    },
+    min: if nullable_alternative {
+      0
+    } else {
+      child.min
+    },
+  }
+}
+
+///|
+// A positive closure absorbs positive closures on its alternative branches:
+// (A+ | B)+ has the same paths as (A | B)+. Entry captures have already been
+// lowered, and source-level capture metadata is kept separately.
+fn flatten_positive_runs(pattern : Pattern) -> Pattern {
+  match pattern {
+    Group(
+      [{ pattern: inner, min: 1, max: None, anchor: false, field: None, .. }],
+      false
+    ) => flatten_positive_runs(inner)
+    Either(items) => Either(items.map(flatten_positive_runs))
+    _ => pattern
+  }
 }

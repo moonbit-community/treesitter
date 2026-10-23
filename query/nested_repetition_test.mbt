@@ -38,3 +38,26 @@ test "outer repetition keeps nullable group continuations and coalesces paths" {
     ),
   )
 }
+
+///|
+test "nested root repetitions avoid enumerating equivalent partitions" {
+  let language = root_query_language()
+  let tree = @ts.Parser::new(language).parse_string(
+    Array::make(80, "1").join(" "),
+  )
+  for
+    source in [
+      "((number)+ @n)+", "[(number)+ @n (true)]+", "([(number) (true)] (_)?)+ @n",
+    ] {
+    let query = @query.Query::new(language, source)
+    let matches = query.matches(tree.root_node(), tree.source)
+    assert_eq(matches.length(), 1)
+    let captures = matches[0].captures
+    assert_eq(captures.length(), 80)
+    for index, capture in captures {
+      assert_eq(capture.name, "n")
+      assert_eq(capture.node.start_byte(), index * 2)
+      assert_eq(capture.node.end_byte(), index * 2 + 1)
+    }
+  }
+}

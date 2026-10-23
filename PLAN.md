@@ -1153,3 +1153,22 @@ public matrix pass. The 225-case extended probe improves from 22 to 12 differenc
 unbounded differences and 15 ranged differences; the 196-case capture probe
 retains 21 differences. A focused Codex CLI ultra review of these query changes
 is running; the final whole-port review and release gate remain open.
+
+### Focused ultra review: query resource use and ordered captures
+
+Codex CLI ultra reviewed the query changes and reported three actionable issues:
+quadratic suffix rescanning after repetitions, frontier pruning that conflated
+ordered captures, and quadratic storage of irrelevant capture metadata. All
+three reproducers now pass. Required final sibling matches are shared between
+repetition stops; frontiers align captures in depth-first order without merging
+collocated names; metadata stores only captures actually present in each pattern.
+The 4,000-pattern memory probe fell from about 640 MiB to about 8 MiB RSS.
+
+Positive nested repetitions are normalized after recording source metadata, and
+root continuations are cached and pruned by compatible capture paths. Cases that
+previously exhausted the work budget with 15–20 numbers now handle 80 numbers.
+All 66 query tests pass on native, JS and Wasm GC. The 1,224 existing unbounded
+comparisons and 378 quantified-alternative comparisons remain exact. The known
+15 ranged differences and 21 group-capture differences remain. Full-suite and
+public-grammar revalidation follows this focused review; final whole-port review
+and publication are still pending.

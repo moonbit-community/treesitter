@@ -382,21 +382,35 @@ fn match_children(
           }
         }
         stops.sort_by((a, b) => b.1.compare(a.1))
+        let followers = terminal_followers(
+          children, pi, trailing_anchor, parent, after, budget,
+        )
         for (next, _, accumulated) in stops {
-          let found = match_children(
-            children,
-            trailing_anchor,
-            parent,
-            pi + 1,
-            next,
-            {
-              ..accumulated,
-              finish: parent.child(next - 1).unwrap_or(accumulated.finish),
-              delayed: true,
-            },
-            budget,
-            retain_terminal_stops~,
-          )
+          let found = if followers is Some(followers) {
+            let matches = []
+            for (start, terminal, after) in followers {
+              budget.tick()
+              if start >= next {
+                matches.push((accumulated.then(terminal), after))
+              }
+            }
+            matches
+          } else {
+            match_children(
+              children,
+              trailing_anchor,
+              parent,
+              pi + 1,
+              next,
+              {
+                ..accumulated,
+                finish: parent.child(next - 1).unwrap_or(accumulated.finish),
+                delayed: true,
+              },
+              budget,
+              retain_terminal_stops~,
+            )
+          }
           if !found.is_empty() {
             result.append(found)
             skip_until = Int32::max(skip_until, next)

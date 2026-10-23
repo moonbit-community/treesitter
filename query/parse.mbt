@@ -470,7 +470,10 @@ pub fn Query::new(
       }
     }
     let capture_quantifiers : Map[String, (Int32, Int32)] = Map([])
-    for name in reader.captures {
+    for name in pattern_captures(pattern) {
+      if capture_quantifiers.contains(name) {
+        continue
+      }
       let (min, max) = capture_bounds(pattern, name)
       capture_quantifiers[name] = (
         min * root.min,

@@ -10,6 +10,7 @@ fn match_root_run(
 ) -> Array[(Array[Capture], Int32)] raise QueryError {
   let result = []
   let entry = root_entry_pattern(pattern, include_rooted=node_in_range)
+  let continuations_by_index : Map[Int32, Array[(Completion, Int32)]] = Map([])
   for first in match_at(entry, parent, index, budget, retain_stops=true) {
     if first.1 <= index {
       continue
@@ -17,8 +18,12 @@ fn match_root_run(
     let pending = [(first.0.captures, first.1, 1)]
     let mut best_count = 0
     let best = []
+    let frontiers : Map[Int32, Array[(Array[Capture], Int32)]] = Map([])
     while pending.pop() is Some((captures, next, count)) {
       budget.tick()
+      if !retain_root_path(frontiers, next, captures, count, budget) {
+        continue
+      }
       if count > best_count {
         best_count = count
         best.clear()
@@ -27,13 +32,20 @@ fn match_root_run(
         best.push((captures, next))
       }
       if next < parent.child_count() {
-        let continuations = match_at(
-          pattern,
-          parent,
-          next,
-          budget,
-          retain_stops=true,
-        )
+        let continuations = match continuations_by_index.get(next) {
+          Some(matches) => matches
+          None => {
+            let matches = match_at(
+              pattern,
+              parent,
+              next,
+              budget,
+              retain_stops=true,
+            )
+            continuations_by_index[next] = matches
+            matches
+          }
+        }
         for i = continuations.length() - 1; i >= 0; i = i - 1 {
           let (additional, after) = continuations[i]
           if after > next {
