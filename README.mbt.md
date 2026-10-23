@@ -7,14 +7,16 @@ grammar evaluator.
 
 **This is not yet a complete or drop-in Tree-sitter implementation.** The scope is
 the full repository. [COMPATIBILITY.md](COMPATIBILITY.md) lists what is missing
-in 0.1.0; [PLAN.md](PLAN.md) records the implementation milestones and evidence.
+in 0.1.0; [issue #1](https://github.com/moonbit-community/treesitter/issues/1)
+tracks the remaining work. [PLAN.md](PLAN.md) records the implementation history.
 The reference is Tree-sitter 0.28.0 at commit
 `4a412a01a0147d0f50bf7e749572fa632d1ab203`.
 
 ## Install
 
-The public source repository is available now. Mooncakes publication is being
-validated through the release workflow. After 0.1.0 is published, add the
+The public source repository is available now. Mooncakes publication and registry
+verification remain pending in [issue #1](https://github.com/moonbit-community/treesitter/issues/1).
+After 0.1.0 is published, add the
 library to a MoonBit project:
 
 ```sh

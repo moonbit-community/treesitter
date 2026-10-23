@@ -55,15 +55,18 @@ release with a public document of missing functionality. This does not mark the
 full-port milestones complete. See [COMPATIBILITY.md](COMPATIBILITY.md) for the
 0.1.0 compatibility limits and remaining work.
 
-The latest checkpoint passes 357 native, 348 JavaScript and 348 Wasm GC tests,
+The latest checkpoint passes 358 native, 349 JavaScript and 349 Wasm GC tests,
 CLI integration checks, and the six pinned public grammar audits. Focused Codex
 CLI ultra reviews of the recent query changes are complete and their findings
 are fixed. The final whole-port review remains part of full-port completion.
 
-Release tasks: apply the `moonbit-community/treesitter` namespace, run a Codex CLI
-ultra release-readiness review and fix its findings, create the community
-repository, verify hosted CI and publishing, then verify registry installation
-and mbtx execution without a local checkout. Record the outcomes below when done.
+The repository, community namespace, public compatibility document and CI/publish
+workflows are now in place. The user requested a TODO issue, a final push and a
+comfortable stopping point. [Issue #1](https://github.com/moonbit-community/treesitter/issues/1)
+tracks the remaining port and release work. Mooncakes publication and actual
+registry installation verification remain pending; no release tag has been made.
+The complete local validation passes. The final hosted CI/review outcome will be
+recorded in that issue before stopping.
 
 ## Architecture
 
@@ -1237,3 +1240,15 @@ license documents and excludes development checkouts/build products. Registry
 installation verification is automated in tools/check_registry.py and runs
 after publishing. Hosted CI, final review conclusions and publication results
 will be recorded when they complete.
+
+## Requested handoff checkpoint
+
+Created issue #1 for the remaining query, recovery, incremental, generator,
+API/CLI, performance and release work. The Codex CLI ultra release review found
+one additional issue after confirming the encoded-tree identity fix: tags used
+UTF-8 metadata calculations for UTF-16 input. Tag generation now explicitly
+rejects UTF-16/custom-encoded trees, with documented UnsupportedEncoding behavior
+and regression tests on all portable targets. The final local check script
+passes 358 native, 349 JavaScript and 349 Wasm GC tests plus CLI integration and
+formatting. The follow-up ultra review and hosted CI are the remaining handoff
+checks; publication stays on the tracking issue rather than being claimed done.
