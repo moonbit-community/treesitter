@@ -47,6 +47,7 @@ priv struct NodeData {
 pub struct Node {
   priv data : NodeData
   priv context : NodeContext?
+  priv owner : Ref[Int32]?
 }
 
 ///|
@@ -305,7 +306,11 @@ pub fn Node::to_sexp(self : Node, fields~ : Bool = true) -> String {
 
 ///|
 fn Node::renamed(self : Node, name : String, named : Bool) -> Node {
-  { context: None, data: { ..self.data, kind: name, named, visible: true, }, }
+  {
+    context: None,
+    owner: None,
+    data: { ..self.data, kind: name, named, visible: true, },
+  }
 }
 
 ///|
@@ -322,8 +327,13 @@ fn Node::as_extra(self : Node) -> Node {
     child_entries(
       self.data.children
       .entries()
-      .map(c => (c.0, { context: None, data: { ..c.1.data, extra: true, }, })),
+      .map(c => {
+        (
+          c.0,
+          { context: None, owner: None, data: { ..c.1.data, extra: true, }, },
+        )
+      }),
     )
   }
-  { context: None, data: { ..self.data, extra: true, children, }, }
+  { context: None, owner: None, data: { ..self.data, extra: true, children, }, }
 }

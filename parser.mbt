@@ -196,6 +196,7 @@ fn Parser::node(
   }
   {
     context: None,
+    owner: None,
     data: {
       language: self.language,
       id,
@@ -302,6 +303,7 @@ fn Parser::reduce(
       } else {
         {
           context: None,
+          owner: None,
           data: { ..child.data, supertypes: child.data.supertypes + [name], },
         }
       }
@@ -348,6 +350,7 @@ fn Parser::reduce(
   let entries = branch.entries[:index].to_owned()
   let node = {
     context: None,
+    owner: None,
     data: {
       ..node.data,
       continuation: branch.lookahead.map(token => {
@@ -379,6 +382,7 @@ fn Parser::finish(
     // extent without changing the final syntax child's range.
     return Some({
       context: None,
+      owner: None,
       data: {
         ..root.data,
         end_byte: Int32::max(root.end_byte(), branch.offset),
@@ -503,6 +507,7 @@ fn Parser::parse_source(
             reused_subtrees: 1,
             parse_steps: 0,
             source_ranges: [],
+            identity: Ref(0),
             scanner: self.scanner,
           }
         }
@@ -906,6 +911,7 @@ fn Parser::parse_source(
         if n.data.error_repeat {
           {
             context: None,
+            owner: None,
             data: { ..n.data, error_repeat: false, extra: true, },
           }
         } else {
@@ -1050,6 +1056,7 @@ fn Parser::parse_source(
         reused_subtrees,
         parse_steps: steps,
         source_ranges: [],
+        identity: Ref(0),
         scanner: self.scanner,
       }
     None => raise NoParse(furthest)

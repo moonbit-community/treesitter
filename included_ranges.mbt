@@ -19,6 +19,7 @@ fn project_node(
   }
   {
     context: None,
+    owner: None,
     data: {
       ..node.data,
       encoding,
@@ -112,6 +113,7 @@ fn Parser::parse_ranges(
     edited: false,
     edited_length: source.length(),
     source_ranges: ranges.copy(),
+    identity: Ref(0),
     scanner: self.scanner,
     reused_subtrees: 0,
     parse_steps: parsed.parse_steps,

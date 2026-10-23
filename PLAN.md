@@ -1183,3 +1183,19 @@ ungrouped control are frozen tests; all 67 query tests pass across native, JS an
 Wasm GC. Before this final flag correction, the complete 353 native / 344 JS /
 344 Wasm GC suite and all six public grammars passed. The correction is being
 revalidated against the complete suite and public matrix.
+
+### Validated query review fixes and persistent node equality
+
+The final query flag correction passed all 354 native / 345 JS / 345 Wasm GC tests,
+CLI checks and the full six-grammar matrix. The focused ultra review's original
+findings and its follow-up regression are addressed; this does not replace the
+still-pending final whole-port review.
+
+Nodes now implement equality using a tree owner and persistent node identifier.
+Tree copies and incremental parse results have distinct owners even when syntax
+storage is reused. Navigation propagates ownership; offset and edited handles
+retain identity. Owner tokens contain no tree back-reference, so retained handles
+do not create reference cycles. Frozen C identity relationships cover repeated
+lookups, copies, reparses, offset views, edited handles and the edited root.
+All 83 runtime tests pass on native, JS and Wasm GC; the full suite now passes
+356 native / 347 JS / 347 Wasm GC tests and all six public grammar audits.

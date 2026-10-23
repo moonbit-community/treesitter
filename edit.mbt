@@ -83,6 +83,7 @@ fn edit_node(node : Node, edit : InputEdit) -> Node {
   let end_point = if end_point < start_point { start_point } else { end_point }
   {
     context: None,
+    owner: None,
     data: {
       ..data,
       changed,
@@ -133,6 +134,7 @@ pub fn Tree::copy(self : Tree) -> Tree {
     reused_subtrees: self.reused_subtrees,
     parse_steps: self.parse_steps,
     source_ranges: self.source_ranges.copy(),
+    identity: Ref(0),
     scanner: self.scanner,
   }
 }
@@ -145,6 +147,7 @@ fn reset_origin(node : Node, lines : Array[Int32]) -> Node {
   }
   {
     context: None,
+    owner: None,
     data: {
       ..node.data,
       dependency_end: node.data.dependency_end +
@@ -185,6 +188,7 @@ fn restore_lookahead_extra(
   let end = node.end_byte() + delta
   {
     context: None,
+    owner: None,
     data: {
       ..node.data,
       changed: false,

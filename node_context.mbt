@@ -22,8 +22,13 @@ fn NodeContext::point(self : NodeContext, point : Point) -> Point {
 ///|
 fn Node::contextual_child(self : Node, child : Node) -> Node {
   match self.context {
-    Some(_) => { ..child, context: self.context, }
-    None => child
+    Some(_) => { ..child, context: self.context, owner: self.owner, }
+    None =>
+      if self.owner is None {
+        child
+      } else {
+        { ..child, owner: self.owner, }
+      }
   }
 }
 
@@ -77,7 +82,9 @@ pub fn Tree::root_node_with_offset(
   offset_extent : Point,
 ) -> Node raise EditError {
   validate_point(offset_extent, offset_bytes)
-  self.root.with_context({
+  self
+  .root_node()
+  .with_context({
     byte_delta: offset_bytes,
     origin: { row: 0, column: 0, },
     position: offset_extent,

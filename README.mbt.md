@@ -140,6 +140,11 @@ update a tree's coordinates before passing it as `old_tree` to `Parser.parse`.
 Trees and node handles preserve their existing structure through persistent
 copies. Included ranges retain coordinates in the original source.
 
+Node equality compares persistent identity within the same tree. Tree copies and
+new parse results have distinct identities, including when they reuse syntax
+data. Offset views and edited node handles retain their identity. Numeric node
+IDs can repeat across trees; use node equality to compare handles.
+
 External scanners are callbacks constructed with `ExternalScanner::new`. They
 receive a cursor, valid-token flags in grammar `externals` order, and a serialized
 state. Return `ScanResult` with the token index and next state, or `None`. Keep

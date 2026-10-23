@@ -17,6 +17,7 @@ fn Parser::recover_pending(
     if previous.child_count() > 0 {
       discarded.push({
         context: None,
+        owner: None,
         data: { ..previous.data, error_repeat: true, },
       })
     }
@@ -276,6 +277,7 @@ fn Parser::recover_history(
           if n.data.error_repeat {
             {
               context: None,
+              owner: None,
               data: { ..n.data, error_repeat: false, extra: true, },
             }
           } else {

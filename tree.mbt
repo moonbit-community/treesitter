@@ -1,5 +1,6 @@
 ///|
 pub struct Tree {
+  priv identity : Ref[Int32]
   priv mut source_ranges : Array[Range]
   priv scanner : ExternalScanner?
   priv mut root : Node
@@ -13,12 +14,12 @@ pub struct Tree {
 
 ///|
 pub fn Tree::root_node(self : Tree) -> Node {
-  self.root
+  { ..self.root, owner: Some(self.identity), }
 }
 
 ///|
 pub fn Tree::walk(self : Tree) -> TreeCursor {
-  self.root.walk()
+  self.root_node().walk()
 }
 
 ///|
