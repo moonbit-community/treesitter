@@ -57,6 +57,7 @@ pub(all) struct ParseState {
 /// Portable generated tables; symbol 0 is EOF and state 0 is the initial state.
 /// Constructed and validated by the generator; no C language ABI is involved.
 pub struct Language {
+  priv field_names : Array[String]
   name : String
   symbols : Array[Symbol]
   tokens : Array[Token]
@@ -90,6 +91,7 @@ pub fn Language::new(
   recovery_tokens? : Array[Int32],
 ) -> Language raise LanguageError {
   let language : Language = {
+    field_names: collect_field_names(productions),
     name,
     symbols,
     tokens,

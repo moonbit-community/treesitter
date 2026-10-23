@@ -925,3 +925,12 @@ outputs cover distinct and duplicate alternatives; 47 native query tests pass.
 The expanded 300-case differential improves from 31 to 15 mismatches. Remaining
 cases concern optional empty matches and hidden repetition traversal; the full
 query compatibility milestone remains open.
+
+### Language and node field API checkpoint
+
+Languages now expose stable one-based field ids and reverse lookup, rebuilt from
+productions when loading serialized tables. Sorting follows Unicode scalar order
+rather than UTF-16 code-unit order. Nodes retain their generated language and
+support field-id child lookup; tree cursors report field ids. Tests cover hidden
+field inheritance, repeated fields, invalid ids, Unicode ordering, serialization
+and persistent tree copies. All 315 native / 307 JS / 307 Wasm GC tests pass.

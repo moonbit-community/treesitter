@@ -73,9 +73,11 @@ pub struct Node {
   // private fields
 }
 pub fn Node::child(Self, Int32) -> Self?
+pub fn Node::child_by_field_id(Self, Int32) -> Self?
 pub fn Node::child_by_field_name(Self, String) -> Self?
 pub fn Node::child_count(Self) -> Int32
 pub fn Node::children(Self) -> Array[Self]
+pub fn Node::children_by_field_id(Self, Int32) -> Array[Self]
 pub fn Node::children_by_field_name(Self, String) -> Array[Self]
 pub fn Node::descendant_count(Self) -> Int32
 pub fn Node::descendant_for_byte_range(Self, Int32, Int32, named? : Bool) -> Self?
@@ -93,6 +95,7 @@ pub fn Node::is_extra(Self) -> Bool
 pub fn Node::is_missing(Self) -> Bool
 pub fn Node::is_named(Self) -> Bool
 pub fn Node::kind(Self) -> String
+pub fn Node::language(Self) -> @language.Language
 pub fn Node::named_child(Self, Int32) -> Self?
 pub fn Node::named_child_count(Self) -> Int32
 pub fn Node::named_children(Self) -> Array[Self]
@@ -194,6 +197,7 @@ pub struct TreeCursor {
 pub fn TreeCursor::copy(Self) -> Self
 pub fn TreeCursor::depth(Self) -> Int32
 pub fn TreeCursor::descendant_index(Self) -> Int32
+pub fn TreeCursor::field_id(Self) -> Int32?
 pub fn TreeCursor::field_name(Self) -> String?
 pub fn TreeCursor::goto_descendant(Self, Int32) -> Bool
 pub fn TreeCursor::goto_first_child(Self) -> Bool

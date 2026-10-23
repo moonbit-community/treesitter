@@ -8,6 +8,7 @@ priv struct Derivation {
 
 ///|
 priv struct NodeData {
+  language : @language.Language
   continuation : (Lexeme, Array[Node], Int32)?
   fragile : Bool
   derivation : Derivation

@@ -196,6 +196,7 @@ fn Parser::node(
   }
   {
     data: {
+      language: self.language,
       id,
       continuation: None,
       fragile: fragile || children.fragile,

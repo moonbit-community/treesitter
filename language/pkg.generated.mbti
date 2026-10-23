@@ -43,8 +43,12 @@ pub struct Language {
   supertypes : Array[Int32]
   externals : Array[Int32]
   recovery_tokens : Array[Int32]
+  // private fields
 } derive(Eq, @debug.Debug)
 pub fn Language::equal(Self, Self) -> Bool
+pub fn Language::field_count(Self) -> Int32
+pub fn Language::field_id(Self, String) -> Int32?
+pub fn Language::field_name(Self, Int32) -> String?
 pub fn Language::from_json(Json) -> Self raise
 pub fn Language::lookahead(Self, Int32) -> Array[Int32]
 pub fn Language::lookahead_iterator(Self, Int32) -> LookaheadIterator?
