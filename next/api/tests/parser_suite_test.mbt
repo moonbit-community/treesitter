@@ -1396,7 +1396,7 @@ async test "parsing_with_a_newly_included_range" {
 
 ///|
 test "parsing_with_included_ranges_and_missing_tokens" {
-  let parser_code = generate_parser(
+  let (parser_name, parser_code) = generate_parser(
     (
       #|{
       #|            "name": "test_leading_missing_token",
@@ -1421,7 +1421,7 @@ test "parsing_with_included_ranges_and_missing_tokens" {
     ),
   )
   let parser = @api.Parser::new()
-  parser.set_language(get_test_language(parser_code))
+  parser.set_language(get_test_language(parser_name, parser_code, None))
 
   // There's a missing `a` token at the beginning of the code. It must be inserted
   // at the beginning of the first included range, not at {0, 0}.
@@ -1452,7 +1452,7 @@ test "parsing_with_included_ranges_and_missing_tokens" {
 
 ///|
 test "grammars_that_can_hang_on_eof" {
-  let parser_code = generate_parser(
+  let (parser_name, parser_code) = generate_parser(
     (
       #|
       #|        {
@@ -1473,9 +1473,9 @@ test "grammars_that_can_hang_on_eof" {
     ),
   )
   let parser = @api.Parser::new()
-  parser.set_language(get_test_language(parser_code))
+  parser.set_language(get_test_language(parser_name, parser_code, None))
   ignore(parse(parser, "\""))
-  let parser_code = generate_parser(
+  let (parser_name, parser_code) = generate_parser(
     (
       #|
       #|        {
@@ -1495,9 +1495,9 @@ test "grammars_that_can_hang_on_eof" {
       #|
     ),
   )
-  parser.set_language(get_test_language(parser_code))
+  parser.set_language(get_test_language(parser_name, parser_code, None))
   ignore(parse(parser, "\""))
-  let parser_code = generate_parser(
+  let (parser_name, parser_code) = generate_parser(
     (
       #|
       #|        {
@@ -1517,7 +1517,7 @@ test "grammars_that_can_hang_on_eof" {
       #|
     ),
   )
-  parser.set_language(get_test_language(parser_code))
+  parser.set_language(get_test_language(parser_name, parser_code, None))
   ignore(parse(parser, "\""))
 }
 
