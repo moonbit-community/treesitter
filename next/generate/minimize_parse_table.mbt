@@ -263,22 +263,24 @@ fn ConflictPass::new(
 
   // Hash each state's terminal entries once, apart from its shift targets, whose groups
   // change as groups split.
+  // (Of the reserved words, only their count is hashed: a signature may leave out
+  // some of what `equivalent` compares.)
   let static_signatures = states.map(state => {
-    let hasher = Hasher()
-    hasher.combine(state.reserved_words)
+    let mut acc = hash_mix(HASH_SEED, state.reserved_words.len())
     for i in entry_maps.start(state.id)..<entry_maps.end(state.id) {
-      hasher.combine_int(entry_maps.keys[i])
+      acc = hash_mix(acc, entry_maps.keys[i])
       for
         action in minimizer.parse_table.action_lists.get_index(
           entry_maps.values[i],
         ) {
-        match action {
-          Shift(is_repetition~, ..) => hasher.combine_bool(is_repetition)
-          action => hasher.combine(action)
+        acc = match action {
+          Shift(is_repetition~, ..) =>
+            hash_mix(acc, if is_repetition { 1 } else { 0 })
+          action => parse_action_hash_mix(acc, action)
         }
       }
     }
-    hasher.finalize()
+    hash_finish(acc)
   })
   {
     minimizer,
@@ -774,16 +776,20 @@ fn Minimizer::remove_unit_reductions(self : Minimizer) -> Unit {
       })
       for i in 0..<state.terminal_entries.len() {
         let (symbol, old_id) = state.terminal_entries.get_index(i)
-        let actions = action_lists.get(old_id).copy()
+        // The list is only copied once it changes.
+        let mut actions = action_lists.get(old_id)
         let mut changed = false
-        for k, action in actions {
+        for k in 0..<actions.length() {
           // A Shift onto a unit-reduction state (one whose only action reduces a
           // single `symbol`) can skip it. Shift then reduce then goto is equivalent
           // to shifting straight to the the goto target for `symbol` in this case.
-          if action is Shift(state=target, is_repetition~) &&
+          if actions[k] is Shift(state=target, is_repetition~) &&
             unit_reduction_symbols_by_state.get(target) is Some(symbol) &&
             state.nonterminal_entries.get(symbol) is Some(Goto(new_target)) &&
             new_target != target {
+            if !changed {
+              actions = actions.copy()
+            }
             actions[k] = Shift(state=new_target, is_repetition~)
             changed = true
             done = false
@@ -903,15 +909,15 @@ fn Minimizer::merge_compatible_states(self : Minimizer) -> Unit {
       ignore(
         parse_state.reserved_words.insert_all(other_parse_state.reserved_words),
       )
-      for symbol in parse_state.terminal_entries.keys() {
-        ignore(parse_state.reserved_words.remove(symbol))
+      for entry in parse_state.terminal_entries.items() {
+        ignore(parse_state.reserved_words.remove(entry.0))
       }
     }
-    for symbol in parse_state.terminal_entries.keys() {
-      positions[self.indexer.index(symbol)] = None
+    for entry in parse_state.terminal_entries.items() {
+      positions[self.indexer.index(entry.0)] = None
     }
-    for symbol in parse_state.nonterminal_entries.keys() {
-      positions[self.indexer.index(symbol)] = None
+    for entry in parse_state.nonterminal_entries.items() {
+      positions[self.indexer.index(entry.0)] = None
     }
 
     // Update the new state's outgoing references using the new grouping.
@@ -1232,8 +1238,8 @@ fn[V] set_positions(
   positions : Array[Int32?],
   indexer : SymbolIndexer,
 ) -> Unit {
-  for position, symbol in entries.keys() {
-    positions[indexer.index(symbol)] = Some(position)
+  for position, entry in entries.items() {
+    positions[indexer.index(entry.0)] = Some(position)
   }
 }
 

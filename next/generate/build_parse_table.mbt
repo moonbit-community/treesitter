@@ -828,30 +828,36 @@ impl Hash for ActionListKey with fn hash_combine(self, hasher) {
 impl Hash for ActionListKey with fn hash(self) {
   let mut acc = hash_mix(HASH_SEED, self.0.length())
   for action in self.0 {
-    acc = match action {
-      Accept => hash_mix(acc, 0)
-      Shift(state~, is_repetition~) =>
-        hash_mix(
-          hash_mix(hash_mix(acc, 1), state),
-          if is_repetition {
-            1
-          } else {
-            0
-          },
-        )
-      ShiftExtra => hash_mix(acc, 2)
-      Recover => hash_mix(acc, 3)
-      Reduce(symbol~, child_count~, dynamic_precedence~, production_id~) =>
-        hash_mix(
-          hash_mix(
-            hash_mix(hash_mix(hash_mix(acc, 4), symbol.code()), child_count),
-            dynamic_precedence,
-          ),
-          production_id,
-        )
-    }
+    acc = parse_action_hash_mix(acc, action)
   }
   hash_finish(acc)
+}
+
+///|
+/// Mixes `action` into a `hash_mix` accumulator.
+fn parse_action_hash_mix(acc : UInt32, action : ParseAction) -> UInt32 {
+  match action {
+    Accept => hash_mix(acc, 0)
+    Shift(state~, is_repetition~) =>
+      hash_mix(
+        hash_mix(hash_mix(acc, 1), state),
+        if is_repetition {
+          1
+        } else {
+          0
+        },
+      )
+    ShiftExtra => hash_mix(acc, 2)
+    Recover => hash_mix(acc, 3)
+    Reduce(symbol~, child_count~, dynamic_precedence~, production_id~) =>
+      hash_mix(
+        hash_mix(
+          hash_mix(hash_mix(hash_mix(acc, 4), symbol.code()), child_count),
+          dynamic_precedence,
+        ),
+        production_id,
+      )
+  }
 }
 
 ///|
