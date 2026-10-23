@@ -246,3 +246,20 @@ test "anchored optional paths stop at the first named mismatch" {
     ),
   )
 }
+
+///|
+test "root groups can restart after an anchored optional prefix fails" {
+  // Frozen C outputs: a top-level group has fresh entries at later siblings;
+  // a child sequence within the document remains bound to its original root.
+  inspect(
+    root_query_output("true [1] 2", "((true)* @a . (number) @b)"),
+    content=(
+      #|0 b:6..7
+      #|0 b:9..10
+    ),
+  )
+  inspect(
+    root_query_output("true [1] 2", "(document (true)* @a . (number) @b)"),
+    content="",
+  )
+}

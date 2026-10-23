@@ -163,6 +163,7 @@ fn match_pattern(
         0,
         Completion::at(node),
         budget,
+        fresh_root=true,
       ).map(m => m.0)
     Node(p) => {
       if !budget.contains(node) {
@@ -251,6 +252,7 @@ fn match_children(
   completed : Completion,
   budget : Budget,
   strict_start~ : Bool = false,
+  fresh_root~ : Bool = false,
 ) -> Array[(Completion, Int32)] raise QueryError {
   budget.tick()
   if pi == children.length() {
@@ -372,11 +374,14 @@ fn match_children(
       completed,
       budget,
       strict_start~,
+      fresh_root~,
     )
     // Once a nonempty path reaches an anchored successor, upstream merges
     // its zero-skip state into that path. Do not revive the discarded state
     // after the populated path subsequently fails its adjacency constraint.
-    let skipped = if anchored_successor {
+    // A root group can start again at each sibling until it consumes a step.
+    // Its fresh entries survive failures of an earlier populated root path.
+    let skipped = if anchored_successor && !fresh_root {
       skipped.filter(m => !started.any(prefix => prefix.1 < m.1))
     } else {
       skipped

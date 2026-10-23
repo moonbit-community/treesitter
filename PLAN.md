@@ -990,3 +990,15 @@ probe passes 864/864. The original root probe passes 144/144; the 300-case range
 probe still has 15 hidden-repetition traversal differences. All 324 native /
 316 JS / 316 Wasm GC tests and CLI checks pass. These probes cover concrete
 cases, not the still-open full query grammar-analysis and compatibility gate.
+
+### Independent root entries after optional-prefix failure
+
+The full public audit exposed a JavaScript method-tag regression in the preceding
+checkpoint: a failed comment prefix suppressed a later sibling's fresh match.
+Root groups now preserve independent entries until a step consumes a sibling;
+anchored child sequences inside an existing root retain their state merging.
+A minimized frozen C regression distinguishes both cases. All 1,224 unbounded
+query probes pass; the ranged probe retains its 15 known hidden-traversal gaps.
+JavaScript passes all 116 corpora, six query files, 67 annotation assertions,
+696 edit checks and both large examples. Full portable and CLI checks pass
+325 native / 317 JS / 317 Wasm GC tests.
