@@ -190,12 +190,7 @@ pub fn Language::field_name_for_id(
   self : Language,
   field_id : Int32,
 ) -> String? {
-  // `field_names[0]` is `NULL` in C.
-  if field_id <= 0 {
-    None
-  } else {
-    self.raw.field_name_for_id(field_id)
-  }
+  self.raw.field_name_for_id(field_id)
 }
 
 ///|
