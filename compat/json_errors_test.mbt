@@ -179,3 +179,29 @@ test "error lexing restarts after partial tokens and separators" {
     "(document (ERROR (UNEXPECTED '@')) (number))",
   )
 }
+
+///|
+test "invalid UTF8 diagnostics differ from a valid replacement character" {
+  // Frozen C diagnostics; malformed sequences continue to advance by bytes.
+  let parser = @ts.Parser::new(upstream_json_language())
+  let malformed : Array[Bytes] = [
+    [0xff],
+    [0xed, 0xa0, 0x80],
+    [0xc0, 0x80],
+    [0xf4, 0x90, 0x80, 0x80],
+    [0x5c, 0xff],
+  ]
+  for input in malformed {
+    let root = parser.parse(input).root_node()
+    assert_eq(root.to_sexp(), "(document (ERROR (UNEXPECTED INVALID)))")
+    assert_eq(root.end_byte(), input.length())
+  }
+  assert_eq(
+    parser.parse([0xef, 0xbf, 0xbd]).root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED 65533)))",
+  )
+  assert_eq(
+    parser.parse([0x40, 0xff]).root_node().to_sexp(),
+    "(document (ERROR (UNEXPECTED '@')))",
+  )
+}

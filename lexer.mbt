@@ -309,7 +309,14 @@ fn Parser::lex(
         let unexpected = if failure == input.length() {
           0
         } else {
-          @lex.decode(input, failure).0
+          let (code, width) = @lex.decode(input, failure)
+          // A decoded replacement character has width three. Width one means
+          // malformed UTF-8, which upstream diagnoses separately as INVALID.
+          if code == 0xfffd && width == 1 {
+            -1
+          } else {
+            code
+          }
         }
         // A lexical error spans the invalid run up to the next recognizable
         // token. Preserve the first failing code point, including EOF after

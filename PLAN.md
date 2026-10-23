@@ -1070,3 +1070,12 @@ EOF and successful cancellation/resumption. All 340 native / 331 JS / 331 Wasm G
 tests and CLI integration checks pass. The edit probe now has 85 differing tree
 outputs, 49 range differences among matching trees, no fresh/incremental failures,
 12 additional tree fixes and one range fix with no regressions.
+
+### Invalid UTF-8 diagnostic identity
+
+Malformed UTF-8 now produces the upstream INVALID diagnostic rather than being
+reported as a valid U+FFFD character. The scanner still advances one byte on
+malformed input, while an encoded U+FFFD retains its numeric diagnostic. Frozen
+C tests cover overlong, surrogate, out-of-range and truncated sequences and
+preservation of an earlier invalid-run diagnostic. All 144 compatibility tests
+pass on native, JS and Wasm GC, with a clean warning-enabled check.
