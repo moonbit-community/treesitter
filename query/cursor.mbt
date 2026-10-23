@@ -203,10 +203,11 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
             runs.map(run => (run.0, parent.child(run.1 - 1).unwrap().id()))
           }
         } else {
-          match_pattern(root_entry_pattern(pattern.pattern), node, self.budget).map(c => {
-              (c.captures, node.id())
-            },
-          )
+          match_pattern(
+            root_node_entries(root_entry_pattern(pattern.pattern)),
+            node,
+            self.budget,
+          ).map(c => (c.captures, node.id()))
         }
         for (captures, last) in matches {
           if parent is None && node.child_count() == 0 {

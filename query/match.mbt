@@ -103,9 +103,7 @@ fn maximal_captures(
   let seen : Map[String, Unit] = Map([])
   for candidate in candidates {
     budget.tick()
-    let key = candidate.captures
-      .map(c => "\{c.name.length()}:\{c.name}:\{c.node.id()};")
-      .join("")
+    let key = capture_key(candidate.captures)
     if !seen.contains(key) {
       seen[key] = ()
       unique.push(candidate)
@@ -467,6 +465,9 @@ fn match_children(
     // when it contains all the captures of an otherwise identical match.
     for candidate in skipped {
       if !result.any(existing => {
+          if retain_terminal_stops && existing.1 != candidate.1 {
+            return false
+          }
           candidate.0.captures.all(capture => {
             existing.0.captures.any(other => {
               other.name == capture.name && other.node.id() == capture.node.id()

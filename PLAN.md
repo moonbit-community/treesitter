@@ -1137,3 +1137,19 @@ The port remains bounded on these inputs. The public C include/comment fixture
 now supports quantified branches in both orders; its nested optional outer-repeat
 variant still differs and is the next query target. Full query compatibility,
 review and publication remain open.
+
+### Nullable continuations inside repeated root groups
+
+Root repetitions now preserve optional sibling continuations until the outer
+repetition chooses its longest path, and coalesce identical capture/endpoint
+paths. At the execution root, group alternatives no longer enter incorrectly
+through that node's children. Upstream's C include/comment outer-quantifier test
+now returns all four captures in one match, including the optional-wildcard
+variant. Frozen JSON-shaped counterparts cover capture order and duplicate paths.
+
+All 349 native / 340 JS / 340 Wasm GC tests, CLI checks and the full six-grammar
+public matrix pass. The 225-case extended probe improves from 22 to 12 differences
+(10 C reference timeouts remain excluded). Existing root probes retain zero
+unbounded differences and 15 ranged differences; the 196-case capture probe
+retains 21 differences. A focused Codex CLI ultra review of these query changes
+is running; the final whole-port review and release gate remain open.

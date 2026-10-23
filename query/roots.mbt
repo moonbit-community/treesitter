@@ -10,7 +10,7 @@ fn match_root_run(
 ) -> Array[(Array[Capture], Int32)] raise QueryError {
   let result = []
   let entry = root_entry_pattern(pattern, include_rooted=node_in_range)
-  for first in match_at(entry, parent, index, budget) {
+  for first in match_at(entry, parent, index, budget, retain_stops=true) {
     if first.1 <= index {
       continue
     }
@@ -27,7 +27,13 @@ fn match_root_run(
         best.push((captures, next))
       }
       if next < parent.child_count() {
-        let continuations = match_at(pattern, parent, next, budget)
+        let continuations = match_at(
+          pattern,
+          parent,
+          next,
+          budget,
+          retain_stops=true,
+        )
         for i = continuations.length() - 1; i >= 0; i = i - 1 {
           let (additional, after) = continuations[i]
           if after > next {
@@ -38,7 +44,34 @@ fn match_root_run(
     }
     result.append(best)
   }
-  result
+  let seen : Map[(Int32, String), Unit] = Map([])
+  result.filter(run => {
+    let key = (run.1, capture_key(run.0))
+    if seen.contains(key) {
+      false
+    } else {
+      seen[key] = ()
+      true
+    }
+  })
+}
+
+///|
+fn capture_key(captures : Array[Capture]) -> String {
+  captures.map(c => "\{c.name.length()}:\{c.name}:\{c.node.id()};").join("")
+}
+
+///|
+// At the execution root there is no sibling list. Group alternatives are
+// entered later through its children, not by matching against those children
+// here as if the parent itself were a group repetition.
+fn root_node_entries(pattern : Pattern) -> Pattern {
+  match pattern {
+    Group(_, _) => Either([])
+    Either(items) => Either(items.map(root_node_entries))
+    Capture(inner, name) => Capture(root_node_entries(inner), name)
+    Node(_) => pattern
+  }
 }
 
 ///|
