@@ -1,6 +1,9 @@
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/hashset",
+  "moonbitlang/core/json",
   "moonbitlang/core/sorted_map",
+  "moonbitlang/core/string",
   "moonbit-community/treesitter/next/language",
 }
 
