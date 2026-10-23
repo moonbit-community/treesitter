@@ -97,6 +97,8 @@ def main():
     ap.add_argument('--mutate', type=int, default=0)
     ap.add_argument('--show', type=int, default=3)
     ap.add_argument('--externals', action='store_true', help='include grammars with external scanners')
+    ap.add_argument('--encoding', choices=['utf8', 'utf16le', 'utf16be'], help='re-encode inputs and parse with this encoding')
+    ap.add_argument('--ranges', type=int, default=0, help='random included ranges per input')
     ap.add_argument('--log', action='store_true', help='compare parser logs')
     ap.add_argument('--edits', type=int, default=0, help='random edits per input (incremental mode)')
     ap.add_argument('names', nargs='*')
@@ -133,6 +135,28 @@ def main():
                     eargs += [paths[i], str(q), str(start), str(old_end), str(start + len(insert))]
             expected, _ = run([str(ref), *eargs])
             actual, code = run([str(PROBE), 'edit', str(LANG / f'{name}.json'), *eargs])
+        elif args.encoding or args.ranges:
+            ref = build_ref(name, 'reference_modes.c', '.modes')
+            enc = args.encoding or 'utf8'
+            expected_parts, actual_parts = [], []
+            for i, data in enumerate(inputs):
+                text = data.decode('utf-8', errors='replace')
+                if enc == 'utf16le':
+                    data = text.encode('utf-16-le')
+                elif enc == 'utf16be':
+                    data = text.encode('utf-16-be')
+                q = work / f'{i}.{enc}'
+                q.write_bytes(data)
+                spec = '-'
+                if args.ranges:
+                    unit = 1 if enc == 'utf8' else 2
+                    cuts = sorted(rng.randrange(len(data) + 2) // unit * unit for _ in range(2 * args.ranges))
+                    spec = ','.join(f'{cuts[k]}-{cuts[k + 1]}' for k in range(0, len(cuts), 2))
+                e, _ = run([str(ref), enc, spec, str(q)])
+                a, code = run([str(PROBE), 'modes', str(LANG / f'{name}.json'), enc, spec, str(q)])
+                expected_parts.append(e)
+                actual_parts.append(a)
+            expected, actual = ''.join(expected_parts), ''.join(actual_parts)
         elif args.log:
             ref = build_ref(name, 'reference_log.c', '.log')
             expected, _ = run([str(ref), *paths])

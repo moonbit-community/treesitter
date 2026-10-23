@@ -132,6 +132,55 @@ async fn main {
       let elapsed = @env.now() - start
       println("\{n} parses in \{elapsed} ms (\{elapsed.to_double() / n.to_double()} ms/parse)")
     }
+    "modes" => {
+      let language = load_language(args[2])
+      let parser = new_parser(language)
+      let (encoding, unit) = match args[3] {
+        "utf16le" => (@runtime.InputEncoding::UTF16LE, 2)
+        "utf16be" => (@runtime.InputEncoding::UTF16BE, 2)
+        _ => (@runtime.InputEncoding::UTF8, 1)
+      }
+      for i in 5..<args.length() {
+        let text = @fs.read_file(args[i]).binary()
+        println("== \{args[i]}")
+        let ranges : Array[@runtime.Range] = []
+        if args[4] != "-" {
+          for tok in args[4].split(",") {
+            let parts = tok.split("-").collect()
+            let size = text.length().reinterpret_as_uint()
+            let mut a = parse_uint(parts[0].to_string())
+            let mut b = parse_uint(parts[1].to_string())
+            if a > size {
+              a = size
+            }
+            if b > size {
+              b = size
+            }
+            ranges.push({
+              start_byte: a,
+              end_byte: b,
+              start_point: point_at_unit(text, a, unit),
+              end_point: point_at_unit(text, b, unit),
+            })
+          }
+        }
+        let b = (x : Bool) => if x { 1 } else { 0 }
+        println("set \{b(parser.set_included_ranges(ranges))}")
+        match parser.parse_string_encoding(None, text, encoding) {
+          None => println("(no tree)")
+          Some(tree) => {
+            let root = tree.root_node()
+            println(root.to_sexp())
+            println(
+              "root \{root.start_byte()}-\{root.end_byte()} (\{root.end_point().row},\{root.end_point().column})",
+            )
+            for r in tree.included_ranges() {
+              println("incl \{r.start_byte}-\{r.end_byte}")
+            }
+          }
+        }
+      }
+    }
     "walk" => {
       let language = load_language(args[2])
       let parser = new_parser(language)
@@ -216,4 +265,28 @@ fn parse_uint(s : String) -> UInt {
     n = n * 10 + (c.to_int() - '0'.to_int()).reinterpret_as_uint()
   }
   n
+}
+
+///|
+fn point_at_unit(text : Bytes, byte : UInt, unit : Int) -> @runtime.Point {
+  let mut row : UInt = 0
+  let mut column : UInt = 0
+  let mut i = 0
+  while i < byte.reinterpret_as_int() {
+    let nl = if unit == 1 {
+      text[i] == b'\n'
+    } else {
+      let a = text[i]
+      let c = if i + 1 < text.length() { text[i + 1] } else { b'\x00' }
+      (a == b'\n' && c == b'\x00') || (a == b'\x00' && c == b'\n')
+    }
+    if nl {
+      row += 1
+      column = 0
+    } else {
+      column += unit.reinterpret_as_uint()
+    }
+    i += unit
+  }
+  { row, column }
 }
