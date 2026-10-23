@@ -360,6 +360,11 @@ priv struct ParseItem {
   /// true, then the item's set of inherited fields may depend on the specific
   /// symbols of its preceding children.
   has_preceding_inherited_fields : Bool
+  /// `keys[step_index]`'s keys, copied here so that comparing items doesn't
+  /// have to look them up.
+  dot_cmp : Int32
+  /// See `dot_cmp`.
+  dot_eq_with_syms : Int32
   /// `Self::successor`, once built. Items are immutable, so each one builds
   /// its successor at most once.
   mut successor_cache : ParseItem?
@@ -381,6 +386,8 @@ fn ParseItem::new(
     keys,
     step_index,
     has_preceding_inherited_fields,
+    dot_cmp: keys[step_index].cmp,
+    dot_eq_with_syms: keys[step_index].eq_with_syms,
     successor_cache: None,
     inherited_cache: None,
   }
@@ -701,11 +708,6 @@ fn ParseItem::substitute_production(
   )
 }
 
-///|
-/// This item's identity keys at the current dot.
-fn ParseItem::dot_keys(self : ParseItem) -> DotKeys {
-  self.keys[self.step_index]
-}
 
 ///|
 fn ParseItemSet::insert(
@@ -967,13 +969,12 @@ impl Hash for ParseItem with fn hash_combine(self, hasher) {
   //   * the children are hidden and represent rules that have fields.
   // See the docs for `has_preceding_inherited_fields`.
   // Preceding symbols participate only in `eq_with_syms`.
-  let keys = self.dot_keys()
   if self.has_preceding_inherited_fields {
     hasher.combine_int(1)
-    hasher.combine_int(keys.eq_with_syms)
+    hasher.combine_int(self.dot_eq_with_syms)
   } else {
     hasher.combine_int(0)
-    hasher.combine_int(keys.cmp)
+    hasher.combine_int(self.dot_cmp)
   }
 }
 
@@ -987,11 +988,10 @@ impl Hash for ParseItem with fn hash(self) {
 /// Mixes what `hash_combine` combines into `acc`.
 fn ParseItem::hash_acc(self : ParseItem, acc : UInt32) -> UInt32 {
   let acc = hash_mix(hash_mix(acc, self.variable_index), self.step_index)
-  let keys = self.dot_keys()
   if self.has_preceding_inherited_fields {
-    hash_mix(hash_mix(acc, 1), keys.eq_with_syms)
+    hash_mix(hash_mix(acc, 1), self.dot_eq_with_syms)
   } else {
-    hash_mix(hash_mix(acc, 0), keys.cmp)
+    hash_mix(hash_mix(acc, 0), self.dot_cmp)
   }
 }
 
@@ -1003,9 +1003,9 @@ impl Eq for ParseItem with fn equal(self, other) {
     return false
   }
   if self.has_preceding_inherited_fields {
-    self.dot_keys().eq_with_syms == other.dot_keys().eq_with_syms
+    self.dot_eq_with_syms == other.dot_eq_with_syms
   } else {
-    self.dot_keys().cmp == other.dot_keys().cmp
+    self.dot_cmp == other.dot_cmp
   }
 }
 
@@ -1019,7 +1019,7 @@ impl Compare for ParseItem with fn compare(self, other) {
   if c != 0 {
     return c
   }
-  let c = self.dot_keys().cmp.compare(other.dot_keys().cmp)
+  let c = self.dot_cmp.compare(other.dot_cmp)
   if c != 0 {
     return c
   }
@@ -1030,7 +1030,7 @@ impl Compare for ParseItem with fn compare(self, other) {
     return c
   }
   if self.has_preceding_inherited_fields {
-    self.dot_keys().eq_with_syms.compare(other.dot_keys().eq_with_syms)
+    self.dot_eq_with_syms.compare(other.dot_eq_with_syms)
   } else {
     0
   }
