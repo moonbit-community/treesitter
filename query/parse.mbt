@@ -232,7 +232,14 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
     Punct('[') => {
       let alternatives = []
       while !self.punct(']') {
-        alternatives.push(self.pattern(depth + 1))
+        let alternative = self.child(depth + 1, None, false)
+        alternatives.push(
+          if alternative.min == 1 && alternative.max == Some(1) {
+            alternative.pattern
+          } else {
+            Group([alternative], false)
+          },
+        )
       }
       if alternatives.is_empty() {
         raise self.error("empty alternative")
@@ -411,7 +418,7 @@ fn Reader::pattern(self : Reader, depth : Int32) -> Pattern raise QueryError {
     if !self.captures.contains(name) {
       self.captures.push(name)
     }
-    pattern = capture_entries(pattern, name)
+    pattern = Capture(pattern, name)
   }
   pattern
 }
@@ -462,8 +469,18 @@ pub fn Query::new(
         }
       }
     }
+    let capture_quantifiers : Map[String, (Int32, Int32)] = Map([])
+    for name in reader.captures {
+      let (min, max) = capture_bounds(pattern, name)
+      capture_quantifiers[name] = (
+        min * root.min,
+        Int32::min(2, max * root.max.unwrap_or(2)),
+      )
+    }
+    let root = compile_child(root)
     patterns.push({
-      pattern,
+      pattern: root.pattern,
+      capture_quantifiers,
       min: root.min,
       max: root.max,
       predicates: reader.predicates,
@@ -552,7 +569,7 @@ fn Reader::child(
     if !self.captures.contains(name) {
       self.captures.push(name)
     }
-    pattern = capture_entries(pattern, name)
+    pattern = Capture(pattern, name)
   }
   { start_byte, pattern, field, anchor, min, max, }
 }

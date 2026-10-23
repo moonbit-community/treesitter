@@ -6,16 +6,21 @@ priv struct Completion {
   captures : Array[Capture]
   finish : @ts.Node
   delayed : Bool
+  branch_order : Array[Int32]
 }
 
 ///|
 fn Completion::at(node : @ts.Node) -> Completion {
-  { captures: [], finish: node, delayed: false, }
+  { captures: [], finish: node, delayed: false, branch_order: [], }
 }
 
 ///|
 fn Completion::then(self : Completion, next : Completion) -> Completion {
-  { ..next, captures: self.captures + next.captures, }
+  {
+    ..next,
+    captures: self.captures + next.captures,
+    branch_order: self.branch_order + next.branch_order,
+  }
 }
 
 ///|
@@ -138,33 +143,73 @@ fn match_pattern(
 ) -> Array[Completion] raise QueryError {
   budget.tick()
   match pattern {
-    Capture(inner, name) =>
-      match_pattern(inner, node, budget).map(completed => {
+    Capture(inner, name) => {
+      let immediate = []
+      let advanced = []
+      let boundaries : Map[Int32, Int32] = Map([])
+      let mut indexed = false
+      for completed in match_pattern(inner, node, budget) {
         let captures = completed.captures.copy()
         let index = captures
           .search_by(c => c.node.id() != node.id())
           .unwrap_or(captures.length())
         captures.insert(index, { name, node, })
-        { ..completed, captures, }
-      })
+        let mut completed = { ..completed, captures, }
+        if completed.delayed && node.child_count() == 0 {
+          completed = { ..completed, delayed: false, }
+        } else if completed.delayed {
+          // A captured parent keeps competing child paths alive. A repeated
+          // path finishes only when the next sibling rules out its loop-back;
+          // co-completing alternatives retain their source entry order.
+          if !indexed {
+            for index, child in node.children() {
+              budget.tick()
+              boundaries[child.id()] = index
+            }
+            indexed = true
+          }
+          let boundary = boundaries.get(completed.finish.id())
+          if boundary is Some(index) && node.child(index + 1) is Some(next) {
+            advanced.push({ ..completed, finish: next, delayed: false, })
+            continue
+          }
+        }
+        immediate.push(completed)
+      }
+      let result = immediate + advanced
+      if !advanced.is_empty() {
+        result.sort_by((a, b) => {
+          compare_branch_order(a.branch_order, b.branch_order)
+        })
+      }
+      result
+    }
     Either(alternatives) => {
       let result = []
-      for alternative in alternatives {
-        result.append(match_pattern(alternative, node, budget))
+      for index, alternative in alternatives {
+        result.append(
+          match_pattern(alternative, node, budget).map(m => {
+            ..m,
+            branch_order: [index] + m.branch_order,
+          }),
+        )
       }
       result
     }
     Group(children, trailing) =>
-      match_children(
-        children,
-        trailing,
-        node,
-        0,
-        0,
-        Completion::at(node),
+      maximal_group_captures(
+        match_children(
+          children,
+          trailing,
+          node,
+          0,
+          0,
+          Completion::at(node),
+          budget,
+          fresh_root=true,
+        ).map(m => m.0),
         budget,
-        fresh_root=true,
-      ).map(m => m.0)
+      )
     Node(p) => {
       if !budget.contains(node) {
         return []
@@ -205,6 +250,7 @@ fn match_at(
   parent : @ts.Node,
   index : Int32,
   budget : Budget,
+  retain_stops~ : Bool = false,
 ) -> Array[(Completion, Int32)] raise QueryError {
   match pattern {
     Group(children, trailing) =>
@@ -217,16 +263,24 @@ fn match_at(
         Completion::at(parent),
         budget,
         strict_start=true,
+        retain_terminal_stops=retain_stops,
       )
     Either(items) => {
       let results = []
-      for item in items {
-        results.append(match_at(item, parent, index, budget))
+      for alternative_index, item in items {
+        results.append(
+          match_at(item, parent, index, budget, retain_stops~).map(m => {
+            (
+              { ..m.0, branch_order: [alternative_index] + m.0.branch_order, },
+              m.1,
+            )
+          }),
+        )
       }
       results
     }
     Capture(inner, name) =>
-      match_at(inner, parent, index, budget).map(m => {
+      match_at(inner, parent, index, budget, retain_stops~).map(m => {
         let node = parent.child(index).unwrap()
         let captures = m.0.captures.copy()
         let position = captures
@@ -253,6 +307,7 @@ fn match_children(
   budget : Budget,
   strict_start~ : Bool = false,
   fresh_root~ : Bool = false,
+  retain_terminal_stops~ : Bool = false,
 ) -> Array[(Completion, Int32)] raise QueryError {
   budget.tick()
   if pi == children.length() {
@@ -279,7 +334,13 @@ fn match_children(
     let node = parent.child(i).unwrap()
     let matches = if spec.field is None ||
       spec.field == parent.field_name_for_child(i) {
-      match_at(spec.pattern, parent, i, budget)
+      match_at(
+        spec.pattern,
+        parent,
+        i,
+        budget,
+        retain_stops=retain_terminal_stops || pi + 1 < children.length(),
+      )
     } else {
       []
     }
@@ -299,6 +360,7 @@ fn match_children(
             after,
             completed.then(matched),
             budget,
+            retain_terminal_stops~,
           ),
         )
       } else {
@@ -335,11 +397,14 @@ fn match_children(
               delayed: true,
             },
             budget,
+            retain_terminal_stops~,
           )
           if !found.is_empty() {
             result.append(found)
             skip_until = Int32::max(skip_until, next)
-            break
+            if pi + 1 == children.length() && !retain_terminal_stops {
+              break
+            }
           }
         }
       }
@@ -375,6 +440,7 @@ fn match_children(
       budget,
       strict_start~,
       fresh_root~,
+      retain_terminal_stops~,
     )
     // Once a nonempty path reaches an anchored successor, upstream merges
     // its zero-skip state into that path. Do not revive the discarded state

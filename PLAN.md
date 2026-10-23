@@ -1116,3 +1116,24 @@ native, JS and Wasm GC. A new 196-case differential probe improves from 87 to 27
 differences (60 fixes, no regressions); existing 1,224 unbounded query comparisons
 remain exact, while the 15 known ranged cases remain unchanged. Quantified
 alternative syntax and some nested/group completion behaviors remain open.
+
+### Quantified alternative branches and source capture metadata
+
+Query alternatives now accept `?`, `*` and `+` on individual branches. Execution
+lowering preserves upstream's overwritten nonfinal empty paths and surviving
+final empty path. Source capture bounds are recorded before captures are lowered
+to concrete entry steps, preserving upstream metadata even when execution can
+produce more captures. Captured-parent completion retains alternative source
+order, and repeated child paths retain shorter stops needed by following siblings.
+Sibling groups discard redundant captures only at the same completion event.
+
+All 61 query tests and 348 native / 339 JS / 339 Wasm GC tests pass, along with CLI
+checks and the full six-grammar public matrix. The 378-case quantified-alternative
+probe matches upstream exactly. The group-capture probe improves to 21 remaining
+differences; the ranged-root probe retains its 15 differences. A further 225-case
+probe has 22 differences involving uncaptured alternatives and nested outer
+repetition, plus 10 upstream C cursor timeouts on repeated nullable alternatives.
+The port remains bounded on these inputs. The public C include/comment fixture
+now supports quantified branches in both orders; its nested optional outer-repeat
+variant still differs and is the next query target. Full query compatibility,
+review and publication remain open.

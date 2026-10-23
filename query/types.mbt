@@ -53,6 +53,7 @@ priv struct Predicate {
 
 ///|
 priv struct QueryPattern {
+  capture_quantifiers : Map[String, (Int32, Int32)]
   start_byte : Int32
   end_byte : Int32
   pattern : Pattern

@@ -68,9 +68,9 @@ pub fn Query::capture_quantifier(
 ) -> Quantifier? {
   guard self.patterns.get(pattern_index) is Some(pattern) else { return None }
   guard self.capture_names.get(capture_index) is Some(name) else { return None }
-  let (min, max) = capture_bounds(pattern.pattern, name)
+  let (min, max) = pattern.capture_quantifiers.get(name).unwrap_or((0, 0))
   Some(
-    match (min * pattern.min, Int32::min(2, max * pattern.max.unwrap_or(2))) {
+    match (min, max) {
       (_, 0) => Zero
       (0, 1) => ZeroOrOne
       (0, _) => ZeroOrMore
