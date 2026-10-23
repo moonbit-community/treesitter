@@ -84,6 +84,8 @@ const BASH_NEWLINE : Int32 = 25
 const BASH_OPENING_PAREN : Int32 = 26
 
 ///|
+/// Unused by the scanner; kept to mirror `enum TokenType`.
+#warnings("-unused_value")
 const BASH_ESAC : Int32 = 27
 
 ///|

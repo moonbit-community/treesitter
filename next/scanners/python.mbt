@@ -24,6 +24,8 @@ const PY_ESCAPE_INTERPOLATION : Int32 = 5
 const PY_STRING_END : Int32 = 6
 
 ///|
+/// Unused by the scanner; kept to mirror `enum TokenType`.
+#warnings("-unused_value")
 const PY_COMMENT : Int32 = 7
 
 ///|
