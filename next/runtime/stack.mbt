@@ -709,7 +709,9 @@ pub fn Stack::renumber_version(self : Stack, v1 : Int32, v2 : Int32) -> Unit {
     target_head.summary = None
   }
   stack_head_delete(target_head)
-  self.heads[v2] = source_head.copy()
+  // `*target_head = *source_head` followed by erasing `v1`: the source head
+  // record is moved rather than copied, since nothing else refers to it.
+  self.heads[v2] = source_head
   ignore(self.heads.remove(v1))
 }
 
