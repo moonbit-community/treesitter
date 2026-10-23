@@ -73,7 +73,11 @@ let ported_scanners : Array[String] = ["bash", "ruby", "python", "cpp", "jsdoc"]
 /// cannot be used for parsing yet because its external scanner is pending.
 async fn get_parsing_language(name : String) -> @api.Language? {
   guard get_language(name) is Some(language) else { return None }
-  if language.raw().external_token_count > 0 && !ported_scanners.contains(name) {
+  // (The fixture name of a grammar in a subdirectory, like `php_php`, differs
+  // from its grammar name.)
+  if language.raw().external_token_count > 0 &&
+    !ported_scanners.contains(name) &&
+    !ported_scanners.contains(language.raw().name) {
     if !missing_languages.contains(name) {
       missing_languages[name] = true
       println(
