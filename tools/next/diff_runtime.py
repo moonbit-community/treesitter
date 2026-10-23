@@ -46,8 +46,8 @@ def corpus_inputs(name):
     return inputs
 
 
-def build_ref(name):
-    exe = BIN / name
+def build_ref(name, main='reference_parse.c', suffix=''):
+    exe = BIN / (name + suffix)
     src = REF / name / 'src'
     if exe.exists() and exe.stat().st_mtime > (src / 'parser.c').stat().st_mtime:
         return exe
@@ -59,7 +59,7 @@ def build_ref(name):
             sources.append(str(src / scanner))
     cmd = ['cc', '-O1', '-w', '-I', str(UPSTREAM / 'lib/include'), '-I', str(UPSTREAM / 'lib/src'), '-I', str(src),
            f'-DLANGUAGE=tree_sitter_{language}', str(UPSTREAM / 'lib/src/lib.c'), *sources,
-           str(ROOT / 'tools/next/reference_parse.c'), '-o', str(exe)]
+           str(ROOT / 'tools/next' / main), '-o', str(exe)]
     subprocess.run(cmd, check=True)
     return exe
 
@@ -88,6 +88,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--mutate', type=int, default=0)
     ap.add_argument('--show', type=int, default=3)
+    ap.add_argument('--edits', type=int, default=0, help='random edits per input (incremental mode)')
     ap.add_argument('names', nargs='*')
     args = ap.parse_args()
     names = args.names or sorted(p.stem for p in LANG.glob('*.json'))
@@ -108,9 +109,24 @@ def main():
             p = work / f'{i}.txt'
             p.write_bytes(data)
             paths.append(str(p))
-        ref = build_ref(name)
-        expected, _ = run([str(ref), *paths])
-        actual, code = run([str(PROBE), 'parse', str(LANG / f'{name}.json'), *paths])
+        if args.edits:
+            ref = build_ref(name, 'reference_edit.c', '.edit')
+            eargs = []
+            for i, data in enumerate(inputs):
+                for k in range(args.edits):
+                    start = rng.randrange(len(data) + 1)
+                    old_end = min(len(data), start + rng.choice([0, 0, 1, 2, 5]))
+                    insert = bytes(rng.choice(b'(){}[];,.=+-*/"\'\n x1abc') for _ in range(rng.choice([0, 1, 1, 3])))
+                    new = data[:start] + insert + data[old_end:]
+                    q = work / f'{i}.{k}.new'
+                    q.write_bytes(new)
+                    eargs += [paths[i], str(q), str(start), str(old_end), str(start + len(insert))]
+            expected, _ = run([str(ref), *eargs])
+            actual, code = run([str(PROBE), 'edit', str(LANG / f'{name}.json'), *eargs])
+        else:
+            ref = build_ref(name)
+            expected, _ = run([str(ref), *paths])
+            actual, code = run([str(PROBE), 'parse', str(LANG / f'{name}.json'), *paths])
         exp = expected.split('== ')[1:]
         act = actual.split('== ')[1:]
         n_same = sum(1 for a, b in zip(exp, act) if a == b)

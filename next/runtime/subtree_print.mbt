@@ -143,7 +143,7 @@ pub fn Subtree::to_sexp(
       if !child.extra() {
         let subtree_alias_symbol = match frame.alias_sequence {
           Some(offset) =>
-            language.alias_sequences[offset + frame.structural_child_index]
+            language.alias_sequence_value(offset + frame.structural_child_index)
           None => 0
         }
         let subtree_alias_is_named = if subtree_alias_symbol != 0 {
@@ -274,7 +274,9 @@ pub fn Subtree::print_dot_graph(
     let child = subtree.children()[i]
     let mut subtree_alias_symbol = 0
     if !child.extra() && frame.child_info_offset != 0 {
-      subtree_alias_symbol = language.alias_sequences[frame.child_info_offset]
+      subtree_alias_symbol = language.alias_sequence_value(
+        frame.child_info_offset,
+      )
       frame.child_info_offset += 1
     }
     let child_id = "\{frame.id}_\{i}"

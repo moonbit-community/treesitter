@@ -784,11 +784,11 @@ pub fn Subtree::summarize_children(
     if !child.extra() &&
       child.symbol() != 0 &&
       alias_sequence is Some(offset) &&
-      language.alias_sequences[offset + structural_index] != 0 {
+      language.alias_sequence_value(offset + structural_index) != 0 {
       s.visible_descendant_count += 1
       s.visible_child_count += 1
       if language.symbol_metadata_of(
-          language.alias_sequences[offset + structural_index],
+          language.alias_sequence_value(offset + structural_index),
         ).named {
         s.named_child_count += 1
       }
@@ -991,14 +991,13 @@ priv struct Edit {
   new_end : Length
 }
 
-
 ///|
 /// `ts_subtree_edit`.
 pub fn Subtree::edit(self : Subtree, input_edit : InputEdit) -> Subtree {
   let root = [self]
   let stack : Array[(SubtreeSlot, Edit)] = [
     (
-      { array: root, index: 0, owner: 0 },
+      { array: root, index: 0, owner: 0, },
       {
         start: { bytes: input_edit.start_byte, extent: input_edit.start_point, },
         old_end: {
@@ -1137,7 +1136,7 @@ pub fn Subtree::edit(self : Subtree, input_edit : InputEdit) -> Subtree {
         }
       }
       // Queue processing of this child's subtree.
-      stack.push(({ array: children, index: i, owner: 0 }, child_edit))
+      stack.push(({ array: children, index: i, owner: 0, }, child_edit))
     }
   }
   root[0]

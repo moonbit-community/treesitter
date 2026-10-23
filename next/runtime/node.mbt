@@ -1,16 +1,16 @@
 // Port of tree-sitter lib/src/node.c.
 
 ///|
-let ts_node_max_recursive_search_depth : Int = 64
+let ts_node_max_recursive_search_depth : Int32 = 64
 
 ///|
 /// `TSNode`: `context` holds the start byte, start point and alias; `id` is
 /// the subtree slot (`None` for the null node).
 pub struct Node {
-  priv start_byte : UInt
-  priv start_row : UInt
-  priv start_column : UInt
-  priv alias : Int
+  priv start_byte : UInt32
+  priv start_row : UInt32
+  priv start_column : UInt32
+  priv alias : Int32
   priv id : SubtreeSlot?
   priv tree : Tree?
 }
@@ -20,9 +20,9 @@ priv struct NodeChildIterator {
   parent : Subtree
   tree : Tree?
   mut position : Length
-  mut child_index : Int
-  mut structural_child_index : Int
-  alias_sequence : Int?
+  mut child_index : Int32
+  mut structural_child_index : Int32
+  alias_sequence : Int32?
 }
 
 ///|
@@ -31,7 +31,7 @@ pub fn Node::new(
   tree : Tree?,
   subtree : SubtreeSlot?,
   position : Length,
-  alias : Int,
+  alias : Int32,
 ) -> Node {
   {
     start_byte: position.bytes,
@@ -49,17 +49,17 @@ fn node_null() -> Node {
 }
 
 ///|
-pub fn Node::start_byte(self : Node) -> UInt {
+pub fn Node::start_byte(self : Node) -> UInt32 {
   self.start_byte
 }
 
 ///|
 pub fn Node::start_point(self : Node) -> Point {
-  { row: self.start_row, column: self.start_column }
+  { row: self.start_row, column: self.start_column, }
 }
 
 ///|
-pub fn Node::alias(self : Node) -> Int {
+pub fn Node::alias(self : Node) -> Int32 {
   self.alias
 }
 
@@ -99,8 +99,7 @@ pub fn Node::node_id(self : Node) -> UInt64 {
   match self.id {
     None => 0
     Some(slot) =>
-      (slot.owner.to_uint64() << 24) |
-      ((slot.index & 0xFFFFFF).to_uint64() + 1)
+      (slot.owner.to_uint64() << 24) | ((slot.index & 0xFFFFFF).to_uint64() + 1)
   }
 }
 
@@ -120,7 +119,7 @@ fn Node::iterate_children(self : Node) -> NodeChildIterator {
   {
     tree: self.tree,
     parent: subtree,
-    position: { bytes: self.start_byte(), extent: self.start_point() },
+    position: { bytes: self.start_byte(), extent: self.start_point(), },
     child_index: 0,
     structural_child_index: 0,
     alias_sequence: self.lang().alias_sequence(subtree.ptr().production_id),
@@ -129,7 +128,7 @@ fn Node::iterate_children(self : Node) -> NodeChildIterator {
 
 ///|
 fn NodeChildIterator::copy(self : NodeChildIterator) -> NodeChildIterator {
-  { ..self }
+  { ..self, }
 }
 
 ///|
@@ -147,8 +146,9 @@ fn NodeChildIterator::next(self : NodeChildIterator) -> Node? {
   let mut alias_symbol = 0
   if !child.extra() {
     if self.alias_sequence is Some(offset) {
-      alias_symbol = self.tree.unwrap().language.alias_sequences[offset +
-        self.structural_child_index]
+      alias_symbol = self.tree.unwrap().language.alias_sequence_value(
+        offset + self.structural_child_index,
+      )
     }
     self.structural_child_index += 1
   }
@@ -177,7 +177,7 @@ fn Node::is_relevant(self : Node, include_anonymous : Bool) -> Bool {
 }
 
 ///|
-fn Node::relevant_child_count(self : Node, include_anonymous : Bool) -> UInt {
+fn Node::relevant_child_count(self : Node, include_anonymous : Bool) -> UInt32 {
   let tree = self.subtree()
   if tree.child_count() > 0 {
     if include_anonymous {
@@ -193,7 +193,7 @@ fn Node::relevant_child_count(self : Node, include_anonymous : Bool) -> UInt {
 ///|
 fn Node::child_impl(
   self : Node,
-  child_index : UInt,
+  child_index : UInt32,
   include_anonymous : Bool,
 ) -> Node {
   let mut result = self
@@ -201,7 +201,7 @@ fn Node::child_impl(
   let mut did_descend = true
   while did_descend {
     did_descend = false
-    let mut index : UInt = 0
+    let mut index : UInt32 = 0
     let iterator = result.iterate_children()
     while iterator.next() is Some(child) {
       if child.is_relevant(include_anonymous) {
@@ -260,7 +260,7 @@ fn subtree_has_trailing_empty_descendant_iterative(
 fn subtree_has_trailing_empty_descendant_bounded(
   tree : Subtree,
   other : SubtreeSlot,
-  depth : Int,
+  depth : Int32,
   too_deep : Ref[Bool],
 ) -> Bool {
   for i = tree.child_count(); i > 0; i = i - 1 {
@@ -302,10 +302,7 @@ fn subtree_has_trailing_empty_descendant(
 ) -> Bool {
   let too_deep = Ref(false)
   let found = subtree_has_trailing_empty_descendant_bounded(
-    tree,
-    other,
-    ts_node_max_recursive_search_depth,
-    too_deep,
+    tree, other, ts_node_max_recursive_search_depth, too_deep,
   )
   if too_deep.val {
     subtree_has_trailing_empty_descendant_iterative(tree, other)
@@ -338,8 +335,13 @@ fn Node::prev_sibling_impl(self : Node, include_anonymous : Bool) -> Node {
         break
       }
       if iterator.position.bytes == target_end_byte &&
-        (!self_is_empty ||
-        subtree_has_trailing_empty_descendant(child.subtree(), self.id.unwrap())) {
+        (
+          !self_is_empty ||
+          subtree_has_trailing_empty_descendant(
+            child.subtree(),
+            self.id.unwrap(),
+          )
+        ) {
         found_child_containing_target = true
         break
       }
@@ -431,7 +433,7 @@ fn Node::next_sibling_impl(self : Node, include_anonymous : Bool) -> Node {
 ///|
 fn Node::first_child_for_byte_impl(
   self : Node,
-  goal : UInt,
+  goal : UInt32,
   include_anonymous : Bool,
 ) -> Node {
   let mut node = self
@@ -470,8 +472,8 @@ fn Node::first_child_for_byte_impl(
 ///|
 fn Node::descendant_for_byte_range_impl(
   self : Node,
-  range_start : UInt,
-  range_end : UInt,
+  range_start : UInt32,
+  range_end : UInt32,
   include_anonymous : Bool,
 ) -> Node {
   if range_start > range_end {
@@ -570,7 +572,7 @@ fn Node::descendant_for_point_range_impl(
 // TSNode - public
 
 ///|
-pub fn Node::end_byte(self : Node) -> UInt {
+pub fn Node::end_byte(self : Node) -> UInt32 {
   self.start_byte() + self.subtree().size().bytes
 }
 
@@ -581,7 +583,7 @@ pub fn Node::end_point(self : Node) -> Point {
 
 ///|
 /// `ts_node_symbol`.
-pub fn Node::symbol(self : Node) -> Int {
+pub fn Node::symbol(self : Node) -> Int32 {
   let mut symbol = self.alias
   if symbol == 0 {
     symbol = self.subtree().symbol()
@@ -607,7 +609,7 @@ pub fn Node::language(self : Node) -> @language.Language {
 
 ///|
 /// `ts_node_grammar_symbol`.
-pub fn Node::grammar_symbol(self : Node) -> Int {
+pub fn Node::grammar_symbol(self : Node) -> Int32 {
   self.subtree().symbol()
 }
 
@@ -633,7 +635,7 @@ pub fn Node::to_sexp(self : Node) -> String {
 
 ///|
 /// `ts_node_eq`.
-pub impl Eq for Node with equal(self, other) {
+pub impl Eq for Node with fn equal(self, other) {
   let same_tree = match (self.tree, other.tree) {
     (None, None) => true
     (Some(a), Some(b)) => physical_equal(a, b)
@@ -684,17 +686,17 @@ pub fn Node::is_error(self : Node) -> Bool {
 }
 
 ///|
-pub fn Node::descendant_count(self : Node) -> UInt {
+pub fn Node::descendant_count(self : Node) -> UInt32 {
   self.subtree().visible_descendant_count() + 1
 }
 
 ///|
-pub fn Node::parse_state(self : Node) -> Int {
+pub fn Node::parse_state(self : Node) -> Int32 {
   self.subtree().parse_state()
 }
 
 ///|
-pub fn Node::next_parse_state(self : Node) -> Int {
+pub fn Node::next_parse_state(self : Node) -> Int32 {
   let language = self.lang()
   let state = self.parse_state()
   if state == ts_tree_state_none {
@@ -768,7 +770,7 @@ fn Node::child_with_empty_descendant_iterative(
         break
       }
       if iterator.position.bytes >= target_byte && child.child_count() > 0 {
-        stack.push({ child, iterator: iterator.copy() })
+        stack.push({ child, iterator: iterator.copy(), })
         iterator = child.iterate_children()
         descended = true
         break
@@ -816,7 +818,7 @@ fn Node::child_with_empty_descendant_iterative(
 fn Node::child_with_empty_descendant_bounded(
   self : Node,
   descendant : Node,
-  depth : Int,
+  depth : Int32,
   too_deep : Ref[Bool],
 ) -> Node {
   let target_byte = descendant.start_byte()
@@ -867,9 +869,7 @@ pub fn Node::child_with_descendant(self : Node, descendant : Node) -> Node {
   if start_byte == end_byte {
     let too_deep = Ref(false)
     let child = self.child_with_empty_descendant_bounded(
-      descendant,
-      ts_node_max_recursive_search_depth,
-      too_deep,
+      descendant, ts_node_max_recursive_search_depth, too_deep,
     )
     return if too_deep.val {
       self.child_with_empty_descendant_iterative(descendant)
@@ -901,13 +901,13 @@ pub fn Node::child_with_descendant(self : Node, descendant : Node) -> Node {
 
 ///|
 /// `ts_node_child`.
-pub fn Node::child(self : Node, child_index : UInt) -> Node {
+pub fn Node::child(self : Node, child_index : UInt32) -> Node {
   self.child_impl(child_index, true)
 }
 
 ///|
 /// `ts_node_named_child`.
-pub fn Node::named_child(self : Node, child_index : UInt) -> Node {
+pub fn Node::named_child(self : Node, child_index : UInt32) -> Node {
   self.child_impl(child_index, false)
 }
 
@@ -918,7 +918,7 @@ pub fn Node::named_child(self : Node, child_index : UInt) -> Node {
 /// backtracking needs a cursor; otherwise `Some(result)` (possibly null).
 fn Node::first_child_with_inherited_field(
   self : Node,
-  field_id : Int,
+  field_id : Int32,
 ) -> Node? {
   let language = self.lang()
   let mut node = self
@@ -982,8 +982,8 @@ fn Node::first_child_with_inherited_field(
 priv struct FieldSearchFrame {
   node : Node
   iterator : NodeChildIterator
-  field_map : Int
-  field_map_end : Int
+  field_map : Int32
+  field_map_end : Int32
 }
 
 ///|
@@ -995,7 +995,7 @@ priv enum FieldSearchStep {
 
 ///|
 /// `ts_node_child_by_field_id`.
-pub fn Node::child_by_field_id(self : Node, field_id : Int) -> Node {
+pub fn Node::child_by_field_id(self : Node, field_id : Int32) -> Node {
   if field_id == 0 {
     return node_null()
   }
@@ -1014,7 +1014,9 @@ pub fn Node::child_by_field_id(self : Node, field_id : Int) -> Node {
           step = NotFound
           continue
         }
-        let (start, end) = language.field_map(node.subtree().ptr().production_id)
+        let (start, end) = language.field_map(
+          node.subtree().ptr().production_id,
+        )
         field_map = start
         field_map_end = end
         if field_map == field_map_end {
@@ -1159,7 +1161,7 @@ pub fn Node::child_by_field_id(self : Node, field_id : Int) -> Node {
 ///|
 fn Node::field_name_from_language(
   self : Node,
-  structural_child_index : Int,
+  structural_child_index : Int32,
 ) -> String? {
   let language = self.lang()
   let (field_map, field_map_end) = language.field_map(
@@ -1177,7 +1179,7 @@ fn Node::field_name_from_language(
 ///|
 fn Node::field_name_for_child_impl(
   self : Node,
-  child_index : UInt,
+  child_index : UInt32,
   include_anonymous : Bool,
 ) -> String? {
   let mut result = self
@@ -1186,7 +1188,7 @@ fn Node::field_name_for_child_impl(
   let mut inherited_field_name : String? = None
   while did_descend {
     did_descend = false
-    let mut index : UInt = 0
+    let mut index : UInt32 = 0
     let iterator = result.iterate_children()
     while iterator.next() is Some(child) {
       if child.is_relevant(include_anonymous) {
@@ -1233,7 +1235,7 @@ fn Node::field_name_for_child_impl(
 
 ///|
 /// `ts_node_field_name_for_child`.
-pub fn Node::field_name_for_child(self : Node, child_index : UInt) -> String? {
+pub fn Node::field_name_for_child(self : Node, child_index : UInt32) -> String? {
   self.field_name_for_child_impl(child_index, true)
 }
 
@@ -1241,7 +1243,7 @@ pub fn Node::field_name_for_child(self : Node, child_index : UInt) -> String? {
 /// `ts_node_field_name_for_named_child`.
 pub fn Node::field_name_for_named_child(
   self : Node,
-  named_child_index : UInt,
+  named_child_index : UInt32,
 ) -> String? {
   self.field_name_for_child_impl(named_child_index, false)
 }
@@ -1254,7 +1256,7 @@ pub fn Node::child_by_field_name(self : Node, name : StringView) -> Node {
 }
 
 ///|
-pub fn Node::child_count(self : Node) -> UInt {
+pub fn Node::child_count(self : Node) -> UInt32 {
   let tree = self.subtree()
   if tree.child_count() > 0 {
     tree.ptr().visible_child_count
@@ -1264,7 +1266,7 @@ pub fn Node::child_count(self : Node) -> UInt {
 }
 
 ///|
-pub fn Node::named_child_count(self : Node) -> UInt {
+pub fn Node::named_child_count(self : Node) -> UInt32 {
   let tree = self.subtree()
   if tree.child_count() > 0 {
     tree.ptr().named_child_count
@@ -1294,20 +1296,20 @@ pub fn Node::prev_named_sibling(self : Node) -> Node {
 }
 
 ///|
-pub fn Node::first_child_for_byte(self : Node, byte : UInt) -> Node {
+pub fn Node::first_child_for_byte(self : Node, byte : UInt32) -> Node {
   self.first_child_for_byte_impl(byte, true)
 }
 
 ///|
-pub fn Node::first_named_child_for_byte(self : Node, byte : UInt) -> Node {
+pub fn Node::first_named_child_for_byte(self : Node, byte : UInt32) -> Node {
   self.first_child_for_byte_impl(byte, false)
 }
 
 ///|
 pub fn Node::descendant_for_byte_range(
   self : Node,
-  start : UInt,
-  end : UInt,
+  start : UInt32,
+  end : UInt32,
 ) -> Node {
   self.descendant_for_byte_range_impl(start, end, true)
 }
@@ -1315,8 +1317,8 @@ pub fn Node::descendant_for_byte_range(
 ///|
 pub fn Node::named_descendant_for_byte_range(
   self : Node,
-  start : UInt,
-  end : UInt,
+  start : UInt32,
+  end : UInt32,
 ) -> Node {
   self.descendant_for_byte_range_impl(start, end, false)
 }

@@ -6,10 +6,10 @@
 /// compared by array identity and index.
 pub(all) struct SubtreeSlot {
   array : Array[Subtree]
-  index : Int
+  index : Int32
   /// The address of the slot's owner (parent subtree or tree), used to form
   /// node ids.
-  owner : Int
+  owner : Int32
 }
 
 ///|
@@ -24,9 +24,9 @@ pub fn SubtreeSlot::same(self : SubtreeSlot, other : SubtreeSlot) -> Bool {
 
 ///|
 /// The slot of a parent's `index`th child.
-pub fn Subtree::child_slot(self : Subtree, index : Int) -> SubtreeSlot {
+pub fn Subtree::child_slot(self : Subtree, index : Int32) -> SubtreeSlot {
   let data = self.ptr()
-  { array: data.children, index, owner: data.address }
+  { array: data.children, index, owner: data.address, }
 }
 
 ///|
@@ -35,7 +35,7 @@ pub struct Tree {
   priv root_slot : Array[Subtree]
   language : @language.Language
   priv included_ranges : Array[Range]
-  priv address : Int
+  priv address : Int32
 }
 
 ///|
@@ -60,7 +60,7 @@ pub fn Tree::root(self : Tree) -> Subtree {
 
 ///|
 fn Tree::root_ref(self : Tree) -> SubtreeSlot {
-  { array: self.root_slot, index: 0, owner: self.address }
+  { array: self.root_slot, index: 0, owner: self.address, }
 }
 
 ///|
@@ -86,10 +86,10 @@ pub fn Tree::root_node(self : Tree) -> Node {
 /// `ts_tree_root_node_with_offset`.
 pub fn Tree::root_node_with_offset(
   self : Tree,
-  offset_bytes : UInt,
+  offset_bytes : UInt32,
   offset_extent : Point,
 ) -> Node {
-  let offset : Length = { bytes: offset_bytes, extent: offset_extent }
+  let offset : Length = { bytes: offset_bytes, extent: offset_extent, }
   Node::new(
     Some(self),
     Some(self.root_ref()),
@@ -134,9 +134,9 @@ pub fn Tree::print_dot_graph(self : Tree, f : StringBuilder) -> Unit {
 /// `ts_point_edit`.
 pub fn point_edit(
   point : Point,
-  byte : UInt,
+  byte : UInt32,
   edit : InputEdit,
-) -> (Point, UInt) {
+) -> (Point, UInt32) {
   let mut start_byte = byte
   let mut start_point = point
   if start_byte >= edit.old_end_byte {

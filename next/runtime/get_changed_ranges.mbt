@@ -5,7 +5,7 @@
 priv struct ChangeIterator {
   stack : Array[TreeCursorEntry]
   language : @language.Language
-  mut visible_depth : Int
+  mut visible_depth : Int32
   mut in_padding : Bool
   mut prev_external_token : Subtree
 }
@@ -72,9 +72,9 @@ fn ChangeIterator::tree_is_visible(self : ChangeIterator) -> Bool {
   if self.stack.length() > 1 {
     let parent = self.stack[self.stack.length() - 2].subtree.get()
     return self.language.alias_at(
-      parent.ptr().production_id,
-      entry.structural_child_index,
-    ) !=
+        parent.ptr().production_id,
+        entry.structural_child_index,
+      ) !=
       0
   }
   false
@@ -84,10 +84,10 @@ fn ChangeIterator::tree_is_visible(self : ChangeIterator) -> Bool {
 /// `iterator_get_visible_state`: `(tree, alias_symbol, start_byte)`.
 fn ChangeIterator::get_visible_state(
   self : ChangeIterator,
-) -> (Subtree, Int, UInt) {
+) -> (Subtree, Int32, UInt32) {
   let mut tree = Subtree::Null
   let mut alias_symbol = 0
-  let mut start_byte : UInt = 0
+  let mut start_byte : UInt32 = 0
   let mut i = self.stack.length() - 1
   if self.in_padding {
     if i == 0 {
@@ -129,7 +129,10 @@ fn ChangeIterator::ascend(self : ChangeIterator) -> Unit {
 }
 
 ///|
-fn ChangeIterator::descend(self : ChangeIterator, goal_position : UInt) -> Bool {
+fn ChangeIterator::descend(
+  self : ChangeIterator,
+  goal_position : UInt32,
+) -> Bool {
   if self.in_padding {
     return false
   }
@@ -273,10 +276,12 @@ fn iterator_compare(
     old_error_cost != new_error_cost ||
     old_has_external_tokens != new_has_external_tokens ||
     old_tree.has_changes() ||
-    (old_has_external_tokens &&
-    !old_iter.prev_external_token.external_scanner_state_eq(
-      new_iter.prev_external_token,
-    )) {
+    (
+      old_has_external_tokens &&
+      !old_iter.prev_external_token.external_scanner_state_eq(
+        new_iter.prev_external_token,
+      )
+    ) {
     return MayDiffer
   }
   Matches

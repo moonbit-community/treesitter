@@ -4,16 +4,16 @@
 pub(all) struct TreeCursorEntry {
   subtree : SubtreeSlot
   position : Length
-  child_index : Int
-  structural_child_index : Int
-  descendant_index : UInt
+  child_index : Int32
+  structural_child_index : Int32
+  descendant_index : UInt32
 }
 
 ///|
 pub struct TreeCursor {
   priv mut tree : Tree?
   priv mut stack : Array[TreeCursorEntry]
-  priv mut root_alias_symbol : Int
+  priv mut root_alias_symbol : Int32
 }
 
 ///|
@@ -28,10 +28,10 @@ priv struct CursorChildIterator {
   parent : Subtree
   tree : Tree?
   mut position : Length
-  mut child_index : Int
-  mut structural_child_index : Int
-  mut descendant_index : UInt
-  alias_sequence : Int?
+  mut child_index : Int32
+  mut structural_child_index : Int32
+  mut descendant_index : UInt32
+  alias_sequence : Int32?
 }
 
 ///|
@@ -40,7 +40,7 @@ fn TreeCursor::language(self : TreeCursor) -> @language.Language {
 }
 
 ///|
-fn TreeCursor::is_entry_visible(self : TreeCursor, index : Int) -> Bool {
+fn TreeCursor::is_entry_visible(self : TreeCursor, index : Int32) -> Bool {
   let entry = self.stack[index]
   let subtree = entry.subtree.get()
   if index == 0 || subtree.visible() {
@@ -74,7 +74,9 @@ fn TreeCursor::iterate_children(self : TreeCursor) -> CursorChildIterator {
       alias_sequence: None,
     }
   }
-  let alias_sequence = self.language().alias_sequence(subtree.ptr().production_id)
+  let alias_sequence = self
+    .language()
+    .alias_sequence(subtree.ptr().production_id)
   let mut descendant_index = last_entry.descendant_index
   if self.is_entry_visible(self.stack.length() - 1) {
     descendant_index += 1
@@ -112,7 +114,8 @@ fn CursorChildIterator::next(
   if !extra {
     if self.alias_sequence is Some(offset) {
       let language = self.tree.unwrap().language
-      if language.alias_sequences[offset + self.structural_child_index] != 0 {
+      if language.alias_sequence_value(offset + self.structural_child_index) !=
+        0 {
         visible = true
       }
     }
@@ -142,7 +145,7 @@ fn length_backtrack(a : Length, b : Length) -> Length {
   }
   {
     bytes: a.bytes - b.bytes,
-    extent: { row: a.extent.row, column: a.extent.column - b.extent.column },
+    extent: { row: a.extent.row, column: a.extent.column - b.extent.column, },
   }
 }
 
@@ -172,7 +175,7 @@ fn CursorChildIterator::previous(
   self.child_index -= 1
   if !extra && self.alias_sequence is Some(offset) {
     let language = self.tree.unwrap().language
-    if language.alias_sequences[offset + self.structural_child_index] != 0 {
+    if language.alias_sequence_value(offset + self.structural_child_index) != 0 {
       visible = true
     }
     if self.structural_child_index > 0 {
@@ -191,7 +194,7 @@ fn CursorChildIterator::previous(
 ///|
 /// `ts_tree_cursor_new`.
 pub fn TreeCursor::new(node : Node) -> TreeCursor {
-  let cursor = { tree: None, stack: [], root_alias_symbol: 0 }
+  let cursor = { tree: None, stack: [], root_alias_symbol: 0, }
   cursor.init(node)
   cursor
 }
@@ -210,7 +213,7 @@ fn TreeCursor::init(self : TreeCursor, node : Node) -> Unit {
   self.stack = [
     {
       subtree: node.id.unwrap(),
-      position: { bytes: node.start_byte(), extent: node.start_point() },
+      position: { bytes: node.start_byte(), extent: node.start_point(), },
       child_index: 0,
       structural_child_index: 0,
       descendant_index: 0,
@@ -289,11 +292,11 @@ pub fn TreeCursor::goto_last_child(self : TreeCursor) -> Bool {
 ///|
 fn TreeCursor::goto_first_child_for_byte_and_point(
   self : TreeCursor,
-  goal_byte : UInt,
+  goal_byte : UInt32,
   goal_point : Point,
 ) -> Int64 {
   let initial_size = self.stack.length()
-  let mut visible_child_index : UInt = 0
+  let mut visible_child_index : UInt32 = 0
   let mut did_descend = true
   while did_descend {
     did_descend = false
@@ -329,7 +332,7 @@ fn TreeCursor::goto_first_child_for_byte_and_point(
 /// `ts_tree_cursor_goto_first_child_for_byte`.
 pub fn TreeCursor::goto_first_child_for_byte(
   self : TreeCursor,
-  goal_byte : UInt,
+  goal_byte : UInt32,
 ) -> Int64 {
   self.goto_first_child_for_byte_and_point(goal_byte, point_zero)
 }
@@ -356,10 +359,12 @@ fn TreeCursor::goto_sibling_internal(
     iterator.structural_child_index = entry.structural_child_index
     iterator.position = entry.position
     iterator.descendant_index = entry.descendant_index
-    let advance = () => if forward {
-      iterator.next()
-    } else {
-      iterator.previous()
+    let advance = () => {
+      if forward {
+        iterator.next()
+      } else {
+        iterator.previous()
+      }
     }
     let mut visible = false
     if advance() is Some((_, v)) {
@@ -465,7 +470,7 @@ pub fn TreeCursor::goto_parent(self : TreeCursor) -> Bool {
 /// `ts_tree_cursor_goto_descendant`.
 pub fn TreeCursor::goto_descendant(
   self : TreeCursor,
-  goal_descendant_index : UInt,
+  goal_descendant_index : UInt32,
 ) -> Unit {
   // Ascend to the lowest ancestor that contains the goal node.
   for ;; {
@@ -507,7 +512,7 @@ pub fn TreeCursor::goto_descendant(
 
 ///|
 /// `ts_tree_cursor_current_descendant_index`.
-pub fn TreeCursor::current_descendant_index(self : TreeCursor) -> UInt {
+pub fn TreeCursor::current_descendant_index(self : TreeCursor) -> UInt32 {
   self.stack[self.stack.length() - 1].descendant_index
 }
 
@@ -526,7 +531,12 @@ pub fn TreeCursor::current_node(self : TreeCursor) -> Node {
         last_entry.structural_child_index,
       )
   }
-  Node::new(self.tree, Some(last_entry.subtree), last_entry.position, alias_symbol)
+  Node::new(
+    self.tree,
+    Some(last_entry.subtree),
+    last_entry.position,
+    alias_symbol,
+  )
 }
 
 ///|
@@ -542,11 +552,11 @@ pub fn TreeCursor::entries(self : TreeCursor) -> Array[TreeCursorEntry] {
 ///|
 /// The result of `ts_tree_cursor_current_status`.
 pub(all) struct CursorStatus {
-  field_id : Int
+  field_id : Int32
   has_later_siblings : Bool
   has_later_named_siblings : Bool
   can_have_later_siblings_with_this_field : Bool
-  supertypes : Array[Int]
+  supertypes : Array[Int32]
 }
 
 ///|
@@ -556,7 +566,7 @@ pub(all) struct CursorStatus {
 /// be true when none does.
 pub fn TreeCursor::current_status(
   self : TreeCursor,
-  max_supertypes : Int,
+  max_supertypes : Int32,
 ) -> CursorStatus {
   let language = self.language()
   let mut field_id = 0
@@ -577,11 +587,11 @@ pub fn TreeCursor::current_status(
     let alias_sequence = language.alias_sequence(
       parent_subtree.ptr().production_id,
     )
-    let subtree_symbol = (subtree : Subtree, structural_child_index : Int) => {
+    let subtree_symbol = (subtree : Subtree, structural_child_index : Int32) => {
       match alias_sequence {
         Some(offset) if !subtree.extra() &&
-          language.alias_sequences[offset + structural_child_index] != 0 =>
-          language.alias_sequences[offset + structural_child_index]
+          language.alias_sequence_value(offset + structural_child_index) != 0 =>
+          language.alias_sequence_value(offset + structural_child_index)
         _ => subtree.symbol()
       }
     }
@@ -708,8 +718,8 @@ pub fn TreeCursor::current_status(
 
 ///|
 /// `ts_tree_cursor_current_depth`.
-pub fn TreeCursor::current_depth(self : TreeCursor) -> UInt {
-  let mut depth : UInt = 0
+pub fn TreeCursor::current_depth(self : TreeCursor) -> UInt32 {
+  let mut depth : UInt32 = 0
   for i in 1..<self.stack.length() {
     if self.is_entry_visible(i) {
       depth += 1
@@ -736,7 +746,12 @@ pub fn TreeCursor::parent_node(self : TreeCursor) -> Node {
       is_visible = alias_symbol != 0 || entry.subtree.get().visible()
     }
     if is_visible {
-      return Node::new(self.tree, Some(entry.subtree), entry.position, alias_symbol)
+      return Node::new(
+        self.tree,
+        Some(entry.subtree),
+        entry.position,
+        alias_symbol,
+      )
     }
   }
   Node::new(None, None, length_zero(), 0)
@@ -744,7 +759,7 @@ pub fn TreeCursor::parent_node(self : TreeCursor) -> Node {
 
 ///|
 /// `ts_tree_cursor_current_field_id`.
-pub fn TreeCursor::current_field_id(self : TreeCursor) -> Int {
+pub fn TreeCursor::current_field_id(self : TreeCursor) -> Int32 {
   let language = self.language()
   // Walk up the tree, visiting the current node and its invisible ancestors.
   let mut i = self.stack.length() - 1

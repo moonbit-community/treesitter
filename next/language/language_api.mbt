@@ -369,12 +369,16 @@ pub fn Language::alias_sequence(
 ///|
 pub fn Language::alias_at(
   self : Language,
-  production_id : Int32,
-  child_index : Int32,
-) -> Int32 {
+  production_id : Int,
+  child_index : Int,
+) -> Int {
   if production_id != 0 {
-    self.alias_sequences[production_id * self.max_alias_sequence_length +
-    child_index]
+    // Upstream indexes the flat array without checking the row bounds, so an
+    // index past the row reads the next production's row. Past the end of
+    // the array (undefined behavior in C) this returns 0.
+    self.alias_sequences.get(
+      production_id * self.max_alias_sequence_length + child_index,
+    ).unwrap_or(0)
   } else {
     0
   }
@@ -655,4 +659,11 @@ fn strncmp(a : StringView, b : StringView, n : Int32) -> Int32 {
     }
   }
   0
+}
+
+///|
+/// `alias_sequences[index]` with C's flat-array semantics: indexes past a
+/// row read the next row; past the end of the array this returns 0.
+pub fn Language::alias_sequence_value(self : Language, index : Int) -> Int {
+  self.alias_sequences.get(index).unwrap_or(0)
 }
