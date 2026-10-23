@@ -12,7 +12,8 @@ async fn find_checkout(path : String) -> String? {
   for ;; {
     let manifest = "\{directory}/moon.mod"
     if @fs.exists(manifest) &&
-      module_name(@fs.read_file(manifest).text()) == Some("bobzhang/treesitter") {
+      module_name(@fs.read_file(manifest).text()) ==
+      Some("moonbit-community/treesitter") {
       return Some(directory)
     }
     let legacy = "\{directory}/moon.mod.json"
@@ -20,7 +21,7 @@ async fn find_checkout(path : String) -> String? {
       let value = @json.parse(@fs.read_file(legacy).text()) catch {
         _ => Json::null()
       }
-      if value is { "name": "bobzhang/treesitter", .. } {
+      if value is { "name": "moonbit-community/treesitter", .. } {
         return Some(directory)
       }
     }

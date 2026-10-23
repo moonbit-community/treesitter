@@ -2,8 +2,8 @@
 /// Pure MoonBit translation of tree-sitter-javascript v0.25.0's MIT-licensed
 /// external scanner. See NOTICE for attribution. Token indices follow externals.
 import {
-  "bobzhang/treesitter" @ts,
-  "bobzhang/treesitter/lex",
+  "moonbit-community/treesitter" @ts,
+  "moonbit-community/treesitter/lex",
 }
 
 ///|

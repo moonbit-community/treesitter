@@ -3,8 +3,8 @@
 /// Token indices and the one-byte state follow the pinned upstream grammar.
 /// See NOTICE and the adjacent MIT license.
 import {
-  "bobzhang/treesitter" @ts,
-  "bobzhang/treesitter/lex",
+  "moonbit-community/treesitter" @ts,
+  "moonbit-community/treesitter/lex",
 }
 
 ///|

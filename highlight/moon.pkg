@@ -1,12 +1,12 @@
 import {
-  "bobzhang/treesitter" @ts,
-  "bobzhang/treesitter/language",
-  "bobzhang/treesitter/query",
+  "moonbit-community/treesitter" @ts,
+  "moonbit-community/treesitter/language",
+  "moonbit-community/treesitter/query",
   "moonbitlang/core/debug",
 }
 
 import {
-  "bobzhang/treesitter/examples/arithmetic",
-  "bobzhang/treesitter/grammar",
-  "bobzhang/treesitter/generate",
+  "moonbit-community/treesitter/examples/arithmetic",
+  "moonbit-community/treesitter/grammar",
+  "moonbit-community/treesitter/generate",
 } for "test"

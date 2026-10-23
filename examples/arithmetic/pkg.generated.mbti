@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/treesitter/examples/arithmetic"
+package "moonbit-community/treesitter/examples/arithmetic"
 
 import {
-  "bobzhang/treesitter/language",
+  "moonbit-community/treesitter/language",
 }
 
 // Values

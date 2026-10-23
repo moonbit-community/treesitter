@@ -1,7 +1,7 @@
 import {
-  "bobzhang/treesitter/language",
+  "moonbit-community/treesitter/language",
 }
 
 import {
-  "bobzhang/treesitter" @ts,
+  "moonbit-community/treesitter" @ts,
 } for "test"

@@ -1,6 +1,6 @@
 ///|
 import {
-  "bobzhang/treesitter" @ts,
+  "moonbit-community/treesitter" @ts,
 }
 
 ///|

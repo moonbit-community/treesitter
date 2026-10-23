@@ -1,12 +1,12 @@
 import {
-  "bobzhang/treesitter/language",
-  "bobzhang/treesitter/lex",
+  "moonbit-community/treesitter/language",
+  "moonbit-community/treesitter/lex",
   "moonbitlang/core/debug",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/buffer",
 }
 
 import {
-  "bobzhang/treesitter/grammar",
-  "bobzhang/treesitter/generate",
+  "moonbit-community/treesitter/grammar",
+  "moonbit-community/treesitter/generate",
 } for "test"

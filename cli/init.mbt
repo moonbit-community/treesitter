@@ -12,7 +12,7 @@ async fn init_grammar(name : String, directory : String) -> Unit {
   let grammar =
     $|///|
     $|import {
-    $|  "bobzhang/treesitter/grammar",
+    $|  "moonbit-community/treesitter/grammar",
     $|}
     $|
     $|///|

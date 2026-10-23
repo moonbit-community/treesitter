@@ -21,7 +21,7 @@ pub async fn run_grammar(
   ignore(prepare_workspace(temp, module_root))
   write_file(
     "\{temp}/script/moon.mod",
-    "name = \"treesitter/local_grammar\"\nimport { \"bobzhang/treesitter@0.1.0\" }\n",
+    "name = \"treesitter/local_grammar\"\nimport { \"moonbit-community/treesitter@0.1.0\" }\n",
   )
   write_file(
     "\{temp}/script/moon.pkg",
@@ -79,7 +79,7 @@ pub async fn run_scanner(
   let root = prepare_workspace(temp, module_root).unwrap_or(module_root)
   write_file(
     "\{temp}/script/moon.mod",
-    "name = \"treesitter/local_scanner\"\nimport { \"bobzhang/treesitter@0.1.0\", \"moonbitlang/async@0.20.2\" }\n",
+    "name = \"treesitter/local_scanner\"\nimport { \"moonbit-community/treesitter@0.1.0\", \"moonbitlang/async@0.20.2\" }\n",
   )
   write_file(
     "\{temp}/script/moon.pkg",
@@ -87,7 +87,7 @@ pub async fn run_scanner(
   )
   write_file(
     "\{temp}/script/driver/moon.pkg",
-    "import { \"treesitter/local_scanner\" @registry, \"bobzhang/treesitter/cli\", \"moonbitlang/async\" }\noptions(\"is-main\": true)\nsupported_targets = \"+native\"\n",
+    "import { \"treesitter/local_scanner\" @registry, \"moonbit-community/treesitter/cli\", \"moonbitlang/async\" }\noptions(\"is-main\": true)\nsupported_targets = \"+native\"\n",
   )
   write_file("\{temp}/script/scanner.mbt", body)
   write_file(

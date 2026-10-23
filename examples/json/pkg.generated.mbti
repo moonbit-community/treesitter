@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/treesitter/examples/json"
+package "moonbit-community/treesitter/examples/json"
 
 import {
-  "bobzhang/treesitter/language",
+  "moonbit-community/treesitter/language",
 }
 
 // Values

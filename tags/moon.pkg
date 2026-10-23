@@ -1,13 +1,13 @@
 import {
-  "bobzhang/treesitter" @ts,
-  "bobzhang/treesitter/language",
-  "bobzhang/treesitter/query",
-  "bobzhang/treesitter/lex",
+  "moonbit-community/treesitter" @ts,
+  "moonbit-community/treesitter/language",
+  "moonbit-community/treesitter/query",
+  "moonbit-community/treesitter/lex",
 }
 
 import {
-  "bobzhang/treesitter/grammar",
-  "bobzhang/treesitter/generate",
+  "moonbit-community/treesitter/grammar",
+  "moonbit-community/treesitter/generate",
 } for "test"
 
 import {

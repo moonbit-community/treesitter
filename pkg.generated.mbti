@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/treesitter"
+package "moonbit-community/treesitter"
 
 import {
-  "bobzhang/treesitter/language",
+  "moonbit-community/treesitter/language",
   "moonbitlang/core/debug",
 }
 

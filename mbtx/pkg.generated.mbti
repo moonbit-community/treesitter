@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/treesitter/mbtx"
+package "moonbit-community/treesitter/mbtx"
 
 // Values
 pub fn prepare(String) -> (String, String) raise ScriptError

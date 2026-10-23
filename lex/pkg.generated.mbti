@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/treesitter/lex"
+package "moonbit-community/treesitter/lex"
 
 import {
   "moonbitlang/core/debug",

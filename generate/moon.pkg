@@ -1,6 +1,6 @@
 import {
-  "bobzhang/treesitter/grammar",
-  "bobzhang/treesitter/lex",
-  "bobzhang/treesitter/language",
+  "moonbit-community/treesitter/grammar",
+  "moonbit-community/treesitter/lex",
+  "moonbit-community/treesitter/language",
   "moonbitlang/core/debug",
 }

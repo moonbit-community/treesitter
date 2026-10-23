@@ -1,6 +1,6 @@
 ///|
 import {
-  "bobzhang/treesitter/grammar",
+  "moonbit-community/treesitter/grammar",
 }
 
 ///|

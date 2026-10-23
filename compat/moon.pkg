@@ -1,8 +1,8 @@
 import {
-  "bobzhang/treesitter" @ts,
-  "bobzhang/treesitter/grammar",
-  "bobzhang/treesitter/language",
+  "moonbit-community/treesitter" @ts,
+  "moonbit-community/treesitter/grammar",
+  "moonbit-community/treesitter/language",
   "moonbitlang/core/encoding/utf8",
-  "bobzhang/treesitter/generate",
-  "bobzhang/treesitter/corpus",
+  "moonbit-community/treesitter/generate",
+  "moonbit-community/treesitter/corpus",
 } for "test"

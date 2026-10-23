@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/treesitter/grammar"
+package "moonbit-community/treesitter/grammar"
 
 import {
   "moonbitlang/core/debug",

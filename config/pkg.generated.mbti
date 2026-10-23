@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/treesitter/config"
+package "moonbit-community/treesitter/config"
 
 // Values
 pub fn select(Array[Grammar], String, String, scope? : String) -> Grammar? raise ConfigError

@@ -1,10 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/treesitter/tags"
+package "moonbit-community/treesitter/tags"
 
 import {
-  "bobzhang/treesitter",
-  "bobzhang/treesitter/language",
-  "bobzhang/treesitter/query",
+  "moonbit-community/treesitter",
+  "moonbit-community/treesitter/language",
+  "moonbit-community/treesitter/query",
 }
 
 // Values

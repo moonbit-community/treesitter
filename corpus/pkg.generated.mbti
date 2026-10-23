@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bobzhang/treesitter/corpus"
+package "moonbit-community/treesitter/corpus"
 
 import {
-  "bobzhang/treesitter",
-  "bobzhang/treesitter/language",
+  "moonbit-community/treesitter",
+  "moonbit-community/treesitter/language",
 }
 
 // Values
