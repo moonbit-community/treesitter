@@ -47,13 +47,6 @@ pub(all) struct Tables {
 }
 
 ///|
-declare pub fn expand_tokens(
-  pool : RulePool,
-  lexical_variables : ArrayView[LexicalToken],
-  separator_roots : ArrayView[RuleId],
-) -> LexicalGrammar raise
-
-///|
 /// `generate::Diagnostic`.
 pub(all) enum Diagnostic {
   UnnecessaryConflicts(Array[Array[String]])

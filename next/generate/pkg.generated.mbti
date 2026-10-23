@@ -3,6 +3,7 @@ package "moonbit-community/treesitter/next/generate"
 
 import {
   "moonbit-community/treesitter/next/language",
+  "moonbit-community/treesitter/next/regex_syntax/hir",
   "moonbitlang/core/debug",
   "moonbitlang/core/sorted_map",
 }
@@ -34,6 +35,8 @@ pub let no_reserved_words : Int32
 
 pub fn parse_grammar(String, Array[Diagnostic]) -> InputGrammar raise
 
+pub fn pattern_parse(String, Bool) -> @hir.Hir raise RegexError
+
 pub fn prepare_grammar(InputGrammar, Array[Diagnostic]) -> PreparedGrammar raise
 
 pub fn render_c_code(StrId, Tables, SyntaxGrammar, LexicalGrammar, @sorted_map.SortedMap[Symbol, Alias], StrPool, Int32, (Int32, Int32, Int32)?, @sorted_map.SortedMap[Symbol, Array[ChildType]]) -> String raise
@@ -55,6 +58,33 @@ pub let symbol_end : Symbol
 pub let symbol_end_of_nonterminal_extra : Symbol
 
 // Errors
+pub(all) suberror ExpandRegexError {
+  Utf8(String)
+  Assertion
+  NonAsciiByteClass(NonAsciiByteClassError)
+} derive(Eq, @debug.Debug)
+pub impl Show for ExpandRegexError
+
+pub(all) suberror ExpandRuleError {
+  UnexpectedSymbol(Symbol)
+  UnexpectedReserved(String)
+  UnexpectedEof
+  Parse(RegexError)
+  ExpandRegex(ExpandRegexError)
+} derive(Eq, @debug.Debug)
+pub impl Show for ExpandRuleError
+
+pub(all) suberror ExpandTokensError {
+  EmptyString(String)
+  Processing(ExpandTokensProcessingError)
+  ExpandRule(ExpandRuleError)
+} derive(Eq, @debug.Debug)
+pub impl Show for ExpandTokensError
+
+pub(all) suberror RegexError {
+  RegexError(pattern~ : String, kind~ : RegexErrorKind, span~ : PatternSpan?, aux_span~ : PatternSpan?)
+} derive(Eq, @debug.Debug)
+pub impl Show for RegexError
 
 // Types and methods
 pub(all) struct ActionListId {
@@ -167,6 +197,12 @@ pub(all) enum Diagnostic {
   SupertypeInlined(name~ : String)
 } derive(Eq, @debug.Debug)
 pub impl Show for Diagnostic
+
+pub(all) struct ExpandTokensProcessingError {
+  rule : String
+  error : ExpandRuleError
+} derive(Eq, @debug.Debug)
+pub impl Show for ExpandTokensProcessingError
 
 pub(all) struct ExternalToken {
   name : StrId
@@ -295,6 +331,12 @@ pub(all) struct NfaTransition {
   states : Array[Int32]
 } derive(Eq, @debug.Debug)
 
+pub(all) struct NonAsciiByteClassError {
+  start : Byte
+  end : Byte
+} derive(Eq, @debug.Debug)
+pub impl Show for NonAsciiByteClassError
+
 pub(all) struct OptLevel {
   merge_states : Bool
 } derive(Eq, @debug.Debug)
@@ -353,6 +395,11 @@ pub(all) struct ParseTable {
 }
 pub fn ParseTable::new() -> Self
 pub fn ParseTable::remap_terminal_references(Self, (Int32) -> Int32) -> Unit
+
+pub(all) struct PatternSpan {
+  start : UInt32
+  end : UInt32
+} derive(Compare, Eq, @debug.Debug)
 
 pub(all) enum Precedence {
   NoPrecedence
@@ -420,6 +467,52 @@ pub(all) struct ProductionStore {
 }
 pub fn ProductionStore::new() -> Self
 pub fn ProductionStore::production(Self, Int32) -> ProdRef
+
+pub(all) enum RegexErrorKind {
+  CaptureLimitExceeded
+  ClassEscapeInvalid
+  ClassRangeInvalid
+  ClassRangeLiteral
+  ClassUnclosed
+  DecimalEmpty
+  DecimalInvalid
+  EscapeHexEmpty
+  EscapeHexInvalid
+  EscapeHexInvalidDigit
+  EscapeUnexpectedEof
+  EscapeUnrecognized
+  FlagDanglingNegation
+  FlagUnexpectedEof
+  FlagUnrecognized
+  GroupNameEmpty
+  GroupNameInvalid
+  GroupNameUnexpectedEof
+  GroupUnclosed
+  GroupUnopened
+  RepetitionCountInvalid
+  RepetitionCountDecimalEmpty
+  RepetitionCountUnclosed
+  RepetitionMissing
+  SpecialWordBoundaryUnclosed
+  SpecialWordBoundaryUnrecognized
+  SpecialWordOrRepetitionUnexpectedEof
+  UnicodeClassInvalid
+  UnsupportedBackreference
+  UnsupportedLookAround
+  UnicodeNotAllowed
+  InvalidUtf8
+  InvalidLineTerminator
+  UnicodePropertyNotFound
+  UnicodePropertyValueNotFound
+  UnicodePerlClassNotFound
+  UnicodeCaseUnavailable
+  FlagDuplicate
+  FlagRepeatedNegation
+  GroupNameDuplicate
+  NestLimitExceeded(UInt32)
+  Other(String)
+} derive(Eq, @debug.Debug)
+pub impl Show for RegexErrorKind
 
 pub(all) struct ReservedWordContext {
   name : StrId
