@@ -772,7 +772,7 @@ pub fn StrPool::resolve(Self, StrId) -> String
 pub(all) struct Symbol {
   kind : SymbolType
   index : Int32
-} derive(Compare, Eq, Hash, @debug.Debug)
+} derive(Compare, Eq, @debug.Debug)
 pub fn Symbol::external(Int32) -> Self
 pub fn Symbol::external_index(Self) -> Int32?
 pub fn Symbol::is_eof(Self) -> Bool
@@ -783,6 +783,7 @@ pub fn Symbol::non_terminal(Int32) -> Self
 pub fn Symbol::non_terminal_index(Self) -> Int32?
 pub fn Symbol::terminal(Int32) -> Self
 pub fn Symbol::terminal_index(Self) -> Int32?
+pub impl Hash for Symbol
 
 pub(all) enum SymbolType {
   External

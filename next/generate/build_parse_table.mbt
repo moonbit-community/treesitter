@@ -268,6 +268,87 @@ fn ParseTableEntry::new() -> ParseTableEntry {
 }
 
 ///|
+/// Upstream's `IndexMap<Symbol, ParseTableEntry>` for `ParseTableBuilder::terminal_entries`:
+/// entries in insertion order, found by `SymbolIndexer::index`. Entries are reused across
+/// states, so that most states don't allocate them.
+priv struct TerminalEntryMap {
+  indexer : SymbolIndexer
+  /// The position of each symbol's entry, by `SymbolIndexer::index`, or `-1`.
+  positions : FixedArray[Int32]
+  /// The symbols, in insertion order.
+  keys : Array[Symbol]
+  /// The entries, by position. Entries past `keys.length()` are spares.
+  values : Array[ParseTableEntry]
+}
+
+///|
+fn TerminalEntryMap::new(indexer : SymbolIndexer) -> TerminalEntryMap {
+  {
+    indexer,
+    positions: FixedArray::make(indexer.token_count(), -1),
+    keys: [],
+    values: [],
+  }
+}
+
+///|
+fn TerminalEntryMap::length(self : TerminalEntryMap) -> Int32 {
+  self.keys.length()
+}
+
+///|
+fn TerminalEntryMap::contains(self : TerminalEntryMap, symbol : Symbol) -> Bool {
+  self.positions[self.indexer.index(symbol)] >= 0
+}
+
+///|
+fn TerminalEntryMap::get(
+  self : TerminalEntryMap,
+  symbol : Symbol,
+) -> ParseTableEntry? {
+  let position = self.positions[self.indexer.index(symbol)]
+  if position >= 0 {
+    Some(self.values[position])
+  } else {
+    None
+  }
+}
+
+///|
+/// `entry(symbol).or_insert_with(ParseTableEntry::new)`.
+fn TerminalEntryMap::get_or_insert_new(
+  self : TerminalEntryMap,
+  symbol : Symbol,
+) -> ParseTableEntry {
+  let index = self.indexer.index(symbol)
+  let position = self.positions[index]
+  if position >= 0 {
+    return self.values[position]
+  }
+  let position = self.keys.length()
+  self.positions[index] = position
+  self.keys.push(symbol)
+  if position < self.values.length() {
+    // A spare from an earlier state: `clear` emptied its actions.
+    self.values[position]
+  } else {
+    let entry = ParseTableEntry::new()
+    self.values.push(entry)
+    entry
+  }
+}
+
+///|
+/// Removes every entry, keeping them as spares.
+fn TerminalEntryMap::clear(self : TerminalEntryMap) -> Unit {
+  for position, symbol in self.keys {
+    self.positions[self.indexer.index(symbol)] = -1
+    self.values[position].actions.clear()
+  }
+  self.keys.clear()
+}
+
+///|
 /// `ActionList::keep_last`.
 fn action_list_keep_last(actions : Array[ParseAction]) -> Unit {
   if actions.length() > 1 {
@@ -302,7 +383,7 @@ priv struct ParseTableBuilder {
   str_pool : StrPool
   /// Scratch for `add_actions`: The terminal entries of the state it's working on. They are
   /// interned into the table once the state is complete.
-  terminal_entries : Map[Symbol, ParseTableEntry]
+  terminal_entries : TerminalEntryMap
   /// Scratch for `add_actions`: The successor item sets of the state currently being built.
   successor_sets : SuccessorSets
   /// Scratch for `add_actions`: The reductions on each lookahead of the state currently being
@@ -547,7 +628,7 @@ fn ParseTableBuilder::new(
     parse_table,
     action_list_ids: {},
     str_pool,
-    terminal_entries: {},
+    terminal_entries: TerminalEntryMap::new(symbol_indexer),
     successor_sets: SuccessorSets::new(symbol_indexer),
     reduction_infos: ReductionInfos::new(symbol_indexer),
   }
@@ -631,6 +712,8 @@ fn ParseTableBuilder::build(
       entry.state_id,
       item_set,
     )
+    // `add_actions` keeps none of the closure's entries.
+    self.item_set_builder.closure_scratch.recycle(item_set)
   }
   if !self.actual_conflicts.is_empty() {
     let conflicts = []
@@ -772,14 +855,12 @@ fn ParseTableBuilder::add_actions(
       if requires_eof_lookahead {
         self.parse_table.states[state_id].has_eof_gated_reduce = true
       }
-      for lookahead in self.item_set_builder.lookaheads.get(lookaheads).iter() {
+      let symbols = [symbol]
+      for lookahead in self.item_set_builder.lookaheads.symbols(lookaheads) {
         if requires_eof_lookahead && lookahead != symbol_end {
           continue
         }
-        let table_entry = self.terminal_entries.get_or_init(
-          lookahead,
-          ParseTableEntry::new,
-        )
+        let table_entry = self.terminal_entries.get_or_insert_new(lookahead)
         let reduction_info = self.reduction_infos.get(lookahead)
 
         // While inserting Reduce actions, eagerly resolve conflicts related
@@ -794,7 +875,7 @@ fn ParseTableBuilder::add_actions(
           let ordering = ParseTableBuilder::compare_precedence(
             self.syntax_grammar,
             precedence,
-            [symbol],
+            symbols,
             reduction_info.precedence,
             reduction_info.symbols,
           )
@@ -852,7 +933,7 @@ fn ParseTableBuilder::add_actions(
     if self.terminal_entries.get(symbol) is Some(e) && !e.actions.is_empty() {
       lookaheads_with_conflicts.insert(symbol)
     }
-    self.terminal_entries.get_or_init(symbol, ParseTableEntry::new).actions.push(
+    self.terminal_entries.get_or_insert_new(symbol).actions.push(
       Shift(state=next_state_id, is_repetition=false),
     )
   }
@@ -923,12 +1004,11 @@ fn ParseTableBuilder::add_actions(
     // Add actions for the start tokens of each non-terminal extra rule.
     for extra_state in self.non_terminal_extra_states {
       let (terminal, state_id) = extra_state
-      ignore(
-        self.terminal_entries.get_or_init(terminal, () => {
-          reusable: true,
-          actions: [Shift(state=state_id, is_repetition=false)],
-        }),
-      )
+      if !self.terminal_entries.contains(terminal) {
+        self.terminal_entries.get_or_insert_new(terminal).actions.push(
+          Shift(state=state_id, is_repetition=false),
+        )
+      }
     }
 
     // Add ShiftExtra actions for the terminal extra tokens. These actions
@@ -938,12 +1018,11 @@ fn ParseTableBuilder::add_actions(
       match extra_token.kind {
         NonTerminal => state.nonterminal_entries.insert(extra_token, ShiftExtra)
         Terminal | External =>
-          ignore(
-            self.terminal_entries.get_or_init(extra_token, () => {
-              reusable: true,
-              actions: [ShiftExtra],
-            }),
-          )
+          if !self.terminal_entries.contains(extra_token) {
+            self.terminal_entries.get_or_insert_new(extra_token).actions.push(
+              ShiftExtra,
+            )
+          }
         End | EndOfNonTerminalExtra => abort("unreachable")
       }
     }
@@ -981,7 +1060,8 @@ fn ParseTableBuilder::add_actions(
 
   // Every state stays in the table until minimization, so store its terminal entries as
   // interned action lists.
-  for symbol, entry in self.terminal_entries {
+  for position, symbol in self.terminal_entries.keys {
+    let entry = self.terminal_entries.values[position]
     let index = self.parse_table.action_lists.intern(
       self.action_list_ids,
       entry.actions,

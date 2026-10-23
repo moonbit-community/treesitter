@@ -31,9 +31,14 @@ priv struct FollowSetInfo {
 priv struct ParseItemSetBuilder {
   syntax_grammar : SyntaxGrammar
   first_sets : Map[Symbol, TokenSet]
-  /// Each FIRST set interned, for closure propagation by id
-  first_set_ids : Map[Symbol, Int32]
+  /// Gives each symbol its slot in `first_set_ids` and `reserved_first_set_ids`.
+  symbol_indexer : SymbolIndexer
+  /// Each FIRST set interned, for closure propagation by id, by
+  /// `SymbolIndexer::index`.
+  mut first_set_ids : FixedArray[Int32]
   reserved_first_sets : Map[Symbol, Int32]
+  /// `reserved_first_sets`, by `SymbolIndexer::index`.
+  mut reserved_first_set_ids : FixedArray[Int32]
   last_sets : Map[Symbol, TokenSet]
   inlines : InlinedProductionMap
   key_map : ItemKeyMap
@@ -127,6 +132,8 @@ priv struct ClosureEntries {
   later : Array[ParseItemSetEntry]
   /// The positions of `later`'s entries, by their items.
   later_indices : Map[ParseItem, Int32]
+  /// Entries of finished closures, to reuse for new ones.
+  spares : Array[ParseItemSetEntry]
 }
 
 ///|
@@ -140,6 +147,7 @@ fn ClosureEntries::new(ranks : FirstStepRanks) -> ClosureEntries {
     first_step_len: 0,
     later: [],
     later_indices: {},
+    spares: [],
   }
 }
 
@@ -180,7 +188,7 @@ fn ClosureEntries::first_step_entry(
     None => {
       self.occupied.set(rank, true)
       self.first_step_len += 1
-      let entry = ClosureEntries::new_entry(item)
+      let entry = self.new_entry(item)
       self.first_step[rank] = Some(entry)
       entry
     }
@@ -198,7 +206,7 @@ fn ClosureEntries::later_entry(
     None => {
       let index = self.later.length()
       self.later_indices[item] = index
-      let entry = ClosureEntries::new_entry(item)
+      let entry = self.new_entry(item)
       self.later.push(entry)
       entry
     }
@@ -207,12 +215,37 @@ fn ClosureEntries::later_entry(
 
 ///|
 /// An entry for `item`, with no lookaheads yet.
-fn ClosureEntries::new_entry(item : ParseItem) -> ParseItemSetEntry {
-  {
-    item,
-    lookaheads: lookahead_set_pool_empty,
-    following_reserved_word_set: 0,
+fn ClosureEntries::new_entry(
+  self : ClosureEntries,
+  item : ParseItem,
+) -> ParseItemSetEntry {
+  match self.spares.pop() {
+    Some(entry) => {
+      entry.item = item
+      entry.lookaheads = lookahead_set_pool_empty
+      entry.following_reserved_word_set = 0
+      entry
+    }
+    None =>
+      {
+        item,
+        lookaheads: lookahead_set_pool_empty,
+        following_reserved_word_set: 0,
+      }
   }
+}
+
+///|
+/// Takes back the entries of a closure from `Self::take_item_set` that is no longer
+/// used, to reuse for later closures.
+fn ClosureEntries::recycle(
+  self : ClosureEntries,
+  item_set : ParseItemSet,
+) -> Unit {
+  for entry in item_set.entries {
+    self.spares.push(entry)
+  }
+  item_set.entries.clear()
 }
 
 ///|
@@ -247,8 +280,10 @@ fn ParseItemSetBuilder::new(
   let result = {
     syntax_grammar,
     first_sets: {},
-    first_set_ids: {},
+    symbol_indexer: SymbolIndexer::new(syntax_grammar, lexical_grammar),
+    first_set_ids: [],
     reserved_first_sets: {},
+    reserved_first_set_ids: [],
     last_sets: {},
     inlines,
     key_map,
@@ -353,8 +388,16 @@ fn ParseItemSetBuilder::new(
   // Intern each FIRST set so closure propagation can union by id. (Upstream
   // iterates a hash map here, so the ids are in hash order; ids are only ever
   // compared for equality, so their numbering is unobservable.)
+  let symbol_count = result.symbol_indexer.symbol_count()
+  result.first_set_ids = FixedArray::make(symbol_count, -1)
   for symbol, set in result.first_sets {
-    result.first_set_ids[symbol] = result.lookaheads.intern_ref(set)
+    result.first_set_ids[result.symbol_indexer.index(symbol)] = result.lookaheads.intern_ref(
+      set,
+    )
+  }
+  result.reserved_first_set_ids = FixedArray::make(symbol_count, -1)
+  for symbol, id in result.reserved_first_sets {
+    result.reserved_first_set_ids[result.symbol_indexer.index(symbol)] = id
   }
 
   // To compute an item set's transitive closure, we find each item in the set
@@ -604,15 +647,19 @@ fn ParseItemSetBuilder::add_item(
 ) -> Unit {
   if entry.item.step(self.syntax_grammar) is Some(step) &&
     step.non_terminal_index() is Some(index) {
-    let next_step = entry.item.successor().step(self.syntax_grammar)
+    // `entry.item.successor().step()`, without building the successor.
+    let next_step = entry.item.step_at(
+      self.syntax_grammar,
+      entry.item.step_index + 1,
+    )
 
     // Determine which tokens can follow this non-terminal.
-    let (following_tokens, following_reserved_tokens) = match next_step {
-      Some(next_step) => {
-        let key = next_step.symbol
-        (self.first_set_ids[key], self.reserved_first_sets[key])
-      }
-      None => (entry.lookaheads, entry.following_reserved_word_set)
+    let mut following_tokens = entry.lookaheads
+    let mut following_reserved_tokens = entry.following_reserved_word_set
+    if next_step is Some(next_step) {
+      let key = self.symbol_indexer.index(next_step.symbol)
+      following_tokens = self.first_set_ids[key]
+      following_reserved_tokens = self.reserved_first_set_ids[key]
     }
 
     // Use the pre-computed *additions* to expand the non-terminal.

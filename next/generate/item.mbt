@@ -369,13 +369,23 @@ let lookahead_set_pool_empty : Int32 = 0
 priv struct LookaheadSetPool {
   sets : Array[TokenSet]
   ids : Map[TokenSet, Int32]
-  union_memo : Map[(Int32, Int32), Int32]
-  insert_memo : Map[(Int32, Symbol), Int32]
+  /// Keyed by both ids, packed (smaller first).
+  union_memo : Map[Int64, Int32]
+  /// Keyed by the id and `Symbol::code`, packed.
+  insert_memo : Map[Int64, Int32]
+  /// Each set's `TokenSet::iter`, by id, once asked for.
+  symbol_lists : Array[Array[Symbol]?]
 }
 
 ///|
 fn LookaheadSetPool::new() -> LookaheadSetPool {
-  let pool = { sets: [], ids: {}, union_memo: {}, insert_memo: {}, }
+  let pool = {
+    sets: [],
+    ids: {},
+    union_memo: {},
+    insert_memo: {},
+    symbol_lists: [],
+  }
   ignore(pool.intern(TokenSet::new()))
   pool
 }
@@ -386,6 +396,23 @@ fn LookaheadSetPool::get(self : LookaheadSetPool, id : Int32) -> TokenSet {
 }
 
 ///|
+/// The symbols of the set with this id, as `TokenSet::iter` lists them. The
+/// list is shared: callers must not change it.
+fn LookaheadSetPool::symbols(
+  self : LookaheadSetPool,
+  id : Int32,
+) -> Array[Symbol] {
+  match self.symbol_lists[id] {
+    Some(symbols) => symbols
+    None => {
+      let symbols = self.sets[id].iter()
+      self.symbol_lists[id] = Some(symbols)
+      symbols
+    }
+  }
+}
+
+///|
 /// Interns `set`, which the pool takes ownership of.
 fn LookaheadSetPool::intern(self : LookaheadSetPool, set : TokenSet) -> Int32 {
   match self.ids.get(set) {
@@ -393,6 +420,7 @@ fn LookaheadSetPool::intern(self : LookaheadSetPool, set : TokenSet) -> Int32 {
     None => {
       let index = self.sets.length()
       self.sets.push(set)
+      self.symbol_lists.push(None)
       self.ids[set] = index
       index
     }
@@ -427,13 +455,14 @@ fn LookaheadSetPool::insert(
   if self.get(id).contains(symbol) {
     return id
   }
-  if self.insert_memo.get((id, symbol)) is Some(result) {
+  let key = (id.to_int64() << 32) | symbol.code().to_int64()
+  if self.insert_memo.get(key) is Some(result) {
     return result
   }
   let set = self.get(id).copy()
   set.insert(symbol)
   let result = self.intern(set)
-  self.insert_memo[(id, symbol)] = result
+  self.insert_memo[key] = result
   result
 }
 
@@ -449,12 +478,13 @@ fn LookaheadSetPool::union(
   if left == lookahead_set_pool_empty {
     return right
   }
-  let key = if left < right { (left, right) } else { (right, left) }
+  let (low, high) = if left < right { (left, right) } else { (right, left) }
+  let key = (low.to_int64() << 32) | high.to_int64()
   if self.union_memo.get(key) is Some(result) {
     return result
   }
-  let set = self.get(key.0).copy()
-  ignore(set.insert_all(self.get(key.1)))
+  let set = self.get(low).copy()
+  ignore(set.insert_all(self.get(high)))
   let result = self.intern(set)
   self.union_memo[key] = result
   result
@@ -472,7 +502,8 @@ priv struct ParseItemSet {
 
 ///|
 priv struct ParseItemSetEntry {
-  item : ParseItem
+  /// Only changes when `ClosureEntries` reuses a closure's entry.
+  mut item : ParseItem
   mut lookaheads : Int32
   mut following_reserved_word_set : Int32
 }
@@ -864,6 +895,24 @@ impl Hash for ParseItem with fn hash_combine(self, hasher) {
 }
 
 ///|
+/// `hash_combine`'s fields, without `Hasher`'s allocation.
+impl Hash for ParseItem with fn hash(self) {
+  hash_finish(self.hash_acc(HASH_SEED))
+}
+
+///|
+/// Mixes what `hash_combine` combines into `acc`.
+fn ParseItem::hash_acc(self : ParseItem, acc : UInt) -> UInt {
+  let acc = hash_mix(hash_mix(acc, self.variable_index), self.step_index)
+  let keys = self.dot_keys()
+  if self.has_preceding_inherited_fields {
+    hash_mix(hash_mix(acc, 1), keys.eq_with_syms)
+  } else {
+    hash_mix(hash_mix(acc, 0), keys.cmp)
+  }
+}
+
+///|
 impl Eq for ParseItem with fn equal(self, other) {
   if self.variable_index != other.variable_index ||
     self.step_index != other.step_index ||
@@ -935,6 +984,19 @@ impl Hash for ParseItemSet with fn hash_combine(self, hasher) {
 }
 
 ///|
+impl Hash for ParseItemSet with fn hash(self) {
+  let mut acc = hash_mix(HASH_SEED, self.entries.length())
+  for entry in self.entries {
+    acc = entry.item.hash_acc(acc)
+    acc = hash_mix(
+      hash_mix(acc, entry.lookaheads),
+      entry.following_reserved_word_set,
+    )
+  }
+  hash_finish(acc)
+}
+
+///|
 impl Eq for ParseItemSetCore with fn equal(self, other) {
   if self.entries.length() != other.entries.length() {
     return false
@@ -953,4 +1015,13 @@ impl Hash for ParseItemSetCore with fn hash_combine(self, hasher) {
   for item in self.entries {
     hasher.combine(item)
   }
+}
+
+///|
+impl Hash for ParseItemSetCore with fn hash(self) {
+  let mut acc = hash_mix(HASH_SEED, self.entries.length())
+  for item in self.entries {
+    acc = item.hash_acc(acc)
+  }
+  hash_finish(acc)
 }
