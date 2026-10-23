@@ -103,7 +103,20 @@ fn root_delayed(pattern : Pattern) -> Bool {
 
 ///|
 fn captures_contain(outer : Array[Capture], inner : Array[Capture]) -> Bool {
-  inner.all(c => outer.any(o => o.name == c.name && o.node.id() == c.node.id()))
+  let counts : Map[(String, Int32), Int32] = Map([])
+  for capture in outer {
+    let key = (capture.name, capture.node.id())
+    counts[key] = counts.get(key).unwrap_or(0) + 1
+  }
+  for capture in inner {
+    let key = (capture.name, capture.node.id())
+    let count = counts.get(key).unwrap_or(0)
+    if count == 0 {
+      return false
+    }
+    counts[key] = count - 1
+  }
+  true
 }
 
 ///|

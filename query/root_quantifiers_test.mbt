@@ -427,3 +427,89 @@ test "ranged repeated alternatives distinguish rooted entry branches" {
     ),
   )
 }
+
+///|
+test "optional groups retain maximal unique completions" {
+  // Outputs frozen from upstream, including completions ordered by their final
+  // sibling rather than the first captured sibling.
+  inspect(
+    root_query_output("[1,2,3,4]", "(array ((number)? @n (number)))"),
+    content=(
+      #|0 n:1..2
+      #|0 n:3..4
+      #|0 n:5..6
+    ),
+  )
+  inspect(
+    root_query_output("[1,2,3,4]", "(array ((number) @n \",\"?)+)"),
+    content="0 n:1..2 n:3..4 n:5..6 n:7..8",
+  )
+  inspect(
+    root_query_output("[1,2,3,4]", "(array (number) @a (number) @b)"),
+    content=(
+      #|0 a:1..2 b:3..4
+      #|0 a:1..2 b:5..6
+      #|0 a:3..4 b:5..6
+      #|0 a:1..2 b:7..8
+      #|0 a:3..4 b:7..8
+      #|0 a:5..6 b:7..8
+    ),
+  )
+  inspect(
+    root_query_output("[1,2,3,4]", "(array [(number) @n (number) @n])"),
+    content=(
+      #|0 n:1..2
+      #|0 n:3..4
+      #|0 n:5..6
+      #|0 n:7..8
+    ),
+  )
+  inspect(
+    root_query_output("[1,2,3,4]", "(array (number) (number))"),
+    content="0",
+  )
+}
+
+///|
+test "containing ranges apply to empty optional matches" {
+  let language = root_query_language()
+  let tree = @ts.Parser::new(language).parse_string("[1,2]")
+  for (pattern, counts) in [("(number)? @n", [1, 0]), ("(number)* @n", [0, 1])] {
+    let query = @query.Query::new(language, pattern)
+    for
+      matches in [
+        query.matches(
+          tree.root_node(),
+          tree.source,
+          containing_byte_range=(1, 2),
+        ),
+        query.matches(
+          tree.root_node(),
+          tree.source,
+          containing_point_range=(
+            { row: 0, column: 1, },
+            { row: 0, column: 2, },
+          ),
+        ),
+      ] {
+      assert_eq(matches.map(m => m.captures.length()), counts)
+      for matched in matches {
+        for capture in matched.captures {
+          assert_eq(capture.node.text(tree.source), "1")
+        }
+      }
+    }
+  }
+  let tree = @ts.Parser::new(language).parse_string("1 2 3")
+  let query = @query.Query::new(language, "((number) @a (number) @b)?")
+  let matches = query.matches(
+    tree.root_node(),
+    tree.source,
+    containing_byte_range=(2, 5),
+  )
+  assert_eq(matches.map(m => m.captures.map(c => c.node.text(tree.source))), [
+    [],
+    ["2", "3"],
+    [],
+  ])
+}

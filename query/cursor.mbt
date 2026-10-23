@@ -241,6 +241,7 @@ pub fn Cursor::next_match(self : Cursor) -> Match? raise QueryError {
     // when the optional pattern also matched this node.
     for pattern_index, pattern in self.query.patterns {
       if pattern.min == 0 &&
+        self.budget.contains(node) &&
         parent_in_range &&
         (
           pattern.max is None ||

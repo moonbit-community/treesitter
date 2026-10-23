@@ -19,6 +19,63 @@ fn Budget::tick(self : Budget) -> Unit raise QueryError {
 }
 
 ///|
+fn Budget::contains(self : Budget, node : @ts.Node) -> Bool {
+  if self.containing_byte_range is Some((start, end)) &&
+    (node.start_byte() < start || node.end_byte() > end) {
+    return false
+  }
+  if self.containing_point_range is Some((start, end)) &&
+    (node.start_position() < start || node.end_position() > end) {
+    return false
+  }
+  true
+}
+
+///|
+// Completions of the same rooted pattern retain only maximal capture lists.
+// Different uncaptured choices may complete at different siblings but must not
+// produce duplicate matches, or an empty subset of an already captured match.
+fn maximal_captures(
+  candidates : Array[Array[Capture]],
+  budget : Budget,
+) -> Array[Array[Capture]] raise QueryError {
+  let unique = []
+  let seen : Map[String, Unit] = Map([])
+  for candidate in candidates {
+    budget.tick()
+    let key = candidate
+      .map(c => "\{c.name.length()}:\{c.name}:\{c.node.id()};")
+      .join("")
+    if !seen.contains(key) {
+      seen[key] = ()
+      unique.push(candidate)
+    }
+  }
+  let largest = unique.fold(init=0, (n, c) => Int32::max(n, c.length()))
+  let result = []
+  for candidate in unique {
+    if candidate.length() == largest {
+      result.push(candidate)
+      continue
+    }
+    let mut contained = false
+    for other in unique {
+      if other.length() > candidate.length() {
+        budget.tick()
+        if captures_contain(other, candidate) {
+          contained = true
+          break
+        }
+      }
+    }
+    if !contained {
+      result.push(candidate)
+    }
+  }
+  result
+}
+
+///|
 fn match_pattern(
   pattern : Pattern,
   node : @ts.Node,
@@ -44,12 +101,7 @@ fn match_pattern(
     Group(children, trailing) =>
       match_children(children, trailing, node, 0, 0, [], budget).map(m => m.0)
     Node(p) => {
-      if budget.containing_byte_range is Some((start, end)) &&
-        (node.start_byte() < start || node.end_byte() > end) {
-        return []
-      }
-      if budget.containing_point_range is Some((start, end)) &&
-        (node.start_position() < start || node.end_position() > end) {
+      if !budget.contains(node) {
         return []
       }
       if p.supertype is Some(name) && !node.supertypes().contains(name) {
@@ -67,10 +119,17 @@ fn match_pattern(
       if p.absent_fields.any(f => node.child_by_field_name(f) is Some(_)) {
         return []
       }
-      match_children(p.children, p.trailing_anchor, node, 0, 0, [], budget).map(m => {
-          m.0
-        },
+      let matches = match_children(
+        p.children,
+        p.trailing_anchor,
+        node,
+        0,
+        0,
+        [],
+        budget,
       )
+      matches.sort_by_key(m => m.1)
+      maximal_captures(matches.map(m => m.0), budget)
     }
   }
 }

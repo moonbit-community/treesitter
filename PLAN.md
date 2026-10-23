@@ -945,3 +945,16 @@ supertype members. Nodes separately expose public `symbol` and parser
 continue using grammar ids. Default aliases remain grammar-table identities,
 as in upstream. Frozen C results cover aliases and nested supertypes; generated
 table round trips preserve ids. All 317 native / 309 JS / 309 Wasm GC tests pass.
+
+### Query maximal completions and containment checkpoint
+
+Rooted patterns now discard duplicate capture sequences and strict capture
+subsets, preserving repeated captures' multiplicity. Completed matches follow
+their last sibling's order. This fixes optional captures followed by uncaptured
+required siblings and optional separators inside repeated groups. Empty optional
+matches now obey both byte and point containing ranges. Frozen C cases cover
+these behaviors; full portable and CLI checks pass 319 native / 311 JS / 311
+Wasm GC tests. The expanded root differential remains at 15 range-traversal
+mismatches. The preceding symbol/API revision also passed the complete six-grammar
+audit (462 corpora, 15 queries, 90 annotations, 2,772 edits, ten large examples).
+Nested-pattern completion timing relative to other query patterns remains open.
