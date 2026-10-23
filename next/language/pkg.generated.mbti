@@ -82,6 +82,7 @@ pub fn Language::actions(Self, Int32, Int32) -> ArrayView[ParseActionEntry]
 pub fn Language::actions_of(Self, TableEntry) -> ArrayView[ParseActionEntry]
 pub fn Language::alias_at(Self, Int32, Int32) -> Int32
 pub fn Language::alias_sequence(Self, Int32) -> Int32?
+pub fn Language::alias_sequence_value(Self, Int32) -> Int32
 pub fn Language::aliases_for_symbol(Self, Int32) -> ArrayView[Int32]
 pub fn Language::enabled_external_tokens(Self, Int32) -> ArrayView[Bool]?
 pub fn Language::field_id_for_name(Self, StringView) -> Int32

@@ -30,6 +30,25 @@ async fn main {
         }
       }
     }
+    "log" => {
+      let language = load_language(args[2])
+      let parser = @runtime.Parser::new()
+      ignore(parser.set_language(Some(language)))
+      parser.set_logger(
+        Some((kind, message) => {
+          let prefix = match kind {
+            Parse => "P"
+            Lex => "L"
+          }
+          println("\{prefix} \{message}")
+        }),
+      )
+      for i in 3..<args.length() {
+        let source = @fs.read_file(args[i]).binary()
+        println("== \{args[i]}")
+        ignore(parser.parse_string(None, source))
+      }
+    }
     "edit" => {
       let language = load_language(args[2])
       let parser = @runtime.Parser::new()

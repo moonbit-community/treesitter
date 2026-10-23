@@ -88,6 +88,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--mutate', type=int, default=0)
     ap.add_argument('--show', type=int, default=3)
+    ap.add_argument('--log', action='store_true', help='compare parser logs')
     ap.add_argument('--edits', type=int, default=0, help='random edits per input (incremental mode)')
     ap.add_argument('names', nargs='*')
     args = ap.parse_args()
@@ -123,6 +124,10 @@ def main():
                     eargs += [paths[i], str(q), str(start), str(old_end), str(start + len(insert))]
             expected, _ = run([str(ref), *eargs])
             actual, code = run([str(PROBE), 'edit', str(LANG / f'{name}.json'), *eargs])
+        elif args.log:
+            ref = build_ref(name, 'reference_log.c', '.log')
+            expected, _ = run([str(ref), *paths])
+            actual, code = run([str(PROBE), 'log', str(LANG / f'{name}.json'), *paths])
         else:
             ref = build_ref(name)
             expected, _ = run([str(ref), *paths])
