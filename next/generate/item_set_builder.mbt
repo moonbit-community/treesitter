@@ -40,7 +40,9 @@ priv struct ParseItemSetBuilder {
   /// `reserved_first_sets`, by `SymbolIndexer::index`.
   mut reserved_first_set_ids : FixedArray[Int32]
   last_sets : Map[Symbol, TokenSet]
-  inlines : InlinedProductionMap
+  /// Upstream's `inlines`: the inlined production map, keyed by production id and
+  /// step index packed into one key.
+  inlined_prod_ids_by_key : Map[Int64, Array[Int32]]
   key_map : ItemKeyMap
   lookaheads : LookaheadSetPool
   mut transitive_closure_additions : Array[Array[TransitiveClosureAddition]]
@@ -252,10 +254,16 @@ fn ClosureEntries::recycle(
 /// Takes the entries out in item order, leaving this empty for the next closure.
 fn ClosureEntries::take_item_set(self : ClosureEntries) -> ParseItemSet {
   let entries = Array(capacity=self.first_step_len + self.later.length())
-  for rank in set_bits(self.occupied.words()) {
-    // INVARIANT: occupied ranks have entries
-    entries.push(self.first_step[rank].unwrap())
-    self.first_step[rank] = None
+  let words = self.occupied.words()
+  for wi in 0..<words.length() {
+    let mut word = words[wi]
+    while word != 0 {
+      let rank = wi * 64 + word.ctz()
+      word = word & (word - 1)
+      // INVARIANT: occupied ranks have entries
+      entries.push(self.first_step[rank].unwrap())
+      self.first_step[rank] = None
+    }
   }
   self.occupied.unset_all()
   self.first_step_len = 0
@@ -285,11 +293,15 @@ fn ParseItemSetBuilder::new(
     reserved_first_sets: {},
     reserved_first_set_ids: [],
     last_sets: {},
-    inlines,
+    inlined_prod_ids_by_key: {},
     key_map,
     lookaheads: LookaheadSetPool::new(),
     transitive_closure_additions: [],
     closure_scratch: ClosureEntries::new(FirstStepRanks({})),
+  }
+
+  for key, ids in inlines.map {
+    result.inlined_prod_ids_by_key[inlined_prod_ids_key(key.0, key.1)] = ids
   }
 
   // For each grammar symbol, populate the FIRST and LAST sets: the set of
@@ -517,14 +529,14 @@ fn ParseItemSetBuilder::new(
       }
       let (start, end) = syntax_grammar.variable_prod_ids(variable_index)
       for prod_id in start..<end {
-        let item : ParseItem = {
-          variable_index,
-          prod_id,
-          keys: key_map.keys_for(prod_id),
-          step_index: 0,
-          has_preceding_inherited_fields: false,
-        }
-        match inlines.inlined_prod_ids(item.prod_id, item.step_index) {
+        let item = ParseItem::new(
+          variable_index~,
+          prod_id~,
+          keys=key_map.keys_for(prod_id),
+          step_index=0,
+          has_preceding_inherited_fields=false,
+        )
+        match result.inlined_prod_ids(item.prod_id, item.step_index) {
           Some(ids) =>
             for id in ids {
               let item_info = if syntax_grammar.production(id).requires_eof_lookahead {
@@ -594,8 +606,7 @@ fn ParseItemSetBuilder::transitive_closure(
   item_set : ParseItemSet,
 ) -> ParseItemSet {
   for entry in item_set.entries {
-    match
-      self.inlines.inlined_prod_ids(entry.item.prod_id, entry.item.step_index) {
+    match self.inlined_prod_ids(entry.item.prod_id, entry.item.step_index) {
       Some(ids) =>
         for id in ids {
           self.add_item({
@@ -611,6 +622,21 @@ fn ParseItemSetBuilder::transitive_closure(
     }
   }
   self.closure_scratch.take_item_set()
+}
+
+///|
+fn inlined_prod_ids_key(prod_id : Int32, step_index : Int32) -> Int64 {
+  (prod_id.to_int64() << 32) | step_index.to_int64()
+}
+
+///|
+/// `self.inlines.inlined_prod_ids(prod_id, step_index)`, without building a tuple key.
+fn ParseItemSetBuilder::inlined_prod_ids(
+  self : ParseItemSetBuilder,
+  prod_id : Int32,
+  step_index : Int32,
+) -> Array[Int32]? {
+  self.inlined_prod_ids_by_key.get(inlined_prod_ids_key(prod_id, step_index))
 }
 
 ///|

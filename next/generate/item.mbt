@@ -357,6 +357,30 @@ priv struct ParseItem {
   /// true, then the item's set of inherited fields may depend on the specific
   /// symbols of its preceding children.
   has_preceding_inherited_fields : Bool
+  /// `Self::successor`, once built. Items are immutable, so each one builds
+  /// its successor at most once.
+  mut successor_cache : ParseItem?
+  /// `Self::with_preceding_inherited_fields`, once built.
+  mut inherited_cache : ParseItem?
+}
+
+///|
+fn ParseItem::new(
+  variable_index~ : Int32,
+  prod_id~ : Int32,
+  keys~ : FixedArray[DotKeys],
+  step_index~ : Int32,
+  has_preceding_inherited_fields~ : Bool,
+) -> ParseItem {
+  {
+    variable_index,
+    prod_id,
+    keys,
+    step_index,
+    has_preceding_inherited_fields,
+    successor_cache: None,
+    inherited_cache: None,
+  }
 }
 
 ///|
@@ -502,7 +526,7 @@ priv struct ParseItemSet {
 
 ///|
 priv struct ParseItemSetEntry {
-  /// Only changes when `ClosureEntries` reuses a closure's entry.
+  /// Only changes when an entry of a discarded set is reused.
   mut item : ParseItem
   mut lookaheads : Int32
   mut following_reserved_word_set : Int32
@@ -522,13 +546,13 @@ fn ParseItemSet::new() -> ParseItemSet {
 
 ///|
 fn ParseItem::start(key_map : ItemKeyMap) -> ParseItem {
-  {
-    variable_index: augmented_variable_index,
-    prod_id: start_production_id,
-    keys: key_map.start_keys(),
-    step_index: 0,
-    has_preceding_inherited_fields: false,
-  }
+  ParseItem::new(
+    variable_index=augmented_variable_index,
+    prod_id=start_production_id,
+    keys=key_map.start_keys(),
+    step_index=0,
+    has_preceding_inherited_fields=false,
+  )
 }
 
 ///|
@@ -623,7 +647,42 @@ fn ParseItem::is_augmented(self : ParseItem) -> Bool {
 ///|
 /// Create an item like this one, but advanced by one step.
 fn ParseItem::successor(self : ParseItem) -> ParseItem {
-  { ..self, step_index: self.step_index + 1, }
+  match self.successor_cache {
+    Some(successor) => successor
+    None => {
+      let successor = ParseItem::new(
+        variable_index=self.variable_index,
+        prod_id=self.prod_id,
+        keys=self.keys,
+        step_index=self.step_index + 1,
+        has_preceding_inherited_fields=self.has_preceding_inherited_fields,
+      )
+      self.successor_cache = Some(successor)
+      successor
+    }
+  }
+}
+
+///|
+/// `ParseItem { has_preceding_inherited_fields: true, ..self }`.
+fn ParseItem::with_preceding_inherited_fields(self : ParseItem) -> ParseItem {
+  if self.has_preceding_inherited_fields {
+    return self
+  }
+  match self.inherited_cache {
+    Some(item) => item
+    None => {
+      let item = ParseItem::new(
+        variable_index=self.variable_index,
+        prod_id=self.prod_id,
+        keys=self.keys,
+        step_index=self.step_index,
+        has_preceding_inherited_fields=true,
+      )
+      self.inherited_cache = Some(item)
+      item
+    }
+  }
 }
 
 ///|
@@ -634,7 +693,13 @@ fn ParseItem::substitute_production(
   prod_id : Int32,
   keys : FixedArray[DotKeys],
 ) -> ParseItem {
-  { ..self, prod_id, keys, }
+  ParseItem::new(
+    variable_index=self.variable_index,
+    prod_id~,
+    keys~,
+    step_index=self.step_index,
+    has_preceding_inherited_fields=self.has_preceding_inherited_fields,
+  )
 }
 
 ///|
@@ -647,6 +712,16 @@ fn ParseItem::dot_keys(self : ParseItem) -> DotKeys {
 fn ParseItemSet::insert(
   self : ParseItemSet,
   item : ParseItem,
+) -> ParseItemSetEntry {
+  self.insert_reusing(item, [])
+}
+
+///|
+/// `Self::insert`, taking a new entry from `spares` if it has one.
+fn ParseItemSet::insert_reusing(
+  self : ParseItemSet,
+  item : ParseItem,
+  spares : Array[ParseItemSetEntry],
 ) -> ParseItemSetEntry {
   // `entries` is sorted with no duplicates, so an item that sorts after the last entry
   // belongs at the end, which is where the binary search would put it.
@@ -665,10 +740,19 @@ fn ParseItemSet::insert(
         Err(i) => i
       }
   }
-  let entry = {
-    item,
-    lookaheads: lookahead_set_pool_empty,
-    following_reserved_word_set: 0,
+  let entry = match spares.pop() {
+    Some(entry) => {
+      entry.item = item
+      entry.lookaheads = lookahead_set_pool_empty
+      entry.following_reserved_word_set = 0
+      entry
+    }
+    None =>
+      {
+        item,
+        lookaheads: lookahead_set_pool_empty,
+        following_reserved_word_set: 0,
+      }
   }
   self.entries.insert(index, entry)
   entry
