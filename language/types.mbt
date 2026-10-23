@@ -221,15 +221,3 @@ pub fn Language::symbol_id(
   }
   None
 }
-
-///|
-pub fn Language::lookahead(self : Language, state : Int32) -> Array[Int32] {
-  match self.states.get(state) {
-    None => []
-    Some(row) => {
-      let result = row.actions.keys().to_array()
-      result.sort()
-      result
-    }
-  }
-}

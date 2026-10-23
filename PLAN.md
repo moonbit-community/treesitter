@@ -869,3 +869,12 @@ disabled-pattern, disabled-capture and capture-name state. Tests exercise copies
 made after disabling settings and subsequent changes on both objects. All 31
 query tests pass on native, JS and Wasm GC. Top-level query quantifiers and
 root/non-local/guaranteed-step analysis remain open.
+
+Language lookahead inspection now includes nonterminal gotos and implicit
+terminal extras, with a resettable iterator that preserves its position after
+an invalid reset and clears it after exhaustion. `next_state` exposes shifts,
+gotos and extra entry without performing reductions; it returns an option
+because state zero is valid in the portable tables. Tests cover extras, conflict
+action ordering, auxiliary cycles, invalid indices and language replacement.
+All eight generator tests pass on native, JS and Wasm GC; formatting and public
+API generation pass.

@@ -47,7 +47,9 @@ pub struct Language {
 pub fn Language::equal(Self, Self) -> Bool
 pub fn Language::from_json(Json) -> Self raise
 pub fn Language::lookahead(Self, Int32) -> Array[Int32]
+pub fn Language::lookahead_iterator(Self, Int32) -> LookaheadIterator?
 pub fn Language::new(String, Array[Symbol], Array[Token], Array[Production], Array[ParseState], Int32, Array[Int32], word_token? : Int32, supertypes? : Array[Int32], externals? : Array[Int32], recovery_tokens? : Array[Int32]) -> Self raise LanguageError
+pub fn Language::next_state(Self, Int32, Int32) -> Int32?
 pub fn Language::node_types(Self) -> Json
 pub fn Language::not_equal(Self, Self) -> Bool
 pub fn Language::parse(StringView) -> Self raise
@@ -57,6 +59,16 @@ pub fn Language::to_json(Self) -> Json
 pub fn Language::to_repr(Self) -> @debug.Repr
 pub fn Language::validate(Self) -> Unit raise LanguageError
 pub impl ToJson for Language
+
+pub struct LookaheadIterator {
+  // private fields
+}
+pub fn LookaheadIterator::current_symbol(Self) -> Int32?
+pub fn LookaheadIterator::current_symbol_name(Self) -> String?
+pub fn LookaheadIterator::language(Self) -> Language
+pub fn LookaheadIterator::next(Self) -> Int32?
+pub fn LookaheadIterator::reset(Self, Language, Int32) -> Bool
+pub fn LookaheadIterator::reset_state(Self, Int32) -> Bool
 
 pub(all) struct ParseState {
   reserved_words : Array[Int32]
