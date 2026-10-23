@@ -1,14 +1,31 @@
 # Tree-sitter in pure MoonBit
 
-A port in progress of Tree-sitter's grammar compiler, parser runtime and tooling.
+An experimental port of Tree-sitter's grammar compiler, parser runtime and tooling.
 Grammars are MoonBit programs in `.mbtx` files. Generated languages contain
 portable tables and execute without a C runtime, Rust generator or JavaScript
 grammar evaluator.
 
 **This is not yet a complete or drop-in Tree-sitter implementation.** The scope is
-the full repository; [PLAN.md](PLAN.md) records the milestones, validation evidence
-and remaining compatibility work. The reference is Tree-sitter 0.28.0 at commit
+the full repository. [COMPATIBILITY.md](COMPATIBILITY.md) lists what is missing
+in 0.1.0; [PLAN.md](PLAN.md) records the implementation milestones and evidence.
+The reference is Tree-sitter 0.28.0 at commit
 `4a412a01a0147d0f50bf7e749572fa632d1ab203`.
+
+## Install
+
+The public source repository is available now. Mooncakes publication is pending
+credentials for the community namespace. After 0.1.0 is published, add the
+library to a MoonBit project:
+
+```sh
+moon add moonbit-community/treesitter@0.1.0
+```
+
+For the native CLI, clone this repository and run the commands below, or install
+from the checkout with `moon install ./cmd/treesitter`. After publication, use
+`moon install moonbit-community/treesitter/cmd/treesitter@0.1.0` to install from
+Mooncakes. Grammar scripts use `.mbtx`, but the CLI and its script loader require
+the native backend.
 
 ## Try an mbtx grammar
 
@@ -24,8 +41,8 @@ moon run cmd/treesitter --target native -- highlight _build/json.language.json e
 The loader executes the mbtx program with `moon run` inside a temporary
 workspace. It locates this checkout through the working directory or executable
 ancestors, supporting unpublished local development from another directory.
-When no checkout is available, it uses the versioned registry dependency; that
-installation path becomes available after this module is published.
+When no checkout is available, it uses the versioned Mooncakes dependency
+`moonbit-community/treesitter@0.1.0`; this path requires registry publication.
 A grammar program writes exactly one grammar JSON object to stdout; send any
 other diagnostics to stderr. Grammar programs execute with the permissions of
 the invoking process. `TREESITTER_MBT_ROOT` supplies an explicit checkout hint.
@@ -56,8 +73,8 @@ moon run cmd/treesitter --target native -- emit _build/json.language.json _build
 ```
 
 The emitted file defines `language()`, loading validated lexer and parser tables.
-Place it in a MoonBit package importing `bobzhang/treesitter/language`. Consumers
-import that package and `bobzhang/treesitter` for `Parser`. The checked-in
+Place it in a MoonBit package importing `moonbit-community/treesitter/language`. Consumers
+import that package and `moonbit-community/treesitter` for `Parser`. The checked-in
 [JSON factory](examples/json/language.mbt) and
 [arithmetic factory](examples/arithmetic/language.mbt) demonstrate this setup.
 Their runtime tests do not import the generator.
@@ -210,7 +227,8 @@ in node schema metadata. Deterministic regions can be reused in ambiguous
 languages; nodes built while branches compete are conservatively reparsed. The
 second ultra audit's seven concrete findings have regression fixes; broader
 changed-range discrepancies and missing CLI/API capabilities still prevent a
-full-port claim. The release gate remains open in [PLAN.md](PLAN.md).
+full-port claim. This experimental release documents these gaps in
+[COMPATIBILITY.md](COMPATIBILITY.md); full-port work continues in [PLAN.md](PLAN.md).
 
 Unsupported grammar/query features fail explicitly where recognized. Error-tree
 shape and subtle query semantics may differ. The frozen suite is a selected
