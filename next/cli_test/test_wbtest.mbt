@@ -31,7 +31,7 @@ fn trimmed(s : String) -> String {
 }
 
 ///|
-test "test_parse_test_content_simple" {
+test "parse_test_content_simple" {
   let entry = parse_test_content(
     "the-filename",
     trimmed(
@@ -73,7 +73,7 @@ test "test_parse_test_content_simple" {
 }
 
 ///|
-test "test_parse_test_content_with_dashes_in_source_code" {
+test "parse_test_content_with_dashes_in_source_code" {
   let entry = parse_test_content(
     "the-filename",
     trimmed(
@@ -122,7 +122,7 @@ test "test_parse_test_content_with_dashes_in_source_code" {
 }
 
 ///|
-test "test_parse_test_content_with_equals_in_source_code" {
+test "parse_test_content_with_equals_in_source_code" {
   // A literal `===` inside a test body must not be mistaken for an
   // opening header
   let entry = parse_test_content(
@@ -164,7 +164,7 @@ test "test_parse_test_content_with_equals_in_source_code" {
 }
 
 ///|
-test "test_parse_test_content_with_tied_divider_length" {
+test "parse_test_content_with_tied_divider_length" {
   // When two `---` lines in a body have the same length, the real
   // divider is the last one.
   let entry = parse_test_content(
@@ -196,7 +196,7 @@ test "test_parse_test_content_with_tied_divider_length" {
 }
 
 ///|
-test "test_format_sexp" {
+test "format_sexp" {
   assert_eq(@api.format_sexp("", 0), "")
   assert_eq(
     @api.format_sexp("(a b: (c) (d) e: (f (g (h (MISSING i)))))", 0),
@@ -256,7 +256,7 @@ test "test_format_sexp" {
 }
 
 ///|
-test "test_write_tests_to_buffer" {
+test "write_tests_to_buffer" {
   let buffer = StringBuilder()
   let corrected_entries = [
     TestCorrection::new("title 1", "input 1", "output 1", "", 80, 80),
@@ -290,7 +290,7 @@ test "test_write_tests_to_buffer" {
 }
 
 ///|
-test "test_parse_test_content_with_comments_in_sexp" {
+test "parse_test_content_with_comments_in_sexp" {
   let entry = parse_test_content(
     "the-filename",
     trimmed(
@@ -345,7 +345,7 @@ test "test_parse_test_content_with_comments_in_sexp" {
 }
 
 ///|
-test "test_parse_test_content_with_suffixes" {
+test "parse_test_content_with_suffixes" {
   let entry = parse_test_content(
     "the-filename",
     trimmed(
@@ -432,7 +432,7 @@ test "test_parse_test_content_with_suffixes" {
 }
 
 ///|
-test "test_parse_test_content_with_newlines_in_test_names" {
+test "parse_test_content_with_newlines_in_test_names" {
   let entry = parse_test_content(
     "the-filename",
     (
@@ -466,7 +466,7 @@ test "test_parse_test_content_with_newlines_in_test_names" {
 }
 
 ///|
-test "test_parse_test_with_markers" {
+test "parse_test_with_markers" {
   // do one with :skip, we should not see it in the entry output
   let entry = parse_test_content(
     "the-filename",
