@@ -32,9 +32,10 @@ Packages:
    - `BTreeMap`/`BTreeSet` → `@sorted_map`/`@sorted_set` or sorted arrays.
    - `HashMap`/`FxHashMap`/`HashSet` → `Map` only for lookups. If upstream
      iterates one in a way that can influence output, stop and report it.
-   - Rust `sort`, `sort_by`, `sort_by_key` are **stable** → use
-     `stable_sort_by`/`stable_sort_by_key` (util.mbt). MoonBit's
-     `Array::sort*` are unstable. Rust `sort_unstable*` with possible ties
+   - Rust `sort`, `sort_by`, `sort_by_key` are **stable**. For a natural-order
+     sort use core's `arr.mut_view().stable_sort()`; with a comparator or key
+     use `stable_sort_by`/`stable_sort_by_key` (util.mbt; core has no stable
+     `_by` variants). MoonBit's `Array::sort*` are unstable. Rust `sort_unstable*` with possible ties
      between distinguishable elements must be flagged in a comment and
      reported.
    - `Vec::dedup` → `dedup` (util.mbt); `Vec::swap_remove` → `swap_remove`.
