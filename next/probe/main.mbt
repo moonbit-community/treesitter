@@ -181,6 +181,26 @@ async fn main {
         }
       }
     }
+    "generate" => {
+      let grammar_json = @fs.read_file(args[2]).text()
+      let out = args[3]
+      let diagnostics : Array[@generate.Diagnostic] = []
+      let generated = @generate.generate_from_grammar_json(
+        grammar_json,
+        diagnostics~,
+      ) catch {
+        e => {
+          println("error: \{e}")
+          return
+        }
+      }
+      @fs.write_file(out + "/parser.c", generated.c_code, create_mode=CreateOrTruncate)
+      @fs.write_file(out + "/node-types.json", generated.node_types_json, create_mode=CreateOrTruncate)
+      @fs.write_file(out + "/language.json", generated.language.to_json().stringify(), create_mode=CreateOrTruncate)
+      for d in diagnostics {
+        println("warning: \{d}")
+      }
+    }
     "walk" => {
       let language = load_language(args[2])
       let parser = new_parser(language)

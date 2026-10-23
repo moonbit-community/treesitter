@@ -8,6 +8,7 @@ compare the S-expressions.
 Usage: python3 tools/next/diff_runtime.py [--mutate N] [names...]
 """
 import argparse
+import os
 import hashlib
 import json
 import random
@@ -18,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 REF = ROOT / '_build/ref'
-LANG = ROOT / '_build/reflang'
+LANG = Path(os.environ['NEXT_LANG_DIR']) if os.environ.get('NEXT_LANG_DIR') else ROOT / '_build/reflang'
 BIN = ROOT / '_build/refbin'
 TMP = ROOT / '_build/difftmp'
 UPSTREAM = Path(subprocess.check_output(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], cwd=ROOT, text=True).strip()).parent / '.repos/ts-pinned'
