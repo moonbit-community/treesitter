@@ -1,4 +1,27 @@
 ///|
+/// Return the direct child containing `descendant`, including that child itself.
+/// Return None for this node or a node from an unrelated tree. Identity checks
+/// distinguish missing nodes that share the same zero-width source range.
+pub fn Node::child_with_descendant(self : Node, descendant : Node) -> Node? {
+  if physical_equal(self.data, descendant.data) {
+    return None
+  }
+  for child in self.children() {
+    let pending = [child]
+    while pending.pop() is Some(node) {
+      if physical_equal(node.data, descendant.data) {
+        return Some(child)
+      }
+      if node.start_byte() <= descendant.start_byte() &&
+        node.end_byte() >= descendant.end_byte() {
+        pending.append(node.children())
+      }
+    }
+  }
+  None
+}
+
+///|
 /// Count visible nodes in this subtree, including this node.
 pub fn Node::descendant_count(self : Node) -> Int32 {
   let work = [self]

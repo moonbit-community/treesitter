@@ -22,3 +22,9 @@ pub fn Parser::set_logger(
 ) -> Unit {
   self.logger = logger
 }
+
+///|
+/// Return the installed synchronous diagnostic callback, if logging is enabled.
+pub fn Parser::logger(self : Parser) -> ((LogType, String) -> Unit)? {
+  self.logger
+}

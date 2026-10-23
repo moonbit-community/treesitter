@@ -76,6 +76,7 @@ pub fn Node::child(Self, Int32) -> Self?
 pub fn Node::child_by_field_id(Self, Int32) -> Self?
 pub fn Node::child_by_field_name(Self, String) -> Self?
 pub fn Node::child_count(Self) -> Int32
+pub fn Node::child_with_descendant(Self, Self) -> Self?
 pub fn Node::children(Self) -> Array[Self]
 pub fn Node::children_by_field_id(Self, Int32) -> Array[Self]
 pub fn Node::children_by_field_name(Self, String) -> Array[Self]
@@ -117,6 +118,7 @@ pub struct Parser {
   // private fields
 }
 pub fn Parser::has_pending_parse(Self) -> Bool
+pub fn Parser::logger(Self) -> ((LogType, String) -> Unit)?
 pub fn Parser::new(@language.Language, scanner? : ExternalScanner) -> Self raise @language.LanguageError
 pub fn Parser::parse(Self, Bytes, old_tree? : Tree, included_ranges? : Array[Range], max_steps? : Int32, max_branches? : Int32, max_errors? : Int32, cancelled? : () -> Bool) -> Tree raise ParseError
 pub fn Parser::parse_encoded(Self, Bytes, InputEncoding, old_tree? : Tree, included_ranges? : Array[Range], max_steps? : Int32, max_branches? : Int32, max_errors? : Int32, cancelled? : () -> Bool) -> Tree raise ParseError

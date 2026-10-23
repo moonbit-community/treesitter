@@ -1002,3 +1002,12 @@ query probes pass; the ranged probe retains its 15 known hidden-traversal gaps.
 JavaScript passes all 116 corpora, six query files, 67 annotation assertions,
 696 edit checks and both large examples. Full portable and CLI checks pass
 325 native / 317 JS / 317 Wasm GC tests.
+
+### Descendant navigation and logger introspection
+
+Added Node::child_with_descendant with identity checks, including hidden-rule
+flattening and zero-width missing nodes. An unrelated parse with matching byte
+ranges or numeric ids cannot masquerade as a descendant; persistent tree copies
+retain valid shared identities. Parser::logger exposes the installed callback
+and preserves it across reset. The 78 root-package tests pass on native, JS and
+Wasm GC; checking and generated-interface validation pass without warnings.
