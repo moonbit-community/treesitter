@@ -126,6 +126,7 @@ pub(all) struct Point {
   column : Int32
 } derive(Compare, Eq, ToJson, @debug.Debug)
 pub fn Point::compare(Self, Self) -> Int32
+pub fn Point::edited(Self, Int32, InputEdit) -> (Self, Int32) raise EditError
 pub fn Point::equal(Self, Self) -> Bool
 pub fn Point::not_equal(Self, Self) -> Bool
 pub fn Point::op_ge(Self, Self) -> Bool
@@ -142,6 +143,7 @@ pub(all) struct Range {
   start_point : Point
   end_point : Point
 } derive(Eq, ToJson, @debug.Debug)
+pub fn Range::edited(Self, InputEdit) -> Self raise EditError
 pub fn Range::equal(Self, Self) -> Bool
 pub fn Range::not_equal(Self, Self) -> Bool
 #deprecated

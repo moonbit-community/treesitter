@@ -101,18 +101,17 @@ fn edit_node(node : Node, edit : InputEdit) -> Node {
 /// retained for verifying reuse against the next input. Existing node handles
 /// retain their old positions because trees use persistent nodes.
 pub fn Tree::edit(self : Tree, edit : InputEdit) -> Unit raise EditError {
-  if edit.start_byte < 0 ||
-    edit.old_end_byte < edit.start_byte ||
-    edit.new_end_byte < edit.start_byte ||
-    edit.old_end_byte > self.edited_length ||
-    edit.start_point.row < 0 ||
-    edit.start_point.column < 0 ||
-    edit.old_end_point < edit.start_point ||
-    edit.new_end_point < edit.start_point {
+  validate_edit(edit)
+  if edit.old_end_byte > self.edited_length ||
+    self.edited_length.to_int64() +
+    edit.new_end_byte.to_int64() -
+    edit.old_end_byte.to_int64() >
+    2147483647L {
     raise InvalidEdit("invalid byte or point bounds")
   }
+  let ranges = self.source_ranges.map(r => edited_range(r, edit))
   self.root = edit_node(self.root, edit)
-  self.source_ranges = self.source_ranges.map(r => edited_range(r, edit))
+  self.source_ranges = ranges
   self.edited_length += edit.new_end_byte - edit.old_end_byte
   self.edited = true
 }

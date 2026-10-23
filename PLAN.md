@@ -905,3 +905,12 @@ cases but retains 31 range-limited differences (alternative entry rooting and
 optional-pattern traversal beyond the end range). These remain compatibility
 gaps, not accepted golden output. General query automaton/grammar analysis and
 rooted/non-local/guaranteed-step metadata remain open.
+
+Standalone `Point::edited` and `Range::edited` now expose the upstream coordinate
+edit rules with checked portable coordinates. A frozen C probe also uncovered
+and fixed two included-range bugs: a covered endpoint collapses to the edit's
+start (not the replacement's end), and an insertion exactly at a range end
+extends that range. Tree edits validate all point components and calculate
+fallible range updates before mutating the tree. Tests cover multiline suffixes,
+covered ranges, boundary insertion, unbounded ends, invalid coordinates and
+overflow. All 313 native / 305 JS / 305 Wasm GC tests pass without warnings.
