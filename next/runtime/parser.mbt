@@ -52,6 +52,10 @@ pub struct Parser {
   priv mut has_error : Bool
   /// `tree_pool.tree_stack`, used by subtree balancing.
   priv balance_stack : Array[Subtree]
+  /// The language's `lex_fn` and `keyword_lex_fn`, compiled once in
+  /// `set_language`.
+  priv mut lex_program : CompiledLexProgram?
+  priv mut keyword_lex_program : CompiledLexProgram?
 }
 
 ///|
@@ -334,13 +338,13 @@ fn Parser::call_main_lex_fn(
   self : Parser,
   lex_mode : @language.LexMode,
 ) -> Bool {
-  run_lex_program(self.lang().lex_fn, self.lexer, lex_mode.lex_state)
+  self.lex_program.unwrap().run(self.lexer, lex_mode.lex_state)
 }
 
 ///|
 fn Parser::call_keyword_lex_fn(self : Parser) -> Bool {
-  match self.lang().keyword_lex_fn {
-    Some(program) => run_lex_program(program, self.lexer, 0)
+  match self.keyword_lex_program {
+    Some(program) => program.run(self.lexer, 0)
     None => false
   }
 }
@@ -1958,6 +1962,8 @@ pub fn Parser::new() -> Parser {
     canceled_balancing: false,
     has_error: false,
     balance_stack: [],
+    lex_program: None,
+    keyword_lex_program: None,
   }
   self.set_cached_token(0, Null, Null)
   self
@@ -1991,6 +1997,19 @@ pub fn Parser::set_language(
   }
   self.language = language
   self.scanner_factory = scanner
+  match language {
+    Some(language) => {
+      self.lex_program = Some(CompiledLexProgram::compile(language.lex_fn))
+      self.keyword_lex_program = match language.keyword_lex_fn {
+        Some(program) => Some(CompiledLexProgram::compile(program))
+        None => None
+      }
+    }
+    None => {
+      self.lex_program = None
+      self.keyword_lex_program = None
+    }
+  }
   true
 }
 
