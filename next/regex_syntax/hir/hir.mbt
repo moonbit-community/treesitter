@@ -810,7 +810,7 @@ pub impl Interval for ClassUnicodeRange with fn case_fold_simple(self, ranges) {
 /// The returned range is always in a canonical form. That is, the range
 /// returned always satisfies the invariant that `start <= end`.
 pub fn ClassUnicodeRange::new(start : Int32, end : Int32) -> ClassUnicodeRange {
-  ClassUnicodeRange::create(start, end)
+  Interval::create(start, end)
 }
 
 ///|
@@ -1065,7 +1065,7 @@ pub impl Interval for ClassBytesRange with fn case_fold_simple(self, ranges) {
 /// The returned range is always in a canonical form. That is, the range
 /// returned always satisfies the invariant that `start <= end`.
 pub fn ClassBytesRange::new(start : Byte, end : Byte) -> ClassBytesRange {
-  ClassBytesRange::create(start.to_int(), end.to_int())
+  Interval::create(start.to_int(), end.to_int())
 }
 
 ///|

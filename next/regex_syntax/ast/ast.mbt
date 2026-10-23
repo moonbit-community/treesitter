@@ -217,11 +217,11 @@ pub impl Compare for Position with fn compare(self, other) {
 
 ///|
 pub impl Compare for Span with fn compare(self, other) {
-  let c = self.start.compare(other.start)
+  let c = Compare::compare(self.start, other.start)
   if c != 0 {
     c
   } else {
-    self.end.compare(other.end)
+    Compare::compare(self.end, other.end)
   }
 }
 
