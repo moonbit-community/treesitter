@@ -33,11 +33,21 @@ pub let end_name_id : StrId
 
 pub fn expand_tokens(RulePool, ArrayView[LexicalToken], ArrayView[RuleId]) -> LexicalGrammar raise
 
+pub fn generate_from_grammar_json(String, semantic_version? : (Int32, Int32, Int32), abi_version? : Int32, report_symbol_name? : String, optimizations? : OptLevel, diagnostics? : Array[Diagnostic]) -> GeneratedParser raise
+
+pub fn generate_node_types_for_grammar(String, Array[Diagnostic]) -> String raise
+
 pub fn generate_node_types_json(SyntaxGrammar, LexicalGrammar, @sorted_map.SortedMap[Symbol, Alias], Array[VariableInfo], InlinedProductionMap, StrPool) -> String raise
+
+pub fn generate_parser_for_grammar(String, (Int32, Int32, Int32)?, OptLevel, Array[Diagnostic]) -> (String, String) raise
+
+pub fn generate_parser_for_grammar_with_opts(InputGrammar, Int32, (Int32, Int32, Int32)?, String?, OptLevel, Array[Diagnostic]) -> GeneratedParser raise
 
 pub fn get_supertype_symbol_map(SyntaxGrammar, @sorted_map.SortedMap[Symbol, Alias], Array[VariableInfo], InlinedProductionMap) -> @sorted_map.SortedMap[Symbol, Array[ChildType]]
 
 pub fn get_variable_info(SyntaxGrammar, LexicalGrammar, @sorted_map.SortedMap[Symbol, Alias], InlinedProductionMap, StrPool) -> Array[VariableInfo] raise
+
+pub let language_version : Int32
 
 pub let no_reserved_words : Int32
 
@@ -312,6 +322,12 @@ pub(all) struct FieldLocation {
   index : Int32
   inherited : Bool
 } derive(Compare, Eq, Hash, @debug.Debug)
+
+pub(all) struct GeneratedParser {
+  c_code : String
+  node_types_json : String
+  language : @language.Language
+}
 
 pub(all) enum GotoAction {
   Goto(Int32)

@@ -114,20 +114,6 @@ pub(all) struct PreparedGrammar {
 }
 
 ///|
-/// `parse_grammar::parse_grammar`: parse upstream `grammar.json` text.
-declare pub fn parse_grammar(
-  input : String,
-  diagnostics : Array[Diagnostic],
-) -> InputGrammar raise
-
-///|
-/// `prepare_grammar::prepare_grammar`.
-declare pub fn prepare_grammar(
-  grammar : InputGrammar,
-  diagnostics : Array[Diagnostic],
-) -> PreparedGrammar raise
-
-///|
 /// `build_tables::build_tables`.
 declare pub fn build_tables(
   syntax_grammar : SyntaxGrammar,
