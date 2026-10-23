@@ -1,0 +1,14 @@
+import {
+  "moonbit-community/treesitter/next/runtime",
+  "moonbit-community/treesitter/next/language",
+  "moonbitlang/async/fs",
+  "moonbitlang/async",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "+native"
+
+warnings = "-implicit_impl_as_method"
