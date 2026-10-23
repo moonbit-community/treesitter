@@ -16,7 +16,7 @@
 /// An error building a [`Regex`].
 pub(all) suberror RegexError {
   /// The pattern failed to parse or translate; the payload is the
-  /// regex-syntax error.
+  /// `Display` text of the regex-syntax error (as in `regex::Error::Syntax`).
   Syntax(String)
   /// The compiled program exceeded the size limit (`regex` uses an NFA size
   /// limit of 10 MiB by default).
@@ -61,7 +61,7 @@ pub fn Regex::new(
     .ignore_whitespace(false)
     .build()
   let ast = parser.parse(pattern) catch {
-    err => raise Syntax(err.kind().to_string())
+    err => raise Syntax(format_ast_error(err))
   }
   let translator = @hir.TranslatorBuilder::new()
     .utf8(utf8)
@@ -74,7 +74,7 @@ pub fn Regex::new(
     .line_terminator(b'\n')
     .build()
   let hir = translator.translate(pattern, ast) catch {
-    err => raise Syntax(err.kind().to_string())
+    err => raise Syntax(format_hir_error(err))
   }
   if estimate_size(hir) > nfa_size_limit {
     raise CompiledTooBig(nfa_size_limit)

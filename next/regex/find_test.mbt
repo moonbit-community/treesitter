@@ -48,3 +48,22 @@ test "find_at" {
   debug_inspect(regex.find(hay), content="Some((4, 7))")
   debug_inspect(regex.find_at(hay, 5), content="None")
 }
+
+///|
+test "syntax error display" {
+  // `regex::Error`'s Display (regex-syntax's formatter).
+  try @regex.Regex::new("[z-a]", utf8=true) catch {
+    e =>
+      inspect(
+        e,
+        content=(
+          #|regex parse error:
+          #|    [z-a]
+          #|     ^^^
+          #|error: invalid character class range, the start must be <= the end
+        ),
+      )
+  } noraise {
+    _ => fail("expected an error")
+  }
+}
