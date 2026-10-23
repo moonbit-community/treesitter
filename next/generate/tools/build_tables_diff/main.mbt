@@ -1,13 +1,14 @@
 // Differential check of `build_tables` against the upstream harness output.
 //
-// Usage: build_tables_diff <bt_ref dir> [--repeat N] [names...]
+// Usage: build_tables_diff <bt_ref dir> [--repeat N] [--report RULE] [names...]
 // For each `<dir>/<name>/inputs.json`, runs `build_tables` and compares the
 // canonical dump with `<dir>/<name>/tables.txt`, writing `mbt_tables.txt` next
 // to it when they differ. Prints one line per grammar: name, OK/DIFF, the
-// best time over the repeats (ms) and upstream's time (ms).
+// best time over the repeats (ms) and upstream's time (ms). With `--report`,
+// only prints the state report that `build_tables` prints for RULE.
 
 ///|
-fn run_one(inputs : BuildTablesInputs) -> String {
+fn run_one(inputs : BuildTablesInputs, report : String?) -> String {
   let diagnostics : Array[@generate.Diagnostic] = []
   let out = StringBuilder()
   try
@@ -18,7 +19,7 @@ fn run_one(inputs : BuildTablesInputs) -> String {
       inputs.variable_info,
       inputs.inlines,
       inputs.str_pool,
-      None,
+      report,
       @generate.default_opt_level,
       diagnostics,
     )
@@ -38,11 +39,17 @@ async fn main {
   let args = @env.args()
   let root = args[1]
   let mut repeat = 1
+  let mut report = None
   let names = []
   let mut i = 2
   while i < args.length() {
     if args[i] == "--repeat" {
       repeat = @string.parse_int(args[i + 1]) catch { _ => 1 }
+      i += 2
+      continue
+    }
+    if args[i] == "--report" {
+      report = Some(args[i + 1])
       i += 2
       continue
     }
@@ -68,11 +75,14 @@ async fn main {
     for _ in 0..<repeat {
       let inputs = load_inputs(inputs_text)
       let start = @env.now()
-      actual = run_one(inputs)
+      actual = run_one(inputs, report)
       let elapsed = (@env.now() - start).reinterpret_as_int64()
       if best < 0L || elapsed < best {
         best = elapsed
       }
+    }
+    if report is Some(_) {
+      continue
     }
     total += 1
     let status = if actual == expected {
@@ -88,5 +98,7 @@ async fn main {
     }
     println("\{name} \{status} \{best}ms upstream=\{upstream_us}us")
   }
-  println("matched \{matched}/\{total}")
+  if report is None {
+    println("matched \{matched}/\{total}")
+  }
 }

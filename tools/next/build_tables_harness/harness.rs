@@ -262,8 +262,9 @@ pub fn dump_tables(tables: &Tables, pool: &StrPool) -> String {
     out
 }
 
-/// Returns (inputs json or None, output text, build_tables micros).
-pub fn run(grammar_json: &str) -> (Option<String>, String, u128) {
+/// Returns (inputs json or None, output text, build_tables micros). With a
+/// `report_symbol_name`, upstream logs its state report at info level.
+pub fn run(grammar_json: &str, report_symbol_name: Option<&str>) -> (Option<String>, String, u128) {
     let mut diagnostics = Vec::new();
     let input_grammar = match parse_grammar(grammar_json, &mut diagnostics) {
         Ok(g) => g,
@@ -308,7 +309,7 @@ pub fn run(grammar_json: &str) -> (Option<String>, String, u128) {
         &variable_info,
         &inlines,
         &str_pool,
-        None,
+        report_symbol_name,
         OptLevel::default(),
         &mut diagnostics,
     );
