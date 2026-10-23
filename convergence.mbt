@@ -16,7 +16,7 @@ fn equivalent_top_link(left : Array[Entry], right : Array[Entry]) -> Bool {
         return false
       }
     }
-    if a.symbol() != b.symbol() ||
+    if a.grammar_symbol() != b.grammar_symbol() ||
       a.start_byte() != b.start_byte() ||
       a.end_byte() != b.end_byte() ||
       a.is_extra() != b.is_extra() ||

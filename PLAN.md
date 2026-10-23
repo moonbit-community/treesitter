@@ -934,3 +934,14 @@ rather than UTF-16 code-unit order. Nodes retain their generated language and
 support field-id child lookup; tree cursors report field ids. Tests cover hidden
 field inheritance, repeated fields, invalid ids, Unicode ordering, serialization
 and persistent tree copies. All 315 native / 307 JS / 307 Wasm GC tests pass.
+
+### Public and grammar symbol identity checkpoint
+
+Public symbol lookup now includes alias-only names, distinguishes named from
+anonymous aliases, canonicalizes duplicate public identities, and excludes
+hidden auxiliary names. Languages expose symbol names/types/counts and direct
+supertype members. Nodes separately expose public `symbol` and parser
+`grammar_symbol`/`grammar_kind`; internal recovery, reuse and range comparisons
+continue using grammar ids. Default aliases remain grammar-table identities,
+as in upstream. Frozen C results cover aliases and nested supertypes; generated
+table round trips preserve ids. All 317 native / 309 JS / 309 Wasm GC tests pass.

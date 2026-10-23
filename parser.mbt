@@ -399,7 +399,7 @@ fn Parser::finish(
   }
   Some(
     self.node(
-      root.symbol(),
+      root.grammar_symbol(),
       start,
       end,
       lines,

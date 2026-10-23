@@ -57,7 +57,11 @@ pub fn Language::next_state(Self, Int32, Int32) -> Int32?
 pub fn Language::node_types(Self) -> Json
 pub fn Language::not_equal(Self, Self) -> Bool
 pub fn Language::parse(StringView) -> Self raise
+pub fn Language::subtypes(Self, Int32) -> Array[Int32]
+pub fn Language::symbol_count(Self) -> Int32
 pub fn Language::symbol_id(Self, String, named? : Bool) -> Int32?
+pub fn Language::symbol_name(Self, Int32) -> String?
+pub fn Language::symbol_type(Self, Int32) -> SymbolType?
 #deprecated
 pub fn Language::to_json(Self) -> Json
 pub fn Language::to_repr(Self) -> @debug.Repr
@@ -130,6 +134,16 @@ pub fn Symbol::not_equal(Self, Self) -> Bool
 #deprecated
 pub fn Symbol::to_json(Self) -> Json
 pub fn Symbol::to_repr(Self) -> @debug.Repr
+
+pub(all) enum SymbolType {
+  Regular
+  Anonymous
+  Supertype
+  Auxiliary
+} derive(Eq, @debug.Debug)
+pub fn SymbolType::equal(Self, Self) -> Bool
+pub fn SymbolType::not_equal(Self, Self) -> Bool
+pub fn SymbolType::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Token {
   symbol : Int32

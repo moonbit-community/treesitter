@@ -219,7 +219,7 @@ fn reuse_candidates(
       !node.has_changes() &&
       !node.has_error() &&
       !node.data.continuation.map(c => c.0.missing).unwrap_or(false) &&
-      !old_tree.language.symbols[node.symbol()].terminal &&
+      !old_tree.language.symbols[node.grammar_symbol()].terminal &&
       node.end_byte() > node.start_byte() &&
       node.start_byte() >= 0 &&
       node.end_byte() <= source.length() &&

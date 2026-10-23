@@ -131,7 +131,7 @@ fn compare_changes(old : ChangeCursor, new : ChangeCursor) -> ChangeComparison {
   match (old.visible(), new.visible()) {
     (None, None) => Matches
     (Some(a), Some(b)) => {
-      if a.symbol() != b.symbol() ||
+      if a.grammar_symbol() != b.grammar_symbol() ||
         a.kind() != b.kind() ||
         a.is_named() != b.is_named() {
         return Differs

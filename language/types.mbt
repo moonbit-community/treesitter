@@ -58,6 +58,7 @@ pub(all) struct ParseState {
 /// Constructed and validated by the generator; no C language ABI is involved.
 pub struct Language {
   priv field_names : Array[String]
+  priv public_symbols : Array[Symbol]
   name : String
   symbols : Array[Symbol]
   tokens : Array[Token]
@@ -92,6 +93,7 @@ pub fn Language::new(
 ) -> Language raise LanguageError {
   let language : Language = {
     field_names: collect_field_names(productions),
+    public_symbols: collect_public_symbols(symbols, productions),
     name,
     symbols,
     tokens,
@@ -208,18 +210,4 @@ pub fn Language::validate(self : Language) -> Unit raise LanguageError {
       invalid("invalid extra symbol")
     }
   }
-}
-
-///|
-pub fn Language::symbol_id(
-  self : Language,
-  name : String,
-  named~ : Bool = true,
-) -> Int32? {
-  for id, symbol in self.symbols {
-    if symbol.name == name && symbol.named == named {
-      return Some(id)
-    }
-  }
-  None
 }

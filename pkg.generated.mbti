@@ -87,6 +87,8 @@ pub fn Node::end_position(Self) -> Point
 pub fn Node::field_name_for_child(Self, Int32) -> String?
 pub fn Node::field_name_for_named_child(Self, Int32) -> String?
 pub fn Node::first_child_for_byte(Self, Int32, named? : Bool) -> Self?
+pub fn Node::grammar_kind(Self) -> String
+pub fn Node::grammar_symbol(Self) -> Int32
 pub fn Node::has_changes(Self) -> Bool
 pub fn Node::has_error(Self) -> Bool
 pub fn Node::id(Self) -> Int32

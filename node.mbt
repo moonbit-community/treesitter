@@ -59,8 +59,25 @@ pub fn Node::id(self : Node) -> Int32 {
 }
 
 ///|
+/// Public symbol identity, including aliases and canonicalized duplicate names.
 pub fn Node::symbol(self : Node) -> Int32 {
+  self
+  .language()
+  .symbol_id(self.kind(), named=self.is_named())
+  .unwrap_or(self.data.symbol)
+}
+
+///|
+/// Symbol used by the parser before a production-specific alias is applied.
+pub fn Node::grammar_symbol(self : Node) -> Int32 {
   self.data.symbol
+}
+
+///|
+/// Grammar symbol name. Default aliases are part of the generated grammar's
+/// symbol table; production-specific aliases only affect `kind` and `symbol`.
+pub fn Node::grammar_kind(self : Node) -> String {
+  self.language().symbol_name(self.grammar_symbol()).unwrap_or(self.kind())
 }
 
 ///|
