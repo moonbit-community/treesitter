@@ -4,13 +4,10 @@ test "lookahead includes nonterminals and implicit terminal extras" {
     @grammar.Grammar::new(
       "lookahead",
       [
-        (
-          "document",
-          @grammar.Seq([@grammar.Literal("a"), @grammar.Literal("b")]),
-        ),
-        ("comment", @grammar.Literal("#")),
+        ("document", Seq([Literal("a"), Literal("b")])),
+        ("comment", Literal("#")),
       ],
-      extras=[@grammar.Symbol("comment")],
+      extras=[Symbol("comment")],
     ),
   )
   let names = language.lookahead(0).map(id => language.symbols[id].name)
@@ -52,7 +49,7 @@ test "lookahead includes nonterminals and implicit terminal extras" {
   assert_false(iterator.reset_state(-1))
   assert_eq(iterator.current_symbol(), first)
   let other = @generate.generate(
-    @grammar.Grammar::new("other", [("root", @grammar.Literal("x"))]),
+    @grammar.Grammar::new("other", [("root", Literal("x"))]),
   )
   assert_false(iterator.reset(other, other.states.length()))
   assert_eq(iterator.language().name, "lookahead")
@@ -71,13 +68,10 @@ test "lookahead transitions follow extra entry and the last conflict action" {
     @grammar.Grammar::new(
       "extra",
       [
-        ("document", @grammar.Literal("a")),
-        (
-          "comment",
-          @grammar.Seq([@grammar.Literal("/"), @grammar.Literal("/")]),
-        ),
+        ("document", Literal("a")),
+        ("comment", Seq([Literal("/"), Literal("/")])),
       ],
-      extras=[@grammar.Symbol("comment")],
+      extras=[Symbol("comment")],
     ),
   )
   let slash = language.symbol_id("/", named=false).unwrap()
@@ -85,11 +79,11 @@ test "lookahead transitions follow extra entry and the last conflict action" {
   assert_true(language.next_state(next, slash) is Some(_))
   // A reduction is not a direct shift, even if a conflict also offers a shift.
   let row = language.states[0]
-  row.actions[slash] = [@language.Shift(0), @language.Reduce(0)]
+  row.actions[slash] = [Shift(0), Reduce(0)]
   assert_eq(language.next_state(0, slash), None)
-  row.actions[slash] = [@language.Reduce(0), @language.Shift(0)]
+  row.actions[slash] = [Reduce(0), Shift(0)]
   assert_eq(language.next_state(0, slash), Some(0))
-  row.actions[slash] = [@language.EnterExtra(0)]
+  row.actions[slash] = [EnterExtra(0)]
   assert_eq(language.next_state(0, slash), None)
   row.actions[slash] = []
   assert_false(language.lookahead(0).contains(slash))
