@@ -11,7 +11,12 @@ async fn load_language(path : String) -> @language.Language {
 ///|
 fn new_parser(language : @language.Language) -> @runtime.Parser {
   let parser = @runtime.Parser::new()
-  let ok = match @scanners.scanner_for(language.name) {
+  let scanner = if language.external_token_count > 0 {
+    @scanners.scanner_for(language.name)
+  } else {
+    None
+  }
+  let ok = match scanner {
     Some(scanner) => parser.set_language(Some(language), scanner~)
     None => parser.set_language(Some(language))
   }
