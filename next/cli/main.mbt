@@ -240,7 +240,7 @@ async fn build_run(
       guard @support.parent(full_path) is Some(parent_path) else {
         raise anyhow("Output path must have a parent")
       }
-      @fs.mkdir(if parent_path.is_empty() { "." } else { parent_path }, recursive=true) catch {
+      @support.create_dir_all(if parent_path.is_empty() { "." } else { parent_path }) catch {
         e => raise with_context(e, "Failed to create output path")
       }
       full_path
@@ -1133,10 +1133,7 @@ pub async fn run(
         }
       }
     Err(err) => {
-      let chain = match err {
-        CliError(_) as c => c
-        e => CliError([error_message(e)])
-      }
+      let chain = CliError(error_chain(err))
       if !error_message(chain).is_empty() {
         @support.log_error(chain.debug())
       }

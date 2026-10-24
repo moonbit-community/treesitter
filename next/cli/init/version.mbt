@@ -27,10 +27,11 @@ pub(all) enum UpdateError {
 } derive(Debug)
 
 ///|
-pub impl Show for UpdateError with output(self, logger) {
+pub impl Show for UpdateError with fn output(self, logger) {
   match self {
     // "Failed to update {1}:\n{0}"
-    Io(error, path) => logger.write_string("Failed to update \{path}:\n\{error}")
+    Io(error, path) =>
+      logger.write_string("Failed to update \{path}:\n\{error}")
     // "Failed to run `{0}`:\n{1}"
     Command(command, stderr) =>
       logger.write_string("Failed to run `\{command}`:\n\{stderr}")
@@ -47,7 +48,7 @@ pub(all) suberror VersionError {
 } derive(Debug)
 
 ///|
-pub impl Show for VersionError with output(self, logger) {
+pub impl Show for VersionError with fn output(self, logger) {
   match self {
     Json(message) | Io(message) => logger.write_string(message)
     // "Failed to update one or more files:\n\n{0}", where `UpdateErrors`
@@ -67,12 +68,15 @@ pub fn Version::new(
   current_dir : String,
   bump : BumpLevel?,
 ) -> Version {
-  { version, current_dir, bump }
+  { version, current_dir, bump, }
 }
 
 ///|
 pub async fn Version::run(self : Version) -> Unit {
-  let tree_sitter_json = @support.path_join(self.current_dir, "tree-sitter.json")
+  let tree_sitter_json = @support.path_join(
+    self.current_dir,
+    "tree-sitter.json",
+  )
   let text = read_to_string(tree_sitter_json) catch {
     IoError(e) => raise VersionError::Io(e)
   }
@@ -90,9 +94,9 @@ pub async fn Version::run(self : Version) -> Unit {
       let v = current_version
       Some(
         match bump {
-          Patch => { ..v, patch: v.patch + 1 }
-          Minor => { ..v, minor: v.minor + 1, patch: 0 }
-          Major => { ..v, major: v.major + 1, minor: 0, patch: 0 }
+          Patch => { ..v, patch: v.patch + 1, }
+          Minor => { ..v, minor: v.minor + 1, patch: 0, }
+          Major => { ..v, major: v.major + 1, minor: 0, patch: 0, }
         },
       )
     }
@@ -145,7 +149,7 @@ pub async fn Version::run(self : Version) -> Unit {
 ///|
 /// `Ord for semver::Version`: major, minor, patch, then the pre-release
 /// (a version without one is greater) and the build metadata.
-fn semver_cmp(a : @loader.SemverVersion, b : @loader.SemverVersion) -> Int {
+fn semver_cmp(a : @loader.SemverVersion, b : @loader.SemverVersion) -> Int32 {
   let c = a.major.compare(b.major)
   if c != 0 {
     return c
@@ -172,7 +176,7 @@ fn semver_cmp(a : @loader.SemverVersion, b : @loader.SemverVersion) -> Int {
 
 ///|
 /// `Ord for str` (byte-wise; the identifiers are ASCII).
-fn lexical_cmp(a : StringView, b : StringView) -> Int {
+fn lexical_cmp(a : StringView, b : StringView) -> Int32 {
   let n = if a.length() < b.length() { a.length() } else { b.length() }
   for i in 0..<n {
     let c = a[i].compare(b[i])
@@ -200,7 +204,7 @@ fn is_numeric_identifier(s : StringView) -> Bool {
 /// `Ord for Prerelease` (`prerelease = true`) and `Ord for BuildMetadata`:
 /// dot-separated identifiers compared pairwise; numeric identifiers compare
 /// numerically and sort before alphanumeric ones; more identifiers win.
-fn identifiers_cmp(a : String, b : String, prerelease : Bool) -> Int {
+fn identifiers_cmp(a : String, b : String, prerelease : Bool) -> Int32 {
   if a.is_empty() || b.is_empty() {
     return a.length().compare(b.length())
   }
@@ -267,7 +271,11 @@ async fn update_file_with(
 ///|
 /// Replace the quoted value following `prefix` on `line` with `version`
 /// (panics like upstream's `unwrap`s when the quotes are missing).
-fn replace_quoted_after(line : String, prefix : String, version : String) -> String {
+fn replace_quoted_after(
+  line : String,
+  prefix : String,
+  version : String,
+) -> String {
   let prefix_index = line.find(prefix).unwrap() + prefix.length()
   let start_quote = line.view(start_offset=prefix_index).find("\"").unwrap() +
     prefix_index +
@@ -292,33 +300,41 @@ async fn Version::update_treesitter_json(
 ) -> Result[Unit, UpdateError] {
   let json_path = @support.path_join(self.current_dir, "tree-sitter.json")
   let version = self.version.unwrap().to_string()
-  update_file_with(json_path, content => map_lines(content, line => if line.contains(
-      "\"version\":",
-    ) {
-    replace_quoted_after(line, "\"version\":", version)
-  } else {
-    line
-  }))
+  update_file_with(json_path, content => {
+    map_lines(content, line => {
+      if line.contains("\"version\":") {
+        replace_quoted_after(line, "\"version\":", version)
+      } else {
+        line
+      }
+    })
+  })
 }
 
 ///|
-async fn Version::update_cargo_toml(self : Version) -> Result[Unit, UpdateError] {
+async fn Version::update_cargo_toml(
+  self : Version,
+) -> Result[Unit, UpdateError] {
   let cargo_toml_path = @support.path_join(self.current_dir, "Cargo.toml")
   if !path_exists(cargo_toml_path) {
     return Ok(())
   }
   let version = self.version.unwrap().to_string()
-  update_file_with(cargo_toml_path, content => map_lines(content, line => if line.has_prefix(
-      "version =",
-    ) {
-    "version = \"\{version}\""
-  } else {
-    line
-  }))
+  update_file_with(cargo_toml_path, content => {
+    map_lines(content, line => {
+      if line.has_prefix("version =") {
+        "version = \"\{version}\""
+      } else {
+        line
+      }
+    })
+  })
 }
 
 ///|
-async fn Version::update_cargo_lock(self : Version) -> Result[Unit, UpdateError] {
+async fn Version::update_cargo_lock(
+  self : Version,
+) -> Result[Unit, UpdateError] {
   if path_exists(@support.path_join(self.current_dir, "Cargo.lock")) {
     let (code, _, stderr) = @process.collect_output(
       "cargo",
@@ -344,13 +360,15 @@ async fn Version::update_package_json(
     return Ok(())
   }
   let version = self.version.unwrap().to_string()
-  update_file_with(package_json_path, content => map_lines(content, line => if line.contains(
-      "\"version\":",
-    ) {
-    replace_quoted_after(line, "\"version\":", version)
-  } else {
-    line
-  }))
+  update_file_with(package_json_path, content => {
+    map_lines(content, line => {
+      if line.contains("\"version\":") {
+        replace_quoted_after(line, "\"version\":", version)
+      } else {
+        line
+      }
+    })
+  })
 }
 
 ///|
@@ -390,13 +408,15 @@ async fn Version::update_makefile(
     return Ok(())
   }
   let version = self.version.unwrap().to_string()
-  update_file_with(makefile_path, content => map_lines(content, line => if line.has_prefix(
-      "VERSION",
-    ) {
-    "VERSION := \{version}"
-  } else {
-    line
-  }))
+  update_file_with(makefile_path, content => {
+    map_lines(content, line => {
+      if line.has_prefix("VERSION") {
+        "VERSION := \{version}"
+      } else {
+        line
+      }
+    })
+  })
 }
 
 ///|
@@ -408,9 +428,9 @@ async fn Version::update_cmakelists_txt(
     return Ok(())
   }
   let version = self.version.unwrap().to_string()
-  update_file_with(cmake_lists_path, content => replace_cmake_version(
-    content, version,
-  ))
+  update_file_with(cmake_lists_path, content => {
+    replace_cmake_version(content, version)
+  })
 }
 
 ///|
@@ -423,7 +443,7 @@ fn replace_cmake_version(content : String, version : String) -> String {
     c.is_whitespace()
   }
 
-  fn digits(i : Int) -> Int? {
+  fn digits(i : Int32) -> Int32? {
     let mut j = i
     while j < n && chars[j] >= '0' && chars[j] <= '9' {
       j += 1
@@ -436,7 +456,7 @@ fn replace_cmake_version(content : String, version : String) -> String {
   }
 
   // The end of group 1 and the end of the match, for a match at `start`.
-  fn match_at(start : Int) -> (Int, Int)? {
+  fn match_at(start : Int32) -> (Int32, Int32)? {
     let mut i = start
     while i < n && is_space(chars[i]) {
       i += 1
@@ -466,7 +486,7 @@ fn replace_cmake_version(content : String, version : String) -> String {
     Some((group_end, i + 1))
   }
 
-  for start in 0..=n {
+  for start in 0..<=n {
     if match_at(start) is Some((group_end, end)) {
       return String::from_array(chars[:group_end]) +
         "\"\{version}\"" +
@@ -481,19 +501,22 @@ async fn Version::update_pyproject_toml(
   self : Version,
 ) -> Result[Unit, UpdateError] {
   let pyproject_toml_path = @support.path_join(
-    self.current_dir, "pyproject.toml",
+    self.current_dir,
+    "pyproject.toml",
   )
   if !path_exists(pyproject_toml_path) {
     return Ok(())
   }
   let version = self.version.unwrap().to_string()
-  update_file_with(pyproject_toml_path, content => map_lines(content, line => if line.has_prefix(
-      "version =",
-    ) {
-    "version = \"\{version}\""
-  } else {
-    line
-  }))
+  update_file_with(pyproject_toml_path, content => {
+    map_lines(content, line => {
+      if line.has_prefix("version =") {
+        "version = \"\{version}\""
+      } else {
+        line
+      }
+    })
+  })
 }
 
 ///|
@@ -505,12 +528,12 @@ async fn Version::update_zig_zon(self : Version) -> Result[Unit, UpdateError] {
   let version = self.version.unwrap().to_string()
   update_file_with(zig_zon_path, content => {
     let zig_version_prefix = ".version ="
-    map_lines(content, line => if line
-      .trim_start(chars=" \t\n\r\u{0C}")
-      .has_prefix(zig_version_prefix) {
-      replace_quoted_after(line, zig_version_prefix, version)
-    } else {
-      line
+    map_lines(content, line => {
+      if line.trim_start(chars=" \t\n\r\u{0C}").has_prefix(zig_version_prefix) {
+        replace_quoted_after(line, zig_version_prefix, version)
+      } else {
+        line
+      }
     })
   })
 }

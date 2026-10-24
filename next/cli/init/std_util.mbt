@@ -31,7 +31,7 @@ async fn fs_write(path : String, contents : String) -> Unit raise IoError {
 ///|
 /// `fs::create_dir_all`.
 async fn create_dir_all(path : String) -> Unit raise IoError {
-  @fs.mkdir(path, recursive=true, permission=0o777) catch {
+  @support.create_dir_all(path) catch {
     e => raise IoError(@support.io_error_message(e))
   }
 }
@@ -82,14 +82,18 @@ fn rust_lines(s : String) -> Array[String] {
 /// whitespace-only).
 fn indoc(s : String) -> String {
   let ignore_first_line = s.has_prefix("\n") || s.has_prefix("\r\n")
-  let text = if s.has_prefix("\r\n") { s.view(start_offset=1).to_owned() } else { s }
+  let text = if s.has_prefix("\r\n") {
+    s.view(start_offset=1).to_owned()
+  } else {
+    s
+  }
   let lines = text.split("\n").map(v => v.to_owned()).collect()
-  let mut spaces : Int? = None
+  let mut spaces : Int32? = None
   for i, line in lines {
     if i == 0 {
       continue
     }
-    let mut count : Int? = None
+    let mut count : Int32? = None
     for j, ch in line {
       if ch != ' ' && ch != '\t' {
         count = Some(j)

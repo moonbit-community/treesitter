@@ -325,3 +325,27 @@ pub let current_os : String = "windows"
 ///|
 #cfg(not(any(platform="macos", platform="linux", platform="windows")))
 pub let current_os : String = "unknown"
+
+///|
+/// `fs::create_dir_all`: create a directory and its parents; existing
+/// directories are fine.
+pub async fn create_dir_all(path : String) -> Unit {
+  if path.is_empty() {
+    return
+  }
+  let kind = @fs.kind(path, follow_symlink=true) catch { _ => @fs.FileKind::Unknown }
+  if kind is Directory {
+    return
+  }
+  if parent(path) is Some(p) && !p.is_empty() {
+    create_dir_all(p)
+  }
+  @fs.mkdir(path, permission=0o777) catch {
+    e => {
+      let kind = @fs.kind(path, follow_symlink=true) catch { _ => raise e }
+      if !(kind is Directory) {
+        raise e
+      }
+    }
+  }
+}

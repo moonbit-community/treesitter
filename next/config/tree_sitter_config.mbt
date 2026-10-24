@@ -64,7 +64,7 @@ pub async fn Config::find_config_file() -> String? {
     )
     if is_file(legacy_apple_path) {
       let xdg_dir = @support.parent(xdg_path).unwrap()
-      @fs.mkdir(xdg_dir, recursive=true) catch {
+      @support.create_dir_all(xdg_dir) catch {
         e => raise IO(@support.io_error_with_path(e, Some(xdg_dir)))
       }
       @fs.rename(legacy_apple_path, xdg_path) catch {
@@ -123,11 +123,11 @@ pub async fn Config::load(path : String?) -> Config {
 pub fn json_error_message(err : Error) -> String {
   match err {
     @json.InvalidChar(pos, _) | @json.InvalidIdentEscape(pos) =>
-      "expected value at line \{pos.line} column \{pos.column}"
+      "expected value at line \{pos.line} column \{pos.column + 1}"
     @json.InvalidNumber(pos, _) =>
-      "invalid number at line \{pos.line} column \{pos.column}"
+      "invalid number at line \{pos.line} column \{pos.column + 1}"
     @json.DuplicateKey(pos, key) =>
-      "duplicate key `\{key}` at line \{pos.line} column \{pos.column}"
+      "duplicate key `\{key}` at line \{pos.line} column \{pos.column + 1}"
     @json.InvalidEof => "EOF while parsing a value"
     @json.DepthLimitExceeded => "recursion limit exceeded"
     _ => err.to_string()
@@ -155,7 +155,7 @@ pub fn Config::initial() -> Config raise ConfigError {
 pub async fn Config::save(self : Config) -> Unit {
   let json = @support.to_string_pretty(self.config)
   let config_dir = @support.parent(self.location).unwrap()
-  @fs.mkdir(config_dir, recursive=true) catch {
+  @support.create_dir_all(config_dir) catch {
     e => raise IO(@support.io_error_with_path(e, Some(config_dir)))
   }
   @fs.write_file(self.location, json, create_mode=CreateOrTruncate) catch {

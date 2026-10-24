@@ -193,6 +193,14 @@ fn glob_match_component(pattern : String, name : String) -> Bool {
 }
 
 ///|
+/// Directory entries sorted as `glob` sorts paths (byte order).
+fn sorted_names(names : Array[String]) -> Array[String] {
+  let names = names.copy()
+  names.sort_by(compare_bytes)
+  names
+}
+
+///|
 fn has_glob_chars(s : String) -> Bool {
   s.contains_any(chars="*?[")
 }
@@ -219,7 +227,7 @@ pub async fn glob(pattern : String) -> Array[String] {
     let dir = if base.is_empty() { "." } else { base }
     if part == "**" {
       walk(base, prefix, i + 1)
-      let entries = @fs.readdir(dir, sort=true) catch { _ => return }
+      let entries = sorted_names(@fs.readdir(dir) catch { _ => return })
       for name in entries {
         let full = @support.path_join(dir, name)
         if (@fs.kind(full) catch { _ => @fs.FileKind::Unknown }) is Directory {
@@ -227,7 +235,7 @@ pub async fn glob(pattern : String) -> Array[String] {
         }
       }
     } else if has_glob_chars(part) {
-      let entries = @fs.readdir(dir, sort=true) catch { _ => return }
+      let entries = sorted_names(@fs.readdir(dir) catch { _ => return })
       for name in entries {
         if name.has_prefix(".") && !part.has_prefix(".") {
           continue

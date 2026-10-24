@@ -65,7 +65,7 @@ pub async fn generate_parser_in_directory(
             "Grammar file `\{path_buf}` not found",
           )
         }
-        @fs.mkdir(path_buf, recursive=true) catch {
+        @support.create_dir_all(path_buf) catch {
           e =>
             raise gen_error(
               "IO",
@@ -113,7 +113,7 @@ pub async fn generate_parser_in_directory(
   }
   let header_path = @support.path_join(src_path, "tree_sitter")
   // Ensure that the output directory exists
-  @fs.mkdir(src_path, recursive=true) catch {
+  @support.create_dir_all(src_path) catch {
     e => raise gen_error("IO", @support.io_error_with_path(e, Some(src_path)))
   }
   if @support.file_name(grammar_path) != Some("grammar.json") {
@@ -159,7 +159,7 @@ pub async fn generate_parser_in_directory(
     @support.path_join(src_path, "language.json"),
     generated.language.to_json().stringify(),
   )
-  @fs.mkdir(header_path, recursive=true) catch {
+  @support.create_dir_all(header_path) catch {
     e =>
       raise gen_error("IO", @support.io_error_with_path(e, Some(header_path)))
   }

@@ -12,7 +12,7 @@ pub(all) suberror InitError {
 } derive(Debug)
 
 ///|
-pub impl Show for InitError with output(self, logger) {
+pub impl Show for InitError with fn output(self, logger) {
   let InitError(chain) = self
   logger.write_string(chain.get(0).unwrap_or(""))
 }
@@ -37,7 +37,7 @@ const CLI_VERSION_PLACEHOLDER : String = "CLI_VERSION"
 
 ///|
 /// `tree_sitter::LANGUAGE_VERSION`.
-const ABI_VERSION_MAX : Int = 15
+const ABI_VERSION_MAX : Int32 = 15
 
 ///|
 const ABI_VERSION_MAX_PLACEHOLDER : String = "ABI_VERSION_MAX"
@@ -259,8 +259,8 @@ pub fn JsonConfigOpts::to_tree_sitter_json(
       version: self.version,
       license: Some(self.license),
       description: Some(self.description),
-      authors: Some([{ name: self.author, email: self.email, url: self.url }]),
-      links: Some({ repository, funding: self.funding }),
+      authors: Some([{ name: self.author, email: self.email, url: self.url, }]),
+      links: Some({ repository, funding: self.funding, }),
       namespace: self.namespace,
     },
     bindings: self.bindings,
@@ -340,7 +340,9 @@ async fn write_file(path : String, body : String) -> Unit raise InitError {
 
 ///|
 /// `serde_json::from_str::<TreeSitterJSON>(..)?`.
-fn parse_tree_sitter_json(text : String) -> @loader.TreeSitterJSON raise InitError {
+fn parse_tree_sitter_json(
+  text : String,
+) -> @loader.TreeSitterJSON raise InitError {
   @loader.TreeSitterJSON::parse(text) catch {
     @loader.JsonError(e) => raise anyhow(e)
   }
@@ -379,13 +381,15 @@ pub async fn generate_grammar_files(
     },
   )
   let grammar = tree_sitter_config.grammars[0]
-  let camel_name = grammar.camelcase.unwrap_or_else(() => to_upper_camel_case(
-    language_name,
-  ))
-  let title_name = grammar.title.unwrap_or_else(() => to_upper_camel_case(
-    language_name,
-  ))
-  let class_name = grammar.class_name.unwrap_or_else(() => "TreeSitter\{to_upper_camel_case(language_name)}")
+  let camel_name = grammar.camelcase.unwrap_or_else(() => {
+    to_upper_camel_case(language_name)
+  })
+  let title_name = grammar.title.unwrap_or_else(() => {
+    to_upper_camel_case(language_name)
+  })
+  let class_name = grammar.class_name.unwrap_or_else(() => {
+    "TreeSitter\{to_upper_camel_case(language_name)}"
+  })
   let authors = tree_sitter_config.metadata.authors
   let default_highlights_path = join("queries", "highlights.scm")
   let default_injections_path = join("queries", "injections.scm")
@@ -459,12 +463,14 @@ async fn generate_common_files(ctx : InitContext, opts : GenerateOpts) -> Unit {
     missing_path_else(
       join(ctx.repo_path, "package.json"),
       ctx.allow_update,
-      path => generate_file(
-        path,
-        package_json_template,
-        ctx.dashed_language_name,
-        opts,
-      ),
+      path => {
+        generate_file(
+          path,
+          package_json_template,
+          ctx.dashed_language_name,
+          opts,
+        )
+      },
       update_package_json,
     ),
   )
@@ -475,7 +481,9 @@ async fn generate_common_files(ctx : InitContext, opts : GenerateOpts) -> Unit {
       missing_path_else(
         join(ctx.repo_path, "grammar.js"),
         ctx.allow_update,
-        path => generate_file(path, grammar_js_template, ctx.language_name, opts),
+        path => {
+          generate_file(path, grammar_js_template, ctx.language_name, opts)
+        },
         update_grammar_js,
       ),
     )
@@ -496,19 +504,18 @@ async fn generate_common_files(ctx : InitContext, opts : GenerateOpts) -> Unit {
     missing_path_else(
       join(ctx.repo_path, ".gitattributes"),
       ctx.allow_update,
-      path => generate_file(path, gitattributes_template, ctx.language_name, opts),
+      path => {
+        generate_file(path, gitattributes_template, ctx.language_name, opts)
+      },
       update_gitattributes,
     ),
   )
 
   // Write .editorconfig file
   ignore(
-    missing_path(join(ctx.repo_path, ".editorconfig"), path => generate_file(
-      path,
-      editorconfig_template,
-      ctx.language_name,
-      opts,
-    )),
+    missing_path(join(ctx.repo_path, ".editorconfig"), path => {
+      generate_file(path, editorconfig_template, ctx.language_name, opts)
+    }),
   )
 }
 
@@ -532,7 +539,9 @@ async fn generate_rust_bindings(
         missing_path_else(
           join(path, "build.rs"),
           ctx.allow_update,
-          path => generate_file(path, build_rs_template, ctx.language_name, opts),
+          path => {
+            generate_file(path, build_rs_template, ctx.language_name, opts)
+          },
           path => update_rust_build_rs(path, ctx.language_name, opts),
         ),
       )
@@ -540,16 +549,20 @@ async fn generate_rust_bindings(
         missing_path_else(
           join(ctx.repo_path, "Cargo.toml"),
           ctx.allow_update,
-          path => generate_file(
-            path,
-            cargo_toml_template,
-            ctx.dashed_language_name,
-            opts,
-          ),
+          path => {
+            generate_file(
+              path,
+              cargo_toml_template,
+              ctx.dashed_language_name,
+              opts,
+            )
+          },
           path => {
             let contents = read_file(path)
             if contents.contains("\"LICENSE\"") {
-              @support.log_info("Adding LICENSE entry to bindings/rust/Cargo.toml")
+              @support.log_info(
+                "Adding LICENSE entry to bindings/rust/Cargo.toml",
+              )
               write_file(
                 path,
                 contents.replace_all(old="\"LICENSE\"", new="\"/LICENSE\""),
@@ -574,67 +587,73 @@ async fn generate_node_bindings(
         missing_path_else(
           join(path, "index.js"),
           ctx.allow_update,
-          path => generate_file(path, index_js_template, ctx.language_name, opts),
-          path => regenerate_if_missing(
-            path,
-            "type: \"text\"",
-            index_js_template,
-            ctx.language_name,
-            opts,
-          ),
+          path => {
+            generate_file(path, index_js_template, ctx.language_name, opts)
+          },
+          path => {
+            regenerate_if_missing(
+              path,
+              "type: \"text\"",
+              index_js_template,
+              ctx.language_name,
+              opts,
+            )
+          },
         ),
       )
       ignore(
         missing_path_else(
           join(path, "index.d.ts"),
           ctx.allow_update,
-          path => generate_file(path, index_d_ts_template, ctx.language_name, opts),
-          path => regenerate_if_missing(
-            path,
-            "export default binding",
-            index_d_ts_template,
-            ctx.language_name,
-            opts,
-          ),
+          path => {
+            generate_file(path, index_d_ts_template, ctx.language_name, opts)
+          },
+          path => {
+            regenerate_if_missing(
+              path,
+              "export default binding",
+              index_d_ts_template,
+              ctx.language_name,
+              opts,
+            )
+          },
         ),
       )
       ignore(
         missing_path_else(
           join(path, "binding_test.js"),
           ctx.allow_update,
-          path => generate_file(
-            path,
-            binding_test_js_template,
-            ctx.language_name,
-            opts,
-          ),
-          path => regenerate_if_missing(
-            path,
-            "await assert.doesNotReject",
-            binding_test_js_template,
-            ctx.language_name,
-            opts,
-          ),
+          path => {
+            generate_file(
+              path,
+              binding_test_js_template,
+              ctx.language_name,
+              opts,
+            )
+          },
+          path => {
+            regenerate_if_missing(
+              path,
+              "await assert.doesNotReject",
+              binding_test_js_template,
+              ctx.language_name,
+              opts,
+            )
+          },
         ),
       )
       ignore(
-        missing_path(join(path, "binding.cc"), path => generate_file(
-          path,
-          js_binding_cc_template,
-          ctx.language_name,
-          opts,
-        )),
+        missing_path(join(path, "binding.cc"), path => {
+          generate_file(path, js_binding_cc_template, ctx.language_name, opts)
+        }),
       )
       ignore(
         missing_path_else(
           join(ctx.repo_path, "binding.gyp"),
           ctx.allow_update,
-          path => generate_file(
-            path,
-            binding_gyp_template,
-            ctx.language_name,
-            opts,
-          ),
+          path => {
+            generate_file(path, binding_gyp_template, ctx.language_name, opts)
+          },
           path => {
             let contents = read_file(path)
             if contents.contains("fs.exists(") {
@@ -669,31 +688,36 @@ async fn generate_c_bindings(
         }
       }
       ignore(
-        missing_path(join(path, "tree_sitter"), create_dir).apply(include_path => ignore(
-          missing_path(join(include_path, header_name), path => generate_file(
-            path,
-            parser_name_h_template,
-            ctx.language_name,
-            opts,
-          )),
-        )),
+        missing_path(join(path, "tree_sitter"), create_dir).apply(include_path => {
+          ignore(
+            missing_path(join(include_path, header_name), path => {
+              generate_file(
+                path,
+                parser_name_h_template,
+                ctx.language_name,
+                opts,
+              )
+            }),
+          )
+        }),
       )
       ignore(
-        missing_path(
-          join(path, "tree-sitter-\{kebab_case_name}.pc.in"),
-          path => generate_file(
+        missing_path(join(path, "tree-sitter-\{kebab_case_name}.pc.in"), path => {
+          generate_file(
             path,
             parser_name_pc_in_template,
             ctx.language_name,
             opts,
-          ),
-        ),
+          )
+        }),
       )
       ignore(
         missing_path_else(
           join(ctx.repo_path, "Makefile"),
           ctx.allow_update,
-          path => generate_file(path, makefile_template, ctx.language_name, opts),
+          path => {
+            generate_file(path, makefile_template, ctx.language_name, opts)
+          },
           path => update_c_makefile(path, ctx.language_name, opts),
         ),
       )
@@ -701,12 +725,14 @@ async fn generate_c_bindings(
         missing_path_else(
           join(ctx.repo_path, "CMakeLists.txt"),
           ctx.allow_update,
-          path => generate_file(
-            path,
-            cmakelists_txt_template,
-            ctx.language_name,
-            opts,
-          ),
+          path => {
+            generate_file(
+              path,
+              cmakelists_txt_template,
+              ctx.language_name,
+              opts,
+            )
+          },
           path => update_c_cmakelists(path, ctx.language_name),
         ),
       )
@@ -723,28 +749,19 @@ async fn generate_go_bindings(
   ignore(
     missing_path(join(bindings_dir, "go"), create_dir).apply(path => {
       ignore(
-        missing_path(join(path, "binding.go"), path => generate_file(
-          path,
-          binding_go_template,
-          ctx.language_name,
-          opts,
-        )),
+        missing_path(join(path, "binding.go"), path => {
+          generate_file(path, binding_go_template, ctx.language_name, opts)
+        }),
       )
       ignore(
-        missing_path(join(path, "binding_test.go"), path => generate_file(
-          path,
-          binding_test_go_template,
-          ctx.language_name,
-          opts,
-        )),
+        missing_path(join(path, "binding_test.go"), path => {
+          generate_file(path, binding_test_go_template, ctx.language_name, opts)
+        }),
       )
       ignore(
-        missing_path(join(ctx.repo_path, "go.mod"), path => generate_file(
-          path,
-          go_mod_template,
-          ctx.language_name,
-          opts,
-        )),
+        missing_path(join(ctx.repo_path, "go.mod"), path => {
+          generate_file(path, go_mod_template, ctx.language_name, opts)
+        }),
       )
     }),
   )
@@ -765,12 +782,9 @@ async fn generate_python_bindings(
         missing_path_else(
           join(lang_path, "binding.c"),
           ctx.allow_update,
-          path => generate_file(
-            path,
-            py_binding_c_template,
-            ctx.language_name,
-            opts,
-          ),
+          path => {
+            generate_file(path, py_binding_c_template, ctx.language_name, opts)
+          },
           path => update_python_binding_c(path, snake_case_grammar_name),
         ),
       )
@@ -792,38 +806,43 @@ async fn generate_python_bindings(
         missing_path_else(
           join(lang_path, "__init__.pyi"),
           ctx.allow_update,
-          path => generate_file(path, init_pyi_template, ctx.language_name, opts),
+          path => {
+            generate_file(path, init_pyi_template, ctx.language_name, opts)
+          },
           path => update_python_init_pyi(path, ctx.language_name, opts),
         ),
       )
       ignore(
-        missing_path(join(lang_path, "py.typed"), path => generate_file(
-          path,
-          "",
-          ctx.language_name,
-          opts,
-        )), // py.typed is empty
+        missing_path(join(lang_path, "py.typed"), path => {
+          generate_file(path, "", ctx.language_name, opts)
+        }), // py.typed is empty
       )
       ignore(
-        missing_path(join(path, "tests"), create_dir).apply(path => ignore(
-          missing_path_else(
-            join(path, "test_binding.py"),
-            ctx.allow_update,
-            path => generate_file(
-              path,
-              test_binding_py_template,
-              ctx.language_name,
-              opts,
+        missing_path(join(path, "tests"), create_dir).apply(path => {
+          ignore(
+            missing_path_else(
+              join(path, "test_binding.py"),
+              ctx.allow_update,
+              path => {
+                generate_file(
+                  path,
+                  test_binding_py_template,
+                  ctx.language_name,
+                  opts,
+                )
+              },
+              update_python_test_binding,
             ),
-            update_python_test_binding,
-          ),
-        )),
+          )
+        }),
       )
       ignore(
         missing_path_else(
           join(ctx.repo_path, "setup.py"),
           ctx.allow_update,
-          path => generate_file(path, setup_py_template, ctx.language_name, opts),
+          path => {
+            generate_file(path, setup_py_template, ctx.language_name, opts)
+          },
           path => update_python_setup_py(path, ctx.language_name, opts),
         ),
       )
@@ -831,18 +850,23 @@ async fn generate_python_bindings(
         missing_path_else(
           join(ctx.repo_path, "pyproject.toml"),
           ctx.allow_update,
-          path => generate_file(
-            path,
-            pyproject_toml_template,
-            ctx.dashed_language_name,
-            opts,
-          ),
+          path => {
+            generate_file(
+              path,
+              pyproject_toml_template,
+              ctx.dashed_language_name,
+              opts,
+            )
+          },
           path => {
             let mut contents = read_file(path)
             if !contents.contains("cp310-*") {
               @support.log_info("Updating dependencies in pyproject.toml")
               contents = contents
-                .replace_all(old="build = \"cp39-*\"", new="build = \"cp310-*\"")
+                .replace_all(
+                  old="build = \"cp39-*\"",
+                  new="build = \"cp310-*\"",
+                )
                 .replace_all(
                   old="python = \">=3.9\"",
                   new="python = \">=3.10\"",
@@ -868,33 +892,26 @@ async fn generate_swift_bindings(
       let lang_path = join(path, opts.class_name)
       ignore(missing_path(lang_path, create_dir))
       ignore(
-        missing_path(join(lang_path, "\{ctx.language_name}.h"), path => generate_file(
-          path,
-          parser_name_h_template,
-          ctx.language_name,
-          opts,
-        )),
+        missing_path(join(lang_path, "\{ctx.language_name}.h"), path => {
+          generate_file(path, parser_name_h_template, ctx.language_name, opts)
+        }),
       )
       ignore(
-        missing_path(join(path, "\{opts.class_name}Tests"), create_dir).apply(path => ignore(
-          missing_path(join(path, "\{opts.class_name}Tests.swift"), path => generate_file(
-            path,
-            tests_swift_template,
-            ctx.language_name,
-            opts,
-          )),
-        )),
+        missing_path(join(path, "\{opts.class_name}Tests"), create_dir).apply(path => {
+          ignore(
+            missing_path(join(path, "\{opts.class_name}Tests.swift"), path => {
+              generate_file(path, tests_swift_template, ctx.language_name, opts)
+            }),
+          )
+        }),
       )
       ignore(
         missing_path_else(
           join(ctx.repo_path, "Package.swift"),
           ctx.allow_update,
-          path => generate_file(
-            path,
-            package_swift_template,
-            ctx.language_name,
-            opts,
-          ),
+          path => {
+            generate_file(path, package_swift_template, ctx.language_name, opts)
+          },
           update_swift_package,
         ),
       )
@@ -913,27 +930,33 @@ async fn generate_zig_bindings(
       join(ctx.repo_path, "build.zig"),
       ctx.allow_update,
       path => generate_file(path, build_zig_template, ctx.language_name, opts),
-      path => regenerate_if_missing(
-        path,
-        "b.pkg_hash.len",
-        build_zig_template,
-        ctx.language_name,
-        opts,
-      ),
+      path => {
+        regenerate_if_missing(
+          path,
+          "b.pkg_hash.len",
+          build_zig_template,
+          ctx.language_name,
+          opts,
+        )
+      },
     ),
   )
   ignore(
     missing_path_else(
       join(ctx.repo_path, "build.zig.zon"),
       ctx.allow_update,
-      path => generate_file(path, build_zig_zon_template, ctx.language_name, opts),
-      path => regenerate_if_missing(
-        path,
-        ".name = .tree_sitter_",
-        build_zig_zon_template,
-        ctx.language_name,
-        opts,
-      ),
+      path => {
+        generate_file(path, build_zig_zon_template, ctx.language_name, opts)
+      },
+      path => {
+        regenerate_if_missing(
+          path,
+          ".name = .tree_sitter_",
+          build_zig_zon_template,
+          ctx.language_name,
+          opts,
+        )
+      },
     ),
   )
   ignore(
@@ -942,7 +965,9 @@ async fn generate_zig_bindings(
         missing_path_else(
           join(path, "root.zig"),
           ctx.allow_update,
-          path => generate_file(path, root_zig_template, ctx.language_name, opts),
+          path => {
+            generate_file(path, root_zig_template, ctx.language_name, opts)
+          },
           path => {
             let contents = read_file(path)
             if contents.contains("ts.Language") {
@@ -953,12 +978,9 @@ async fn generate_zig_bindings(
         ),
       )
       ignore(
-        missing_path(join(path, "test.zig"), path => generate_file(
-          path,
-          test_zig_template,
-          ctx.language_name,
-          opts,
-        )),
+        missing_path(join(path, "test.zig"), path => {
+          generate_file(path, test_zig_template, ctx.language_name, opts)
+        }),
       )
     }),
   )
@@ -971,49 +993,51 @@ async fn generate_java_bindings(
   bindings_dir : String,
 ) -> Unit {
   ignore(
-    missing_path(join(ctx.repo_path, "pom.xml"), path => generate_file(
-      path,
-      pom_xml_template,
-      ctx.language_name,
-      opts,
-    )),
+    missing_path(join(ctx.repo_path, "pom.xml"), path => {
+      generate_file(path, pom_xml_template, ctx.language_name, opts)
+    }),
   )
   ignore(
     missing_path(join(bindings_dir, "java"), create_dir).apply(path => {
       ignore(
         missing_path(join(path, "main"), create_dir).apply(path => {
           let mut package_path = path
-          for dir in opts.namespace
+          for
+            dir in opts.namespace
             .unwrap_or("io.github.treesitter")
             .replace_all(old="-", new="")
             .replace_all(old="_", new="")
             .split(".") {
             package_path = path_push(package_path, dir.to_owned())
           }
-          package_path = join(join(package_path, "jtreesitter"), rust_to_lowercase(
-              ctx.language_name,
-            ).replace_all(old="_", new=""))
+          package_path = join(
+            join(package_path, "jtreesitter"),
+            rust_to_lowercase(ctx.language_name).replace_all(old="_", new=""),
+          )
           ignore(
-            missing_path(package_path, create_dir).apply(path => ignore(
-              missing_path(join(path, "\{opts.class_name}.java"), path => generate_file(
-                path,
-                binding_java_template,
-                ctx.language_name,
-                opts,
-              )),
-            )),
+            missing_path(package_path, create_dir).apply(path => {
+              ignore(
+                missing_path(join(path, "\{opts.class_name}.java"), path => {
+                  generate_file(
+                    path,
+                    binding_java_template,
+                    ctx.language_name,
+                    opts,
+                  )
+                }),
+              )
+            }),
           )
         }),
       )
       ignore(
-        missing_path(join(path, "test"), create_dir).apply(path => ignore(
-          missing_path(join(path, "\{opts.class_name}Test.java"), path => generate_file(
-            path,
-            test_java_template,
-            ctx.language_name,
-            opts,
-          )),
-        )),
+        missing_path(join(path, "test"), create_dir).apply(path => {
+          ignore(
+            missing_path(join(path, "\{opts.class_name}Test.java"), path => {
+              generate_file(path, test_java_template, ctx.language_name, opts)
+            }),
+          )
+        }),
       )
     }),
   )
@@ -1091,7 +1115,10 @@ async fn update_grammar_js(path : String) -> Unit {
   let mut contents = read_file(path)
   if contents.contains("module.exports") {
     @support.log_info("Migrating grammar.js to ESM")
-    contents = contents.replace_all(old="module.exports =", new="export default")
+    contents = contents.replace_all(
+      old="module.exports =",
+      new="export default",
+    )
     write_file(path, contents)
   }
 }
@@ -1211,22 +1238,22 @@ async fn update_rust_build_rs(
       "Adding wasm32-unknown-unknown target to bindings/rust/build.rs",
     )
     let replacement = rust_lines(
-      indoc(
-        (
-          #|
-          #|            c_config.flag("-utf-8");
-          #|
-          #|            if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
-          #|                let Ok(wasm_headers) = std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS") else {
-          #|                    panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate");
-          #|                };
-          #|
-          #|                c_config.include(&wasm_headers);
-          #|            }
-          #|
+        indoc(
+          (
+            #|
+            #|            c_config.flag("-utf-8");
+            #|
+            #|            if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
+            #|                let Ok(wasm_headers) = std::env::var("DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS") else {
+            #|                    panic!("Environment variable DEP_TREE_SITTER_LANGUAGE_WASM_HEADERS must be set by the language crate");
+            #|                };
+            #|
+            #|                c_config.include(&wasm_headers);
+            #|            }
+            #|
+          ),
         ),
-      ),
-    )
+      )
       .map(line => if line.is_empty() { line } else { "    \{line}" })
       .join("\n")
     contents = contents.replace_all(
@@ -1603,8 +1630,7 @@ async fn generate_file(
   generate_opts : GenerateOpts,
 ) -> Unit {
   let filename = @support.file_name(path).unwrap()
-  let lower_parser_name = if @support.extension(path)
-    is Some(e) &&
+  let lower_parser_name = if @support.extension(path) is Some(e) &&
     rust_to_lowercase(e) == "java" {
     to_snake_case(language_name).replace_all(old="_", new="")
   } else {
@@ -1632,12 +1658,18 @@ async fn generate_file(
     .replace_all(old=PARSER_NAME_PLACEHOLDER, new=language_name)
     .replace_all(old=CLI_VERSION_PLACEHOLDER, new=CLI_VERSION)
     .replace_all(old=RUST_BINDING_VERSION_PLACEHOLDER, new=RUST_BINDING_VERSION)
-    .replace_all(old=ABI_VERSION_MAX_PLACEHOLDER, new=ABI_VERSION_MAX.to_string())
+    .replace_all(
+      old=ABI_VERSION_MAX_PLACEHOLDER,
+      new=ABI_VERSION_MAX.to_string(),
+    )
     .replace_all(
       old=PARSER_VERSION_PLACEHOLDER,
       new=generate_opts.version.to_string(),
     )
-    .replace_all(old=PARSER_CLASS_NAME_PLACEHOLDER, new=generate_opts.class_name),
+    .replace_all(
+      old=PARSER_CLASS_NAME_PLACEHOLDER,
+      new=generate_opts.class_name,
+    ),
     generate_opts,
   )
   if generate_opts.author_name is Some(name) {
@@ -1712,7 +1744,10 @@ async fn generate_file(
     (Some(url), "package.json" | "pom.xml") =>
       replacement = replacement.replace_all(old=AUTHOR_URL_PLACEHOLDER, new=url)
     (None, "package.json") =>
-      replacement = replacement.replace_all(old=AUTHOR_URL_PLACEHOLDER_JS, new="")
+      replacement = replacement.replace_all(
+        old=AUTHOR_URL_PLACEHOLDER_JS,
+        new="",
+      )
     (None, "pom.xml") =>
       replacement = replacement.replace_all(
         old=AUTHOR_URL_PLACEHOLDER_JAVA,
@@ -1728,7 +1763,10 @@ async fn generate_file(
         replacement = remove_block(replacement, AUTHOR_BLOCK_JS, "},", 2)
       "pom.xml" =>
         replacement = remove_block(
-          replacement, AUTHOR_BLOCK_JAVA, "</developer>", 12,
+          replacement,
+          AUTHOR_BLOCK_JAVA,
+          "</developer>",
+          12,
         )
       _ => ()
     }
@@ -1793,7 +1831,10 @@ async fn generate_file(
       .replace_all(old=PARSER_NS_PLACEHOLDER, new=namespace)
   } else {
     replacement = replacement
-      .replace_all(old=PARSER_NS_CLEANED_PLACEHOLDER, new="io.github.treesitter")
+      .replace_all(
+        old=PARSER_NS_CLEANED_PLACEHOLDER,
+        new="io.github.treesitter",
+      )
       .replace_all(old=PARSER_NS_PLACEHOLDER, new="io.github.tree-sitter")
   }
   if generate_opts.funding is Some(funding_url) {
@@ -1840,7 +1881,7 @@ fn remove_block(
   replacement : String,
   block : String,
   end : String,
-  skip : Int,
+  skip : Int32,
 ) -> String {
   guard replacement.find(block) is Some(start_idx) else { return replacement }
   guard replacement.view(start_offset=start_idx).find(end) is Some(i) else {
@@ -1853,7 +1894,7 @@ fn remove_block(
 
 ///|
 /// `rand::rng().random_range(1u32..0xFFFF_FFFFu32)`.
-fn random_id() -> UInt {
+fn random_id() -> UInt32 {
   let seed = FixedArray::make(32, b'\x00')
   let mut t = @support.now_ns().reinterpret_as_uint64()
   for i in 0..<8 {
@@ -1895,7 +1936,10 @@ fn PathState::as_path(self : PathState) -> String {
 }
 
 ///|
-async fn missing_path(path : String, action : async (String) -> Unit) -> PathState {
+async fn missing_path(
+  path : String,
+  action : async (String) -> Unit,
+) -> PathState {
   if !path_exists(path) {
     action(path)
     Missing(path)

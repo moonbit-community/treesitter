@@ -54,7 +54,10 @@ pub async fn LogSession::close(self : LogSession) -> Unit {
   }
   ignore(@fs.remove(temp) catch { _ => () })
   if code == 0 {
-    @fs.write_file(self.path, stdout.binary(), append=true)
+    let html = @buffer.new()
+    html.write_bytes(@support.utf8(html_header))
+    html.write_bytes(stdout.binary())
+    @fs.write_file(self.path, html.to_bytes(), create_mode=CreateOrTruncate)
     if self.open_log {
       let size = (@fs.read_file(self.path).binary()).length()
       if size > @support.utf8_len(html_header) {

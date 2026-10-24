@@ -4,7 +4,9 @@ test "heck case conversions" {
     "my_lang", "fooBar", "HTTPServer", "c_sharp", "XMLHttpRequest", "foo-bar baz",
     "embedded_template", "abc123def", "__x__",
   ]
-  let rows = names.map(n => "\{n}: \{to_kebab_case(n)} \{to_snake_case(n)} \{to_shouty_snake_case(n)} \{to_upper_camel_case(n)}")
+  let rows = names.map(n => {
+    "\{n}: \{to_kebab_case(n)} \{to_snake_case(n)} \{to_shouty_snake_case(n)} \{to_upper_camel_case(n)}"
+  })
   inspect(
     rows.join("\n"),
     content=(
@@ -43,13 +45,19 @@ test "indoc" {
 
 ///|
 test "rust_lines" {
-  debug_inspect(rust_lines("a\r\nb\n\nc\n"), content=(
-    #|["a", "b", "", "c"]
-  ))
+  debug_inspect(
+    rust_lines("a\r\nb\n\nc\n"),
+    content=(
+      #|["a", "b", "", "c"]
+    ),
+  )
   debug_inspect(rust_lines(""), content="[]")
-  debug_inspect(rust_lines("x"), content=(
-    #|["x"]
-  ))
+  debug_inspect(
+    rust_lines("x"),
+    content=(
+      #|["x"]
+    ),
+  )
 }
 
 ///|
@@ -75,7 +83,10 @@ test "replace_cmake_version" {
       #|VERSION "1.2.3"
     ),
   )
-  inspect(replace_cmake_version("VERSION 1.0.0", "2.0.0"), content="VERSION 1.0.0")
+  inspect(
+    replace_cmake_version("VERSION 1.0.0", "2.0.0"),
+    content="VERSION 1.0.0",
+  )
 }
 
 ///|

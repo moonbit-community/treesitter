@@ -2,7 +2,7 @@
 // init.rs for the `build.zig.zon` fingerprint.
 
 ///|
-let crc32_table : FixedArray[UInt] = {
+let crc32_table : FixedArray[UInt32] = {
   let table = FixedArray::make(256, 0U)
   for n in 0..<256 {
     let mut c = n.reinterpret_as_uint()
@@ -16,7 +16,7 @@ let crc32_table : FixedArray[UInt] = {
 
 ///|
 /// `crc32fast::hash`.
-fn crc32(data : BytesView) -> UInt {
+fn crc32(data : BytesView) -> UInt32 {
   let mut crc = 0xFFFFFFFFU
   for b in data {
     crc = crc32_table[((crc ^ b.to_uint()) & 0xFF).reinterpret_as_int()] ^

@@ -160,7 +160,7 @@ pub async fn build_scanner_driver(
   guard @support.cache_dir() is Some(cache) else { raise HomeDir }
   let dir = @support.path_join(cache, "tree-sitter/moonbit-drivers/\{key}")
   let script = @support.path_join(dir, "script")
-  @fs.mkdir(@support.path_join(script, "driver"), recursive=true)
+  @support.create_dir_all(@support.path_join(script, "driver"))
   let checkout = module_checkout(current_dir)
   prepare_workspace(dir, checkout)
   let deps = StringBuilder()
@@ -180,7 +180,7 @@ pub async fn build_scanner_driver(
       e => raise Script("\{path}: \{script_error_message(e)}")
     }
     let pkg = @support.path_join(script, "scanner\{i}")
-    @fs.mkdir(pkg, recursive=true)
+    @support.create_dir_all(pkg)
     write_file(
       @support.path_join(pkg, "moon.pkg"),
       "\{imports}\nsupported_targets = \"+native\"\n",

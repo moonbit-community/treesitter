@@ -19,7 +19,10 @@
 //   `[x]`/`[ ]` state; an empty answer keeps the defaults, otherwise answer
 //   with the languages to enable, separated by spaces or commas.
 //
-// End of input fails the command, as dialoguer fails without a terminal.
+// As in dialoguer, `Input`, `Confirm` and `MultiSelect` fail with
+// `IO error: not a terminal` when standard error is not a terminal
+// (`Term::stderr().is_term()`); `FuzzySelect` does not check. End of input
+// fails the command.
 // Upstream collects the file types through a `HashSet`, so their order is
 // unspecified there; here they keep their first-occurrence order.
 
@@ -38,6 +41,15 @@ async fn read_answer() -> String {
 }
 
 ///|
+/// `if !term.is_term() { return Err(io::Error::new(io::ErrorKind::NotConnected,
+/// "not a terminal").into()) }` (displayed through `dialoguer::Error::IO`).
+fn ensure_term() -> Unit raise InitError {
+  if !@support.is_terminal(2) {
+    raise anyhow("IO error: not a terminal")
+  }
+}
+
+///|
 /// `Theme::format_error`.
 fn render_error(message : String) -> Unit {
   @support.print_err("error: \{message}\n")
@@ -48,10 +60,11 @@ fn render_error(message : String) -> Unit {
 async fn input(
   prompt : String,
   default? : String,
-  show_default? : Bool = true,
-  allow_empty? : Bool = false,
+  show_default~ : Bool = true,
+  allow_empty~ : Bool = false,
   validate? : (String) -> String?,
 ) -> String {
+  ensure_term()
   for ;; {
     // `Theme::format_input_prompt`
     match (default, show_default) {
@@ -79,6 +92,7 @@ async fn input(
 ///|
 /// `Confirm::interact`.
 async fn confirm(prompt : String) -> Bool {
+  ensure_term()
   for ;; {
     @support.print_err("\{prompt} [y/n] ")
     @support.flush()
@@ -92,7 +106,7 @@ async fn confirm(prompt : String) -> Bool {
 
 ///|
 /// `FuzzySelect::interact`: the index of the chosen item.
-async fn fuzzy_select(prompt : String, items : Array[String]) -> Int {
+async fn fuzzy_select(prompt : String, items : Array[String]) -> Int32 {
   for ;; {
     @support.print_err("\{prompt}:\n")
     for i, item in items {
@@ -112,7 +126,11 @@ async fn fuzzy_select(prompt : String, items : Array[String]) -> Int {
 ///|
 /// `MultiSelect::items_checked(..).interact()`: the indices of the chosen
 /// items, in item order.
-async fn multi_select(prompt : String, items : Array[(String, Bool)]) -> Array[Int] {
+async fn multi_select(
+  prompt : String,
+  items : Array[(String, Bool)],
+) -> Array[Int32] {
+  ensure_term()
   for ;; {
     @support.print_err("\{prompt}:\n")
     for item in items {
@@ -167,25 +185,29 @@ let choices : Array[String] = [
 async fn set_choice(opts : JsonConfigOpts, choice : String) -> Bool {
   match choice {
     "name" =>
-      opts.name = input("Parser name", validate=input => if input
-        .iter()
-        .all(c => c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
-        None
-      } else {
-        Some(
-          "The name must be lowercase and contain only letters, digits, and underscores",
-        )
+      opts.name = input("Parser name", validate=input => {
+        if input
+          .iter()
+          .all(c => c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
+          None
+        } else {
+          Some(
+            "The name must be lowercase and contain only letters, digits, and underscores",
+          )
+        }
       })
     "camelcase" =>
       opts.camelcase = input(
         "CamelCase name",
         default=to_upper_camel_case(opts.name),
-        validate=input => if input
-          .iter()
-          .all(c => c.is_ascii_alphabetic() || c.is_ascii_digit() || c == '_') {
-          None
-        } else {
-          Some("The name must contain only letters, digits, and underscores")
+        validate=input => {
+          if input
+            .iter()
+            .all(c => c.is_ascii_alphabetic() || c.is_ascii_digit() || c == '_') {
+            None
+          } else {
+            Some("The name must contain only letters, digits, and underscores")
+          }
         },
       )
     "title" =>
@@ -214,16 +236,13 @@ async fn set_choice(opts : JsonConfigOpts, choice : String) -> Bool {
         input("Funding URL", allow_empty=true).trim().to_owned(),
       )
     "scope" =>
-      opts.scope = input(
-        "TextMate scope",
-        default="source.\{opts.name}",
-        validate=input => if input.has_prefix("source.") ||
-          input.has_prefix("text.") {
+      opts.scope = input("TextMate scope", default="source.\{opts.name}", validate=input => {
+        if input.has_prefix("source.") || input.has_prefix("text.") {
           None
         } else {
           Some("The scope must start with 'source.' or 'text.'")
-        },
-      )
+        }
+      })
     "file_types" => {
       let ft = input("File types (space-separated)", default=opts.name)
       let set = []
@@ -271,6 +290,7 @@ async fn set_choice(opts : JsonConfigOpts, choice : String) -> Bool {
 /// `Input::<SemverVersion>` with the default `0.1.0`.
 async fn initial_version() -> @loader.SemverVersion {
   let default = @loader.SemverVersion::new(0, 1, 0)
+  ensure_term()
   for ;; {
     @support.print_err("Version [\{default}]: ")
     @support.flush()
@@ -279,11 +299,11 @@ async fn initial_version() -> @loader.SemverVersion {
       return default
     }
     return @loader.SemverVersion::parse(answer) catch {
-        @loader.SemverError(e) => {
-          render_error(e)
-          continue
-        }
+      @loader.SemverError(e) => {
+        render_error(e)
+        continue
       }
+    }
   }
 }
 
@@ -322,7 +342,7 @@ pub async fn run_init(current_dir : String, update : Bool) -> Unit {
     }
     let json = parse_tree_sitter_json(old_config)
     let json = if json.schema is None {
-      { ..json, schema: Some(tree_sitter_json_schema) }
+      { ..json, schema: Some(tree_sitter_json_schema), }
     } else {
       json
     }

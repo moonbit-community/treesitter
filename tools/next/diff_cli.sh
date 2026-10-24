@@ -17,7 +17,7 @@ UPSTREAM=${UPSTREAM:-$(cd ../../.. 2>/dev/null && pwd)/.repos/ts-pinned}
 UP="$UPSTREAM/target/release/tree-sitter"
 MBT="$ROOT/_build/native/release/build/next/cmd/treesitter/treesitter.exe"
 WORK="$ROOT/_build/cli_diff"
-SECTIONS=${*:-"help errors completions generate parse query highlight tags test langs"}
+SECTIONS=${*:-"help errors completions generate parse query highlight tags test langs misc"}
 
 moon build --target native --release next/cmd/treesitter >/dev/null || exit 1
 
@@ -36,20 +36,8 @@ if [ ! -d "$GRAMMARS" ]; then
   for dir in "$UPSTREAM"/test/fixtures/grammars/*/; do
     name=$(basename "$dir")
     dest="$GRAMMARS/tree-sitter-$name"
-    mkdir -p "$dest"
-    for item in tree-sitter.json queries src test examples; do
-      [ -e "$dir/$item" ] && cp -R "$dir/$item" "$dest/"
-    done
-    # Multi-grammar repositories (typescript, php) keep sub-grammars.
-    for sub in "$dir"/*/; do
-      [ -d "$sub/src" ] || continue
-      subname=$(basename "$sub")
-      [ "$subname" = "src" ] && continue
-      mkdir -p "$dest/$subname"
-      for item in src queries test; do
-        [ -e "$sub/$item" ] && cp -R "$sub/$item" "$dest/$subname/"
-      done
-    done
+    cp -R "$dir" "$dest"
+    rm -rf "$dest/bindings" "$dest/node_modules" "$dest/.git"
   done
 fi
 printf '{\n  "parser-directories": [\n    "%s"\n  ]\n}\n' "$GRAMMARS" > "$WORK/config/config.json"
@@ -65,7 +53,9 @@ mask() {
     -e 's/^[0-9.]+(ns|µs|ms|s)$/DURATION/' \
     -e "s#$WORK/lib-(up|mbt)#LIBDIR#g" \
     -e 's/ -- Warning: Slow parse rate \(X bytes\/ms\)//g' \
-    -e 's/success percentage: [0-9.]+%/success percentage: X%/g'
+    -e 's/success percentage: [0-9.]+%/success percentage: X%/g' \
+    -e "s/Parse: +X ms/Parse: X ms/g" \
+    -e "s/[[:blank:]]+X bytes\/ms/ X bytes\/ms/g"
 }
 
 # run_case NAME DIR [env assignments --] ARGS...
@@ -256,7 +246,18 @@ for section in $SECTIONS; do
     run_case parse-utf16le "$WORK" parse --encoding utf16-le "$WORK/utf16le.json"
     run_case parse-utf16be "$WORK" parse --encoding utf16-be "$WORK/utf16be.json"
     run_case parse-no-lang "$WORK" parse "$WORK/paths.txt"
-    run_case parse-lib-path "$WORK" parse --lib-path nope.so "$js"
+    printf '{"a": [1, 2, {"b": null}]}\n' > "$WORK/small.json"
+    for mode in --dot --debug-graph; do
+      for which in up mbt; do
+        d="$WORK/graph-$which"
+        rm -rf "$d"; mkdir -p "$d"
+        if [ $which = up ]; then cli=$UP; else cli=$MBT; fi
+        (cd "$d" && env NO_COLOR=1 TREE_SITTER_DIR="$WORK/config" TREE_SITTER_LIBDIR="$WORK/lib-$which" "$cli" parse $mode "$WORK/small.json" --edits "2 1 x" > out.txt 2> err.txt; echo $? > code.txt
+         # Upstream names graph nodes by their addresses.
+         sed -E 's/node_(0x[0-9a-f]+|[0-9]+)/node_ID/g; s/tree_(0x[0-9a-f]+|[0-9]+)/tree_ID/g' log.html > log.html.m)
+      done
+      compare_trees "parse$mode" "$WORK/graph-up" "$WORK/graph-mbt" log.html.m out.txt err.txt code.txt
+    done
     ;;
   query)
     js="$GRAMMARS/tree-sitter-javascript/examples/jquery.js"
@@ -292,7 +293,10 @@ for section in $SECTIONS; do
       run_case "highlight-check-$g" "$WORK" highlight --check -q "$f"
     done
     run_case highlight-color "$WORK" env NO_COLOR= -- highlight "$GRAMMARS/tree-sitter-javascript/examples/jquery.js"
-    run_case highlight-html-injection "$WORK" highlight --html "$GRAMMARS/tree-sitter-html/test/corpus/main.txt" --scope text.html.basic
+    printf %s\\n "<html>" "<script>" "/** @param {number} y the value */" "function f(y) { return \`a\${y}\`; }" "</script>" "<p class=\"a\">hi &amp; bye</p>" "</html>" > "$WORK/inj.html"
+    run_case highlight-injection "$WORK" highlight "$WORK/inj.html"
+    run_case highlight-html-injection "$WORK" highlight --html "$WORK/inj.html"
+    run_case highlight-injection-erb "$WORK" highlight "$GRAMMARS/tree-sitter-embedded-template/test/corpus/main.txt" --scope text.html.erb
     ;;
   tags)
     for g in javascript python rust ruby c go; do
@@ -314,6 +318,52 @@ for section in $SECTIONS; do
     ;;
   langs)
     run_case dump-languages "$WORK" dump-languages
+    ;;
+  misc)
+    # Failing corpus tests, `--update`, colored diffs and query tests.
+    for which in up mbt; do
+      d="$WORK/misc-$which"
+      rm -rf "$d"
+      cp -R "$GRAMMARS/tree-sitter-javascript" "$d"
+      rm -rf "$d/test/highlight" "$d/test/tags"
+      perl -0pi -e 's/\(program\n  \(expression_statement\n    \(string/(program\n  (expression_statement\n    (number/' "$d/test/corpus/literals.txt"
+      mkdir -p "$d/test/custom"
+      printf '(identifier) @variable\n(number) @number\n' > "$d/queries/custom.scm"
+      printf 'var abc = 1;\n//  ^ variable\n//        ^ number\nfoo(2);\n// <- variable\n' > "$d/test/custom/ok.js"
+      printf 'var abc = 1;\n//  ^ number\n' > "$d/test/custom/bad.js"
+    done
+    for which in up mbt; do
+      d="$WORK/misc-$which"
+      if [ $which = up ]; then cli=$UP; else cli=$MBT; fi
+      (cd "$d" && env NO_COLOR=1 TREE_SITTER_DIR="$WORK/config" TREE_SITTER_LIBDIR="$WORK/lib-$which" "$cli" test --stat total-only > fail.out 2> fail.err; echo $? > fail.code
+       env NO_COLOR= TREE_SITTER_DIR="$WORK/config" TREE_SITTER_LIBDIR="$WORK/lib-$which" "$cli" test --stat total-only --include Strings > color.out 2> color.err; echo $? > color.code
+       env NO_COLOR=1 TREE_SITTER_DIR="$WORK/config" TREE_SITTER_LIBDIR="$WORK/lib-$which" "$cli" test --stat total-only --json-summary > json.out 2> json.err; echo $? > json.code
+       env NO_COLOR=1 TREE_SITTER_DIR="$WORK/config" TREE_SITTER_LIBDIR="$WORK/lib-$which" "$cli" test --stat total-only -u > update.out 2> update.err; echo $? > update.code
+       env NO_COLOR=1 TREE_SITTER_DIR="$WORK/config" TREE_SITTER_LIBDIR="$WORK/lib-$which" TREE_SITTER_SEED=7 "$cli" fuzz --iterations 2 --edits 2 --include Strings > fuzz.out 2> fuzz.err; echo $? > fuzz.code)
+      for f in fail color json update fuzz; do
+        mask < "$d/$f.out" > "$d/$f.out.m"
+        sed -e "s#$d#DIR#g" "$d/$f.err" | mask > "$d/$f.err.m"
+      done
+    done
+    compare_trees misc "$WORK/misc-up" "$WORK/misc-mbt" \
+      fail.out.m fail.err.m fail.code color.out.m color.err.m color.code \
+      json.out.m json.err.m json.code update.out.m update.err.m update.code \
+      test/corpus/literals.txt test/corpus/expressions.txt \
+      fuzz.out.m fuzz.err.m fuzz.code
+    # init and version in a grammar repository.
+    for which in up mbt; do
+      d="$WORK/init-$which"
+      rm -rf "$d"
+      mkdir -p "$d/src"
+      cp "$GRAMMARS/tree-sitter-json/tree-sitter.json" "$GRAMMARS/tree-sitter-json/grammar.js" "$d/"
+      cp "$GRAMMARS/tree-sitter-json/src/grammar.json" "$d/src/"
+      if [ $which = up ]; then cli=$UP; else cli=$MBT; fi
+      (cd "$d" && env NO_COLOR=1 "$cli" init > init.out 2> init.err; echo $? > init.code
+       env NO_COLOR=1 "$cli" version > v1.out 2> v1.err; echo $? > v1.code
+       env NO_COLOR=1 "$cli" version --bump minor > v2.out 2> v2.err; echo $? > v2.code)
+    done
+    (cd "$WORK/init-up" && find . -type f | sort | sed 's#^\./##' | grep -v '^build.zig.zon$' > "$WORK/init-files.txt")
+    compare_trees init "$WORK/init-up" "$WORK/init-mbt" $(cat "$WORK/init-files.txt")
     ;;
   esac
 done

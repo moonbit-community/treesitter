@@ -15,7 +15,17 @@ async fn list_files(dir : String) -> Array[String] {
   }
 
   walk("")
-  files.sort()
+  // Byte-wise order, as `ls`/`find | sort` (`String::compare` orders by
+  // length first).
+  files.sort_by((a, b) => {
+    let n = if a.length() < b.length() { a.length() } else { b.length() }
+    for i in 0..<n {
+      if a[i] != b[i] {
+        return a[i].compare(b[i])
+      }
+    }
+    a.length().compare(b.length())
+  })
   files
 }
 
@@ -37,6 +47,7 @@ async test "generate_grammar_files from an existing tree-sitter.json" {
       #|  "bindings": {"go": false, "python": false, "swift": false, "node": false}
       #|}
     ),
+    create_mode=CreateOrTruncate,
   )
   @init.generate_grammar_files(dir, "foo", false, None)
   inspect(
@@ -85,17 +96,17 @@ async test "generate_grammar_files from an existing tree-sitter.json" {
     cargo.split("\n").take(12).collect().map(l => l.to_owned()).join("\n"),
     content=(
       #|[package]
-      #|name = "tree-sitter-foo"
-      #|description = "Foo grammar for tree-sitter"
-      #|version = "1.2.3"
-      #|authors = ["Ann"]
-      #|license = "MIT"
-      #|readme = "README.md"
-      #|keywords = ["incremental", "parsing", "tree-sitter", "foo"]
-      #|categories = ["parser-implementations", "parsing", "text-editors"]
-      #|repository = "https://github.com/tree-sitter/tree-sitter-foo"
-      #|edition = "2021"
+      #|authors = [ "Ann" ]
       #|autoexamples = false
+      #|categories = [ "parser-implementations", "parsing", "text-editors" ]
+      #|description = "Foo grammar for tree-sitter"
+      #|edition = "2024"
+      #|keywords = [ "incremental", "parsing", "tree-sitter", "foo" ]
+      #|license = "MIT"
+      #|name = "tree-sitter-foo"
+      #|readme = "README.md"
+      #|repository = "https://github.com/tree-sitter/tree-sitter-foo"
+      #|version = "1.2.3"
     ),
   )
 }
@@ -218,7 +229,7 @@ async test "generate_grammar_files writes tree-sitter.json from JsonConfigOpts" 
 async test "generate_grammar_files error" {
   let dir = @fs.tmpdir(prefix="ts-init-test")
   defer (@fs.rmdir(dir, recursive=true) catch { _ => () })
-  @fs.write_file(dir + "/tree-sitter.json", "{}")
+  @fs.write_file(dir + "/tree-sitter.json", "{}", create_mode=CreateOrTruncate)
   try @init.generate_grammar_files(dir, "foo", false, None) catch {
     e => inspect(e, content="missing field `grammars`")
   } noraise {

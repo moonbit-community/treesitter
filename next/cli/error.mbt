@@ -25,6 +25,7 @@ pub fn anyhow(message : String) -> CliError {
 pub fn error_message(e : Error) -> String {
   match e {
     CliError(chain) => chain.get(0).unwrap_or("")
+    @init.InitError(chain) => chain.get(0).unwrap_or("")
     @os_error.OSError(_) => @support.io_error_message(e)
     _ => e.to_string()
   }
@@ -35,6 +36,7 @@ pub fn error_message(e : Error) -> String {
 fn error_chain(e : Error) -> Array[String] {
   match e {
     CliError(chain) => chain
+    @init.InitError(chain) => chain
     _ => [error_message(e)]
   }
 }

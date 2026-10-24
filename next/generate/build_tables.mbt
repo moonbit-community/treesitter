@@ -504,11 +504,11 @@ fn report_state_info(
     let (index, states) = entry
     let name = str_pool.resolve(syntax_grammar.variables[index].name)
     let padding = max_symbol_name_length - char_count(name)
-    println(
+    eprintln(
       "\{name}\{" ".repeat(if padding > 0 { padding } else { 0 })}\t\{states.length()}",
     )
   }
-  println("")
+  eprintln("")
   let state_indices : Array[Int32]? = if report_symbol_name == "*" {
     Some(all_state_indices)
   } else {
@@ -529,8 +529,8 @@ fn report_state_info(
       let id = parse_table.states[state_index].id
       let preceding_symbols = parse_state_info.preceding_symbols_by_id[id]
       let item_set = parse_state_info.item_set(id)
-      println("state index: \{state_index}")
-      println("state id: \{id}")
+      eprintln("state index: \{state_index}")
+      eprintln("state id: \{id}")
       let names = preceding_symbols.map(symbol => {
         match symbol.kind {
           Terminal =>
@@ -543,8 +543,8 @@ fn report_state_info(
           EndOfNonTerminalExtra => "<END_OF_NONTERMINAL_EXTRA>"
         }
       })
-      println("symbol sequence: \{names.join(" ")}")
-      println(
+      eprintln("symbol sequence: \{names.join(" ")}")
+      eprintln(
         "\nitems:\n\{item_set.display(syntax_grammar, lexical_grammar, str_pool, parse_state_info.lookaheads)}",
       )
     }

@@ -605,7 +605,7 @@ async fn Loader::load_language_tables(
   if !self.force_rebuild && !needs_recompile(local, paths_to_check) {
     return read_language_json(local)
   }
-  @fs.mkdir(self.parser_lib_path, recursive=true) catch {
+  @support.create_dir_all(self.parser_lib_path) catch {
     e => raise IO(@support.io_error_with_path(e, Some(self.parser_lib_path)))
   }
   let mut lib_name = name
