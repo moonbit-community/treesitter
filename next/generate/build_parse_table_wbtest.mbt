@@ -35,9 +35,11 @@ test "auxiliary context lookup" {
   //   block: '{' • repeat('y') '}' repeat('x')
   //   block: '{' repeat('y') '}' • repeat('x')
   let contexts = AuxiliarySymbolContexts::new()
-  let first = contexts.push(grammar, None, [(x_repeat, source_file)])
-  let second = contexts.push(grammar, first, [(y_repeat, block)])
-  let third = contexts.push(grammar, second, [(x_repeat, block)])
+  let first = contexts.push(grammar, None, [
+    auxiliary_use(x_repeat, source_file),
+  ])
+  let second = contexts.push(grammar, first, [auxiliary_use(y_repeat, block)])
+  let third = contexts.push(grammar, second, [auxiliary_use(x_repeat, block)])
   let parents = (context, symbol) => {
     match contexts.parents(context, symbol) {
       Some(view) => Some(view.to_owned())
