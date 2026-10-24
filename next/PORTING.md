@@ -18,6 +18,18 @@ Packages:
   `#match?` predicates) over `next/regex_syntax`'s HIR. Differential oracle:
   tools/next/regex_corpus.py, tools/next/regex_harness, next/regex/probe and
   tools/next/regex_compare.py.
+- `next/highlight`, `next/tags`: ports of `crates/highlight/src/highlight.rs`
+  and `crates/tags/src/tags.rs` on top of `next/api` (the C APIs are not
+  ported). `usize::MAX` is `Int::max_value()`, `Range<usize>` is an
+  `(Int, Int)` pair and a cancellation flag is a `Ref[Int]`.
+- `next/query_testing`: the CLI's assertion-based query testing
+  (`query_testing.rs`, `test_highlight.rs`, `test_tags.rs`); grapheme
+  columns use bstr's own grapheme DFA (`grapheme_dfa.mbt`).
+  `next/query_testing/probe` prints highlight/tags/query-testing results in
+  the format of a Rust harness over the pinned `tree-sitter-highlight` and
+  `tree-sitter-tags` crates, for differential checks.
+- `next/fixtures`: test helpers (upstream's `helpers/fixtures.rs`) for the
+  native-only test packages of the three packages above.
 - `next/api`: port of the Rust binding `lib/binding_rust/lib.rs`, the public
   API (it will become the module's root package). Tests that need fixture
   languages live in the native-only `next/api/tests`; expected outputs of the

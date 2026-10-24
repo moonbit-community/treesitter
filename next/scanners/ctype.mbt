@@ -53,3 +53,19 @@ fn to_c_char(c : Int32) -> Int32 {
 ///|
 /// `TREE_SITTER_SERIALIZATION_BUFFER_SIZE`.
 const SERIALIZATION_BUFFER_SIZE : Int32 = 1024
+
+///|
+fn iswxdigit(c : Int32) -> Bool {
+  iswdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+}
+
+///|
+/// `towupper` in the "C" locale maps only 'a'-'z' (verified on macOS); every
+/// other value, including WEOF, maps to itself.
+fn towupper(c : Int32) -> Int32 {
+  if iswlower(c) {
+    c - 'a' + 'A'
+  } else {
+    c
+  }
+}
