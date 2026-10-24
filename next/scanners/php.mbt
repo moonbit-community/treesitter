@@ -1,4 +1,7 @@
-// Port of the php grammar's src/scanner.c (pending).
+// Port of the php grammar's php/src/scanner.c (v0.24.2). The scanning logic
+// is in php_common.mbt (common/scanner.h).
 
 ///|
-declare fn php_scanner() -> @runtime.ExternalScanner
+fn php_scanner() -> @runtime.ExternalScanner {
+  php_external_scanner()
+}
