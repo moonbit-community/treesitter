@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-community/treesitter/next/cli/commands"
+
+import {
+  "moonbit-community/treesitter/next/clap",
+  "moonbitlang/core/ref",
+}
+
+// Values
+pub fn build_cli() -> @clap.Command
+
+pub let build_version : String
+
+pub let default_generate_abi_version : Int32
+
+pub let language_version : Int32
+
+pub let regex_validator : @ref.Ref[(String) -> String?]
+
+pub let semver_validator : @ref.Ref[(String) -> String?]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

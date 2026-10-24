@@ -21,11 +21,11 @@ let authors : String = "Max Brunsfeld <maxbrunsfeld@gmail.com>\nAmaan Qureshi <a
 ///|
 /// The value parser of `Option<Regex>` fields. Set by the CLI, which owns
 /// the regex engine; the default accepts every pattern.
-pub let regex_validator : Ref[(String) -> String?] = Ref::new(_ => None)
+pub let regex_validator : Ref[(String) -> String?] = Ref(_ => None)
 
 ///|
 /// The value parser of `Option<semver::Version>` fields. Set by the CLI.
-pub let semver_validator : Ref[(String) -> String?] = Ref::new(_ => None)
+pub let semver_validator : Ref[(String) -> String?] = Ref(_ => None)
 
 ///|
 fn flag(id : String) -> @clap.Arg {
