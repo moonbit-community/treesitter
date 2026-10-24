@@ -440,6 +440,11 @@ priv struct ParseTableBuilder {
   parse_table : ParseTable
   /// The pool index of each action list interned into `parse_table` so far.
   action_list_ids : Map[ActionListKey, Int32]
+  /// A reusable `ActionListId` for each pool index, shared by every entry with that
+  /// list (they're immutable), so that entries don't each allocate one.
+  reusable_action_list_ids : Array[ActionListId]
+  /// A `Goto` for each state id, shared like `reusable_action_list_ids`.
+  gotos : Array[GotoAction]
   str_pool : StrPool
   /// Scratch for `add_actions`: The terminal entries of the state it's working on. They are
   /// interned into the table once the state is complete.
@@ -687,6 +692,8 @@ fn ParseTableBuilder::new(
     actual_conflicts,
     parse_table,
     action_list_ids: {},
+    reusable_action_list_ids: [],
+    gotos: [],
     str_pool,
     terminal_entries: TerminalEntryMap::new(symbol_indexer),
     successor_sets: SuccessorSets::new(symbol_indexer),
@@ -858,6 +865,36 @@ fn parse_action_hash_mix(acc : UInt32, action : ParseAction) -> UInt32 {
         production_id,
       )
   }
+}
+
+///|
+/// `ActionListId::new(index, reusable)`.
+fn ParseTableBuilder::action_list_id(
+  self : ParseTableBuilder,
+  index : Int32,
+  reusable : Bool,
+) -> ActionListId {
+  if !reusable {
+    return ActionListId::new(index, reusable)
+  }
+  while self.reusable_action_list_ids.length() <= index {
+    self.reusable_action_list_ids.push(
+      ActionListId::new(self.reusable_action_list_ids.length(), true),
+    )
+  }
+  self.reusable_action_list_ids[index]
+}
+
+///|
+/// `Goto(state_id)`.
+fn ParseTableBuilder::goto(
+  self : ParseTableBuilder,
+  state_id : Int32,
+) -> GotoAction {
+  while self.gotos.length() <= state_id {
+    self.gotos.push(Goto(self.gotos.length()))
+  }
+  self.gotos[state_id]
 }
 
 ///|
@@ -1096,7 +1133,7 @@ fn ParseTableBuilder::add_actions(
     self.recycle_unless_kept(next_state_id, next_item_set)
     self.parse_table.states[state_id].nonterminal_entries.push(
       symbol,
-      Goto(next_state_id),
+      self.goto(next_state_id),
     )
   }
 
@@ -1212,7 +1249,7 @@ fn ParseTableBuilder::add_actions(
     let index = self.intern_action_list(entry.actions)
     state.terminal_entries.push(
       symbol,
-      ActionListId::new(index, entry.reusable),
+      self.action_list_id(index, entry.reusable),
     )
   }
   self.terminal_entries.clear()
