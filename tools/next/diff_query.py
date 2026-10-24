@@ -57,8 +57,10 @@ def main():
             paths.append(str(p))
         ref = dr.build_ref(name, 'reference_query.c', '.query')
         for q in queries:
-            expected, _ = dr.run([str(ref), str(q), *paths])
-            actual, code = dr.run([str(dr.PROBE), 'query', str(dr.LANG / f'{name}.json'), str(q), *paths])
+            (expected, _), (actual, code) = dr.run(
+                [[str(ref), str(q), *paths], [str(dr.PROBE), 'query', str(dr.LANG / f'{name}.json'), str(q), *paths]],
+                dr.BATCH_TIMEOUT + len(paths))
+            expected, actual = expected or '', actual or ''
             exp = expected.split('\n== ')
             act = actual.split('\n== ')
             n_same = sum(1 for a, b in zip(exp, act) if a == b)
