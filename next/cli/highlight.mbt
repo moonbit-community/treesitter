@@ -448,16 +448,16 @@ pub async fn highlight(
       renderer.render(events.iter(), source, (highlight, output) => {
         let index = highlight.0
         if style == Inline {
-          output.append(@support.utf8("style='"))
+          push_bytes(output, @support.utf8("style='"))
           match theme.styles[index].css {
-            Some(css) => output.append(@support.utf8(css))
+            Some(css) => push_bytes(output, @support.utf8(css))
             None => ()
           }
         } else {
-          output.append(@support.utf8("class='"))
+          push_bytes(output, @support.utf8("class='"))
           let parts = theme.highlight_names[index].split(".").collect()
           for i, part in parts {
-            output.append(@support.utf8(part.to_owned()))
+            push_bytes(output, @support.utf8(part.to_owned()))
             if i + 1 < parts.length() {
               output.push(b' ')
             }
@@ -515,10 +515,6 @@ pub async fn highlight(
   }
 }
 
-///|
-fn @buffer.Buffer::write_string_utf8(self : @buffer.Buffer, s : String) -> Unit {
-  self.write_bytes(@support.utf8(s))
-}
 
 ///|
 /// `ansi_colours::ansi256_from_rgb`.

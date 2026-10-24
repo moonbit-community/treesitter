@@ -100,10 +100,6 @@ pub impl Show for LoaderError with output(self, logger) {
 pub type ScannerRegistry = (String) -> @runtime.ExternalScannerFactory?
 
 ///|
-/// Grammars whose C scanners have been ported to next/scanners.
-let ported_c_scanners : Array[String] = ["bash", "cpp", "jsdoc", "python", "ruby"]
-
-///|
 /// A compiled regex together with its source pattern (`regex::Regex`, whose
 /// `Debug` shows the pattern).
 pub struct LoaderRegex {
@@ -674,8 +670,8 @@ async fn Loader::scanner_for(
     }
     raise ScannerRequired(required)
   }
-  if ported_c_scanners.contains(name) {
-    return @scanners.scanner_for(name)
+  if @scanners.scanner_for(name) is Some(factory) {
+    return Some(factory)
   }
   for c_scanner in ["scanner.c", "scanner.cc"] {
     let path = @support.path_join(src_path, c_scanner)

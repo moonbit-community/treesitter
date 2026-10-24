@@ -872,22 +872,6 @@ fn cst_node_range(
   )
 }
 
-///|
-/// `str::split_inclusive('\n')`.
-fn split_inclusive_newline(s : String) -> Array[String] {
-  let result = []
-  let mut start = 0
-  for i in 0..<s.length() {
-    if s[i] == '\n' {
-      result.push(s.unsafe_substring(start~, end=i + 1))
-      start = i + 1
-    }
-  }
-  if start < s.length() {
-    result.push(s.unsafe_substring(start~, end=s.length()))
-  }
-  result
-}
 
 ///|
 fn write_node_text(

@@ -605,7 +605,9 @@ fn language_named(opts : TestOptions, name : String) -> @api.Language? {
 /// `adjusted_parse_rate`.
 fn adjusted_parse_rate(tree : @api.Tree, parse_time_ns : Int64) -> Double {
   let (start, end) = tree.root_node().byte_range()
-  ((end - start).to_double() / (parse_time_ns.to_double() / 1000000.0)).ln()
+  @math.ln(
+    (end - start).to_double() / (parse_time_ns.to_double() / 1000000.0),
+  )
 }
 
 ///|
