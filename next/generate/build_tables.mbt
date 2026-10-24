@@ -55,6 +55,21 @@ fn SymbolIndexer::symbol(self : SymbolIndexer, index : Int32) -> Symbol {
 }
 
 ///|
+/// The terminal index of the symbol at a position, or `-1` if it isn't a terminal:
+/// `self.symbol(index).terminal_index()`, without building the symbol.
+fn SymbolIndexer::terminal_index_of(
+  self : SymbolIndexer,
+  index : Int32,
+) -> Int32 {
+  let first = self.external_count + 2
+  if index >= first && index < self.token_count() {
+    index - first
+  } else {
+    -1
+  }
+}
+
+///|
 /// How many positions `Self::index` gives to tokens _only_: one per external token, one
 /// each for `End` and `EndOfNonTerminalExtra`, and one per terminal.
 fn SymbolIndexer::token_count(self : SymbolIndexer) -> Int32 {

@@ -44,11 +44,9 @@ fn start_production() -> ProdRef {
 priv struct DotKeys {
   mut cmp : Int32
   mut eq_with_syms : Int32
-}
-
-///|
-fn DotKeys::default() -> DotKeys {
-  { cmp: 0, eq_with_syms: 0, }
+  /// The production's step at the dot, if the dot isn't at the end. (Not a key:
+  /// cached here so that items find their steps without the grammar.)
+  step : ProductionStep?
 }
 
 ///|
@@ -84,7 +82,12 @@ fn ItemKeyMap::new(grammar : SyntaxGrammar, str_pool : StrPool) -> ItemKeyMap {
   // their order decides how `eq_with_syms` numbers their symbol classes below.
   rust_sort_unstable_by(contents, (a, b) => content(a).cmp(content(b)) < 0)
   let slot_keys : Array[FixedArray[DotKeys]] = Array::makei(slot_count, pi => {
-    FixedArray::makei(prod(pi).steps.length() + 1, _ => DotKeys::default())
+    let steps = prod(pi).steps
+    FixedArray::makei(steps.length() + 1, dot => {
+      cmp: 0,
+      eq_with_syms: 0,
+      step: steps.get(dot),
+    })
   })
   // Dense ids in sorted order: equal content shares an id, distinct content gets the next up
   let mut cmp_id = 0
@@ -357,6 +360,37 @@ priv struct ParseItem {
   /// true, then the item's set of inherited fields may depend on the specific
   /// symbols of its preceding children.
   has_preceding_inherited_fields : Bool
+  /// `keys[step_index]`'s keys, copied here so that comparing items doesn't
+  /// have to look them up.
+  dot_cmp : Int32
+  /// See `dot_cmp`.
+  dot_eq_with_syms : Int32
+  /// `Self::successor`, once built. Items are immutable, so each one builds
+  /// its successor at most once.
+  mut successor_cache : ParseItem?
+  /// `Self::with_preceding_inherited_fields`, once built.
+  mut inherited_cache : ParseItem?
+}
+
+///|
+fn ParseItem::new(
+  variable_index~ : Int32,
+  prod_id~ : Int32,
+  keys~ : FixedArray[DotKeys],
+  step_index~ : Int32,
+  has_preceding_inherited_fields~ : Bool,
+) -> ParseItem {
+  {
+    variable_index,
+    prod_id,
+    keys,
+    step_index,
+    has_preceding_inherited_fields,
+    dot_cmp: keys[step_index].cmp,
+    dot_eq_with_syms: keys[step_index].eq_with_syms,
+    successor_cache: None,
+    inherited_cache: None,
+  }
 }
 
 ///|
@@ -369,13 +403,23 @@ let lookahead_set_pool_empty : Int32 = 0
 priv struct LookaheadSetPool {
   sets : Array[TokenSet]
   ids : Map[TokenSet, Int32]
-  union_memo : Map[(Int32, Int32), Int32]
-  insert_memo : Map[(Int32, Symbol), Int32]
+  /// Keyed by both ids, packed (smaller first).
+  union_memo : Map[Int64, Int32]
+  /// Keyed by the id and `Symbol::code`, packed.
+  insert_memo : Map[Int64, Int32]
+  /// Each set's `TokenSet::iter`, by id, once asked for.
+  symbol_lists : Array[Array[Symbol]?]
 }
 
 ///|
 fn LookaheadSetPool::new() -> LookaheadSetPool {
-  let pool = { sets: [], ids: {}, union_memo: {}, insert_memo: {}, }
+  let pool = {
+    sets: [],
+    ids: {},
+    union_memo: {},
+    insert_memo: {},
+    symbol_lists: [],
+  }
   ignore(pool.intern(TokenSet::new()))
   pool
 }
@@ -386,6 +430,23 @@ fn LookaheadSetPool::get(self : LookaheadSetPool, id : Int32) -> TokenSet {
 }
 
 ///|
+/// The symbols of the set with this id, as `TokenSet::iter` lists them. The
+/// list is shared: callers must not change it.
+fn LookaheadSetPool::symbols(
+  self : LookaheadSetPool,
+  id : Int32,
+) -> Array[Symbol] {
+  match self.symbol_lists[id] {
+    Some(symbols) => symbols
+    None => {
+      let symbols = self.sets[id].iter()
+      self.symbol_lists[id] = Some(symbols)
+      symbols
+    }
+  }
+}
+
+///|
 /// Interns `set`, which the pool takes ownership of.
 fn LookaheadSetPool::intern(self : LookaheadSetPool, set : TokenSet) -> Int32 {
   match self.ids.get(set) {
@@ -393,6 +454,7 @@ fn LookaheadSetPool::intern(self : LookaheadSetPool, set : TokenSet) -> Int32 {
     None => {
       let index = self.sets.length()
       self.sets.push(set)
+      self.symbol_lists.push(None)
       self.ids[set] = index
       index
     }
@@ -427,13 +489,14 @@ fn LookaheadSetPool::insert(
   if self.get(id).contains(symbol) {
     return id
   }
-  if self.insert_memo.get((id, symbol)) is Some(result) {
+  let key = (id.to_int64() << 32) | symbol.code().to_int64()
+  if self.insert_memo.get(key) is Some(result) {
     return result
   }
   let set = self.get(id).copy()
   set.insert(symbol)
   let result = self.intern(set)
-  self.insert_memo[(id, symbol)] = result
+  self.insert_memo[key] = result
   result
 }
 
@@ -449,12 +512,13 @@ fn LookaheadSetPool::union(
   if left == lookahead_set_pool_empty {
     return right
   }
-  let key = if left < right { (left, right) } else { (right, left) }
+  let (low, high) = if left < right { (left, right) } else { (right, left) }
+  let key = (low.to_int64() << 32) | high.to_int64()
   if self.union_memo.get(key) is Some(result) {
     return result
   }
-  let set = self.get(key.0).copy()
-  ignore(set.insert_all(self.get(key.1)))
+  let set = self.get(low).copy()
+  ignore(set.insert_all(self.get(high)))
   let result = self.intern(set)
   self.union_memo[key] = result
   result
@@ -472,7 +536,8 @@ priv struct ParseItemSet {
 
 ///|
 priv struct ParseItemSetEntry {
-  item : ParseItem
+  /// Only changes when an entry of a discarded set is reused.
+  mut item : ParseItem
   mut lookaheads : Int32
   mut following_reserved_word_set : Int32
 }
@@ -491,13 +556,13 @@ fn ParseItemSet::new() -> ParseItemSet {
 
 ///|
 fn ParseItem::start(key_map : ItemKeyMap) -> ParseItem {
-  {
-    variable_index: augmented_variable_index,
-    prod_id: start_production_id,
-    keys: key_map.start_keys(),
-    step_index: 0,
-    has_preceding_inherited_fields: false,
-  }
+  ParseItem::new(
+    variable_index=augmented_variable_index,
+    prod_id=start_production_id,
+    keys=key_map.start_keys(),
+    step_index=0,
+    has_preceding_inherited_fields=false,
+  )
 }
 
 ///|
@@ -522,18 +587,14 @@ fn ParseItem::step(
 /// `production(grammar).steps.get(index)` without building a `ProdRef`.
 fn ParseItem::step_at(
   self : ParseItem,
-  grammar : SyntaxGrammar,
-  index : Int,
+  _grammar : SyntaxGrammar,
+  index : Int32,
 ) -> ProductionStep? {
-  if self.prod_id == start_production_id {
-    start_steps.get(index)
+  // `keys` has an entry for every dot, and each holds the step at its dot.
+  if index >= 0 && index < self.keys.length() {
+    self.keys[index].step
   } else {
-    let production = grammar.productions[self.prod_id]
-    if index >= 0 && index < production.steps_len {
-      Some(grammar.steps[production.steps_start + index])
-    } else {
-      None
-    }
+    None
   }
 }
 
@@ -592,7 +653,42 @@ fn ParseItem::is_augmented(self : ParseItem) -> Bool {
 ///|
 /// Create an item like this one, but advanced by one step.
 fn ParseItem::successor(self : ParseItem) -> ParseItem {
-  { ..self, step_index: self.step_index + 1, }
+  match self.successor_cache {
+    Some(successor) => successor
+    None => {
+      let successor = ParseItem::new(
+        variable_index=self.variable_index,
+        prod_id=self.prod_id,
+        keys=self.keys,
+        step_index=self.step_index + 1,
+        has_preceding_inherited_fields=self.has_preceding_inherited_fields,
+      )
+      self.successor_cache = Some(successor)
+      successor
+    }
+  }
+}
+
+///|
+/// `ParseItem { has_preceding_inherited_fields: true, ..self }`.
+fn ParseItem::with_preceding_inherited_fields(self : ParseItem) -> ParseItem {
+  if self.has_preceding_inherited_fields {
+    return self
+  }
+  match self.inherited_cache {
+    Some(item) => item
+    None => {
+      let item = ParseItem::new(
+        variable_index=self.variable_index,
+        prod_id=self.prod_id,
+        keys=self.keys,
+        step_index=self.step_index,
+        has_preceding_inherited_fields=true,
+      )
+      self.inherited_cache = Some(item)
+      item
+    }
+  }
 }
 
 ///|
@@ -603,19 +699,30 @@ fn ParseItem::substitute_production(
   prod_id : Int32,
   keys : FixedArray[DotKeys],
 ) -> ParseItem {
-  { ..self, prod_id, keys, }
+  ParseItem::new(
+    variable_index=self.variable_index,
+    prod_id~,
+    keys~,
+    step_index=self.step_index,
+    has_preceding_inherited_fields=self.has_preceding_inherited_fields,
+  )
 }
 
-///|
-/// This item's identity keys at the current dot.
-fn ParseItem::dot_keys(self : ParseItem) -> DotKeys {
-  self.keys[self.step_index]
-}
 
 ///|
 fn ParseItemSet::insert(
   self : ParseItemSet,
   item : ParseItem,
+) -> ParseItemSetEntry {
+  self.insert_reusing(item, [])
+}
+
+///|
+/// `Self::insert`, taking a new entry from `spares` if it has one.
+fn ParseItemSet::insert_reusing(
+  self : ParseItemSet,
+  item : ParseItem,
+  spares : Array[ParseItemSetEntry],
 ) -> ParseItemSetEntry {
   // `entries` is sorted with no duplicates, so an item that sorts after the last entry
   // belongs at the end, which is where the binary search would put it.
@@ -634,10 +741,19 @@ fn ParseItemSet::insert(
         Err(i) => i
       }
   }
-  let entry = {
-    item,
-    lookaheads: lookahead_set_pool_empty,
-    following_reserved_word_set: 0,
+  let entry = match spares.pop() {
+    Some(entry) => {
+      entry.item = item
+      entry.lookaheads = lookahead_set_pool_empty
+      entry.following_reserved_word_set = 0
+      entry
+    }
+    None =>
+      {
+        item,
+        lookaheads: lookahead_set_pool_empty,
+        following_reserved_word_set: 0,
+      }
   }
   self.entries.insert(index, entry)
   entry
@@ -853,13 +969,29 @@ impl Hash for ParseItem with fn hash_combine(self, hasher) {
   //   * the children are hidden and represent rules that have fields.
   // See the docs for `has_preceding_inherited_fields`.
   // Preceding symbols participate only in `eq_with_syms`.
-  let keys = self.dot_keys()
   if self.has_preceding_inherited_fields {
     hasher.combine_int(1)
-    hasher.combine_int(keys.eq_with_syms)
+    hasher.combine_int(self.dot_eq_with_syms)
   } else {
     hasher.combine_int(0)
-    hasher.combine_int(keys.cmp)
+    hasher.combine_int(self.dot_cmp)
+  }
+}
+
+///|
+/// `hash_combine`'s fields, without `Hasher`'s allocation.
+impl Hash for ParseItem with fn hash(self) {
+  hash_finish(self.hash_acc(HASH_SEED))
+}
+
+///|
+/// Mixes what `hash_combine` combines into `acc`.
+fn ParseItem::hash_acc(self : ParseItem, acc : UInt32) -> UInt32 {
+  let acc = hash_mix(hash_mix(acc, self.variable_index), self.step_index)
+  if self.has_preceding_inherited_fields {
+    hash_mix(hash_mix(acc, 1), self.dot_eq_with_syms)
+  } else {
+    hash_mix(hash_mix(acc, 0), self.dot_cmp)
   }
 }
 
@@ -871,9 +1003,9 @@ impl Eq for ParseItem with fn equal(self, other) {
     return false
   }
   if self.has_preceding_inherited_fields {
-    self.dot_keys().eq_with_syms == other.dot_keys().eq_with_syms
+    self.dot_eq_with_syms == other.dot_eq_with_syms
   } else {
-    self.dot_keys().cmp == other.dot_keys().cmp
+    self.dot_cmp == other.dot_cmp
   }
 }
 
@@ -887,7 +1019,7 @@ impl Compare for ParseItem with fn compare(self, other) {
   if c != 0 {
     return c
   }
-  let c = self.dot_keys().cmp.compare(other.dot_keys().cmp)
+  let c = self.dot_cmp.compare(other.dot_cmp)
   if c != 0 {
     return c
   }
@@ -898,7 +1030,7 @@ impl Compare for ParseItem with fn compare(self, other) {
     return c
   }
   if self.has_preceding_inherited_fields {
-    self.dot_keys().eq_with_syms.compare(other.dot_keys().eq_with_syms)
+    self.dot_eq_with_syms.compare(other.dot_eq_with_syms)
   } else {
     0
   }
@@ -935,6 +1067,19 @@ impl Hash for ParseItemSet with fn hash_combine(self, hasher) {
 }
 
 ///|
+impl Hash for ParseItemSet with fn hash(self) {
+  let mut acc = hash_mix(HASH_SEED, self.entries.length())
+  for entry in self.entries {
+    acc = entry.item.hash_acc(acc)
+    acc = hash_mix(
+      hash_mix(acc, entry.lookaheads),
+      entry.following_reserved_word_set,
+    )
+  }
+  hash_finish(acc)
+}
+
+///|
 impl Eq for ParseItemSetCore with fn equal(self, other) {
   if self.entries.length() != other.entries.length() {
     return false
@@ -953,4 +1098,13 @@ impl Hash for ParseItemSetCore with fn hash_combine(self, hasher) {
   for item in self.entries {
     hasher.combine(item)
   }
+}
+
+///|
+impl Hash for ParseItemSetCore with fn hash(self) {
+  let mut acc = hash_mix(HASH_SEED, self.entries.length())
+  for item in self.entries {
+    acc = item.hash_acc(acc)
+  }
+  hash_finish(acc)
 }

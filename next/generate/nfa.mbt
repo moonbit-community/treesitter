@@ -80,9 +80,13 @@ fn RangeRewriter::finish(self : RangeRewriter, current : CharRange?) -> Unit {
     self.keep(range)
   }
   if self.kept < self.read {
-    for _ in self.kept..<self.read {
-      ignore(self.ranges.remove(self.kept))
+    // Remove the ranges in `kept..read` at once.
+    let removed = self.read - self.kept
+    let len = self.ranges.length()
+    for i in self.read..<len {
+      self.ranges[i - removed] = self.ranges[i]
     }
+    self.ranges.truncate(len - removed)
   }
 }
 

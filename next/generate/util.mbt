@@ -65,3 +65,28 @@ pub fn[T : Eq] dedup(array : Array[T]) -> Unit {
   }
   array.truncate(w)
 }
+
+///|
+/// Starting value for `hash_mix`.
+const HASH_SEED : UInt = 0x165667B1
+
+///|
+/// Mixes `input` into a hash accumulator without `Hasher`'s allocation, for
+/// hot `Hash::hash` overrides. Hash values never reach the output: MoonBit's
+/// `Map` iterates in insertion order whatever the hashes are.
+fn hash_mix(acc : UInt, input : Int) -> UInt {
+  let x = acc + input.reinterpret_as_uint() * 0xC2B2AE3DU
+  ((x << 17) | (x >> 15)) * 0x27D4EB2FU
+}
+
+///|
+/// Finishes a `hash_mix` accumulator.
+fn hash_finish(acc : UInt) -> Int {
+  let mut acc = acc
+  acc = acc ^ (acc >> 15)
+  acc *= 0x85EBCA77U
+  acc = acc ^ (acc >> 13)
+  acc *= 0xC2B2AE3DU
+  acc = acc ^ (acc >> 16)
+  acc.reinterpret_as_int()
+}

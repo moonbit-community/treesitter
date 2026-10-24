@@ -45,7 +45,37 @@ pub(all) enum Precedence {
 pub(all) struct Symbol {
   kind : SymbolType
   index : Int
-} derive(Eq, Hash, Compare, Debug)
+} derive(Eq, Compare, Debug)
+
+///|
+pub impl Hash for Symbol with hash_combine(self, hasher) {
+  hasher.combine(self.kind)
+  hasher.combine_int(self.index)
+}
+
+///|
+/// Without `Hasher`'s allocation: symbols key many hot maps.
+pub impl Hash for Symbol with hash(self) {
+  hash_finish(hash_mix(hash_mix(HASH_SEED, self.kind.ordinal()), self.index))
+}
+
+///|
+/// The position of this kind in declaration order.
+fn SymbolType::ordinal(self : SymbolType) -> Int {
+  match self {
+    External => 0
+    End => 1
+    EndOfNonTerminalExtra => 2
+    Terminal => 3
+    NonTerminal => 4
+  }
+}
+
+///|
+/// A distinct `Int` for each symbol, for packing symbols into map keys.
+fn Symbol::code(self : Symbol) -> Int {
+  (self.kind.ordinal() << 28) | self.index
+}
 
 ///|
 pub let symbol_end : Symbol = { kind: End, index: 0 }

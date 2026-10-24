@@ -21,7 +21,38 @@ priv struct AuxiliarySymbolContexts {
   /// Each parent set's `(start, len)` slice of `parent_symbols`, by parent set id.
   parent_sets : Array[(Int32, Int32)]
   /// Parent set ids of every distinct parent set.
-  parent_set_ids : Map[Array[Symbol], Int32]
+  parent_set_ids : Map[SymbolListKey, Int32]
+}
+
+///|
+/// A list of symbols as a map key, hashed without `Hasher`'s allocation.
+priv struct SymbolListKey(Array[Symbol])
+
+///|
+impl Eq for SymbolListKey with fn equal(self, other) {
+  self.0 == other.0
+}
+
+///|
+impl Hash for SymbolListKey with fn hash_combine(self, hasher) {
+  hasher.combine_int(Hash::hash(self))
+}
+
+///|
+impl Hash for SymbolListKey with fn hash(self) {
+  let mut acc = hash_mix(HASH_SEED, self.0.length())
+  for symbol in self.0 {
+    acc = hash_mix(acc, symbol.code())
+  }
+  hash_finish(acc)
+}
+
+///|
+/// An auxiliary use: an auxiliary symbol's index in the upper half, and the index of
+/// the rule using it in the lower half, so that uses sort like `(symbol, parent)`
+/// pairs.
+fn auxiliary_use(symbol : Int32, parent : Int32) -> Int64 {
+  (symbol.to_int64() << 32) | parent.to_int64()
 }
 
 ///|
@@ -52,7 +83,7 @@ fn AuxiliarySymbolContexts::push(
   self : AuxiliarySymbolContexts,
   grammar : SyntaxGrammar,
   predecessor : Int32?,
-  uses : Array[(Int32, Int32)],
+  uses : Array[Int64],
 ) -> Int32? {
   if uses.is_empty() {
     return predecessor
@@ -64,18 +95,19 @@ fn AuxiliarySymbolContexts::push(
   let mut group_start = 0
   while group_start < uses.length() {
     let mut group_end = group_start + 1
-    while group_end < uses.length() && uses[group_end].0 == uses[group_start].0 {
+    let symbol = (uses[group_start] >> 32).to_int()
+    while group_end < uses.length() &&
+          (uses[group_end] >> 32).to_int() == symbol {
       group_end += 1
     }
     parents.clear()
     for i in group_start..<group_end {
-      let parent = uses[i].1
+      let parent = uses[i].to_int()
       if !grammar.variables[parent].is_auxiliary() {
         parents.push(Symbol::non_terminal(parent))
       }
     }
     let parent_set = self.intern(parents)
-    let symbol = uses[group_start].0
     self.entries.push((symbol, parent_set))
     group_start = group_end
   }
@@ -113,7 +145,7 @@ fn AuxiliarySymbolContexts::intern(
   self : AuxiliarySymbolContexts,
   parents : Array[Symbol],
 ) -> Int32 {
-  match self.parent_set_ids.get(parents) {
+  match self.parent_set_ids.get(SymbolListKey(parents)) {
     Some(id) => id
     None => {
       let id = self.parent_sets.length()
@@ -121,7 +153,7 @@ fn AuxiliarySymbolContexts::intern(
       for symbol in parents {
         self.parent_symbols.push(symbol)
       }
-      self.parent_set_ids[parents.copy()] = id
+      self.parent_set_ids[SymbolListKey(parents.copy())] = id
       id
     }
   }
@@ -204,13 +236,27 @@ priv struct SuccessorSets {
   indexer : SymbolIndexer
   /// Each symbol's successor item set, by `SymbolIndexer::index`.
   sets : Array[ParseItemSet?]
-  /// The symbols that have a set in `sets`, in the order their sets were added.
-  symbols : Array[Symbol]
+  /// The symbol of each set in `sets`, by `SymbolIndexer::index`.
+  set_symbols : Array[Symbol?]
+  /// The positions of the symbols that have a set in `sets`, in the order their sets were
+  /// added.
+  symbols : Array[Int32]
+  /// Empty item sets to build successors in, so that most successors don't allocate.
+  pool : Array[ParseItemSet]
+  /// Entries of discarded successor sets, to reuse.
+  spare_entries : Array[ParseItemSetEntry]
 }
 
 ///|
 fn SuccessorSets::new(indexer : SymbolIndexer) -> SuccessorSets {
-  { indexer, sets: Array::make(indexer.symbol_count(), None), symbols: [], }
+  {
+    indexer,
+    sets: Array::make(indexer.symbol_count(), None),
+    set_symbols: Array::make(indexer.symbol_count(), None),
+    symbols: [],
+    pool: [],
+    spare_entries: [],
+  }
 }
 
 ///|
@@ -223,8 +269,12 @@ fn SuccessorSets::item_set(
   match self.sets[index] {
     Some(set) => set
     None => {
-      self.symbols.push(symbol)
-      let set = ParseItemSet::new()
+      self.symbols.push(index)
+      self.set_symbols[index] = Some(symbol)
+      let set = match self.pool.pop() {
+        Some(set) => set
+        None => ParseItemSet::new()
+      }
       self.sets[index] = Some(set)
       set
     }
@@ -236,17 +286,27 @@ fn SuccessorSets::item_set(
 fn SuccessorSets::take_all(
   self : SuccessorSets,
 ) -> Array[(Symbol, ParseItemSet)] {
-  // Symbols are distinct, so the order is total.
+  // Symbols are distinct, so the order is total. Positions follow symbol order.
   self.symbols.sort()
-  let result = self.symbols.map(symbol => {
-    let index = self.indexer.index(symbol)
+  let result = self.symbols.map(index => {
     // INVARIANT: every symbol in `symbols` has a set
     let set = self.sets[index].unwrap()
     self.sets[index] = None
-    (symbol, set)
+    (self.set_symbols[index].unwrap(), set)
   })
   self.symbols.clear()
   result
+}
+
+///|
+/// Takes back a set from `Self::take_all` that no state kept, to build later
+/// successors in.
+fn SuccessorSets::recycle(self : SuccessorSets, set : ParseItemSet) -> Unit {
+  for entry in set.entries {
+    self.spare_entries.push(entry)
+  }
+  set.entries.clear()
+  self.pool.push(set)
 }
 
 ///|
@@ -265,6 +325,87 @@ priv struct ParseTableEntry {
 ///|
 fn ParseTableEntry::new() -> ParseTableEntry {
   { reusable: true, actions: [], }
+}
+
+///|
+/// Upstream's `IndexMap<Symbol, ParseTableEntry>` for `ParseTableBuilder::terminal_entries`:
+/// entries in insertion order, found by `SymbolIndexer::index`. Entries are reused across
+/// states, so that most states don't allocate them.
+priv struct TerminalEntryMap {
+  indexer : SymbolIndexer
+  /// The position of each symbol's entry, by `SymbolIndexer::index`, or `-1`.
+  positions : FixedArray[Int32]
+  /// The symbols, in insertion order.
+  keys : Array[Symbol]
+  /// The entries, by position. Entries past `keys.length()` are spares.
+  values : Array[ParseTableEntry]
+}
+
+///|
+fn TerminalEntryMap::new(indexer : SymbolIndexer) -> TerminalEntryMap {
+  {
+    indexer,
+    positions: FixedArray::make(indexer.token_count(), -1),
+    keys: [],
+    values: [],
+  }
+}
+
+///|
+fn TerminalEntryMap::length(self : TerminalEntryMap) -> Int32 {
+  self.keys.length()
+}
+
+///|
+fn TerminalEntryMap::contains(self : TerminalEntryMap, symbol : Symbol) -> Bool {
+  self.positions[self.indexer.index(symbol)] >= 0
+}
+
+///|
+fn TerminalEntryMap::get(
+  self : TerminalEntryMap,
+  symbol : Symbol,
+) -> ParseTableEntry? {
+  let position = self.positions[self.indexer.index(symbol)]
+  if position >= 0 {
+    Some(self.values[position])
+  } else {
+    None
+  }
+}
+
+///|
+/// `entry(symbol).or_insert_with(ParseTableEntry::new)`.
+fn TerminalEntryMap::get_or_insert_new(
+  self : TerminalEntryMap,
+  symbol : Symbol,
+) -> ParseTableEntry {
+  let index = self.indexer.index(symbol)
+  let position = self.positions[index]
+  if position >= 0 {
+    return self.values[position]
+  }
+  let position = self.keys.length()
+  self.positions[index] = position
+  self.keys.push(symbol)
+  if position < self.values.length() {
+    // A spare from an earlier state: `clear` emptied its actions.
+    self.values[position]
+  } else {
+    let entry = ParseTableEntry::new()
+    self.values.push(entry)
+    entry
+  }
+}
+
+///|
+/// Removes every entry, keeping them as spares.
+fn TerminalEntryMap::clear(self : TerminalEntryMap) -> Unit {
+  for position, symbol in self.keys {
+    self.positions[self.indexer.index(symbol)] = -1
+    self.values[position].actions.clear()
+  }
+  self.keys.clear()
 }
 
 ///|
@@ -298,11 +439,16 @@ priv struct ParseTableBuilder {
   actual_conflicts : Map[Array[Symbol], Unit]
   parse_table : ParseTable
   /// The pool index of each action list interned into `parse_table` so far.
-  action_list_ids : Map[Array[ParseAction], Int32]
+  action_list_ids : Map[ActionListKey, Int32]
+  /// A reusable `ActionListId` for each pool index, shared by every entry with that
+  /// list (they're immutable), so that entries don't each allocate one.
+  reusable_action_list_ids : Array[ActionListId]
+  /// A `Goto` for each state id, shared like `reusable_action_list_ids`.
+  gotos : Array[GotoAction]
   str_pool : StrPool
   /// Scratch for `add_actions`: The terminal entries of the state it's working on. They are
   /// interned into the table once the state is complete.
-  terminal_entries : Map[Symbol, ParseTableEntry]
+  terminal_entries : TerminalEntryMap
   /// Scratch for `add_actions`: The successor item sets of the state currently being built.
   successor_sets : SuccessorSets
   /// Scratch for `add_actions`: The reductions on each lookahead of the state currently being
@@ -546,8 +692,10 @@ fn ParseTableBuilder::new(
     actual_conflicts,
     parse_table,
     action_list_ids: {},
+    reusable_action_list_ids: [],
+    gotos: [],
     str_pool,
-    terminal_entries: {},
+    terminal_entries: TerminalEntryMap::new(symbol_indexer),
     successor_sets: SuccessorSets::new(symbol_indexer),
     reduction_infos: ReductionInfos::new(symbol_indexer),
   }
@@ -593,13 +741,15 @@ fn ParseTableBuilder::build(
       let production = self.syntax_grammar.production(prod_id)
       let entry = non_terminal_extra_item_sets_by_first_terminal
         .get_or_init(production.first_symbol().unwrap(), ParseItemSet::new)
-        .insert({
-          variable_index: extra_index,
-          prod_id,
-          step_index: 1,
-          keys: self.item_set_builder.key_map.keys_for(prod_id),
-          has_preceding_inherited_fields: false,
-        })
+        .insert(
+          ParseItem::new(
+            variable_index=extra_index,
+            prod_id~,
+            step_index=1,
+            keys=self.item_set_builder.key_map.keys_for(prod_id),
+            has_preceding_inherited_fields=false,
+          ),
+        )
       entry.lookaheads = self.item_set_builder.lookaheads.insert(
         entry.lookaheads,
         symbol_end_of_nonterminal_extra,
@@ -631,6 +781,8 @@ fn ParseTableBuilder::build(
       entry.state_id,
       item_set,
     )
+    // `add_actions` keeps none of the closure's entries.
+    self.item_set_builder.closure_scratch.recycle(item_set)
   }
   if !self.actual_conflicts.is_empty() {
     let conflicts = []
@@ -662,6 +814,103 @@ fn compare_string_lists(a : Array[String], b : Array[String]) -> Int32 {
     }
   }
   a.length().compare(b.length())
+}
+
+///|
+/// An action list as a key of `ParseTableBuilder::action_list_ids`, hashed without
+/// `Hasher`'s allocation.
+priv struct ActionListKey(Array[ParseAction])
+
+///|
+impl Eq for ActionListKey with fn equal(self, other) {
+  self.0 == other.0
+}
+
+///|
+impl Hash for ActionListKey with fn hash_combine(self, hasher) {
+  hasher.combine_int(Hash::hash(self))
+}
+
+///|
+impl Hash for ActionListKey with fn hash(self) {
+  let mut acc = hash_mix(HASH_SEED, self.0.length())
+  for action in self.0 {
+    acc = parse_action_hash_mix(acc, action)
+  }
+  hash_finish(acc)
+}
+
+///|
+/// Mixes `action` into a `hash_mix` accumulator.
+fn parse_action_hash_mix(acc : UInt32, action : ParseAction) -> UInt32 {
+  match action {
+    Accept => hash_mix(acc, 0)
+    Shift(state~, is_repetition~) =>
+      hash_mix(
+        hash_mix(hash_mix(acc, 1), state),
+        if is_repetition {
+          1
+        } else {
+          0
+        },
+      )
+    ShiftExtra => hash_mix(acc, 2)
+    Recover => hash_mix(acc, 3)
+    Reduce(symbol~, child_count~, dynamic_precedence~, production_id~) =>
+      hash_mix(
+        hash_mix(
+          hash_mix(hash_mix(hash_mix(acc, 4), symbol.code()), child_count),
+          dynamic_precedence,
+        ),
+        production_id,
+      )
+  }
+}
+
+///|
+/// `ActionListId::new(index, reusable)`.
+fn ParseTableBuilder::action_list_id(
+  self : ParseTableBuilder,
+  index : Int32,
+  reusable : Bool,
+) -> ActionListId {
+  if !reusable {
+    return ActionListId::new(index, reusable)
+  }
+  while self.reusable_action_list_ids.length() <= index {
+    self.reusable_action_list_ids.push(
+      ActionListId::new(self.reusable_action_list_ids.length(), true),
+    )
+  }
+  self.reusable_action_list_ids[index]
+}
+
+///|
+/// `Goto(state_id)`.
+fn ParseTableBuilder::goto(
+  self : ParseTableBuilder,
+  state_id : Int32,
+) -> GotoAction {
+  while self.gotos.length() <= state_id {
+    self.gotos.push(Goto(self.gotos.length()))
+  }
+  self.gotos[state_id]
+}
+
+///|
+/// `self.parse_table.action_lists.intern(self.action_list_ids, actions)`.
+fn ParseTableBuilder::intern_action_list(
+  self : ParseTableBuilder,
+  actions : Array[ParseAction],
+) -> Int32 {
+  match self.action_list_ids.get(ActionListKey(actions)) {
+    Some(index) => index
+    None => {
+      let index = self.parse_table.action_lists.push(actions)
+      self.action_list_ids[ActionListKey(actions.copy())] = index
+      index
+    }
+  }
 }
 
 ///|
@@ -698,6 +947,19 @@ fn ParseTableBuilder::add_parse_state(
 }
 
 ///|
+/// Recycles a successor set unless `add_parse_state` kept it as the kernel of
+/// a new state.
+fn ParseTableBuilder::recycle_unless_kept(
+  self : ParseTableBuilder,
+  state_id : Int32,
+  item_set : ParseItemSet,
+) -> Unit {
+  if !physical_equal(self.item_sets_by_id[state_id], item_set) {
+    self.successor_sets.recycle(item_set)
+  }
+}
+
+///|
 fn ParseTableBuilder::add_actions(
   self : ParseTableBuilder,
   preceding_symbols : Array[Symbol],
@@ -706,7 +968,7 @@ fn ParseTableBuilder::add_actions(
   item_set : ParseItemSet,
 ) -> Unit raise ParseTableBuilderError {
   let lookaheads_with_conflicts = TokenSet::new()
-  let auxiliary_uses : Array[(Int32, Int32)] = []
+  let auxiliary_uses : Array[Int64] = []
 
   // Each item in the item set contributes to either or a Shift action or a Reduce
   // action in this state.
@@ -726,7 +988,7 @@ fn ParseTableBuilder::add_actions(
         // for conflict resolution.
         if variable.is_auxiliary() {
           let parent = item.variable_index
-          auxiliary_uses.push((non_terminal_index, parent))
+          auxiliary_uses.push(auxiliary_use(non_terminal_index, parent))
         }
 
         // For most parse items, the symbols associated with the preceding children
@@ -739,11 +1001,14 @@ fn ParseTableBuilder::add_actions(
         // of its preceding children need to be taken into account when comparing
         // it with other items.
         if variable.is_hidden() && !self.variable_info[index].fields.is_empty() {
-          successor = { ..successor, has_preceding_inherited_fields: true, }
+          successor = successor.with_preceding_inherited_fields()
         }
       }
       let successor_set = self.successor_sets.item_set(next_symbol)
-      let successor_entry = successor_set.insert(successor)
+      let successor_entry = successor_set.insert_reusing(
+        successor,
+        self.successor_sets.spare_entries,
+      )
       successor_entry.lookaheads = self.item_set_builder.lookaheads.union(
         successor_entry.lookaheads,
         lookaheads,
@@ -772,14 +1037,12 @@ fn ParseTableBuilder::add_actions(
       if requires_eof_lookahead {
         self.parse_table.states[state_id].has_eof_gated_reduce = true
       }
-      for lookahead in self.item_set_builder.lookaheads.get(lookaheads).iter() {
+      let symbols = [symbol]
+      for lookahead in self.item_set_builder.lookaheads.symbols(lookaheads) {
         if requires_eof_lookahead && lookahead != symbol_end {
           continue
         }
-        let table_entry = self.terminal_entries.get_or_init(
-          lookahead,
-          ParseTableEntry::new,
-        )
+        let table_entry = self.terminal_entries.get_or_insert_new(lookahead)
         let reduction_info = self.reduction_infos.get(lookahead)
 
         // While inserting Reduce actions, eagerly resolve conflicts related
@@ -794,7 +1057,7 @@ fn ParseTableBuilder::add_actions(
           let ordering = ParseTableBuilder::compare_precedence(
             self.syntax_grammar,
             precedence,
-            [symbol],
+            symbols,
             reduction_info.precedence,
             reduction_info.symbols,
           )
@@ -849,10 +1112,11 @@ fn ParseTableBuilder::add_actions(
       preceding_symbols, auxiliary_context, next_item_set,
     )
     ignore(preceding_symbols.pop())
+    self.recycle_unless_kept(next_state_id, next_item_set)
     if self.terminal_entries.get(symbol) is Some(e) && !e.actions.is_empty() {
       lookaheads_with_conflicts.insert(symbol)
     }
-    self.terminal_entries.get_or_init(symbol, ParseTableEntry::new).actions.push(
+    self.terminal_entries.get_or_insert_new(symbol).actions.push(
       Shift(state=next_state_id, is_repetition=false),
     )
   }
@@ -866,9 +1130,10 @@ fn ParseTableBuilder::add_actions(
       preceding_symbols, auxiliary_context, next_item_set,
     )
     ignore(preceding_symbols.pop())
+    self.recycle_unless_kept(next_state_id, next_item_set)
     self.parse_table.states[state_id].nonterminal_entries.push(
       symbol,
-      Goto(next_state_id),
+      self.goto(next_state_id),
     )
   }
 
@@ -923,12 +1188,11 @@ fn ParseTableBuilder::add_actions(
     // Add actions for the start tokens of each non-terminal extra rule.
     for extra_state in self.non_terminal_extra_states {
       let (terminal, state_id) = extra_state
-      ignore(
-        self.terminal_entries.get_or_init(terminal, () => {
-          reusable: true,
-          actions: [Shift(state=state_id, is_repetition=false)],
-        }),
-      )
+      if !self.terminal_entries.contains(terminal) {
+        self.terminal_entries.get_or_insert_new(terminal).actions.push(
+          Shift(state=state_id, is_repetition=false),
+        )
+      }
     }
 
     // Add ShiftExtra actions for the terminal extra tokens. These actions
@@ -938,12 +1202,11 @@ fn ParseTableBuilder::add_actions(
       match extra_token.kind {
         NonTerminal => state.nonterminal_entries.insert(extra_token, ShiftExtra)
         Terminal | External =>
-          ignore(
-            self.terminal_entries.get_or_init(extra_token, () => {
-              reusable: true,
-              actions: [ShiftExtra],
-            }),
-          )
+          if !self.terminal_entries.contains(extra_token) {
+            self.terminal_entries.get_or_insert_new(extra_token).actions.push(
+              ShiftExtra,
+            )
+          }
         End | EndOfNonTerminalExtra => abort("unreachable")
       }
     }
@@ -981,14 +1244,12 @@ fn ParseTableBuilder::add_actions(
 
   // Every state stays in the table until minimization, so store its terminal entries as
   // interned action lists.
-  for symbol, entry in self.terminal_entries {
-    let index = self.parse_table.action_lists.intern(
-      self.action_list_ids,
-      entry.actions,
-    )
+  for position, symbol in self.terminal_entries.keys {
+    let entry = self.terminal_entries.values[position]
+    let index = self.intern_action_list(entry.actions)
     state.terminal_entries.push(
       symbol,
-      ActionListId::new(index, entry.reusable),
+      self.action_list_id(index, entry.reusable),
     )
   }
   self.terminal_entries.clear()
@@ -1369,28 +1630,6 @@ fn ParseTableBuilder::compare_precedence(
   right : Precedence,
   right_symbols : Array[Symbol],
 ) -> Int32 {
-  let precedence_entry_matches = (
-    entry : PrecedenceEntry,
-    precedence : Precedence,
-    symbols : Array[Symbol],
-  ) => {
-    match entry {
-      Name(n) =>
-        match precedence {
-          Name(p) => n == p
-          _ => false
-        }
-      Symbol(n) =>
-        symbols
-        .iter()
-        .any(s => {
-          match s.kind {
-            NonTerminal => grammar.variables[s.index].name == n
-            _ => false
-          }
-        })
-    }
-  }
   match (left, right) {
     // Integer precedences can be compared to other integer precedences,
     // and to the default precedence, which is zero.
@@ -1403,16 +1642,14 @@ fn ParseTableBuilder::compare_precedence(
         let mut saw_left = false
         let mut saw_right = false
         for entry in list {
-          let matches_left = precedence_entry_matches(entry, left, left_symbols)
-          let matches_right = precedence_entry_matches(
-            entry, right, right_symbols,
-          )
-          if matches_left {
+          if precedence_entry_matches(grammar, entry, left, left_symbols) {
             saw_left = true
             if saw_right {
               return -1
             }
-          } else if matches_right {
+          } else if precedence_entry_matches(
+              grammar, entry, right, right_symbols,
+            ) {
             saw_right = true
             if saw_left {
               return 1
@@ -1421,6 +1658,33 @@ fn ParseTableBuilder::compare_precedence(
         }
       }
       0
+    }
+  }
+}
+
+///|
+/// `compare_precedence`'s `precedence_entry_matches` closure. (`compare_precedence`
+/// only evaluates the right side's match when the left side's doesn't hold, which is
+/// unobservable: matching has no effects.)
+fn precedence_entry_matches(
+  grammar : SyntaxGrammar,
+  entry : PrecedenceEntry,
+  precedence : Precedence,
+  symbols : Array[Symbol],
+) -> Bool {
+  match entry {
+    Name(n) =>
+      match precedence {
+        Name(p) => n == p
+        _ => false
+      }
+    Symbol(n) => {
+      for s in symbols {
+        if s.kind is NonTerminal && grammar.variables[s.index].name == n {
+          return true
+        }
+      }
+      false
     }
   }
 }
