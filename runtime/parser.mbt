@@ -68,6 +68,7 @@ pub struct Parser {
 }
 
 ///|
+#valtype
 priv struct ErrorStatus {
   cost : UInt32
   node_count : UInt32
