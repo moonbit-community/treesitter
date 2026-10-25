@@ -2073,6 +2073,17 @@ pub fn Parser::included_ranges(self : Parser) -> Array[Range] {
 }
 
 ///|
+/// `ts_parser_delete`: release what the parser holds, destroying an
+/// outstanding external scanner (`ts_parser_set_language(self, NULL)`).
+/// MoonBit has no destructors, so callers do this explicitly; the parser is
+/// left without a language.
+pub fn Parser::delete(self : Parser) -> Unit {
+  // `ts_parser_reset` (called by `set_language`) also releases the old
+  // tree, the cached token and the finished tree.
+  ignore(self.set_language(None))
+}
+
+///|
 /// `ts_parser_reset`.
 pub fn Parser::reset(self : Parser) -> Unit {
   self.external_scanner_destroy()

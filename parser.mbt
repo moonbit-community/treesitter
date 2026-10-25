@@ -376,6 +376,21 @@ pub fn Parser::reset(self : Parser) -> Unit {
 }
 
 ///|
+/// Release the parser, as dropping the Rust `Parser` does: stop printing dot
+/// graphs, remove the logger and delete the C parser, which destroys the
+/// external scanner of a parse that was cancelled and not reset.
+///
+/// MoonBit has no destructors, so this is explicit; without it, an
+/// outstanding scanner's `destroy` callback is never called. The parser is
+/// left without a language and can be given a new one.
+pub fn Parser::delete(self : Parser) -> Unit {
+  self.stop_printing_dot_graphs()
+  self.set_logger(None)
+  self.raw.delete()
+  self.language = None
+}
+
+///|
 /// Set the ranges of text that the parser should include when parsing.
 ///
 /// By default, the parser will always include entire documents. This
