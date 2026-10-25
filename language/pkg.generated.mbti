@@ -7,6 +7,8 @@ import {
 }
 
 // Values
+pub let compact_format_version : Int32
+
 pub let language_version : Int32
 
 pub let language_version_with_primary_states : Int32
@@ -22,6 +24,10 @@ pub let ts_builtin_sym_error : Int32
 pub let ts_builtin_sym_error_repeat : Int32
 
 // Errors
+pub(all) suberror CompactError {
+  CompactError(String)
+} derive(@debug.Debug)
+pub impl Show for CompactError
 
 // Types and methods
 pub(all) struct CharacterRange {
@@ -88,6 +94,8 @@ pub fn Language::enabled_external_tokens(Self, Int32) -> ArrayView[Bool]?
 pub fn Language::field_id_for_name(Self, StringView) -> Int32
 pub fn Language::field_map(Self, Int32) -> (Int32, Int32)
 pub fn Language::field_name_for_id(Self, Int32) -> String?
+pub fn Language::from_compact(BytesView) -> Self raise CompactError
+pub fn Language::from_compact_base64(StringView) -> Self raise CompactError
 pub fn Language::has_actions(Self, Int32, Int32) -> Bool
 pub fn Language::has_reduce_action(Self, Int32, Int32) -> Bool
 pub fn Language::is_reserved_word(Self, Int32, Int32) -> Bool
@@ -107,6 +115,8 @@ pub fn Language::symbol_metadata_of(Self, Int32) -> SymbolMetadata
 pub fn Language::symbol_name(Self, Int32) -> String?
 pub fn Language::symbol_type(Self, Int32) -> SymbolType
 pub fn Language::table_entry(Self, Int32, Int32) -> TableEntry
+pub fn Language::to_compact(Self) -> Bytes raise CompactError
+pub fn Language::to_compact_base64(Self) -> String raise CompactError
 
 pub(all) struct LanguageMetadata {
   major_version : Int32
