@@ -18,10 +18,16 @@ test/fixtures/fixtures.json, all distributed under the MIT license:
 - tree-sitter-rust v0.24.0, Copyright (c) 2017 Maxim Sokolov (rust.mbt)
 - tree-sitter-typescript v0.23.2, Copyright (c) 2017 Max Brunsfeld (typescript*.mbt, tsx.mbt)
 
-Additional grammar scanners (scanners): faithful MoonBit ports of the
-src/scanner.c files of the grammars pinned in grammars/grammars.json, all
-distributed under the MIT license:
+Other grammar scanners (scanners): faithful MoonBit ports of the C external
+scanners of the grammars pinned in grammars/grammars.json, all distributed
+under the MIT license:
+- tree-sitter-c-sharp v0.23.5, Copyright (c) 2014-2023 Max Brunsfeld, Damien Guard, Amaan Qureshi, and contributors. (c_sharp.mbt)
+- tree-sitter-css v0.25.0, Copyright (c) 2018 Max Brunsfeld (css.mbt)
+- tree-sitter-julia v0.25.0, Copyright (c) 2018 Max Brunsfeld, GitHub (julia.mbt)
+- tree-sitter-lua v0.5.0, Copyright (c) 2021 Munif Tanjim (lua.mbt)
 - tree-sitter-scala v0.26.3, Copyright (c) 2018 Max Brunsfeld and GitHub (scala.mbt)
+- tree-sitter-ocaml v0.26.0, Copyright (c) 2020 Max Brunsfeld and Pieter Goetschalckx (ocaml*.mbt)
+- tree-sitter-toml v0.7.0, Copyright (c) Ika <ikatyang@gmail.com> (https://github.com/ikatyang) (toml.mbt)
 
 Ported Rust crates, each dual-licensed MIT OR Apache-2.0 upstream and used
 here under the MIT license:
