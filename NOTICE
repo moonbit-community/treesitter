@@ -4,25 +4,26 @@ Baseline: 4a412a01a0147d0f50bf7e749572fa632d1ab203 (0.28.0)
 Tree-sitter is Copyright (c) 2018-2024 Max Brunsfeld and contributors,
 distributed under the MIT license in LICENSE.
 
-JSON compatibility grammar: tree-sitter/tree-sitter-json v0.24.8, MIT license.
-Copyright (c) 2014 Max Brunsfeld. The grammar and upstream JSON error corpus
-are frozen in compat/json_errors_test.mbt for portable regression testing.
-
-JavaScript compatibility scanner: tree-sitter/tree-sitter-javascript v0.25.0,
-revision 44c892e0be055ac465d5eeddae6d3e194424e7de, MIT license.
-Copyright (c) 2014 Max Brunsfeld. The MoonBit translation is in
-examples/javascript/scanner.mbtx; its license is preserved alongside it.
-
-Rust compatibility scanner: tree-sitter/tree-sitter-rust v0.24.2,
-revision 77a3747266f4d621d0757825e6b11edcbf991ca5, MIT license.
-Copyright (c) 2017 Maxim Sokolov. The MoonBit translation is in
-examples/rust/scanner.mbtx; its license is preserved alongside it.
-
 Fixture grammar scanners (scanners): faithful MoonBit ports of the
 src/scanner.c files of the fixture grammars pinned in Tree-sitter's
 test/fixtures/fixtures.json, all distributed under the MIT license:
 - tree-sitter-bash v0.25.0, Copyright (c) 2017 Max Brunsfeld (bash.mbt)
 - tree-sitter-cpp v0.23.4, Copyright (c) 2014 Max Brunsfeld (cpp.mbt)
+- tree-sitter-html v0.23.2, Copyright (c) 2014 Max Brunsfeld (html.mbt, html_tag.mbt)
+- tree-sitter-javascript v0.25.0, Copyright (c) 2014 Max Brunsfeld (javascript.mbt)
 - tree-sitter-jsdoc v0.23.2, Copyright (c) 2018 Max Brunsfeld (jsdoc.mbt)
+- tree-sitter-php v0.24.2, Copyright (c) 2017 Josh Vera, GitHub (php*.mbt)
 - tree-sitter-python v0.23.6, Copyright (c) 2016 Max Brunsfeld (python.mbt)
 - tree-sitter-ruby v0.23.1, Copyright (c) 2016 Rob Rix (ruby.mbt)
+- tree-sitter-rust v0.24.0, Copyright (c) 2017 Maxim Sokolov (rust.mbt)
+- tree-sitter-typescript v0.23.2, Copyright (c) 2017 Max Brunsfeld (typescript*.mbt, tsx.mbt)
+
+Ported Rust crates, each dual-licensed MIT OR Apache-2.0 upstream and used
+here under the MIT license:
+- regex-syntax 0.8.11 (regex_syntax), and the matching semantics of
+  regex/regex-automata (regex); Copyright (c) 2014 The Rust Project Developers
+- clap_builder 4.6.7, clap_complete 4.6.11, clap_complete_nushell 4.6.2
+  (clap, clap_complete); Copyright (c) Individual contributors
+- bstr 1.13.1's grapheme segmentation DFA (query_testing/grapheme_dfa.mbt);
+  Copyright (c) 2018-2019 Andrew Gallant
+Unicode data derived tables are covered by licenses/UNICODE.txt.
