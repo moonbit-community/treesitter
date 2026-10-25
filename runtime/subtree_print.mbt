@@ -160,7 +160,8 @@ pub fn Subtree::to_sexp(
         for i in start..<end {
           let map = language.field_map_entries[i]
           if !map.inherited && map.child_index == frame.structural_child_index {
-            child_field_name = Some(language.field_names[map.field_id])
+            // `field_names[id]` is a C string.
+            child_field_name = language.field_name_for_id(map.field_id)
             break
           }
         }
