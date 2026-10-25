@@ -108,7 +108,7 @@ error messages for rejected grammars), that parse trees, incremental edits,
 changed ranges, parser logs, UTF-16 input and included ranges match the C
 runtime on every corpus input and random mutations and edits of them, and
 that query matches and captures match `query.c`. The CLI comparison runs
-1148 command lines through both executables. The ported upstream test suites
+1151 command lines through both executables. The ported upstream test suites
 (`tests/`, and the tests of each package) run with `moon test`.
 
 ## License

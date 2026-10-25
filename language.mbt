@@ -58,6 +58,18 @@ pub impl Eq for Language with fn equal(self, other) {
 }
 
 ///|
+/// Consistent with [`Eq`]: languages sharing the same parse tables hash
+/// equally (upstream hashes the `TSLanguage` pointer). The hash combines the
+/// table's name and sizes, which equal languages share.
+pub impl Hash for Language with fn hash_combine(self, hasher) {
+  let raw = self.raw
+  hasher.combine_string(raw.name)
+  hasher.combine_int(raw.symbol_count)
+  hasher.combine_int(raw.state_count)
+  hasher.combine_int(raw.field_count)
+}
+
+///|
 pub impl Debug for Language with fn to_repr(self) {
   Repr::opaque_("Language", Repr::string(self.raw.name))
 }

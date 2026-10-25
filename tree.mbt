@@ -79,11 +79,42 @@ pub fn Tree::included_ranges(self : Tree) -> Array[Range] {
 }
 
 ///|
+/// A destination for DOT graphs ([`Tree::print_dot_graph`],
+/// [`Parser::print_dot_graphs_to`]). Upstream writes the graphs to a file
+/// descriptor as bytes, which are not always valid UTF-8: the label of an
+/// `UNEXPECTED` character holds its low byte (C's `%c`), and a truncated log
+/// message may end inside a character.
+///
+/// A `Buffer` receives exactly upstream's bytes. A `StringBuilder` receives
+/// them decoded as UTF-8, with invalid sequences replaced by U+FFFD.
+pub(open) trait DotGraphOutput {
+  /// Write one piece of the graph output.
+  fn write_dot_graph(Self, Bytes) -> Unit
+}
+
+///|
+/// Appends the bytes, decoded lossily as UTF-8.
+pub impl DotGraphOutput for StringBuilder with fn write_dot_graph(self, bytes) {
+  self.write_string(@utf8.decode_lossy(bytes))
+}
+
+///|
+/// Appends the bytes as they are.
+pub impl DotGraphOutput for Buffer with fn write_dot_graph(self, bytes) {
+  self.write_bytes(bytes)
+}
+
+///|
 /// Print a graph of the tree to the given output. The graph is formatted in
 /// the DOT language. You may want to pipe this graph directly to a `dot(1)`
 /// process in order to generate SVG output.
-pub fn Tree::print_dot_graph(self : Tree, output : StringBuilder) -> Unit {
-  self.raw.print_dot_graph(output)
+pub fn[W : DotGraphOutput] Tree::print_dot_graph(
+  self : Tree,
+  output : W,
+) -> Unit {
+  let buffer = Buffer()
+  self.raw.print_dot_graph(buffer)
+  output.write_dot_graph(buffer.to_bytes())
 }
 
 ///|

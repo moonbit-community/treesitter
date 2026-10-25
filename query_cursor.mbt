@@ -16,13 +16,14 @@ pub(open) trait TextProvider {
 ///|
 /// The node's byte range of the source.
 pub impl TextProvider for Bytes with fn text(self, node) {
-  Iter::singleton(self[node.start_byte():node.end_byte()])
+  // Rust's `&self[node.byte_range()]` panics when out of bounds.
+  Iter::singleton(self.exact_view(start=node.start_byte(), end=node.end_byte()))
 }
 
 ///|
 /// The node's byte range of the source.
 pub impl TextProvider for BytesView with fn text(self, node) {
-  Iter::singleton(self[node.start_byte():node.end_byte()])
+  Iter::singleton(self.exact_view(start=node.start_byte(), end=node.end_byte()))
 }
 
 ///|
@@ -155,8 +156,15 @@ pub fn QueryMatch::nodes_for_capture_index(
 ///|
 /// Concatenate a node's text chunks (upstream's `NodeText::get_text`).
 fn get_text(chunks : Iter[BytesView]) -> BytesView {
-  guard chunks.next() is Some(first_chunk) else { return b""[:] }
-  guard chunks.next() is Some(next_chunk) else { return first_chunk }
+  // `NodeText::get_text` always asks for a second chunk, and unwraps the
+  // first one when there is a second.
+  let first_chunk = chunks.next()
+  guard chunks.next() is Some(next_chunk) else {
+    return first_chunk.unwrap_or(b""[:])
+  }
+  guard first_chunk is Some(first_chunk) else {
+    abort("called `Option::unwrap()` on a `None` value")
+  }
   let buffer = Buffer()
   buffer.write_bytesview(first_chunk)
   buffer.write_bytesview(next_chunk)
@@ -192,8 +200,11 @@ pub fn[T : TextProvider] QueryMatch::satisfies_text_predicates(
           nodes_2.length()
         }
         for k in 0..<n {
-          let text1 = get_text(text_provider.text(nodes_1[k]))
-          let text2 = get_text(text_provider.text(nodes_2[k]))
+          // Both chunk iterators are created before either is consumed.
+          let chunks1 = text_provider.text(nodes_1[k])
+          let chunks2 = text_provider.text(nodes_2[k])
+          let text1 = get_text(chunks1)
+          let text2 = get_text(chunks2)
           let is_positive_match = text1 == text2
           if is_positive_match != is_positive && match_all_nodes {
             return false

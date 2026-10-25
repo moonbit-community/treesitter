@@ -3,6 +3,7 @@ package "moonbit-community/treesitter/runtime"
 
 import {
   "moonbit-community/treesitter/language",
+  "moonbitlang/core/buffer",
   "moonbitlang/core/debug",
 }
 
@@ -87,7 +88,7 @@ pub fn subtree_get_changed_ranges(SubtreeSlot, SubtreeSlot, @language.Language, 
 
 pub let ts_decode_error : Int32
 
-pub fn write_symbol_as_dot_string(@language.Language, StringBuilder, Int32) -> Unit
+pub fn write_symbol_as_dot_string(@language.Language, @buffer.Buffer, Int32) -> Unit
 
 // Errors
 
@@ -229,6 +230,7 @@ pub(all) struct ParseState {
 pub struct Parser {
   // private fields
 }
+pub fn Parser::delete(Self) -> Unit
 pub fn Parser::included_ranges(Self) -> Array[Range]
 pub fn Parser::language(Self) -> @language.Language?
 pub fn Parser::logger(Self) -> ((LogType, String) -> Unit)?
@@ -237,7 +239,7 @@ pub fn Parser::parse(Self, Tree?, Input) -> Tree?
 pub fn Parser::parse_string(Self, Tree?, Bytes) -> Tree?
 pub fn Parser::parse_string_encoding(Self, Tree?, Bytes, InputEncoding) -> Tree?
 pub fn Parser::parse_with_options(Self, Tree?, Input, ParseOptions) -> Tree?
-pub fn Parser::print_dot_graphs(Self, ((String) -> Unit)?) -> Unit
+pub fn Parser::print_dot_graphs(Self, ((Bytes) -> Unit)?) -> Unit
 pub fn Parser::reset(Self) -> Unit
 pub fn Parser::set_included_ranges(Self, Array[Range]) -> Bool
 pub fn Parser::set_language(Self, @language.Language?, scanner? : () -> ExternalScanner) -> Bool
@@ -281,7 +283,7 @@ pub fn Stack::pop_count(Self, Int32, Int32) -> Array[StackSlice]
 pub fn Stack::pop_error(Self, Int32) -> Array[Subtree]
 pub fn Stack::pop_pending(Self, Int32) -> Array[StackSlice]
 pub fn Stack::position(Self, Int32) -> Length
-pub fn Stack::print_dot_graph(Self, @language.Language, StringBuilder) -> Bool
+pub fn Stack::print_dot_graph(Self, @language.Language, @buffer.Buffer) -> Bool
 pub fn Stack::push(Self, Int32, Subtree, Bool, Int32) -> Unit
 pub fn Stack::record_summary(Self, Int32, Int32) -> Unit
 pub fn Stack::remove_version(Self, Int32) -> Unit
@@ -349,7 +351,7 @@ pub fn Subtree::new_missing_leaf(Int32, Int32, Length, UInt32, @language.Languag
 pub fn Subtree::new_node(Int32, Array[Self], Int32, @language.Language) -> Self
 pub fn Subtree::padding(Self) -> Length
 pub fn Subtree::parse_state(Self) -> Int32
-pub fn Subtree::print_dot_graph(Self, @language.Language, StringBuilder) -> Unit
+pub fn Subtree::print_dot_graph(Self, @language.Language, @buffer.Buffer) -> Unit
 pub fn Subtree::production_id(Self) -> Int32
 pub fn Subtree::ptr(Self) -> SubtreeHeapData
 pub fn Subtree::ptr_eq(Self, Self) -> Bool
@@ -437,7 +439,7 @@ pub fn Tree::edit(Self, InputEdit) -> Unit
 pub fn Tree::included_ranges(Self) -> Array[Range]
 pub fn Tree::language(Self) -> @language.Language
 pub fn Tree::new(Subtree, @language.Language, Array[Range]) -> Self
-pub fn Tree::print_dot_graph(Self, StringBuilder) -> Unit
+pub fn Tree::print_dot_graph(Self, @buffer.Buffer) -> Unit
 pub fn Tree::root(Self) -> Subtree
 pub fn Tree::root_node(Self) -> Node
 pub fn Tree::root_node_with_offset(Self, UInt32, Point) -> Node

@@ -117,6 +117,31 @@ test "Language round-trips through JSON" {
 }
 
 ///|
+test "names are C strings" {
+  // `symbol_names` and `field_names` are `const char *` tables upstream.
+  let language = {
+    ..sample_language(),
+    symbol_names: ["end", "a\u{0}bc", "source", "alias"],
+    field_names: ["", "a\u{0}b"],
+  }
+  // `CStr::from_ptr` stops at the NUL.
+  debug_inspect(language.symbol_name(1), content="Some(\"a\")")
+  debug_inspect(language.field_name_for_id(1), content="Some(\"a\")")
+  // `strncmp(name, field_names[i], length) == 0 && !field_names[i][length]`.
+  assert_eq(language.field_id_for_name("a"), 1)
+  assert_eq(language.field_id_for_name("a\u{0}b"), 1)
+  // `field_names[1][2]` is `b`.
+  assert_eq(language.field_id_for_name("a\u{0}"), 0)
+  assert_eq(language.field_id_for_name("ab"), 0)
+  // `!strncmp(symbol_name, string, length) && !symbol_name[length]`: the
+  // comparison stops at the NUL, but `symbol_name[3]` is `c`.
+  assert_eq(language.symbol_for_name("a\u{0}x", false), 0)
+  assert_eq(language.symbol_for_name("a\u{0}bc", false), 1)
+  assert_eq(language.symbol_for_name("a", false), 1)
+  assert_eq(language.symbol_for_name("a\u{0}b", false), 0)
+}
+
+///|
 test "LexProgram JSON form" {
   let program : @language.LexProgram = {
     states: [
