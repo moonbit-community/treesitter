@@ -1067,7 +1067,8 @@ fn ParseTableBuilder::add_actions(
     // If the item is unfinished, then this state has a transition for the item's
     // next symbol. Advance the item to its next step and insert the resulting
     // item into the successor item set.
-    if item.symbol(self.syntax_grammar) is Some(next_symbol) {
+    if !item.is_done() {
+      let next_symbol = item.symbol_at(self.syntax_grammar, item.step_index)
       let mut successor = item.successor(self.item_set_builder.key_map)
       if next_symbol.non_terminal_index() is Some(non_terminal_index) {
         let index = non_terminal_index
@@ -1119,13 +1120,13 @@ fn ParseTableBuilder::add_actions(
         Reduce(
           symbol~,
           child_count=item.step_index & 0xFFFF,
-          dynamic_precedence=item.production(self.syntax_grammar).dynamic_precedence,
+          dynamic_precedence=item.dynamic_precedence(self.syntax_grammar),
           production_id=production_id & 0xFFFF,
         )
       }
       let precedence = item.precedence(self.syntax_grammar)
       let associativity = item.associativity(self.syntax_grammar)
-      let requires_eof_lookahead = item.production(self.syntax_grammar).requires_eof_lookahead
+      let requires_eof_lookahead = item.requires_eof_lookahead(self.syntax_grammar)
       if requires_eof_lookahead {
         self.parse_table.states[state_id].has_eof_gated_reduce = true
       }

@@ -713,19 +713,17 @@ fn ParseItemSetBuilder::add_item(
   self : ParseItemSetBuilder,
   entry : ParseItemSetEntry,
 ) -> Unit {
-  if entry.item.step(self.syntax_grammar) is Some(step) &&
-    step.non_terminal_index() is Some(index) {
-    // `entry.item.successor(..).step()`, without building the successor.
-    let next_step = entry.item.step_at(
-      self.syntax_grammar,
-      entry.item.step_index + 1,
-    )
-
+  let item = entry.item
+  if !item.is_done() &&
+    item.symbol_at(self.syntax_grammar, item.step_index).non_terminal_index()
+    is Some(index) {
     // Determine which tokens can follow this non-terminal.
     let mut following_tokens = entry.lookaheads
     let mut following_reserved_tokens = entry.following_reserved_word_set
-    if next_step is Some(next_step) {
-      let key = self.symbol_indexer.index(next_step.symbol)
+    // `entry.item.successor(..).step()`, without building the successor.
+    if item.step_index + 1 < item.steps_len {
+      let next_symbol = item.symbol_at(self.syntax_grammar, item.step_index + 1)
+      let key = self.symbol_indexer.index(next_symbol)
       following_tokens = self.first_set_ids[key]
       following_reserved_tokens = self.reserved_first_set_ids[key]
     }

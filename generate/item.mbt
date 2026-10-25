@@ -662,6 +662,32 @@ fn ParseItem::production(self : ParseItem, grammar : SyntaxGrammar) -> ProdRef {
 }
 
 ///|
+/// `self.production(grammar).dynamic_precedence`, without building the `ProdRef`.
+fn ParseItem::dynamic_precedence(
+  self : ParseItem,
+  grammar : SyntaxGrammar,
+) -> Int32 {
+  if self.prod_id == start_production_id {
+    0
+  } else {
+    grammar.productions[self.prod_id].dynamic_precedence
+  }
+}
+
+///|
+/// `self.production(grammar).requires_eof_lookahead`, without building the `ProdRef`.
+fn ParseItem::requires_eof_lookahead(
+  self : ParseItem,
+  grammar : SyntaxGrammar,
+) -> Bool {
+  if self.prod_id == start_production_id {
+    false
+  } else {
+    grammar.productions[self.prod_id].requires_eof_lookahead
+  }
+}
+
+///|
 fn ParseItem::step(
   self : ParseItem,
   grammar : SyntaxGrammar,
@@ -688,10 +714,19 @@ fn ParseItem::step_at(
 }
 
 ///|
-fn ParseItem::symbol(self : ParseItem, grammar : SyntaxGrammar) -> Symbol? {
-  match self.step(grammar) {
-    Some(step) => Some(step.symbol)
-    None => None
+/// The symbol of the step at `index`, which must be a step of the production:
+/// `self.step_at(grammar, index).unwrap().symbol`, without handing out the step.
+/// (Upstream's `ParseItem::symbol` is `symbol_at(grammar, step_index)` when the
+/// item isn't done.)
+fn ParseItem::symbol_at(
+  self : ParseItem,
+  grammar : SyntaxGrammar,
+  index : Int32,
+) -> Symbol {
+  if self.prod_id == start_production_id {
+    start_steps[index].symbol
+  } else {
+    grammar.steps[self.steps_start + index].symbol
   }
 }
 
