@@ -1239,17 +1239,21 @@ fn make_cli() -> @clap.Command {
 ///|
 /// `fn run()`: parse the command line and run the command. Returns the exit
 /// status.
+///
+/// `invalid_utf8[i]` tells that `args[i]` was not valid UTF-8 (see
+/// `@clap.Command::try_get_matches_from`).
 pub async fn run(
   args : Array[String],
   scanners? : @loader.ScannerRegistry,
   current_dir? : String,
+  invalid_utf8~ : Array[Bool] = [],
 ) -> Int32 {
   let process_dir = match current_dir {
     Some(d) => d
     None => @env.current_dir().unwrap_or(".")
   }
   let cli = make_cli()
-  let matches = cli.try_get_matches_from(args) catch {
+  let matches = cli.try_get_matches_from(args, invalid_utf8~) catch {
     @clap.ClapError(_) as e => {
       // `Error::exit`: `let _ = self.print();`
       if e.use_stderr() {
@@ -1372,7 +1376,16 @@ pub async fn cli_main(
   scanners? : @loader.ScannerRegistry,
 ) -> Unit {
   @support.runtime_init()
-  let code = run(args, scanners?)
+  // `args` are the process's arguments, decoded lossily (the program name
+  // may have been replaced): which of them were not valid UTF-8.
+  let os_args = @env.args()
+  let invalid_utf8 = if os_args.length() == args.length() &&
+    os_args[1:] == args[1:] {
+    @support.os_args_invalid_utf8()
+  } else {
+    []
+  }
+  let code = run(args, scanners?, invalid_utf8~)
   @support.flush()
   @support.exit(code)
 }

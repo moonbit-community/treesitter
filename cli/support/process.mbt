@@ -33,3 +33,28 @@ pub fn set_blocking(fd : Int32) -> Unit raise {
     raise @os_error.OSError(errno, context="fcntl")
   }
 }
+
+///|
+#cfg(not(platform="windows"))
+extern "C" fn ts_cli_os_args() -> FixedArray[Bytes] = "moonbit_rt_get_cli_args"
+
+///|
+/// Whether each argument of the process (`std::env::args_os()`, including
+/// the program name) is not valid UTF-8. `@env.args()` decodes such an
+/// argument lossily.
+#cfg(not(platform="windows"))
+pub fn os_args_invalid_utf8() -> Array[Bool] {
+  [
+    for arg in ts_cli_os_args() => utf8_error(arg) is Some(_)
+  ]
+}
+
+///|
+/// Whether each argument of the process is not valid UTF-8 (Windows
+/// arguments are UTF-16 and decoded as such).
+#cfg(platform="windows")
+pub fn os_args_invalid_utf8() -> Array[Bool] {
+  [
+    for _ in @env.args() => false
+  ]
+}

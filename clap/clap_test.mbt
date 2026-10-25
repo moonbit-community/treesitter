@@ -107,3 +107,51 @@ test "help and errors" {
   )
   inspect(outcome(["demo", "-V"]), content="exit 0:\ndemo 1.0\n")
 }
+
+///|
+test "arguments that are not valid UTF-8" {
+  let run = (args : Array[String], invalid_utf8 : Array[Bool]) => {
+    try {
+      let m = demo().try_get_matches_from(args, invalid_utf8~)
+      match m.subcommand() {
+        Some((_, sub)) => "files=\{to_repr(sub.get_many("files"))}"
+        None => "none"
+      }
+    } catch {
+      @clap.ClapError(_) as e => "exit \{e.exit_code()}:\n\{e.message()}"
+      e => "\{e}"
+    }
+  }
+  // `String` values must be `str`s.
+  inspect(
+    run(["demo", "run", "a\u{FFFD}"], [false, false, true]),
+    content=(
+      #|exit 2:
+      #|error: invalid UTF-8 was detected in one or more arguments
+      #|
+      #|Usage: demo run [OPTIONS] [FILES]...
+      #|
+      #|For more information, try '--help'.
+      #|
+    ),
+  )
+  // The same text from valid UTF-8 is accepted.
+  inspect(
+    run(["demo", "run", "a\u{FFFD}"], [false, false, false]),
+    content=(
+      #|files=Some(["a�"])
+    ),
+  )
+  // Possible values report the lossy value as invalid.
+  inspect(
+    run(["demo", "run", "--level=\u{FFFD}"], [false, false, true]),
+    content=(
+      #|exit 2:
+      #|error: invalid value '�' for '--level <LEVEL>'
+      #|  [possible values: low, high]
+      #|
+      #|For more information, try '--help'.
+      #|
+    ),
+  )
+}
