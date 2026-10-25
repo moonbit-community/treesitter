@@ -43,7 +43,7 @@ pub async fn generate_parser_in_directory(
   repo_path : String,
   out_path : String?,
   grammar_path : String?,
-  abi_version : Int32,
+  abi_version : UInt64,
   report_symbol_name : String?,
   js_runtime : String?,
   generate_parser : Bool,
@@ -144,10 +144,28 @@ pub async fn generate_parser_in_directory(
     e => raise gen_error("ParseVersion", error_message(e))
   }
   // Generate the parser and related files.
+  //
+  // `abi_version` is a `usize` upstream; the generator takes an `Int32`.
+  // It only reaches `render_c_code`'s range check (every version above
+  // `Int32::max_value()` is out of range), so a larger version is passed
+  // as `Int32::max_value()`, which takes the same path, and the resulting
+  // `RenderError::ABI` reports the original value.
+  let generator_abi_version = if abi_version > 0x7FFFFFFFUL {
+    2147483647
+  } else {
+    abi_version.to_int()
+  }
   let generated = @generate.generate_parser_for_grammar_with_opts(
-    input_grammar, abi_version, semantic_version, report_symbol_name, optimizations,
-    diagnostics,
+    input_grammar, generator_abi_version, semantic_version, report_symbol_name,
+    optimizations, diagnostics,
   ) catch {
+    @generate.RenderError::ABI(_) as e if abi_version > 0x7FFFFFFFUL => {
+      ignore(e)
+      raise gen_error(
+        generate_error_variant(e),
+        "This version of Tree-sitter can only generate parsers with ABI version \{@generate.abi_version_min} - \{@generate.abi_version_max}, not \{abi_version}",
+      )
+    }
     e => raise gen_error(generate_error_variant(e), error_message(e))
   }
   write_file(@support.path_join(src_path, "parser.c"), generated.c_code)

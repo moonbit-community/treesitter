@@ -104,10 +104,11 @@ async fn generate_run(m : @clap.ArgMatches, current_dir : String) -> Unit {
     @support.enable_debug()
   }
   let abi_version = match m.get_one("abi_version") {
-    None => @commands.default_generate_abi_version
-    Some("latest") => @commands.language_version
+    None => @commands.default_generate_abi_version.to_uint64()
+    Some("latest") => @commands.language_version.to_uint64()
+    // `version.parse::<usize>().expect("invalid abi version flag")`
     Some(version) =>
-      match parse_usize(version) {
+      match parse_unsigned(version, 0xFFFFFFFFFFFFFFFFUL) {
         Some(v) => v
         None => abort("invalid abi version flag")
       }
@@ -488,11 +489,38 @@ fn pick_test_language(
 }
 
 ///|
-fn test_number(m : @clap.ArgMatches) -> Int32? {
+/// The `u32` value of the `--test-number` argument (validated by clap's
+/// `u32` value parser).
+fn test_number(m : @clap.ArgMatches) -> UInt? {
   match m.get_one("test_number") {
-    Some(n) => parse_usize(n)
+    Some(n) => parse_unsigned(n, 0xFFFFFFFFUL).map(n => n.to_uint())
     None => None
   }
+}
+
+///|
+/// Rust's `FromStr` for an unsigned integer type whose maximum is `max`
+/// (`u32`, `u64`, `usize`): an optional `+` followed by decimal digits.
+/// `None` stands for a `ParseIntError`.
+fn parse_unsigned(s : String, max : UInt64) -> UInt64? {
+  let digits = if s.has_prefix("+") && s.length() > 1 {
+    s.unsafe_substring(start=1, end=s.length())
+  } else {
+    s
+  }
+  if digits.is_empty() {
+    return None
+  }
+  let mut n = 0UL
+  for c in digits {
+    guard c >= '0' && c <= '9' else { return None }
+    let digit = (c.to_int() - '0'.to_int()).to_uint64()
+    if n > (max - digit) / 10UL {
+      return None
+    }
+    n = n * 10UL + digit
+  }
+  Some(n)
 }
 
 ///|
