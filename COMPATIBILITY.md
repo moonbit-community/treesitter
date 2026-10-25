@@ -18,7 +18,7 @@ intended to behave identically, and a difference is a bug.
 | Queries | matches and captures of every upstream query file and test query | 4,964/4,964 |
 | Highlight, tags | event streams, HTML, tags of 10 fixture grammars | byte-identical |
 | Regex | matching, `find_iter` and error messages vs the `regex` crate | 446,822 pairs identical |
-| CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,148/1,148 command lines |
+| CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,151/1,151 command lines |
 
 All runtime comparisons include the external scanners of the html,
 javascript, typescript, tsx, rust, php, bash, ruby, python, cpp and jsdoc
