@@ -1,6 +1,6 @@
 name = "moonbit-community/tree-sitter-zig"
 
-version = "1.1.2"
+version = "0.101.2"
 
 readme = "README.mbt.md"
 

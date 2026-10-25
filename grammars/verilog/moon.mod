@@ -1,6 +1,6 @@
 name = "moonbit-community/tree-sitter-verilog"
 
-version = "1.0.3"
+version = "0.100.3"
 
 readme = "README.mbt.md"
 

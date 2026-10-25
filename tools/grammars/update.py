@@ -419,6 +419,15 @@ def corpus_test_file(entry, languages):
             '}\n' + ''.join(tests))
 
 
+def version_note(entry, version):
+    if version == entry['tag'].lstrip('v'):
+        return ''
+    return (f'\nThe module version {version} stands for the grammar\'s release '
+            f'{entry["tag"]}: Mooncakes\n'
+            f'only accepts `0.x.y` versions for now, so releases `M.m.p` with `M >= 1`\n'
+            f'are published as `0.(100*M + m).p`.\n')
+
+
 def readme(entry, version, description, languages, strings, upstream_url):
     alias = mbt_package_alias(entry['name'])
     first = languages[0]
@@ -456,6 +465,7 @@ def readme(entry, version, description, languages, strings, upstream_url):
             f'`src/grammar.json` by the port\'s generator, which produces the same tables\n'
             f'as `tree-sitter generate` 0.28.0.{scanner_text}\n'
             f'{note}'
+            f'{version_note(entry, version)}'
             f'\n'
             f'## API\n'
             f'\n'
@@ -601,9 +611,20 @@ def format_module(out):
             shutil.copyfile(scratch / p.relative_to(out), p)
 
 
+def module_version(tag):
+    """The module version for a grammar release tag. Mooncakes only accepts
+    `0.x.y` versions for now, so a release `M.m.p` with `M >= 1` becomes
+    `0.(100*M + m).p` (regex 1.0.0 is 0.100.0, make 1.1.1 is 0.101.1), which
+    keeps later releases ordered after earlier ones."""
+    major, minor, patch = (int(x) for x in tag.lstrip('v').split('.'))
+    if major == 0:
+        return f'{major}.{minor}.{patch}'
+    return f'0.{100 * major + minor}.{patch}'
+
+
 def generate_into(entry, repo, out):
     name = entry['name']
-    version = entry['tag'].lstrip('v')
+    version = module_version(entry['tag'])
     tsj = repo / 'tree-sitter.json'
     tsj_data = json.loads(tsj.read_text()) if tsj.exists() else {}
     metadata = tsj_data.get('metadata', {})

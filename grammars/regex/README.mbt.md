@@ -10,6 +10,10 @@ port of Tree-sitter. The parse tables are generated from the grammar's
 `src/grammar.json` by the port's generator, which produces the same tables
 as `tree-sitter generate` 0.28.0.
 
+The module version 0.100.0 stands for the grammar's release v1.0.0: Mooncakes
+only accepts `0.x.y` versions for now, so releases `M.m.p` with `M >= 1`
+are published as `0.(100*M + m).p`.
+
 ## API
 
 The package mirrors the grammar's Rust binding (`bindings/rust/lib.rs`):
