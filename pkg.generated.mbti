@@ -4,7 +4,9 @@ package "moonbit-community/treesitter"
 import {
   "moonbit-community/treesitter/language",
   "moonbit-community/treesitter/query",
+  "moonbit-community/treesitter/regex_syntax/hir",
   "moonbit-community/treesitter/runtime",
+  "moonbitlang/core/buffer",
   "moonbitlang/core/builtin",
   "moonbitlang/core/debug",
 }
@@ -88,6 +90,7 @@ pub fn Language::raw(Self) -> @language.Language
 pub fn Language::subtypes_for_supertype(Self, Int32) -> ArrayView[Int32]
 pub fn Language::supertypes(Self) -> ArrayView[Int32]
 pub impl Eq for Language
+pub impl Hash for Language
 pub impl @debug.Debug for Language
 
 pub(all) struct LanguageMetadata {
@@ -172,7 +175,7 @@ pub fn Node::start_byte(Self) -> Int32
 pub fn Node::start_position(Self) -> Point
 pub fn Node::to_sexp(Self) -> String
 pub fn Node::utf16_text(Self, ArrayView[UInt16]) -> ArrayView[UInt16]
-pub fn Node::utf8_text(Self, BytesView) -> String raise
+pub fn Node::utf8_text(Self, BytesView) -> String raise @hir.Utf8Error
 pub fn Node::walk(Self) -> TreeCursor
 pub impl Eq for Node
 pub impl Hash for Node
@@ -193,6 +196,7 @@ pub fn ParseState::has_error(Self) -> Bool
 pub struct Parser {
   // private fields
 }
+pub fn Parser::delete(Self) -> Unit
 pub fn Parser::included_ranges(Self) -> Array[Range]
 pub fn Parser::language(Self) -> Language?
 pub fn Parser::logger(Self) -> ((LogType, String) -> Unit)?
@@ -205,6 +209,7 @@ pub fn Parser::parse_utf16_le(Self, ArrayView[UInt16], old_tree? : Tree) -> Tree
 pub fn Parser::parse_utf16_le_with_options(Self, (Int32, Point) -> ArrayView[UInt16], old_tree? : Tree, options? : ParseOptions) -> Tree?
 pub fn Parser::parse_with_options(Self, (Int32, Point) -> BytesView, old_tree? : Tree, options? : ParseOptions) -> Tree?
 pub fn Parser::print_dot_graphs(Self, (String) -> Unit) -> Unit
+pub fn[W : DotGraphOutput] Parser::print_dot_graphs_to(Self, W) -> Unit
 pub fn Parser::reset(Self) -> Unit
 pub fn Parser::set_included_ranges(Self, ArrayView[Range]) -> Unit raise IncludedRangesError
 pub fn Parser::set_language(Self, Language) -> Unit raise LanguageError
@@ -349,7 +354,7 @@ pub fn Tree::clone(Self) -> Self
 pub fn Tree::edit(Self, InputEdit) -> Unit
 pub fn Tree::included_ranges(Self) -> Array[Range]
 pub fn Tree::language(Self) -> Language
-pub fn Tree::print_dot_graph(Self, StringBuilder) -> Unit
+pub fn[W : DotGraphOutput] Tree::print_dot_graph(Self, W) -> Unit
 pub fn Tree::raw(Self) -> @runtime.Tree
 pub fn Tree::root_node(Self) -> Node
 pub fn Tree::root_node_with_offset(Self, Int32, Point) -> Node
@@ -379,7 +384,15 @@ pub fn TreeCursor::reset_to(Self, Self) -> Unit
 // Type aliases
 pub type Logger = (LogType, String) -> Unit
 
+pub using @hir {type Utf8Error}
+
 // Traits
+pub(open) trait DotGraphOutput {
+  fn write_dot_graph(Self, Bytes) -> Unit
+}
+pub impl DotGraphOutput for @buffer.Buffer
+pub impl DotGraphOutput for StringBuilder
+
 pub(open) trait TextProvider {
   fn text(Self, Node) -> Iter[BytesView]
 }
