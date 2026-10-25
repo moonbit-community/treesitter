@@ -311,8 +311,12 @@ for section in $SECTIONS; do
     cp -R "$ROOT/examples/json" "$WORK/example-json"
     mkdir -p "$WORK/noconfig"
     (cd "$WORK/example-json" && "$MBT" generate grammar.mbtx > /dev/null 2>&1)
+    # Upstream compiles this grammar to <libdir>/json.dylib, the name of the
+    # fixture json parser: use a separate library directory.
+    rm -rf "$WORK/example-lib"
+    mkdir -p "$WORK/example-lib"
     for cmd in parse highlight tags; do
-      run_case "example-json-$cmd" "$WORK/example-json" env TREE_SITTER_DIR="$WORK/noconfig" -- $cmd sample.json
+      run_case "example-json-$cmd" "$WORK/example-json" env TREE_SITTER_DIR="$WORK/noconfig" TREE_SITTER_LIBDIR="$WORK/example-lib" -- $cmd sample.json
     done
     ;;
   tags)
