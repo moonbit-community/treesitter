@@ -83,35 +83,67 @@ test "query compilation releases its string buffer" {
 }
 
 ///|
-#cfg(not(target="js"))
+/// A capture whose node is distinguishable from `null_capture`.
+fn test_capture(index : Int) -> QueryCapture {
+  { node: @runtime.Node::new(None, None, @runtime.length_zero(), 1), index }
+}
+
+///|
 test "released capture lists do not keep their nodes" {
-  // A capture whose node is distinguishable from `null_capture`.
-  let capture : QueryCapture = {
-    node: @runtime.Node::new(None, None, @runtime.length_zero(), 1),
-    index: 7,
-  }
+  let capture = test_capture(7)
   let pool = CaptureListPool::new()
   let id = pool.acquire()
-  pool.get(id).push(capture)
-  pool.get(id).push(capture)
+  let list = pool.get_list(id)
+  list.push(capture)
+  list.push(capture)
   pool.release(id)
-  let items = pool.get(id)
-  inspect(items.length(), content="0")
-  inspect(physical_equal(items.unsafe_get(0), null_capture), content="true")
-  inspect(physical_equal(items.unsafe_get(1), null_capture), content="true")
+  inspect(pool.get(id).length(), content="0")
+  inspect(physical_equal(list.items[0], null_capture), content="true")
+  inspect(physical_equal(list.items[1], null_capture), content="true")
   // Reset and reuse also overwrite the previous captures.
   let id = pool.acquire()
-  pool.get(id).push(capture)
+  pool.get_list(id).push(capture)
   pool.reset()
   inspect(
-    physical_equal(pool.get(id).unsafe_get(0), null_capture),
+    physical_equal(pool.get_list(id).items[0], null_capture),
     content="true",
   )
   let id = pool.acquire()
-  pool.get(id).push(capture)
-  clear_capture_list(pool.get(id))
+  pool.get_list(id).push(capture)
+  pool.get_list(id).clear()
   inspect(
-    physical_equal(pool.get(id).unsafe_get(0), null_capture),
+    physical_equal(pool.get_list(id).items[0], null_capture),
     content="true",
   )
+}
+
+///|
+test "handed-out capture lists keep their elements" {
+  let pool = CaptureListPool::new()
+  let id = pool.acquire()
+  let list = pool.get_list(id)
+  list.push(test_capture(0))
+  let serial = list.serial
+  let exposed = list.expose()
+  // Growing the list (in place and by reallocating) leaves the view alone.
+  for i in 1..<20 {
+    list.push(test_capture(i))
+  }
+  inspect(list.serial == serial, content="true")
+  inspect(exposed.length(), content="1")
+  inspect(exposed[0].index, content="0")
+  let exposed = list.expose()
+  // Releasing and reusing the list does not overwrite a view of it, and
+  // changes the list's serial.
+  pool.release(id)
+  inspect(list.serial == serial, content="false")
+  let id = pool.acquire()
+  pool.get_list(id).push(test_capture(100))
+  debug_inspect(
+    exposed.map(c => c.index),
+    content=(
+      #|[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    ),
+  )
+  debug_inspect(pool.get(id).map(c => c.index), content="[100]")
 }

@@ -13,11 +13,15 @@ pub(all) struct QueryCursorOptions {
 }
 
 ///|
-/// `TSQueryMatch`. `captures` is a copy of the match's capture list.
-pub(all) struct QueryMatch {
+/// `TSQueryMatch`. `captures` is a view of the match's capture list (upstream
+/// returns a pointer to it) that keeps its elements when the cursor moves on.
+pub struct QueryMatch {
   id : UInt
   pattern_index : Int
-  captures : Array[QueryCapture]
+  captures : ArrayView[QueryCapture]
+  // The capture list's id and serial, for `CaptureConversionCache`.
+  priv capture_list_id : UInt
+  priv capture_list_serial : Int
 }
 
 ///|
@@ -494,7 +498,7 @@ fn QueryCursor::prepare_to_capture(
   self : QueryCursor,
   state : QueryState,
   state_index_to_preserve : Int,
-) -> Array[QueryCapture]? {
+) -> CaptureList? {
   if state.capture_list_id == capture_list_none {
     state.capture_list_id = self.capture_list_pool.acquire()
     // If there are no capture lists left in the pool, then terminate
@@ -508,15 +512,15 @@ fn QueryCursor::prepare_to_capture(
         state.capture_list_id = other_state.capture_list_id
         other_state.capture_list_id = capture_list_none
         other_state.dead = true
-        let list = self.capture_list_pool.get(state.capture_list_id)
-        clear_capture_list(list)
+        let list = self.capture_list_pool.get_list(state.capture_list_id)
+        list.clear()
         return Some(list)
       } else {
         return None
       }
     }
   }
-  Some(self.capture_list_pool.get(state.capture_list_id))
+  Some(self.capture_list_pool.get_list(state.capture_list_id))
 }
 
 ///|
@@ -1158,14 +1162,20 @@ fn QueryCursor::index_of_state(self : QueryCursor, state : QueryState) -> Int {
 }
 
 ///|
-/// The captures of a `TSQueryMatch`: its `capture_count` is a `uint16_t`, so
-/// only the first `size & 0xFFFF` captures of the list are exposed.
-fn match_captures(captures : Array[QueryCapture]) -> Array[QueryCapture] {
-  let count = captures.length() & 0xFFFF
-  if count == captures.length() {
-    captures.copy()
-  } else {
-    captures[:count].to_owned()
+/// The `TSQueryMatch` of a state: its `capture_count` is a `uint16_t`, so only
+/// the first `size & 0xFFFF` captures of the list are exposed.
+fn QueryCursor::query_match(
+  self : QueryCursor,
+  state : QueryState,
+) -> QueryMatch {
+  let list = self.capture_list_pool.get_list(state.capture_list_id)
+  let captures = list.expose()
+  {
+    id: state.id,
+    pattern_index: state.pattern_index,
+    captures: captures[:captures.length() & 0xFFFF],
+    capture_list_id: state.capture_list_id,
+    capture_list_serial: list.serial,
   }
 }
 
@@ -1195,12 +1205,7 @@ pub fn QueryCursor::next_match(self : QueryCursor) -> QueryMatch? {
     state.id = self.next_state_id
     self.next_state_id += 1
   }
-  let captures = match_captures(self.capture_list_pool.get(state.capture_list_id))
-  let result : QueryMatch = {
-    id: state.id,
-    pattern_index: state.pattern_index,
-    captures,
-  }
+  let result = self.query_match(state)
   self.capture_list_pool.release(state.capture_list_id)
   if self.finished_states_heap_size > 0 {
     finished_state_erase(self.finished_states, state_index, self.capture_list_pool)
@@ -1313,7 +1318,7 @@ pub fn QueryCursor::next_capture(self : QueryCursor) -> (QueryMatch, Int)? {
         state.id = self.next_state_id
         self.next_state_id += 1
       }
-      let captures = match_captures(self.capture_list_pool.get(state.capture_list_id))
+      let result = self.query_match(state)
       let capture_index = state.consumed_capture_count
       state.set_consumed_capture_count(state.consumed_capture_count + 1)
       // If this state is in the finished_states heap, its sort key has
@@ -1322,9 +1327,7 @@ pub fn QueryCursor::next_capture(self : QueryCursor) -> (QueryMatch, Int)? {
       if first_finished_state is Some(first) && physical_equal(first, state) {
         finished_state_sift_down(self.finished_states, 0, self.capture_list_pool)
       }
-      return Some(
-        ({ id: state.id, pattern_index: state.pattern_index, captures }, capture_index),
-      )
+      return Some((result, capture_index))
     }
     if self.capture_list_pool.is_empty() && found_unfinished_state {
       self.capture_list_pool.release(
@@ -1338,4 +1341,102 @@ pub fn QueryCursor::next_capture(self : QueryCursor) -> (QueryMatch, Int)? {
       return None
     }
   }
+}
+
+///|
+/// Converts the captures of the matches that [`QueryCursor::next_capture`]
+/// returns (for the Rust binding's `QueryMatch`), sharing the conversion
+/// between the captures of one match: upstream hands out a pointer to the
+/// match's capture list for each of its captures, so iterating over the
+/// captures of a match must not convert the whole list for each of them.
+/// Like the views it returns, a cache belongs to one cursor.
+pub struct CaptureConversionCache[T] {
+  priv convert : (QueryCapture) -> T
+  priv lists : Array[ConvertedCaptureList[T]?]
+}
+
+///|
+/// The converted captures of the capture list with a given id and serial.
+/// Like `CaptureList`, it only writes past its size, so views of it keep
+/// their elements.
+priv struct ConvertedCaptureList[T] {
+  mut serial : Int
+  mut items : FixedArray[T]
+  mut size : Int
+}
+
+///|
+/// Append `item`, growing the storage to at least `capacity` if it is full.
+fn[T] ConvertedCaptureList::push(
+  self : ConvertedCaptureList[T],
+  item : T,
+  capacity : Int,
+) -> Unit {
+  if self.size == self.items.length() {
+    let items = FixedArray::make(
+      if capacity > self.size * 2 {
+        capacity
+      } else {
+        self.size * 2
+      },
+      item,
+    )
+    self.items.blit_to(items, len=self.size)
+    self.items = items
+  }
+  self.items[self.size] = item
+  self.size += 1
+}
+
+///|
+/// Create an empty cache of the conversions of captures with `convert`.
+pub fn[T] CaptureConversionCache::new(
+  convert : (QueryCapture) -> T,
+) -> CaptureConversionCache[T] {
+  { convert, lists: [] }
+}
+
+///|
+/// The converted captures of `m`, reusing the conversions of earlier calls
+/// for the same capture list (a capture list only grows until it is cleared).
+pub fn[T] CaptureConversionCache::convert(
+  self : CaptureConversionCache[T],
+  m : QueryMatch,
+) -> ArrayView[T] {
+  let count = m.captures.length()
+  if count == 0 {
+    return []
+  }
+  let id = m.capture_list_id.reinterpret_as_int()
+  while self.lists.length() <= id {
+    self.lists.push(None)
+  }
+  let list = match self.lists[id] {
+    Some(list) => {
+      if list.serial != m.capture_list_serial {
+        // Views of the previous contents keep their storage.
+        list.serial = m.capture_list_serial
+        list.items = []
+        list.size = 0
+      }
+      list
+    }
+    None => {
+      let list = { serial: m.capture_list_serial, items: [], size: 0 }
+      self.lists[id] = Some(list)
+      list
+    }
+  }
+  while list.size < count {
+    list.push((self.convert)(m.captures[list.size]), count)
+  }
+  list.items[0:count]
+}
+
+///|
+/// Drop all cached conversions.
+pub fn[T] CaptureConversionCache::clear(
+  self : CaptureConversionCache[T],
+) -> Unit {
+  self.lists.clear()
 }
