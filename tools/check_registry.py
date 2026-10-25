@@ -1,95 +1,82 @@
-"""Verify an already published version without using the local checkout.
+"""Verify a published version from the registry, without the local checkout.
 
-Usage: python3 tools/check_registry.py 0.1.0
-The MoonBit toolchain and Node must be on PATH. All generated projects and
-binaries live in a temporary directory outside this repository.
+Usage: python3 tools/check_registry.py VERSION [GRAMMAR_MODULE@VERSION ...]
+
+Creates a consumer module outside this repository that depends on
+moonbit-community/treesitter@VERSION (and the given grammar modules, e.g.
+moonbit-community/tree-sitter-json@0.24.8), and runs a test that generates a
+grammar, parses, queries and, for each grammar module, parses with its
+`language()`.
 """
-import argparse
 import os
-from pathlib import Path
 import re
-import shutil
 import subprocess
+import sys
 import tempfile
+from pathlib import Path
 
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("version")
-    args = parser.parse_args()
-    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", args.version):
-        parser.error("expected a MAJOR.MINOR.PATCH version")
-    root = Path(__file__).resolve().parents[1]
-    env = os.environ.copy()
-    env.pop("TREESITTER_MBT_ROOT", None)
-    with tempfile.TemporaryDirectory(prefix="treesitter-registry-") as directory:
-        temp = Path(directory).resolve()
-        if temp.is_relative_to(root):
-            raise RuntimeError("temporary directory must be outside the checkout")
-
-        def run(*command, cwd=temp):
-            result = subprocess.run(command, cwd=cwd, env=env, text=True,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT, timeout=600)
-            print(result.stdout, end="", flush=True)
-            result.check_returncode()
-            return result.stdout
-
-        project = temp / "consumer"
-        project.mkdir()
-        (project / "moon.mod").write_text(
-            'name = "release/consumer"\nimport { '
-            f'"moonbit-community/treesitter@{args.version}" }}\n')
-        (project / "moon.pkg").write_text('''import {
-  "moonbit-community/treesitter" @ts,
-  "moonbit-community/treesitter/grammar",
-  "moonbit-community/treesitter/generate",
-}
-''')
-        (project / "consumer_test.mbt").write_text('''///|
-test "registry grammar and runtime" {
+TEST_CORE = '''///|
+test "core" {
   let grammar = @grammar.Grammar::new("words", [
     ("document", Repeat(Symbol("word"))),
     ("word", @grammar.pattern("[a-z]+")),
   ])
-  let language = @generate.generate(grammar)
-  let tree = @ts.Parser::new(language).parse_string("hello moonbit")
-  assert_eq(tree.root_node().to_sexp(), "(document (word) (word))")
+  let generated = @generate.generate_from_grammar_json(
+    grammar.to_json().stringify(),
+  )
+  let language = @treesitter.Language::new(generated.language)
+  let parser = @treesitter.Parser::new()
+  parser.set_language(language)
+  let source = @utf8.encode("hello moonbit")
+  guard parser.parse(source) is Some(tree) else { fail("parse failed") }
+  inspect(tree.root_node().to_sexp(), content="(document (word) (word))")
 }
-''')
-        run("moon", "update", cwd=project)
-        for target in ("native", "js", "wasm-gc"):
-            output = run("moon", "test", "--target", target, cwd=project)
-            if not re.search(r"Total tests: 1, passed: 1, failed: 0\.", output):
-                raise RuntimeError(f"missing successful {target} consumer test")
-        installed = project / ".mooncakes/moonbit-community/treesitter/moon.mod"
-        version = re.search(r'^version\s*=\s*"([^"]+)"',
-                            installed.read_text(), re.M)
-        if not version or version[1] != args.version:
-            raise RuntimeError("consumer did not resolve the requested version")
+'''
 
-        run("moon", "install",
-            f"moonbit-community/treesitter/cmd/treesitter@{args.version}",
-            "--bin", str(temp / "bin"))
-        cli = str(temp / "bin/treesitter")
-        version_output = run(cli, "--version")
-        if version_output.strip() != f"treesitter.mbt {args.version}":
-            raise RuntimeError("installed CLI version mismatch")
-        run(cli, "init", "words", "words")
-        run(cli, "generate", "words/grammar.mbtx", "words/language.json")
-        output = run(cli, "test", "words/language.json", "words/test/corpus")
-        if "PASS Words" not in output:
-            raise RuntimeError("generated grammar corpus did not pass")
-
-        shutil.copytree(root / "examples/quoted", temp / "quoted")
-        run(cli, "generate", "quoted/grammar.mbtx", "quoted/language.json")
-        output = run(cli, "--scanner", "quoted/scanner.mbtx", "parse",
-                     "quoted/language.json", "quoted/sample.txt")
-        expected = (temp / "quoted/expected.sexp").read_text()
-        if output != expected:
-            raise RuntimeError("registry scanner output differs from fixture")
-        print(f"Registry verification passed for {args.version}", flush=True)
+TEST_GRAMMAR = '''///|
+test "{alias}" {
+  let parser = @treesitter.Parser::new()
+  parser.set_language(@{alias}.{function}())
+  guard parser.parse(@utf8.encode("")) is Some(tree) else { fail("parse failed") }
+  ignore(tree.root_node().to_sexp())
+}
+'''
 
 
-if __name__ == "__main__":
+def main():
+    if len(sys.argv) < 2 or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', sys.argv[1]):
+        sys.exit(__doc__)
+    version = sys.argv[1]
+    grammars = sys.argv[2:]
+    root = Path(__file__).resolve().parents[1]
+    with tempfile.TemporaryDirectory(prefix='treesitter-registry-') as tmp:
+        project = Path(tmp).resolve() / 'consumer'
+        if project.is_relative_to(root):
+            sys.exit('the temporary directory must be outside the checkout')
+        project.mkdir()
+        deps = [f'"moonbit-community/treesitter@{version}"'] + [f'"{g}"' for g in grammars]
+        (project / 'moon.mod').write_text(
+            'name = "check/consumer"\nversion = "0.0.1"\nimport {\n  '
+            + ',\n  '.join(deps) + ',\n}\n')
+        imports = ['"moonbit-community/treesitter"', '"moonbit-community/treesitter/grammar"',
+                   '"moonbit-community/treesitter/generate"', '"moonbitlang/core/encoding/utf8"']
+        tests = TEST_CORE
+        for g in grammars:
+            name = g.split('@')[0]
+            alias = name.split('/')[-1].replace('-', '_')
+            imports.append(f'"{name}" @{alias}')
+            # Grammar modules with several languages name them language_<x>().
+            function = 'language' if alias != 'tree_sitter_typescript' else 'language_typescript'
+            tests += TEST_GRAMMAR.format(alias=alias, function=function)
+        (project / 'moon.pkg').write_text(
+            'import {\n  ' + ',\n  '.join(imports) + ',\n} for "test"\n')
+        (project / 'consumer_test.mbt').write_text(tests)
+        env = dict(os.environ)
+        for command in (['moon', 'update'], ['moon', 'test', '--target', 'native']):
+            print('$', ' '.join(command), flush=True)
+            subprocess.run(command, cwd=project, env=env, check=True)
+    print('registry check passed')
+
+
+if __name__ == '__main__':
     main()

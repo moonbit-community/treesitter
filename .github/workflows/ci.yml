@@ -36,11 +36,29 @@ jobs:
           moon info
           moon info --target native
           git diff --exit-code -- '*.mbti'
-  public-grammars:
+  oracle:
+    # Differential test against the pinned upstream Tree-sitter: generator
+    # output, runtime trees (all modes), query results, CLI output and the
+    # grammar modules' tables must be identical. The steps of
+    # tools/oracle/oracle.sh run as parallel jobs.
+    name: oracle (${{ matrix.steps }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        steps: [generate ucc, mutate, edits, log, utf16le, utf16be, ranges, query]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Install Graphviz
+        run: sudo apt-get install -y --no-install-recommends graphviz
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup default 1.97.1
       - name: Install MoonBit
         shell: bash
         run: |
@@ -48,11 +66,29 @@ jobs:
           bash "$RUNNER_TEMP/install-moon.sh"
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - run: moon update
-      - name: Test pinned public corpora, queries, and incremental edits
-        run: python3 tools/audit_grammars.py --fetch
-      - name: Report compatibility results
-        if: always()
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: |
+            .repos/ts-pinned/target
+            ~/.cargo/registry
+          key: oracle-${{ runner.os }}-4a412a01a0147d0f50bf7e749572fa632d1ab203
+      - name: Set up the pinned upstream and reference outputs
+        run: sh tools/oracle/oracle_setup.sh
+      - name: Differential oracle
+        run: sh tools/oracle/oracle.sh ${{ matrix.steps }}
+      - name: CLI differential
+        if: matrix.steps == 'generate ucc'
+        run: bash tools/oracle/diff_cli.sh
+      - name: Grammar modules match upstream's tables
+        if: matrix.steps == 'generate ucc'
         run: |
-          if test -f _build/grammar-matrix/results.json; then
-            cat _build/grammar-matrix/results.json
-          fi
+          moon build --target native --release tools/grammar_modules
+          python3 tools/oracle/compare_modules.py
+      - name: Grammar modules are up to date
+        if: matrix.steps == 'generate ucc'
+        run: |
+          sh tools/grammars/update.sh
+          git diff --exit-code
+      - name: Ported upstream test suites (with fixtures)
+        if: matrix.steps == 'generate ucc'
+        run: moon test --target native

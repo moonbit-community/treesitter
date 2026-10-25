@@ -1,0 +1,399 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-community/treesitter/regex_syntax/ast"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn is_escapeable_character(Char) -> Bool
+
+pub fn is_meta_character(Char) -> Bool
+
+pub fn is_word_byte(Byte) -> Bool
+
+pub fn len_utf8(Char) -> Int32
+
+pub fn[V : Visitor] visit(Ast, V) -> Unit raise
+
+// Errors
+pub(all) suberror AstError {
+  AstError(kind~ : ErrorKind, pattern~ : String, span~ : Span)
+} derive(Eq, @debug.Debug)
+pub fn AstError::auxiliary_span(Self) -> Span?
+pub fn AstError::kind(Self) -> ErrorKind
+pub fn AstError::pattern(Self) -> String
+pub fn AstError::span(Self) -> Span
+
+// Types and methods
+pub(all) struct Alternation {
+  mut span : Span
+  asts : Array[Ast]
+} derive(Eq, @debug.Debug)
+pub fn Alternation::into_ast(Self) -> Ast
+
+pub(all) struct Assertion {
+  mut span : Span
+  mut kind : AssertionKind
+} derive(Eq, @debug.Debug)
+
+pub(all) enum AssertionKind {
+  StartLine
+  EndLine
+  StartText
+  EndText
+  WordBoundary
+  NotWordBoundary
+  WordBoundaryStart
+  WordBoundaryEnd
+  WordBoundaryStartAngle
+  WordBoundaryEndAngle
+  WordBoundaryStartHalf
+  WordBoundaryEndHalf
+} derive(Eq, @debug.Debug)
+
+pub(all) enum Ast {
+  Empty(Span)
+  Flags(SetFlags)
+  Literal(Literal)
+  Dot(Span)
+  Assertion(Assertion)
+  ClassUnicode(ClassUnicode)
+  ClassPerl(ClassPerl)
+  ClassBracketed(ClassBracketed)
+  Repetition(Repetition)
+  Group(Group)
+  Alternation(Alternation)
+  Concat(Concat)
+} derive(Eq, @debug.Debug)
+pub fn Ast::is_empty(Self) -> Bool
+pub fn Ast::span(Self) -> Span
+
+pub(all) struct CaptureName {
+  span : Span
+  name : String
+  index : UInt32
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ClassAscii {
+  span : Span
+  kind : ClassAsciiKind
+  negated : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ClassAsciiKind {
+  Alnum
+  Alpha
+  Ascii
+  Blank
+  Cntrl
+  Digit
+  Graph
+  Lower
+  Print
+  Punct
+  Space
+  Upper
+  Word
+  Xdigit
+} derive(Eq, @debug.Debug)
+pub fn ClassAsciiKind::from_name(String) -> Self?
+
+pub(all) struct ClassBracketed {
+  mut span : Span
+  negated : Bool
+  mut kind : ClassSet
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ClassPerl {
+  mut span : Span
+  kind : ClassPerlKind
+  negated : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ClassPerlKind {
+  Digit
+  Space
+  Word
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ClassSet {
+  Item(ClassSetItem)
+  BinaryOp(ClassSetBinaryOp)
+} derive(Eq, @debug.Debug)
+pub fn ClassSet::span(Self) -> Span
+pub fn ClassSet::union(ClassSetUnion) -> Self
+
+pub(all) struct ClassSetBinaryOp {
+  span : Span
+  kind : ClassSetBinaryOpKind
+  mut lhs : ClassSet
+  mut rhs : ClassSet
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ClassSetBinaryOpKind {
+  Intersection
+  Difference
+  SymmetricDifference
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ClassSetItem {
+  Empty(Span)
+  Literal(Literal)
+  Range(ClassSetRange)
+  Ascii(ClassAscii)
+  Unicode(ClassUnicode)
+  Perl(ClassPerl)
+  Bracketed(ClassBracketed)
+  Union(ClassSetUnion)
+} derive(Eq, @debug.Debug)
+pub fn ClassSetItem::span(Self) -> Span
+
+pub(all) struct ClassSetRange {
+  span : Span
+  start : Literal
+  end : Literal
+} derive(Eq, @debug.Debug)
+pub fn ClassSetRange::is_valid(Self) -> Bool
+
+pub(all) struct ClassSetUnion {
+  mut span : Span
+  items : Array[ClassSetItem]
+} derive(Eq, @debug.Debug)
+pub fn ClassSetUnion::into_item(Self) -> ClassSetItem
+pub fn ClassSetUnion::push(Self, ClassSetItem) -> Unit
+
+pub(all) struct ClassUnicode {
+  mut span : Span
+  negated : Bool
+  kind : ClassUnicodeKind
+} derive(Eq, @debug.Debug)
+pub fn ClassUnicode::is_negated(Self) -> Bool
+
+pub(all) enum ClassUnicodeKind {
+  OneLetter(Char)
+  Named(String)
+  NamedValue(op~ : ClassUnicodeOpKind, name~ : String, value~ : String)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ClassUnicodeOpKind {
+  Equal
+  Colon
+  NotEqual
+} derive(Eq, @debug.Debug)
+pub fn ClassUnicodeOpKind::is_equal(Self) -> Bool
+
+pub(all) struct Comment {
+  span : Span
+  comment : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Concat {
+  mut span : Span
+  asts : Array[Ast]
+} derive(Eq, @debug.Debug)
+pub fn Concat::into_ast(Self) -> Ast
+
+pub(all) enum ErrorKind {
+  CaptureLimitExceeded
+  ClassEscapeInvalid
+  ClassRangeInvalid
+  ClassRangeLiteral
+  ClassUnclosed
+  DecimalEmpty
+  DecimalInvalid
+  EscapeHexEmpty
+  EscapeHexInvalid
+  EscapeHexInvalidDigit
+  EscapeUnexpectedEof
+  EscapeUnrecognized
+  FlagDanglingNegation
+  FlagDuplicate(original~ : Span)
+  FlagRepeatedNegation(original~ : Span)
+  FlagUnexpectedEof
+  FlagUnrecognized
+  GroupNameDuplicate(original~ : Span)
+  GroupNameEmpty
+  GroupNameInvalid
+  GroupNameUnexpectedEof
+  GroupUnclosed
+  GroupUnopened
+  NestLimitExceeded(UInt32)
+  RepetitionCountInvalid
+  RepetitionCountDecimalEmpty
+  RepetitionCountUnclosed
+  RepetitionMissing
+  SpecialWordBoundaryUnclosed
+  SpecialWordBoundaryUnrecognized
+  SpecialWordOrRepetitionUnexpectedEof
+  UnicodeClassInvalid
+  UnsupportedBackreference
+  UnsupportedLookAround
+} derive(Eq, @debug.Debug)
+pub impl Show for ErrorKind
+
+pub(all) enum Flag {
+  CaseInsensitive
+  MultiLine
+  DotMatchesNewLine
+  SwapGreed
+  Unicode
+  CRLF
+  IgnoreWhitespace
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Flags {
+  mut span : Span
+  items : Array[FlagsItem]
+} derive(Eq, @debug.Debug)
+pub fn Flags::add_item(Self, FlagsItem) -> Int32?
+pub fn Flags::flag_state(Self, Flag) -> Bool?
+
+pub(all) struct FlagsItem {
+  span : Span
+  kind : FlagsItemKind
+} derive(Eq, @debug.Debug)
+
+pub(all) enum FlagsItemKind {
+  Negation
+  Flag(Flag)
+} derive(Eq, @debug.Debug)
+pub fn FlagsItemKind::is_negation(Self) -> Bool
+
+pub(all) struct Group {
+  mut span : Span
+  kind : GroupKind
+  mut ast : Ast
+} derive(Eq, @debug.Debug)
+pub fn Group::capture_index(Self) -> UInt32?
+pub fn Group::flags(Self) -> Flags?
+pub fn Group::is_capturing(Self) -> Bool
+
+pub(all) enum GroupKind {
+  CaptureIndex(UInt32)
+  CaptureName(starts_with_p~ : Bool, name~ : CaptureName)
+  NonCapturing(Flags)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum HexLiteralKind {
+  X
+  UnicodeShort
+  UnicodeLong
+} derive(Eq, @debug.Debug)
+pub fn HexLiteralKind::digits(Self) -> Int32
+
+pub(all) struct Literal {
+  mut span : Span
+  kind : LiteralKind
+  c : Char
+} derive(Eq, @debug.Debug)
+pub fn Literal::byte(Self) -> Byte?
+
+pub(all) enum LiteralKind {
+  Verbatim
+  Meta
+  Superfluous
+  Octal
+  HexFixed(HexLiteralKind)
+  HexBrace(HexLiteralKind)
+  Special(SpecialLiteralKind)
+} derive(Eq, @debug.Debug)
+
+pub struct Parser {
+  // private fields
+}
+pub fn Parser::new() -> Self
+pub fn Parser::parse(Self, String) -> Ast raise AstError
+pub fn Parser::parse_with_comments(Self, String) -> WithComments raise AstError
+
+pub struct ParserBuilder {
+  // private fields
+}
+pub fn ParserBuilder::build(Self) -> Parser
+pub fn ParserBuilder::empty_min_range(Self, Bool) -> Self
+pub fn ParserBuilder::ignore_whitespace(Self, Bool) -> Self
+pub fn ParserBuilder::nest_limit(Self, UInt32) -> Self
+pub fn ParserBuilder::new() -> Self
+pub fn ParserBuilder::octal(Self, Bool) -> Self
+
+pub(all) struct Position {
+  offset : Int32
+  line : Int32
+  column : Int32
+} derive(Eq, @debug.Debug)
+pub fn Position::new(Int32, Int32, Int32) -> Self
+pub impl Compare for Position
+
+pub(all) struct Repetition {
+  span : Span
+  op : RepetitionOp
+  greedy : Bool
+  mut ast : Ast
+} derive(Eq, @debug.Debug)
+
+pub(all) enum RepetitionKind {
+  ZeroOrOne
+  ZeroOrMore
+  OneOrMore
+  Range(RepetitionRange)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct RepetitionOp {
+  span : Span
+  kind : RepetitionKind
+} derive(Eq, @debug.Debug)
+
+pub(all) enum RepetitionRange {
+  Exactly(UInt32)
+  AtLeast(UInt32)
+  Bounded(UInt32, UInt32)
+} derive(Eq, @debug.Debug)
+pub fn RepetitionRange::is_valid(Self) -> Bool
+
+pub(all) struct SetFlags {
+  span : Span
+  flags : Flags
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Span {
+  start : Position
+  end : Position
+} derive(Eq, @debug.Debug)
+pub fn Span::is_empty(Self) -> Bool
+pub fn Span::is_one_line(Self) -> Bool
+pub fn Span::new(Position, Position) -> Self
+pub fn Span::splat(Position) -> Self
+pub fn Span::with_end(Self, Position) -> Self
+pub fn Span::with_start(Self, Position) -> Self
+pub impl Compare for Span
+
+pub(all) enum SpecialLiteralKind {
+  Bell
+  FormFeed
+  Tab
+  LineFeed
+  CarriageReturn
+  VerticalTab
+  Space
+} derive(Eq, @debug.Debug)
+
+pub(all) struct WithComments {
+  ast : Ast
+  comments : Array[Comment]
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+pub(open) trait Visitor {
+  fn start(Self) -> Unit = _
+  fn visit_pre(Self, Ast) -> Unit raise = _
+  fn visit_post(Self, Ast) -> Unit raise = _
+  fn visit_alternation_in(Self) -> Unit raise = _
+  fn visit_concat_in(Self) -> Unit raise = _
+  fn visit_class_set_item_pre(Self, ClassSetItem) -> Unit raise = _
+  fn visit_class_set_item_post(Self, ClassSetItem) -> Unit raise = _
+  fn visit_class_set_binary_op_pre(Self, ClassSetBinaryOp) -> Unit raise = _
+  fn visit_class_set_binary_op_post(Self, ClassSetBinaryOp) -> Unit raise = _
+  fn visit_class_set_binary_op_in(Self, ClassSetBinaryOp) -> Unit raise = _
+}

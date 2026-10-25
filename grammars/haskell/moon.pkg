@@ -1,0 +1,10 @@
+import {
+  "moonbit-community/treesitter",
+  "moonbit-community/treesitter/language",
+  "moonbit-community/treesitter/scanners",
+}
+
+import {
+  "moonbit-community/tree-sitter-haskell" @tree_sitter_haskell,
+  "moonbitlang/core/encoding/utf8",
+} for "test"

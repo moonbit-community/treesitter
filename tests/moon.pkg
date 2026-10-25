@@ -1,0 +1,19 @@
+import {
+  "moonbit-community/treesitter",
+  "moonbit-community/treesitter/cli_test",
+  "moonbit-community/treesitter/generate",
+  "moonbit-community/treesitter/language",
+  "moonbit-community/treesitter/scanners",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/core/json",
+  "moonbitlang/core/env",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/hashset",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/string",
+} for "test"
+
+supported_targets = "+native"
+
+warnings = "-implicit_impl_as_method-reserved_keyword"

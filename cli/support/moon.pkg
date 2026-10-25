@@ -1,0 +1,17 @@
+import {
+  "moonbitlang/async/fs",
+  "moonbitlang/async/os_error",
+  "moonbitlang/async/process",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/cmp",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
+}
+
+supported_targets = "+native"
+
+warnings = "-implicit_impl_as_method-reserved_keyword"
+
+options(
+  "native-stub": [ "stub.c" ],
+)

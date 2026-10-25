@@ -1,0 +1,45 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-community/treesitter/regex_syntax/unicode_tables"
+
+// Values
+pub let age_by_name : Array[(String, String)]
+
+pub fn binary_search_str(Int32, (Int32) -> String, String) -> Int32?
+
+pub let case_folding_simple : String
+
+pub fn case_folding_simple_table() -> (FixedArray[Int32], FixedArray[FixedArray[Int32]])
+
+pub fn compare_str(String, String) -> Int32
+
+pub fn decode_ranges(String) -> Array[(Int32, Int32)]
+
+pub let general_category_by_name : Array[(String, String)]
+
+pub let grapheme_cluster_break_by_name : Array[(String, String)]
+
+pub fn lookup_by_name(Array[(String, String)], String) -> Array[(Int32, Int32)]?
+
+pub let perl_word : String
+
+pub let property_bool_by_name : Array[(String, String)]
+
+pub let property_names : Array[(String, String)]
+
+pub let property_values : Array[(String, Array[(String, String)])]
+
+pub let script_by_name : Array[(String, String)]
+
+pub let script_extension_by_name : Array[(String, String)]
+
+pub let sentence_break_by_name : Array[(String, String)]
+
+pub let word_break_by_name : Array[(String, String)]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

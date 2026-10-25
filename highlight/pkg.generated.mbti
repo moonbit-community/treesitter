@@ -3,35 +3,70 @@ package "moonbit-community/treesitter/highlight"
 
 import {
   "moonbit-community/treesitter",
-  "moonbit-community/treesitter/language",
-  "moonbit-community/treesitter/query",
   "moonbitlang/core/debug",
+  "moonbitlang/core/hashset",
+  "moonbitlang/core/ref",
 }
 
 // Values
+pub let input_encoding_utf16be : UInt32
+
+pub let input_encoding_utf16le : UInt32
+
+pub let input_encoding_utf8 : UInt32
 
 // Errors
-pub suberror HighlightError {
-  InjectionLimit
-}
+pub(all) suberror HighlightError {
+  Cancelled
+  InvalidLanguage(@treesitter.LanguageError)
+  Unknown
+} derive(Eq, @debug.Debug)
+pub impl Show for HighlightError
 
 // Types and methods
-pub struct Configuration {
-  language : @language.Language
+pub(all) struct Highlight(Int32) derive(Eq, @debug.Debug)
+
+pub struct HighlightConfiguration {
+  language : @treesitter.Language
+  language_name : String
+  query : @treesitter.Query
   // private fields
 }
-pub fn Configuration::highlight(Self, @treesitter.Tree, cancelled? : () -> Bool, injection? : (String) -> Self?, max_injection_depth? : Int32) -> Array[Event] raise
-pub fn Configuration::html(Self, @treesitter.Tree, injection? : (String) -> Self?) -> String raise
-pub fn Configuration::new(@language.Language, String, names? : Array[String], locals? : String, injections? : String, scanner? : @treesitter.ExternalScanner) -> Self raise @query.QueryError
+pub fn HighlightConfiguration::configure(Self, ArrayView[String]) -> Unit
+pub fn HighlightConfiguration::names(Self) -> ArrayView[String]
+pub fn HighlightConfiguration::new(@treesitter.Language, String, String, String, String) -> Self raise @treesitter.QueryError
+pub fn HighlightConfiguration::nonconformant_capture_names(Self, @hashset.HashSet[String]) -> Array[String]
 
-pub(all) enum Event {
-  Start(String)
-  End
-  Source(Int32, Int32)
+pub(all) enum HighlightEvent {
+  Source(start~ : Int32, end~ : Int32)
+  HighlightStart(Highlight)
+  HighlightEnd
 } derive(Eq, @debug.Debug)
-pub fn Event::equal(Self, Self) -> Bool
-pub fn Event::not_equal(Self, Self) -> Bool
-pub fn Event::to_repr(Self) -> @debug.Repr
+
+pub struct HighlightIter {
+  // private fields
+}
+pub fn HighlightIter::iter(Self) -> Iter[Result[HighlightEvent, HighlightError]]
+pub fn HighlightIter::next(Self) -> Result[HighlightEvent, HighlightError]?
+
+pub struct Highlighter {
+  parser : @treesitter.Parser
+  // private fields
+}
+pub fn Highlighter::highlight(Self, HighlightConfiguration, Bytes, encoding? : UInt32, cancellation_flag? : @ref.Ref[Int32], (String) -> HighlightConfiguration?) -> HighlightIter raise HighlightError
+pub fn Highlighter::new() -> Self
+pub fn Highlighter::parser(Self) -> @treesitter.Parser
+
+pub struct HtmlRenderer {
+  html : Array[Byte]
+  line_offsets : Array[UInt32]
+  // private fields
+}
+pub fn HtmlRenderer::lines(Self) -> Iter[String]
+pub fn HtmlRenderer::new() -> Self
+pub fn HtmlRenderer::render(Self, Iter[Result[HighlightEvent, HighlightError]], BytesView, (Highlight, Array[Byte]) -> Unit) -> Unit raise HighlightError
+pub fn HtmlRenderer::reset(Self) -> Unit
+pub fn HtmlRenderer::set_carriage_return_highlight(Self, Highlight?) -> Unit
 
 // Type aliases
 

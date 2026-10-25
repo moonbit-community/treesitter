@@ -13,3 +13,7 @@ description = "An experimental pure MoonBit port of Tree-sitter, with mbtx gramm
 import {
   "moonbitlang/async@0.20.2",
 }
+
+options(
+  exclude: [ "grammars", "moon.work" ],
+)

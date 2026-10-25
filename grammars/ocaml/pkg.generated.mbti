@@ -1,0 +1,33 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-community/tree-sitter-ocaml"
+
+import {
+  "moonbit-community/treesitter",
+}
+
+// Values
+pub let highlights_query : String
+
+pub let interface_node_types : String
+
+pub fn language_ocaml() -> @treesitter.Language
+
+pub fn language_ocaml_interface() -> @treesitter.Language
+
+pub fn language_ocaml_type() -> @treesitter.Language
+
+pub let locals_query : String
+
+pub let ocaml_node_types : String
+
+pub let tags_query : String
+
+pub let type_node_types : String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

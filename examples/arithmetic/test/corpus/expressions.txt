@@ -1,0 +1,16 @@
+==================
+Addition
+==================
+
+1 + 2 + 3
+
+---
+
+(expression
+  left: (expression
+    left: (expression
+      (number))
+    right: (expression
+      (number)))
+  right: (expression
+    (number)))

@@ -1,0 +1,17 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-community/treesitter/scanners"
+
+import {
+  "moonbit-community/treesitter/runtime",
+}
+
+// Values
+pub fn scanner_for(String) -> (() -> @runtime.ExternalScanner)?
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

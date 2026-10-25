@@ -1,0 +1,17 @@
+{
+  "name": "amb2",
+  "rules": {
+    "source": {"type": "REPEAT", "content": {"type": "SYMBOL", "name": "word"}},
+    "word": {"type": "PATTERN", "value": "[a-z]+"},
+    "comment": {"type": "SEQ", "members": [{"type": "STRING", "value": "#"}, {"type": "CHOICE", "members": [
+      {"type": "SYMBOL", "name": "a1"}, {"type": "SYMBOL", "name": "a2"}, {"type": "SYMBOL", "name": "a3"},
+      {"type": "SYMBOL", "name": "a4"}, {"type": "SYMBOL", "name": "a5"}, {"type": "SYMBOL", "name": "a6"}]}]},
+    "a1": {"type": "SEQ", "members": [{"type": "STRING", "value": "1"}, {"type": "STRING", "value": "1"}]},
+    "a2": {"type": "SEQ", "members": [{"type": "STRING", "value": "1"}, {"type": "STRING", "value": "1"}, {"type": "STRING", "value": "2"}]},
+    "a3": {"type": "SEQ", "members": [{"type": "STRING", "value": "1"}, {"type": "STRING", "value": "1"}, {"type": "STRING", "value": "3"}]},
+    "a4": {"type": "SEQ", "members": [{"type": "STRING", "value": "1"}, {"type": "STRING", "value": "1"}, {"type": "STRING", "value": "4"}]},
+    "a5": {"type": "SEQ", "members": [{"type": "STRING", "value": "1"}, {"type": "STRING", "value": "1"}, {"type": "STRING", "value": "5"}]},
+    "a6": {"type": "SEQ", "members": [{"type": "STRING", "value": "1"}, {"type": "STRING", "value": "1"}, {"type": "STRING", "value": "6"}]}
+  },
+  "extras": [{"type": "SYMBOL", "name": "comment"}, {"type": "PATTERN", "value": "\\s"}]
+}

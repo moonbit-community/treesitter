@@ -1,0 +1,12 @@
+{
+  "name": "unnecessary",
+  "rules": {
+    "source": {"type": "REPEAT", "content": {"type": "CHOICE", "members": [{"type": "SYMBOL", "name": "zeta"}, {"type": "SYMBOL", "name": "alpha"}, {"type": "SYMBOL", "name": "beta"}, {"type": "SYMBOL", "name": "Gamma"}]}},
+    "zeta": {"type": "SEQ", "members": [{"type": "STRING", "value": "z"}, {"type": "STRING", "value": ";"}]},
+    "alpha": {"type": "SEQ", "members": [{"type": "STRING", "value": "a"}, {"type": "STRING", "value": ";"}]},
+    "beta": {"type": "SEQ", "members": [{"type": "STRING", "value": "b"}, {"type": "STRING", "value": ";"}]},
+    "Gamma": {"type": "SEQ", "members": [{"type": "STRING", "value": "g"}, {"type": "STRING", "value": ";"}]}
+  },
+  "conflicts": [["zeta", "alpha"], ["beta"], ["alpha", "beta"], ["Gamma", "zeta"], ["Gamma"]],
+  "extras": [{"type": "PATTERN", "value": "\\s"}]
+}

@@ -1,9 +1,9 @@
 import {
   "moonbit-community/treesitter/cli",
-  "moonbitlang/core/env",
   "moonbitlang/async",
+  "moonbitlang/core/env",
 }
 
-pkgtype(kind: "executable")
-
 supported_targets = "+native"
+
+pkgtype(kind: "executable")

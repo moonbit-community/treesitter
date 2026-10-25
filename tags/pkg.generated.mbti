@@ -3,35 +3,61 @@ package "moonbit-community/treesitter/tags"
 
 import {
   "moonbit-community/treesitter",
-  "moonbit-community/treesitter/language",
+  "moonbit-community/treesitter/regex",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/ref",
 }
 
 // Values
 
 // Errors
-pub suberror TagsError {
+pub(all) suberror TagsError {
+  Query(@treesitter.QueryError)
+  Regex(@regex.RegexError)
+  Cancelled
+  InvalidLanguage(@treesitter.LanguageError)
   InvalidCapture(String)
-  UnsupportedEncoding
-}
+} derive(Eq, @debug.Debug)
+pub impl Show for TagsError
 
 // Types and methods
-pub struct Configuration {
-  language : @language.Language
-  // private fields
-}
-pub fn Configuration::generate(Self, @treesitter.Tree, cancelled? : () -> Bool) -> Array[Tag] raise
-pub fn Configuration::new(@language.Language, String, locals? : String) -> Self raise
+pub(all) struct NamedCapture {
+  syntax_type_id : Int32
+  is_definition : Bool
+} derive(Eq, @debug.Debug)
 
 pub(all) struct Tag {
-  name : String
-  syntax_type : String
-  is_definition : Bool
-  range : @treesitter.Range
-  name_range : @treesitter.Range
+  range : (Int32, Int32)
+  name_range : (Int32, Int32)
   line_range : (Int32, Int32)
+  span : (@treesitter.Point, @treesitter.Point)
   utf16_column_range : (Int32, Int32)
   docs : String?
+  is_definition : Bool
+  syntax_type_id : Int32
+} derive(Eq, @debug.Debug)
+
+pub struct TagsConfiguration {
+  language : @treesitter.Language
+  query : @treesitter.Query
+  // private fields
 }
+pub fn TagsConfiguration::new(@treesitter.Language, String, String) -> Self raise TagsError
+pub fn TagsConfiguration::syntax_type_name(Self, Int32) -> String
+
+pub struct TagsContext {
+  parser : @treesitter.Parser
+  // private fields
+}
+pub fn TagsContext::generate_tags(Self, TagsConfiguration, Bytes, cancellation_flag? : @ref.Ref[Int32]) -> (TagsIter, Bool) raise TagsError
+pub fn TagsContext::new() -> Self
+pub fn TagsContext::parser(Self) -> @treesitter.Parser
+
+pub struct TagsIter {
+  // private fields
+}
+pub fn TagsIter::iter(Self) -> Iter[Result[Tag, TagsError]]
+pub fn TagsIter::next(Self) -> Result[Tag, TagsError]?
 
 // Type aliases
 
