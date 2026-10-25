@@ -29,11 +29,11 @@ pub fn to_utf8_point(point : @treesitter.Point, source : BytesView) -> Utf8Point
   if point.column == 0 {
     return Utf8Point::new(point.row, 0)
   }
-  guard lines_with_terminator(source).get(point.row) is Some(line) else {
+  guard nth_line_with_terminator(source, point.row) is Some(line) else {
     abort("called `Option::unwrap()` on a `None` value")
   }
   let mut utf8_column = 0
-  for grapheme_end in grapheme_ends(line) {
+  for grapheme_end in grapheme_ends_iter(line) {
     utf8_column += 1
     if grapheme_end >= point.column {
       break

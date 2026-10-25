@@ -15,6 +15,13 @@ pub suberror QueryError {
 } derive(@debug.Debug)
 
 // Types and methods
+pub struct CaptureConversionCache[T] {
+  // private fields
+}
+pub fn[T] CaptureConversionCache::clear(Self[T]) -> Unit
+pub fn[T] CaptureConversionCache::convert(Self[T], QueryMatch) -> ArrayView[T]
+pub fn[T] CaptureConversionCache::new((QueryCapture) -> T) -> Self[T]
+
 pub(all) enum Quantifier {
   Zero
   ZeroOrOne
@@ -86,10 +93,11 @@ pub(all) enum QueryErrorKind {
   Language
 } derive(Eq, @debug.Debug)
 
-pub(all) struct QueryMatch {
+pub struct QueryMatch {
   id : UInt32
   pattern_index : Int32
-  captures : Array[QueryCapture]
+  captures : ArrayView[QueryCapture]
+  // private fields
 }
 
 pub(all) struct QueryPredicateStep {

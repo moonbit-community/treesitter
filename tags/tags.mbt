@@ -464,7 +464,7 @@ pub fn TagsIter::next(self : TagsIter) -> Result[Tag, TagsError]? {
 
           // Generate a doc string from all of the doc nodes, applying any strip
           // regexes.
-          let mut docs : String? = None
+          let mut docs_builder : StringBuilder? = None
           for doc_node in doc_nodes[docs_start_index:] {
             let (start, end) = doc_node.byte_range()
             let bytes = self.source[start:end]
@@ -473,12 +473,20 @@ pub fn TagsIter::next(self : TagsIter) -> Result[Tag, TagsError]? {
                 None => @utf8.decode_lossy(bytes)
                 Some(regex) => strip_matches(regex, bytes)
               }
-              docs = match docs {
-                None => Some(content)
-                Some(d) => Some("\{d}\n\{content}")
+              match docs_builder {
+                None => {
+                  let d = StringBuilder()
+                  d.write_string(content)
+                  docs_builder = Some(d)
+                }
+                Some(d) => {
+                  d.write_char('\n')
+                  d.write_string(content)
+                }
               }
             }
           }
+          let docs = docs_builder.map(d => d.to_string())
           let rng = tag_node.byte_range()
           let range = (
             @cmp.minimum(rng.0, name_range.0),

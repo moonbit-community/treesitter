@@ -96,7 +96,7 @@ fn QueryCapture::debug_text(self : QueryCapture) -> String {
 pub struct QueryMatch {
   /// The index of the pattern that matched.
   pattern_index : Int32
-  priv captures : Array[QueryCapture]
+  priv captures : ArrayView[QueryCapture]
   priv id : UInt32
   priv cursor : @query.QueryCursor
 }
@@ -105,17 +105,17 @@ pub struct QueryMatch {
 fn QueryMatch::new(
   m : @query.QueryMatch,
   cursor : @query.QueryCursor,
-  language : Language,
+  captures : ArrayView[QueryCapture],
 ) -> QueryMatch {
-  {
-    cursor,
-    id: m.id,
-    pattern_index: m.pattern_index,
-    captures: m.captures.map(c => {
-      node: { raw: c.node, language, },
-      index: c.index,
-    }),
-  }
+  { cursor, id: m.id, pattern_index: m.pattern_index, captures }
+}
+
+///|
+fn QueryCapture::convert(
+  c : @query.QueryCapture,
+  language : Language,
+) -> QueryCapture {
+  { node: { raw: c.node, language }, index: c.index }
 }
 
 ///|
@@ -127,7 +127,7 @@ pub fn QueryMatch::id(self : QueryMatch) -> UInt32 {
 ///|
 /// The captures of this match.
 pub fn QueryMatch::captures(self : QueryMatch) -> ArrayView[QueryCapture] {
-  self.captures[:]
+  self.captures
 }
 
 ///|
@@ -364,7 +364,15 @@ pub fn[T] QueryCursor::captures(
   text_provider : T,
 ) -> QueryCaptures[T] {
   self.raw.exec(query.raw, node.raw)
-  { cursor: self.raw, query, text_provider, language: node.language, }
+  {
+    cursor: self.raw,
+    query,
+    text_provider,
+    language: node.language,
+    converted: @query.CaptureConversionCache::new(c => {
+      QueryCapture::convert(c, node.language)
+    }),
+  }
 }
 
 ///|
@@ -378,7 +386,15 @@ pub fn[T] QueryCursor::captures_with_options(
   options : QueryCursorOptions,
 ) -> QueryCaptures[T] {
   self.raw.exec_with_options(query.raw, node.raw, query_options_to_ts(options))
-  { cursor: self.raw, query, text_provider, language: node.language, }
+  {
+    cursor: self.raw,
+    query,
+    text_provider,
+    language: node.language,
+    converted: @query.CaptureConversionCache::new(c => {
+      QueryCapture::convert(c, node.language)
+    }),
+  }
 }
 
 ///|
@@ -477,7 +493,9 @@ pub fn[T : TextProvider] QueryMatches::next(
   self : QueryMatches[T],
 ) -> QueryMatch? {
   while self.cursor.next_match() is Some(m) {
-    let result = QueryMatch::new(m, self.cursor, self.language)
+    let language = self.language
+    let captures = m.captures.map(c => QueryCapture::convert(c, language))
+    let result = QueryMatch::new(m, self.cursor, captures)
     if result.satisfies_text_predicates(self.query, self.text_provider) {
       return Some(result)
     }
@@ -523,6 +541,9 @@ pub struct QueryCaptures[T] {
   priv query : Query
   priv text_provider : T
   priv language : Language
+  // The converted captures of the pending matches, shared by the captures of
+  // a match (upstream's `QueryMatch` borrows the C capture list).
+  priv converted : @query.CaptureConversionCache[QueryCapture]
 }
 
 ///|
@@ -532,12 +553,14 @@ pub fn[T : TextProvider] QueryCaptures::next(
   self : QueryCaptures[T],
 ) -> (QueryMatch, Int32)? {
   while self.cursor.next_capture() is Some((m, capture_index)) {
-    let result = QueryMatch::new(m, self.cursor, self.language)
+    let captures = self.converted.convert(m)
+    let result = QueryMatch::new(m, self.cursor, captures)
     if result.satisfies_text_predicates(self.query, self.text_provider) {
       return Some((result, capture_index))
     }
     result.remove()
   }
+  self.converted.clear()
   None
 }
 

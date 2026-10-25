@@ -53,6 +53,62 @@ test "to_utf8_point" {
     @query_testing.to_utf8_point(@treesitter.Point::new(1, 0), source),
     content="{ row: 1, column: 0 }",
   )
+  // The last line has no terminator; columns past the end of a line count
+  // all of its graphemes.
+  let source = @utf8.encode("a\ny̆y̆\r\nb👨‍👩‍👦c")
+  let points = [
+    (0, 1),
+    (0, 9),
+    (1, 1),
+    (1, 3),
+    (1, 4),
+    (1, 8),
+    (1, 9),
+    (2, 1),
+    (2, 2),
+    (2, 19),
+    (2, 20),
+  ]
+  debug_inspect(
+    points.map(p => {
+      let point = @query_testing.to_utf8_point(
+        @treesitter.Point::new(p.0, p.1),
+        source,
+      )
+      (point.row, point.column)
+    }),
+    content=(
+      #|[
+      #|  (0, 1),
+      #|  (0, 2),
+      #|  (1, 1),
+      #|  (1, 1),
+      #|  (1, 2),
+      #|  (1, 3),
+      #|  (1, 3),
+      #|  (2, 1),
+      #|  (2, 2),
+      #|  (2, 2),
+      #|  (2, 3),
+      #|]
+    ),
+  )
+}
+
+///|
+/// Not upstream: converting a point scans the source only up to the end of
+/// the point's line, and decodes that line only up to the point's column
+/// (upstream iterates lazily), so converting points near the start of a long
+/// source is cheap.
+test "to_utf8_point_is_lazy" {
+  let n = 20000
+  let source = @utf8.encode("x\n" + "z\n".repeat(n))
+  let mut sum = 0
+  for _ in 0..<n {
+    let point = @treesitter.Point::new(0, 1)
+    sum += @query_testing.to_utf8_point(point, source).column
+  }
+  inspect(sum, content="20000")
 }
 
 ///|
