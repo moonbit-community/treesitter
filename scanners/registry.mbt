@@ -8,6 +8,7 @@ pub fn scanner_for(name : String) -> @runtime.ExternalScannerFactory? {
   match name {
     "bash" => Some(bash_scanner)
     "cpp" => Some(cpp_scanner)
+    "haskell" => Some(haskell_scanner)
     "html" => Some(html_scanner)
     "javascript" => Some(javascript_scanner)
     "jsdoc" => Some(jsdoc_scanner)

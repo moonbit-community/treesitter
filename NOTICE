@@ -18,6 +18,12 @@ test/fixtures/fixtures.json, all distributed under the MIT license:
 - tree-sitter-rust v0.24.0, Copyright (c) 2017 Maxim Sokolov (rust.mbt)
 - tree-sitter-typescript v0.23.2, Copyright (c) 2017 Max Brunsfeld (typescript*.mbt, tsx.mbt)
 
+Further grammar scanners (scanners): faithful MoonBit ports of the
+src/scanner.c files of grammars pinned in grammars/grammars.json, distributed
+under the MIT license:
+- tree-sitter-haskell v0.24.1, Copyright (c) 2014 Max Brunsfeld (haskell.mbt,
+  haskell_unicode.mbt from src/scanner.c and src/unicode.h)
+
 Ported Rust crates, each dual-licensed MIT OR Apache-2.0 upstream and used
 here under the MIT license:
 - regex-syntax 0.8.11 (regex_syntax), and the matching semantics of
