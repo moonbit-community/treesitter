@@ -11,7 +11,18 @@ Packages:
 - `language`: `Language`, a field-for-field mirror of C `TSLanguage`.
   The generated C lex functions are represented by `LexProgram`, whose
   interpretation must equal the C that `render.rs` emits.
+  `Language::to_compact`/`from_compact` (and their base64 forms) are the
+  compact binary encoding embedded by the grammar modules.
 - `generate`: port of `crates/generate`.
+- `serde_json`: the subset of serde_json 1.0.154 / serde's derive
+  semantics that `grammar.json` and `tree-sitter.json` reading need
+  (streaming deserializer, error texts with positions, recursion limit,
+  `IgnoredAny`, Rust `Debug` escaping and zmij float formatting).
+- `runtime`: port of `lib/src` (parser, lexer, stack, subtree, tree, node,
+  tree cursor, changed ranges).
+- `query`: port of `lib/src/query.c`.
+- `scanners`: ports of the C external scanners of the fixture, test and
+  additional grammars, registered by grammar name in `registry.mbt`.
 - `regex_syntax`: port of the subset of `regex-syntax 0.8.11` that the
   generator uses (AST parser, HIR translator, smart constructors, Unicode).
 - `regex`: an `is_match` equivalent of `regex::bytes::Regex` (used for
@@ -30,7 +41,8 @@ Packages:
   `tree-sitter-tags` crates, for differential checks.
 - `fixtures`: test helpers (upstream's `helpers/fixtures.rs`) for the
   native-only test packages of the three packages above.
-- `cli` (+ `cli/commands`, `cli/support`, `cli/init`),
+- `cli` (+ `cli/commands`, `cli/support`, `cli/init`, `cli/glob` = glob
+  0.3.4),
   `loader`, `config`, `cmd/treesitter`: port of
   `crates/cli`, `crates/loader` and `crates/config`. The command line is
   parsed by `clap` (the subset of clap_builder 4.6.7 the CLI uses, with
@@ -61,10 +73,16 @@ Packages:
   - `playground` (needs a Wasm parser), Ctrl-C cancellation and dialoguer's
     terminal UI in `init` (replaced by line prompts) are not available;
     clap output is never colored.
-- `api`: port of the Rust binding `lib/binding_rust/lib.rs`, the public
-  API (it will become the module's root package). Tests that need fixture
-  languages live in the native-only `api/tests`; expected outputs of the
-  adapted tests come from tools/oracle/api_harness (the upstream binding).
+- the root package: port of the Rust binding `lib/binding_rust/lib.rs`, the
+  public API. Tests that need fixture languages live in the native-only
+  `tests` package; expected outputs of the adapted tests come from
+  tools/oracle/api_harness (the upstream binding).
+- `grammars/<name>`: one module per grammar repository of
+  `grammars/grammars.json` (members of the `moon.work` workspace), generated
+  by `tools/grammars/update.sh` with this port's generator; their API
+  mirrors each grammar's `bindings/rust/lib.rs`, and
+  `tools/oracle/compare_modules.py` checks their tables against upstream's
+  `parser.c`.
 
 ## Rules
 
