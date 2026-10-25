@@ -292,10 +292,20 @@ pub fn TokenSet::remove(self : TokenSet, other : Symbol) -> Bool {
 
 ///|
 pub fn TokenSet::is_empty(self : TokenSet) -> Bool {
-  !self.eof &&
-  !self.end_of_nonterminal_extra &&
-  self.terminal_bits.words().iter().all(w => w == 0) &&
-  self.external_bits.words().iter().all(w => w == 0)
+  if self.eof || self.end_of_nonterminal_extra {
+    return false
+  }
+  for w in self.terminal_bits.words() {
+    if w != 0 {
+      return false
+    }
+  }
+  for w in self.external_bits.words() {
+    if w != 0 {
+      return false
+    }
+  }
+  true
 }
 
 ///|

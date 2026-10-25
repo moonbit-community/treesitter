@@ -644,7 +644,8 @@ fn ParseItemSetBuilder::first_set(
   self : ParseItemSetBuilder,
   symbol : Symbol,
 ) -> TokenSet {
-  self.first_sets[symbol]
+  // The interned copy of `self.first_sets[symbol]`, found without hashing.
+  self.lookaheads.get(self.first_set_ids[self.symbol_indexer.index(symbol)])
 }
 
 ///|

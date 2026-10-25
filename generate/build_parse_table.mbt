@@ -282,20 +282,24 @@ fn SuccessorSets::item_set(
 }
 
 ///|
-/// Takes the sets out in symbol order, leaving this empty for the next state.
-fn SuccessorSets::take_all(
-  self : SuccessorSets,
-) -> Array[(Symbol, ParseItemSet)] {
-  // Symbols are distinct, so the order is total. Positions follow symbol order.
+/// Sorts the positions of the symbols that have a set into symbol order, for
+/// `Self::take`. Symbols are distinct, so the order is total. Positions follow
+/// symbol order.
+fn SuccessorSets::sorted_positions(self : SuccessorSets) -> Array[Int32] {
   self.symbols.sort()
-  let result = self.symbols.map(index => {
-    // INVARIANT: every symbol in `symbols` has a set
-    let set = self.sets[index].unwrap()
-    self.sets[index] = None
-    (self.set_symbols[index].unwrap(), set)
-  })
-  self.symbols.clear()
-  result
+  self.symbols
+}
+
+///|
+/// Takes out the set and symbol at a position from `Self::sorted_positions`.
+fn SuccessorSets::take(
+  self : SuccessorSets,
+  index : Int32,
+) -> (Symbol, ParseItemSet) {
+  // INVARIANT: every symbol in `symbols` has a set
+  let set = self.sets[index].unwrap()
+  self.sets[index] = None
+  (self.set_symbols[index].unwrap(), set)
 }
 
 ///|
@@ -445,6 +449,15 @@ priv struct ParseTableBuilder {
   reusable_action_list_ids : Array[ActionListId]
   /// A `Goto` for each state id, shared like `reusable_action_list_ids`.
   gotos : Array[GotoAction]
+  /// A non-repetition `Shift` for each state id, shared like `gotos`.
+  shifts : Array[ParseAction]
+  /// Scratch for `add_actions`: the lookaheads with conflicts in the state it's working
+  /// on. Empty between states.
+  lookaheads_with_conflicts : TokenSet
+  /// Scratch for `add_actions`: the one-symbol list of a reduction's symbol.
+  reduce_symbols : Array[Symbol]
+  /// Scratch for `build`: the preceding symbols of the state being built.
+  preceding_symbols : Array[Symbol]
   str_pool : StrPool
   /// Scratch for `add_actions`: The terminal entries of the state it's working on. They are
   /// interned into the table once the state is complete.
@@ -694,6 +707,10 @@ fn ParseTableBuilder::new(
     action_list_ids: {},
     reusable_action_list_ids: [],
     gotos: [],
+    shifts: [],
+    lookaheads_with_conflicts: TokenSet::new(),
+    reduce_symbols: [symbol_end],
+    preceding_symbols: [],
     str_pool,
     terminal_entries: TerminalEntryMap::new(symbol_indexer),
     successor_sets: SuccessorSets::new(symbol_indexer),
@@ -775,8 +792,11 @@ fn ParseTableBuilder::build(
     // Two states are identical iff their kernels match.
     let kernel = self.item_sets_by_id[entry.state_id]
     let item_set = self.item_set_builder.transitive_closure(kernel)
+    let preceding_symbols = self.preceding_symbols
+    preceding_symbols.clear()
+    preceding_symbols.append(self.preceding_symbols_by_id[entry.state_id])
     self.add_actions(
-      self.preceding_symbols_by_id[entry.state_id].copy(),
+      preceding_symbols,
       entry.preceding_auxiliary_context,
       entry.state_id,
       item_set,
@@ -886,6 +906,18 @@ fn ParseTableBuilder::action_list_id(
 }
 
 ///|
+/// `Shift(state=state_id, is_repetition=false)`, shared like `reusable_action_list_ids`.
+fn ParseTableBuilder::shift(
+  self : ParseTableBuilder,
+  state_id : Int32,
+) -> ParseAction {
+  while self.shifts.length() <= state_id {
+    self.shifts.push(Shift(state=self.shifts.length(), is_repetition=false))
+  }
+  self.shifts[state_id]
+}
+
+///|
 /// `Goto(state_id)`.
 fn ParseTableBuilder::goto(
   self : ParseTableBuilder,
@@ -967,7 +999,8 @@ fn ParseTableBuilder::add_actions(
   state_id : Int32,
   item_set : ParseItemSet,
 ) -> Unit raise ParseTableBuilderError {
-  let lookaheads_with_conflicts = TokenSet::new()
+  // Empty: emptied at the end of each state.
+  let lookaheads_with_conflicts = self.lookaheads_with_conflicts
   let auxiliary_uses : Array[Int64] = []
 
   // Each item in the item set contributes to either or a Shift action or a Reduce
@@ -1041,7 +1074,8 @@ fn ParseTableBuilder::add_actions(
       if requires_eof_lookahead {
         self.parse_table.states[state_id].has_eof_gated_reduce = true
       }
-      let symbols = [symbol]
+      let symbols = self.reduce_symbols
+      symbols[0] = symbol
       for lookahead in self.item_set_builder.lookaheads.symbols(lookaheads) {
         if requires_eof_lookahead && lookahead != symbol_end {
           continue
@@ -1104,42 +1138,32 @@ fn ParseTableBuilder::add_actions(
   // Having computed the successor item sets for each symbol, add a new
   // parse state for each of these item sets, and add a corresponding Shift
   // action to this state.
-  let successors = self.successor_sets.take_all()
-  // Non-terminals come last in symbol order.
-  for successor in successors {
-    let (symbol, next_item_set) = successor
+  // Upstream visits the terminals' successors, then the non-terminals'. Non-terminals
+  // come last in symbol order, so a single pass in symbol order does the same.
+  let positions = self.successor_sets.sorted_positions()
+  for position in positions {
+    let (symbol, next_item_set) = self.successor_sets.take(position)
+    preceding_symbols.push(symbol)
+    let next_state_id = self.add_parse_state(
+      preceding_symbols, auxiliary_context, next_item_set,
+    )
+    ignore(preceding_symbols.pop())
+    self.recycle_unless_kept(next_state_id, next_item_set)
     if symbol.non_terminal_index() is Some(_) {
-      continue
+      self.parse_table.states[state_id].nonterminal_entries.push(
+        symbol,
+        self.goto(next_state_id),
+      )
+    } else {
+      if self.terminal_entries.get(symbol) is Some(e) && !e.actions.is_empty() {
+        lookaheads_with_conflicts.insert(symbol)
+      }
+      self.terminal_entries.get_or_insert_new(symbol).actions.push(
+        self.shift(next_state_id),
+      )
     }
-    preceding_symbols.push(symbol)
-    let next_state_id = self.add_parse_state(
-      preceding_symbols, auxiliary_context, next_item_set,
-    )
-    ignore(preceding_symbols.pop())
-    self.recycle_unless_kept(next_state_id, next_item_set)
-    if self.terminal_entries.get(symbol) is Some(e) && !e.actions.is_empty() {
-      lookaheads_with_conflicts.insert(symbol)
-    }
-    self.terminal_entries.get_or_insert_new(symbol).actions.push(
-      Shift(state=next_state_id, is_repetition=false),
-    )
   }
-  for successor in successors {
-    let (symbol, next_item_set) = successor
-    if symbol.non_terminal_index() is None {
-      continue
-    }
-    preceding_symbols.push(symbol)
-    let next_state_id = self.add_parse_state(
-      preceding_symbols, auxiliary_context, next_item_set,
-    )
-    ignore(preceding_symbols.pop())
-    self.recycle_unless_kept(next_state_id, next_item_set)
-    self.parse_table.states[state_id].nonterminal_entries.push(
-      symbol,
-      self.goto(next_state_id),
-    )
-  }
+  positions.clear()
 
   // For any symbol with multiple actions, perform conflict resolution.
   // This will either
@@ -1152,10 +1176,14 @@ fn ParseTableBuilder::add_actions(
     let candidates = item_set.entries.filter(entry => {
       entry.item.step_index > 0 || entry.item.is_done()
     })
-    for symbol in lookaheads_with_conflicts.iter() {
+    let symbols = lookaheads_with_conflicts.iter()
+    for symbol in symbols {
       self.handle_conflict(
         candidates, preceding_symbols, auxiliary_context, symbol,
       )
+    }
+    for symbol in symbols {
+      ignore(lookaheads_with_conflicts.remove(symbol))
     }
   }
 
