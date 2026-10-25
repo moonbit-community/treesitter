@@ -78,4 +78,18 @@ int32_t ts_cli_process_id(void) {
   return (int32_t)getpid();
 #endif
 }
+// `std::env::consts::OS` of the platform the stub was compiled for (the
+// loader's `cfg!(target_os = "macos")`).
+MOONBIT_FFI_EXPORT
+int32_t ts_cli_target_os(void) {
+#if defined(__APPLE__)
+  return 1;
+#elif defined(__linux__)
+  return 2;
+#elif defined(_WIN32)
+  return 3;
+#else
+  return 0;
+#endif
+}
 // ---- end of loader cache publication block ----

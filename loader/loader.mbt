@@ -218,7 +218,7 @@ pub async fn Loader::new() -> Loader {
   let parser_lib_path = match @env.get_env_var("TREE_SITTER_LIBDIR") {
     Some(path) => path
     None => {
-      if @support.current_os == "macos" {
+      if @support.target_os() == "macos" {
         // `etcetera::base_strategy::Apple::new()?.cache_dir()`
         // (`$HOME/Library/Caches/`)
         let legacy_apple_path = match @support.home_dir() {

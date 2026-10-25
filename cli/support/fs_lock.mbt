@@ -12,6 +12,22 @@ pub fn process_id() -> Int32 {
 }
 
 ///|
+extern "C" fn ts_cli_target_os() -> Int32 = "ts_cli_target_os"
+
+///|
+/// `std::env::consts::OS` of the platform the program was compiled for, as
+/// the C compiler sees it (`#cfg(platform=...)` conditions are not set by
+/// every build of moon).
+pub fn target_os() -> String {
+  match ts_cli_target_os() {
+    1 => "macos"
+    2 => "linux"
+    3 => "windows"
+    _ => "unknown"
+  }
+}
+
+///|
 /// `e.kind() == std::io::ErrorKind::AlreadyExists`.
 pub fn is_already_exists(err : Error) -> Bool {
   match err {
