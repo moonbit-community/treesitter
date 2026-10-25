@@ -1,6 +1,8 @@
 // The Rust standard library operations that version.rs and init.rs rely on:
 // `fs::read_to_string`, `fs::write`, `fs::create_dir_all`, `Path::exists`
-// and `str::lines`, with Rust's `io::Error` display texts.
+// and `str::lines`, with Rust's `io::Error` display texts; the Unicode
+// properties and case mappings of `char` and `str::to_lowercase` (tables in
+// unicode_data.mbt).
 
 ///|
 /// A `std::io::Error`, carrying its display text.
@@ -122,4 +124,113 @@ fn indoc(s : String) -> String {
     }
   }
   result.to_string()
+}
+
+///|
+/// Whether `c` lies in one of the inclusive ranges of `table` (a flat array
+/// of `lo, hi` pairs in ascending order; see unicode_data.mbt).
+fn in_char_table(table : FixedArray[UInt], c : Char) -> Bool {
+  let v = c.to_uint()
+  for lo = 0, hi = table.length() / 2; lo < hi; {
+    let mid = lo + (hi - lo) / 2
+    if v < table[2 * mid] {
+      continue lo, mid
+    } else if v > table[2 * mid + 1] {
+      continue mid + 1, hi
+    } else {
+      break true
+    }
+  } nobreak {
+    false
+  }
+}
+
+///|
+/// `char::is_alphanumeric`.
+fn char_is_alphanumeric(c : Char) -> Bool {
+  in_char_table(alphanumeric_table, c)
+}
+
+///|
+/// `char::is_lowercase`.
+fn char_is_lowercase(c : Char) -> Bool {
+  in_char_table(lowercase_table, c)
+}
+
+///|
+/// `char::is_uppercase`.
+fn char_is_uppercase(c : Char) -> Bool {
+  in_char_table(uppercase_table, c)
+}
+
+///|
+/// The mapping of `c` in a case-mapping table of unicode_data.mbt, if `c`
+/// does not map to itself.
+fn case_mapping(
+  keys : FixedArray[UInt],
+  values : FixedArray[String],
+  c : Char,
+) -> String? {
+  let v = c.to_uint()
+  for lo = 0, hi = keys.length(); lo < hi; {
+    let mid = lo + (hi - lo) / 2
+    if v < keys[mid] {
+      continue lo, mid
+    } else if v > keys[mid] {
+      continue mid + 1, hi
+    } else {
+      break Some(values[mid])
+    }
+  } nobreak {
+    None
+  }
+}
+
+///|
+/// `write!(out, "{}", c.to_lowercase())`.
+fn write_char_lowercase(out : StringBuilder, c : Char) -> Unit {
+  match case_mapping(to_lowercase_keys, to_lowercase_values, c) {
+    Some(m) => out.write_string(m)
+    None => out.write_char(c)
+  }
+}
+
+///|
+/// `write!(out, "{}", c.to_uppercase())`.
+fn write_char_uppercase(out : StringBuilder, c : Char) -> Unit {
+  match case_mapping(to_uppercase_keys, to_uppercase_values, c) {
+    Some(m) => out.write_string(m)
+    None => out.write_char(c)
+  }
+}
+
+///|
+/// `case_ignorable_then_cased` of `map_uppercase_sigma`: the first
+/// character of `chars` that is not case-ignorable is cased.
+fn case_ignorable_then_cased(chars : Iter[Char]) -> Bool {
+  for c in chars {
+    if !in_char_table(case_ignorable_table, c) {
+      return in_char_table(cased_not_case_ignorable_table, c)
+    }
+  }
+  false
+}
+
+///|
+/// `str::to_lowercase`: `char::to_lowercase` of every character, except
+/// that `Σ` maps to `ς` at the end of a word (`map_uppercase_sigma`).
+fn str_to_lowercase(s : String) -> String {
+  let chars = s.to_array()
+  let out = StringBuilder()
+  for i, c in chars {
+    if c == 'Σ' {
+      // Σ maps to σ, except at the end of a word where it maps to ς.
+      let is_word_final = case_ignorable_then_cased(chars[:i].rev_iter()) &&
+        !case_ignorable_then_cased(chars[i + 1:].iter())
+      out.write_char(if is_word_final { 'ς' } else { 'σ' })
+    } else {
+      write_char_lowercase(out, c)
+    }
+  }
+  out.to_string()
 }
