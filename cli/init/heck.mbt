@@ -1,26 +1,7 @@
 // Port of the case conversions of the `heck` crate (0.5.0) that init.rs and
 // main.rs use: `to_kebab_case`, `to_snake_case`, `to_shouty_snake_case` and
 // `to_upper_camel_case`, all built on heck's `transform` word splitter.
-//
-// Character classes and case mappings are exact for ASCII. Non-ASCII
-// characters are treated as alphanumeric and uncased (Rust would consult the
-// Unicode tables); grammar names are C identifiers, so this does not arise
-// for names that `tree-sitter generate` accepts.
-
-///|
-fn heck_is_alphanumeric(c : Char) -> Bool {
-  c.is_ascii_alphabetic() || c.is_ascii_digit() || !c.is_ascii()
-}
-
-///|
-fn heck_is_lowercase(c : Char) -> Bool {
-  c.is_ascii_lowercase()
-}
-
-///|
-fn heck_is_uppercase(c : Char) -> Bool {
-  c.is_ascii_uppercase()
-}
+// Character classes and case mappings are Rust's (std_util.mbt).
 
 ///|
 /// Tracks the current 'mode' of the transformation algorithm as it scans the
@@ -47,7 +28,7 @@ fn transform(
   // `s.split(|c: char| !c.is_alphanumeric())`
   let words : Array[Array[Char]] = [[]]
   for c in s {
-    if heck_is_alphanumeric(c) {
+    if char_is_alphanumeric(c) {
       words[words.length() - 1].push(c)
     } else {
       words.push([])
@@ -63,16 +44,16 @@ fn transform(
         let next = word[next_i]
         // The mode including the current character, assuming the current
         // character does not result in a word boundary.
-        let next_mode = if heck_is_lowercase(c) {
+        let next_mode = if char_is_lowercase(c) {
           Lowercase
-        } else if heck_is_uppercase(c) {
+        } else if char_is_uppercase(c) {
           Uppercase
         } else {
           mode
         }
         // Word boundary after if current is not uppercase and next is
         // uppercase
-        if next_mode == Lowercase && heck_is_uppercase(next) {
+        if next_mode == Lowercase && char_is_uppercase(next) {
           if !first_word {
             boundary()
           }
@@ -83,8 +64,8 @@ fn transform(
           // Otherwise if current and previous are uppercase and next is
           // lowercase, word boundary before
         } else if mode == Uppercase &&
-          heck_is_uppercase(c) &&
-          heck_is_lowercase(next) {
+          char_is_uppercase(c) &&
+          char_is_lowercase(next) {
           if !first_word {
             boundary()
           } else {
@@ -112,28 +93,34 @@ fn transform(
 }
 
 ///|
+/// `heck::lowercase`.
 fn heck_lowercase(s : String, out : StringBuilder) -> Unit {
-  for c in s {
-    out.write_char(c.to_ascii_lowercase())
+  let chars = s.to_array()
+  for i, c in chars {
+    if c == 'Σ' && i + 1 == chars.length() {
+      out.write_char('ς')
+    } else {
+      write_char_lowercase(out, c)
+    }
   }
 }
 
 ///|
+/// `heck::uppercase`.
 fn heck_uppercase(s : String, out : StringBuilder) -> Unit {
   for c in s {
-    out.write_char(c.to_ascii_uppercase())
+    write_char_uppercase(out, c)
   }
 }
 
 ///|
+/// `heck::capitalize`.
 fn heck_capitalize(s : String, out : StringBuilder) -> Unit {
-  let mut first = true
-  for c in s {
-    if first {
-      out.write_char(c.to_ascii_uppercase())
-      first = false
-    } else {
-      out.write_char(c.to_ascii_lowercase())
+  let chars = s.to_array()
+  if chars.length() > 0 {
+    write_char_uppercase(out, chars[0])
+    if chars.length() > 1 {
+      heck_lowercase(String::from_array(chars[1:]), out)
     }
   }
 }

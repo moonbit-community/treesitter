@@ -294,3 +294,51 @@ test "failure messages" {
     content="Failure - row: 3, column: 3, expected highlight 'keyword', actual highlights: none.",
   )
 }
+
+///|
+test "zero_length_assertion_ends_at_usize_max" {
+  // `column + length - 1` wraps to `usize::MAX` (0x7FFFFFFF here) in the
+  // release CLI, so a zero-length assertion at column 0 spans the whole row.
+  let highlight_names = ["keyword", "variable"]
+  let highlights = [(point(0, 0), point(0, 5), h(0))]
+  let result = iterate(
+    [assertion(0, 0, 0, false, "keyword")],
+    highlights,
+    highlight_names,
+  )
+  assert_eq(result, Ok(1))
+  let result = iterate(
+    [assertion(0, 0, 0, false, "variable")],
+    highlights,
+    highlight_names,
+  )
+  let (row, column, expected, actual) = failure(result)
+  assert_eq(row, 0)
+  assert_eq(column, 0x7FFFFFFF)
+  assert_eq(expected, "variable")
+  assert_eq(actual, ["keyword"])
+}
+
+///|
+async test "highlight_positions_of_source_with_incomplete_utf8" {
+  // `String::from_utf8_lossy` replaces the incomplete trailing sequence with
+  // U+FFFD and keeps the valid source before it.
+  guard @fixtures.get_highlight_config("javascript", Some("injections.scm"), [
+      "variable",
+    ])
+    is Some(config) else {
+    return
+  }
+  let highlighter = @highlight.Highlighter::new()
+  let positions = @query_testing.get_highlight_positions(
+    highlighter,
+    config,
+    _ => None,
+    b"foo;\xe2\x82",
+  )
+  // The U+FFFD is an identifier too.
+  assert_eq(positions, [
+    (point(0, 0), point(0, 3), h(0)),
+    (point(0, 4), point(0, 4), h(0)),
+  ])
+}

@@ -104,7 +104,7 @@ fn py_set_end_character(delimiter : Int32, character : Int32) -> Int32 {
     '\'' => delimiter | PY_SINGLE_QUOTE
     '"' => delimiter | PY_DOUBLE_QUOTE
     '`' => delimiter | PY_BACK_QUOTE
-    _ => abort("assert(false)")
+    _ => c_assert_fail("false", "set_end_character", 81)
   }
 }
 

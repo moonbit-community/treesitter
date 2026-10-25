@@ -324,7 +324,7 @@ fn join(base : String, rel : String) -> String {
 
 ///|
 /// `fs::read_to_string(path)?` inside an `anyhow::Result` function.
-async fn read_file(path : String) -> String raise InitError {
+fn read_file(path : String) -> String raise InitError {
   read_to_string(path) catch {
     IoError(e) => raise anyhow(e)
   }
@@ -1012,7 +1012,7 @@ async fn generate_java_bindings(
           }
           package_path = join(
             join(package_path, "jtreesitter"),
-            rust_to_lowercase(ctx.language_name).replace_all(old="_", new=""),
+            str_to_lowercase(ctx.language_name).replace_all(old="_", new=""),
           )
           ignore(
             missing_path(package_path, create_dir).apply(path => {
@@ -1059,13 +1059,13 @@ fn path_push(base : String, rel : String) -> String {
 }
 
 ///|
-/// `str::to_lowercase` (ASCII; see heck.mbt).
-fn rust_to_lowercase(s : String) -> String {
-  let sb = StringBuilder()
-  for c in s {
-    sb.write_char(c.to_ascii_lowercase())
-  }
-  sb.to_string()
+/// `str::eq_ignore_ascii_case`.
+fn eq_ignore_ascii_case(a : String, b : String) -> Bool {
+  a.length() == b.length() &&
+  a
+  .iter()
+  .zip(b.iter())
+  .all(p => p.0.to_ascii_lowercase() == p.1.to_ascii_lowercase())
 }
 
 // TODO: remove old migrations
@@ -1620,7 +1620,61 @@ async fn regenerate_if_missing(
   }
 }
 
-// `get_root_path` is not ported: nothing in the CLI calls it.
+///|
+/// `get_root_path`: the directory of the nearest `path`, `path`'s parent's
+/// sibling, and so on up the ancestors, that is a valid `tree-sitter.json`
+/// (or, for a `package.json`, one that has a `tree-sitter` key).
+pub async fn get_root_path(path : String) -> String {
+  let mut pathbuf = path
+  let filename = @support.file_name(path).unwrap()
+  let is_package_json = filename == "package.json"
+  for ;; {
+    let json = if path_exists(pathbuf) {
+      let contents = read_to_string(pathbuf) catch {
+        IoError(e) => raise with_context(e, "Failed to read \{filename}")
+      }
+      if is_package_json {
+        // `serde_json::from_str::<Map<String, Value>>`.
+        let has_tree_sitter = @support.from_str_with(contents, de => {
+          de.deserialize_map("a map", map => {
+            let mut found = false
+            while map.next_key() is Some(key) {
+              ignore(map.next_value(@support.Deserializer::deserialize_value))
+              if key == "tree-sitter" {
+                found = true
+              }
+            }
+            found
+          })
+        }) catch {
+          e => raise with_context(e.to_string(), "Failed to parse \{filename}")
+        }
+        Some(has_tree_sitter)
+      } else {
+        ignore(
+          @loader.TreeSitterJSON::parse(contents) catch {
+            @loader.JsonError(e) =>
+              raise with_context(e, "Failed to parse \{filename}")
+          },
+        )
+        Some(true)
+      }
+    } else {
+      None
+    }
+    if json == Some(true) {
+      return @support.parent(pathbuf).unwrap()
+    }
+    // `pathbuf.pop()`: the filename, then the directory
+    pathbuf = @support.parent(pathbuf).unwrap_or(pathbuf)
+    guard @support.parent(pathbuf) is Some(parent) else {
+      raise anyhow(
+        "Failed to locate a \{filename} file, please ensure you have one, and if you don't then consult the docs",
+      )
+    }
+    pathbuf = @support.path_join(parent, filename)
+  }
+}
 
 ///|
 async fn generate_file(
@@ -1631,7 +1685,7 @@ async fn generate_file(
 ) -> Unit {
   let filename = @support.file_name(path).unwrap()
   let lower_parser_name = if @support.extension(path) is Some(e) &&
-    rust_to_lowercase(e) == "java" {
+    eq_ignore_ascii_case(e, "java") {
     to_snake_case(language_name).replace_all(old="_", new="")
   } else {
     to_snake_case(language_name)

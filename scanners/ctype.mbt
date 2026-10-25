@@ -55,6 +55,21 @@ fn to_c_char(c : Int32) -> Int32 {
 const SERIALIZATION_BUFFER_SIZE : Int32 = 1024
 
 ///|
+/// A failed C `assert(expression)` as the pinned platform's libc reports it
+/// (macOS `__assert_rtn`): the diagnostic on stderr, then `abort()` (a panic
+/// here).
+fn[T] c_assert_fail(
+  expression : String,
+  function : String,
+  line : Int32,
+) -> T {
+  eprintln(
+    "Assertion failed: (\{expression}), function \{function}, file scanner.c, line \{line}.",
+  )
+  panic()
+}
+
+///|
 fn iswxdigit(c : Int32) -> Bool {
   iswdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
 }
@@ -65,6 +80,16 @@ fn iswxdigit(c : Int32) -> Bool {
 fn towupper(c : Int32) -> Int32 {
   if iswlower(c) {
     c - 'a' + 'A'
+  } else {
+    c
+  }
+}
+
+///|
+/// `towlower` in the "C" locale maps only 'A'-'Z', like `towupper`.
+fn towlower(c : Int32) -> Int32 {
+  if iswupper(c) {
+    c - 'A' + 'a'
   } else {
     c
   }

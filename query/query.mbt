@@ -80,7 +80,7 @@ pub struct Query {
   priv patterns : Array[QueryPattern]
   priv step_offsets : Array[StepOffset]
   priv negated_fields : Array[Int]
-  priv string_buffer : Array[Byte]
+  priv mut string_buffer : Array[Byte]
   priv repeat_symbols_with_rootless_patterns : Array[Int]
   priv language : @language.Language
   priv mut wildcard_root_pattern_count : Int

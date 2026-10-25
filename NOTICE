@@ -18,6 +18,26 @@ test/fixtures/fixtures.json, all distributed under the MIT license:
 - tree-sitter-rust v0.24.0, Copyright (c) 2017 Maxim Sokolov (rust.mbt)
 - tree-sitter-typescript v0.23.2, Copyright (c) 2017 Max Brunsfeld (typescript*.mbt, tsx.mbt)
 
+Other grammar scanners (scanners): faithful MoonBit ports of the C external
+scanners of the grammars pinned in grammars/grammars.json, all distributed
+under the MIT license:
+- tree-sitter-c-sharp v0.23.5, Copyright (c) 2014-2023 Max Brunsfeld, Damien Guard, Amaan Qureshi, and contributors. (c_sharp.mbt)
+- tree-sitter-css v0.25.0, Copyright (c) 2018 Max Brunsfeld (css.mbt)
+- tree-sitter-julia v0.25.0, Copyright (c) 2018 Max Brunsfeld, GitHub (julia.mbt)
+- tree-sitter-lua v0.5.0, Copyright (c) 2021 Munif Tanjim (lua.mbt)
+- tree-sitter-scala v0.26.3, Copyright (c) 2018 Max Brunsfeld and GitHub (scala.mbt)
+- tree-sitter-ocaml v0.26.0, Copyright (c) 2020 Max Brunsfeld and Pieter Goetschalckx (ocaml*.mbt)
+- tree-sitter-toml v0.7.0, Copyright (c) Ika <ikatyang@gmail.com> (https://github.com/ikatyang) (toml.mbt)
+- tree-sitter-yaml v0.7.2, Copyright (c) 2024 tree-sitter-grammars
+  contributors, Copyright (c) 2019-2021 Ika (yaml.mbt from src/scanner.c,
+  yaml_schema_core.mbt, yaml_schema_json.mbt, yaml_schema_legacy.mbt from
+  src/schema.core.c, src/schema.json.c, src/schema.legacy.c)
+- tree-sitter-markdown v0.5.4, Copyright (c) 2021 Matthias Deiml
+  (markdown.mbt from tree-sitter-markdown/src/scanner.c, markdown_inline.mbt
+  from tree-sitter-markdown-inline/src/scanner.c)
+- tree-sitter-haskell v0.24.1, Copyright (c) 2014 Max Brunsfeld (haskell.mbt,
+  haskell_unicode.mbt from src/scanner.c and src/unicode.h)
+
 Ported Rust crates, each dual-licensed MIT OR Apache-2.0 upstream and used
 here under the MIT license:
 - regex-syntax 0.8.11 (regex_syntax), and the matching semantics of
@@ -26,4 +46,19 @@ here under the MIT license:
   (clap, clap_complete); Copyright (c) Individual contributors
 - bstr 1.13.1's grapheme segmentation DFA (query_testing/grapheme_dfa.mbt);
   Copyright (c) 2018-2019 Andrew Gallant
+- glob 0.3.4 (cli/glob) and heck 0.5.0 (cli/init); Copyright (c) 2014-2015
+  The Rust Project Developers
+- serde_json 1.0.154 and serde 1.0.229 deserialization semantics (serde_json,
+  cli/support), semver 1.0.28 (loader/semver.mbt) and zmij 1.0.23 float
+  formatting; by David Tolnay (no copyright line in their LICENSE-MIT files)
+- rand 0.10.3 sampling and chacha20 0.10.2's ChaCha12 `StdRng`
+  (cli_test/std_rng.mbt); Copyright 2018 Developers of the Rand project,
+  Copyright (c) 2019-2026 The RustCrypto Project Developers
+- webbrowser 1.2.4 (cli/support/webbrowser.mbt); Copyright (c) 2015-2022
+  Amod Malviya
+- walkdir 2.5.0's traversal semantics (also under the Unlicense);
+  Copyright (c) 2015 Andrew Gallant
+Rust standard library behaviour (Unicode tables, `Debug` escaping, UTF-8
+validation, SipHash-1-3 `DefaultHasher`) is reproduced from Rust 1.97.1,
+dual-licensed MIT OR Apache-2.0, Copyright (c) The Rust Project Contributors.
 Unicode data derived tables are covered by licenses/UNICODE.txt.

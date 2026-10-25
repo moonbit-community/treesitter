@@ -166,12 +166,28 @@ fn ruby_bool_byte(b : Bool) -> Byte {
 }
 
 ///|
+/// `scanner->literal_stack.size * 5 + 2 >=
+/// TREE_SITTER_SERIALIZATION_BUFFER_SIZE` in `uint32_t` arithmetic.
+fn ruby_literals_overflow(literal_count : Int32) -> Bool {
+  literal_count.reinterpret_as_uint() * 5 + 2 >=
+  SERIALIZATION_BUFFER_SIZE.reinterpret_as_uint()
+}
+
+///|
+/// `size + 2 + heredoc->word.size >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE`
+/// in `unsigned` arithmetic.
+fn ruby_heredoc_overflows(size : Int32, word_length : Int32) -> Bool {
+  size.reinterpret_as_uint() + 2 + word_length.reinterpret_as_uint() >=
+  SERIALIZATION_BUFFER_SIZE.reinterpret_as_uint()
+}
+
+///|
 fn RubyScanner::serialize(
   self : RubyScanner,
   buffer : FixedArray[Byte],
 ) -> Int32 {
   let mut size = 0
-  if self.literal_stack.length() * 5 + 2 >= SERIALIZATION_BUFFER_SIZE {
+  if ruby_literals_overflow(self.literal_stack.length()) {
     return 0
   }
   buffer[size] = self.literal_stack.length().to_byte()
@@ -191,7 +207,7 @@ fn RubyScanner::serialize(
   buffer[size] = self.open_heredocs.length().to_byte()
   size += 1
   for heredoc in self.open_heredocs {
-    if size + 2 + heredoc.word.length() >= SERIALIZATION_BUFFER_SIZE {
+    if ruby_heredoc_overflows(size, heredoc.word.length()) {
       return 0
     }
     buffer[size] = ruby_bool_byte(heredoc.end_word_indentation_allowed)
@@ -259,7 +275,9 @@ fn RubyScanner::deserialize(self : RubyScanner, buffer : BytesView) -> Unit {
     size += word_length
     self.open_heredocs.push(heredoc)
   }
-  guard size == length else { abort("assert(size == length)") }
+  guard size == length else {
+    c_assert_fail("size == length", "deserialize", 160)
+  }
 }
 
 ///|

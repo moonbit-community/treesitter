@@ -6,17 +6,17 @@
 // - The example names are printed only when `TREE_SITTER_CORPUS_VERBOSE` is
 //   set (moon shows the output of passing tests too); failures are always
 //   printed.
-// - `TREE_SITTER_DUMP_EDITS` is not supported.
-// - The random edits come from a different generator than upstream's
-//   `StdRng`, so a seed does not reproduce upstream's edits.
+// - `TREE_SITTER_DUMP_EDITS` is not supported, and with
+//   `TREE_SITTER_LOG_GRAPHS` the inputs go to standard output and the graphs
+//   to standard error (there is no `log.html`).
 
 ///|
 /// `#[test_with_seed(retry=n, seed=seed, seed_fn=new_seed)]`: run `f` with
 /// `seed`, retrying at most `retry` times with a new seed.
 async fn test_with_seed(
   retry : Int32,
-  seed : Int32,
-  f : async (Int32) -> Unit,
+  seed : UInt64,
+  f : async (UInt64) -> Unit,
 ) -> Unit {
   let mut seed = seed
   for i in 0..<=retry {
@@ -175,7 +175,7 @@ async fn parse_tests_or_default(path : String) -> @cli_test.TestEntry {
 ///|
 async fn test_language_corpus(
   language_name : String,
-  start_seed : Int32,
+  start_seed : UInt64,
   skipped : Array[String]?,
   language_dir : String?,
 ) -> Unit {
@@ -244,21 +244,11 @@ async fn test_language_corpus(
     let parser = @treesitter.Parser::new()
     parser.set_language(language)
     let tree = parser.parse(test_case.input).unwrap()
-    for trial in 0..<@cli_test.iteration_count() {
+    for trial in 0UL..<@cli_test.iteration_count() {
       let seed = start_seed + trial
-      let passed = @cli_test.fuzz_trial(
-        language,
-        tree,
-        test_case,
-        test_name,
-        test_index,
-        trial,
-        seed,
-        start_seed,
-        @cli_test.edit_count(),
-        @cli_test.log_graph_enabled(),
+      let passed = corpus_trial(
+        language, tree, test_case, test_name, test_index, trial, seed, start_seed,
         log_seed,
-        check_output=true,
       )
       if !passed {
         failure_count += 1
@@ -288,6 +278,106 @@ async fn test_language_corpus(
 }
 
 ///|
+/// The body of one trial of `test_language_corpus` (a closure upstream).
+async fn corpus_trial(
+  language : @treesitter.Language,
+  tree : @treesitter.Tree,
+  test_case : @cli_test.FlattenedTest,
+  test_name : String,
+  test_index : Int32,
+  trial : UInt64,
+  seed : UInt64,
+  start_seed : UInt64,
+  log_seed : Bool,
+) -> Bool {
+  let rand = @cli_test.Rand::new(seed)
+  let log_session = Ref(None)
+  defer @cli_test.end_log_session(log_session.val)
+  let parser = @cli_test.get_parser(log_session, "log.html")
+  parser.set_language(language)
+  let tree = tree.clone()
+  let input = test_case.input.to_array()
+  if @cli_test.log_graph_enabled() {
+    println("\{@utf8.decode_lossy(Bytes::from_array(input))}\n")
+  }
+
+  // Perform a random series of edits and reparse.
+  let edit_count = rand.unsigned(@cli_test.edit_count())
+  let undo_stack = []
+  for _ in 0UL..<=edit_count {
+    let edit = @cli_test.get_random_edit(rand, input)
+    undo_stack.push(@cli_test.invert_edit(input, edit))
+    ignore(@cli_test.perform_edit(tree, input, edit))
+  }
+  if log_seed {
+    println(
+      "   \{test_index}.\{@cli_test.pad_right(trial.to_string(), 2)} seed: \{seed}",
+    )
+  }
+  if @cli_test.log_graph_enabled() {
+    println("\{@utf8.decode_lossy(Bytes::from_array(input))}\n")
+  }
+  @cli_test.set_included_ranges(
+    parser,
+    Bytes::from_array(input),
+    test_case.template_delimiters,
+  )
+  let tree2 = parser.parse(Bytes::from_array(input), old_tree=tree).unwrap()
+
+  // Check that the new tree is consistent.
+  @cli_test.check_consistent_sizes(tree2, Bytes::from_array(input))
+  if @cli_test.check_changed_ranges(tree, tree2, Bytes::from_array(input))
+    is Err(message) {
+    println(
+      "\nUnexpected scope change in seed \{seed} with start seed \{start_seed}\n\{message}\n\n",
+    )
+    return false
+  }
+
+  // Undo all of the edits and re-parse again.
+  while undo_stack.pop() is Some(edit) {
+    ignore(@cli_test.perform_edit(tree2, input, edit))
+  }
+  if @cli_test.log_graph_enabled() {
+    println("\{@utf8.decode_lossy(Bytes::from_array(input))}\n")
+  }
+  @cli_test.set_included_ranges(
+    parser,
+    test_case.input,
+    test_case.template_delimiters,
+  )
+  let tree3 = parser.parse(Bytes::from_array(input), old_tree=tree2).unwrap()
+
+  // Verify that the final tree matches the expectation from the corpus.
+  let actual_output = @cli_test.render_test_output(
+    Bytes::from_array(input),
+    tree3,
+    test_case.cst,
+    test_case.has_fields,
+  )
+  if actual_output != test_case.output {
+    println("Incorrect parse for \{test_name} - seed \{seed}")
+    @cli_test.DiffKey::print()
+    println(
+      @cli_test.TestDiff::new(actual_output, test_case.output).to_string(),
+    )
+    println("")
+    return false
+  }
+
+  // Check that the edited tree is consistent.
+  @cli_test.check_consistent_sizes(tree3, Bytes::from_array(input))
+  if @cli_test.check_changed_ranges(tree2, tree3, Bytes::from_array(input))
+    is Err(message) {
+    println(
+      "Unexpected scope change in seed \{seed} with start seed \{start_seed}\n\{message}\n\n",
+    )
+    return false
+  }
+  true
+}
+
+///|
 async test "feature_corpus_files" {
   // The test grammars, with their `grammar.json` (`load_grammar_file`), as
   // copied by tools/oracle/ref_generate.sh.
@@ -299,10 +389,8 @@ async test "feature_corpus_files" {
   }
   let mut failure_count = 0
   for language_name in @fs.readdir(test_grammars_dir, sort=true) {
-    // (`_build/ref` also holds the fixture grammars and the other grammars
-    // of grammars/grammars.json.)
-    if language_name.has_prefix("fixture_") ||
-      language_name.has_prefix("extra_") {
+    // (`_build/ref` also holds the fixture and extra grammars.)
+    if language_name.has_prefix("fixture_") || language_name.has_prefix("extra_") {
       continue
     }
     let test_path = "\{test_grammars_dir}/\{language_name}"

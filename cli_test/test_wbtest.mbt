@@ -215,7 +215,9 @@ test "format_sexp" {
     ),
   )
   assert_eq(
-    @treesitter.format_sexp("(program (ERROR (UNEXPECTED ' ')) (identifier))", 0),
+    @treesitter.format_sexp(
+      "(program (ERROR (UNEXPECTED ' ')) (identifier))", 0,
+    ),
     trimmed(
       (
         #|

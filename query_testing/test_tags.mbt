@@ -22,7 +22,7 @@ pub fn test_tag(
   for assertion in assertions {
     let { position, length, negative, expected_capture_name: expected_tag, } = assertion
     let mut passed = false
-    let mut end_column = position.column + length - 1
+    let mut end_column = assertion_end_column(position.column, length)
     tag_loop~: while tags.get(i) is Some(tag) {
       if tag.1 <= position {
         i += 1
@@ -33,7 +33,7 @@ pub fn test_tag(
       // position, looking for one that matches the assertion
       let mut j = i
       while !passed && tags.get(j) is Some(tag) {
-        end_column = position.column + length - 1
+        end_column = assertion_end_column(position.column, length)
         if tag.0.column > end_column {
           break tag_loop~
         }

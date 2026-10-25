@@ -36,9 +36,10 @@ def main():
     ap.add_argument('--externals', action='store_true')
     ap.add_argument('--show', type=int, default=3)
     ap.add_argument('--queries', help='directory of extra .scm files to run against every grammar')
+    ap.add_argument('--exclude', action='append', default=[], help='skip this grammar (repeatable)')
     ap.add_argument('names', nargs='*')
     args = ap.parse_args()
-    names = args.names or sorted(p.stem for p in dr.LANG.glob('*.json'))
+    names = [n for n in (args.names or sorted(p.stem for p in dr.LANG.glob('*.json'))) if n not in args.exclude]
     total = same = 0
     for name in names:
         lang = json.loads((dr.LANG / f'{name}.json').read_text())

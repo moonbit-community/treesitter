@@ -145,14 +145,13 @@ pub fn PossibleValue::should_show_help(self : PossibleValue) -> Bool {
 }
 
 ///|
-/// `PossibleValue::get_visible_quoted_name`.
+/// `PossibleValue::get_visible_quoted_name`: the name, `Debug`-quoted if it is
+/// empty or contains whitespace (`Escape::to_cow`).
 pub fn PossibleValue::get_visible_quoted_name(self : PossibleValue) -> String? {
   if self.hide {
     None
-  } else if self.name.contains_any(chars=" \t\n") {
-    Some("\"\{self.name}\"")
   } else {
-    Some(self.name)
+    Some(escape(self.name))
   }
 }
 
@@ -207,6 +206,7 @@ pub(all) enum ValueParser {
   String
   PathBuf
   Bool
+  U8
   U32
   U64
   Usize
@@ -297,6 +297,46 @@ pub fn Arg::new(id : String) -> Arg {
     help_heading: None,
     value_terminator: None,
     value_delimiter: None,
+  }
+}
+
+///|
+/// `Clone for Arg` (used to propagate global arguments to subcommands).
+fn Arg::clone(self : Arg) -> Arg {
+  {
+    id: self.id,
+    short: self.short,
+    long: self.long,
+    help: self.help,
+    long_help: self.long_help,
+    action: self.action,
+    num_vals: self.num_vals,
+    val_names: self.val_names.copy(),
+    value_parser: self.value_parser,
+    value_hint: self.value_hint,
+    index: self.index,
+    required: self.required,
+    hide: self.hide,
+    last: self.last,
+    global: self.global,
+    exclusive: self.exclusive,
+    require_equals: self.require_equals,
+    allow_hyphen_values: self.allow_hyphen_values,
+    hide_possible_values: self.hide_possible_values,
+    hide_default_value: self.hide_default_value,
+    next_line_help: self.next_line_help,
+    default_vals: self.default_vals.copy(),
+    default_missing_vals: self.default_missing_vals.copy(),
+    env: self.env,
+    conflicts: self.conflicts.copy(),
+    requires: self.requires.copy(),
+    groups: self.groups.copy(),
+    short_aliases: self.short_aliases.copy(),
+    aliases: self.aliases.copy(),
+    disp_ord: self.disp_ord,
+    help_heading: self.help_heading,
+    value_terminator: self.value_terminator,
+    value_delimiter: self.value_delimiter,
   }
 }
 
@@ -753,7 +793,7 @@ fn Arg::build(self : Arg) -> Unit {
     self.value_parser = Some(
       match self.action {
         Some(SetTrue) => Bool
-        Some(Count) => U32
+        Some(Count) => U8
         _ => String
       },
     )

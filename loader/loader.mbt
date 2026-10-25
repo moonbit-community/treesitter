@@ -33,6 +33,7 @@ pub let default_tags_query_file_name : String = "tags.scm"
 /// `LoaderError`. `IO` and `Serialization` carry their display text.
 pub(all) suberror LoaderError {
   IO(String)
+  LockFileTimeout(String)
   CurrentDirectoryLoad(LoaderError)
   ExternalFile(String, String)
   FileNameLoad(String, LoaderError)
@@ -61,6 +62,10 @@ pub impl Show for LoaderError with fn output(self, logger) {
   match self {
     IO(message) | Serialization(message) | Scanner(message) | Script(message) =>
       logger.write_string(message)
+    LockFileTimeout(path) =>
+      logger.write_string(
+        "Lock file '\{path}' appears stale\nIf there isn't another concurrent tree-sitter instance, remove it",
+      )
     CurrentDirectoryLoad(e) =>
       logger.write_string("Failed to load language in current directory:\n\{e}")
     ExternalFile(a, b) =>
@@ -130,28 +135,9 @@ pub fn LoaderRegex::is_match(self : LoaderRegex, text : String) -> Bool {
 }
 
 ///|
-/// Rust's `Debug for str`.
+/// Rust's `Debug for str` (`@support.rust_debug_str`).
 pub fn rust_debug_str(s : String) -> String {
-  let sb = StringBuilder()
-  sb.write_char('"')
-  for c in s {
-    match c {
-      '"' => sb.write_string("\\\"")
-      '\\' => sb.write_string("\\\\")
-      '\n' => sb.write_string("\\n")
-      '\r' => sb.write_string("\\r")
-      '\t' => sb.write_string("\\t")
-      '\u{0}' => sb.write_string("\\0")
-      _ =>
-        if c.to_int() < 0x20 || c.to_int() == 0x7f {
-          sb.write_string("\\u{\{c.to_int().to_string(radix=16)}}")
-        } else {
-          sb.write_char(c)
-        }
-    }
-  }
-  sb.write_char('"')
-  sb.to_string()
+  @support.rust_debug_str(s)
 }
 
 ///|
@@ -226,14 +212,35 @@ fn warn(message : String) -> Unit {
 
 ///|
 /// `Loader::new`: `$TREE_SITTER_LIBDIR`, else `<cache dir>/tree-sitter/lib`.
-pub fn Loader::new() -> Loader raise LoaderError {
+/// Without `TREE_SITTER_LIBDIR`, macOS removes the libraries that older
+/// versions cached in `~/Library/Caches/tree-sitter`.
+pub async fn Loader::new() -> Loader {
   let parser_lib_path = match @env.get_env_var("TREE_SITTER_LIBDIR") {
     Some(path) => path
-    None =>
+    None => {
+      if @support.target_os() == "macos" {
+        // `etcetera::base_strategy::Apple::new()?.cache_dir()`
+        // (`$HOME/Library/Caches/`)
+        let legacy_apple_path = match @support.home_dir() {
+          Some(home) =>
+            @support.path_join(
+              @support.path_join(home, "Library/Caches/"),
+              "tree-sitter",
+            )
+          None => raise HomeDir
+        }
+        if @fs.exists(legacy_apple_path) && @support.is_dir(legacy_apple_path) {
+          @support.remove_dir_all(legacy_apple_path) catch {
+            e =>
+              raise IO(@support.io_error_with_path(e, Some(legacy_apple_path)))
+          }
+        }
+      }
       match @support.cache_dir() {
         Some(dir) => @support.path_join(dir, "tree-sitter/lib")
         None => raise HomeDir
       }
+    }
   }
   Loader::with_parser_lib_path(parser_lib_path)
 }
@@ -316,13 +323,14 @@ pub async fn Loader::languages_at_path(
     _ => return []
   }
   let language_ids = configurations.map(c => (c.language_id, c.language_name))
-  // `sort_unstable` + `dedup` on (id, name) pairs.
+  // `sort_unstable` + `dedup` on (id, name) pairs: elements that compare
+  // equal are identical, so the unstable sort is deterministic.
   language_ids.sort_by((a, b) => {
     let c = a.0.compare(b.0)
     if c != 0 {
       c
     } else {
-      a.1.compare(b.1)
+      rust_str_cmp(a.1, b.1)
     }
   })
   let deduped : Array[(Int32, String)] = []
@@ -337,6 +345,22 @@ pub async fn Loader::languages_at_path(
     result.push((self.language_for_id(entry.0), entry.1))
   }
   result
+}
+
+///|
+/// Rust's `str::cmp`: lexicographic by UTF-8 bytes, which is the order of
+/// code points (MoonBit's `String::compare` orders by length first).
+fn rust_str_cmp(a : String, b : String) -> Int32 {
+  let a = a.iter()
+  let b = b.iter()
+  for ;; {
+    match (a.next(), b.next()) {
+      (Some(x), Some(y)) => if x != y { return x.to_int().compare(y.to_int()) }
+      (Some(_), None) => return 1
+      (None, Some(_)) => return -1
+      (None, None) => return 0
+    }
+  }
 }
 
 ///|
@@ -364,8 +388,12 @@ pub async fn Loader::language_configuration_for_scope(
 
 ///|
 /// `language_configuration_for_first_line_regex`. Upstream folds over a
-/// `HashMap`, so the result is that of the last entry visited; entries are
-/// visited in insertion order here.
+/// `HashMap` whose iteration order depends on its per-process random hash
+/// keys, and the fold returns the result of the last entry visited (`None`
+/// if that entry's pattern does not match the first line). The port keeps
+/// the fold semantics over the map's insertion order (the order in which the
+/// patterns were first seen), which is one of the orders upstream may use;
+/// with a single first-line pattern both agree.
 pub async fn Loader::language_configuration_for_first_line_regex(
   self : Loader,
   path : String,
@@ -374,22 +402,16 @@ pub async fn Loader::language_configuration_for_first_line_regex(
   for regex, ids in self.language_configuration_ids_by_first_line_regex {
     result = None
     guard make_regex(Some(regex)) is Some(regex) else { continue }
-    let contents = @fs.read_file(path).binary() catch {
+    let reader = LineReader::open(path) catch {
       e => raise IO(@support.io_error_with_path(e, Some(path)))
     }
-    let text = @support.utf8_lossy(contents)
-    let first_line = match text.find("\n") {
-      Some(i) => {
-        let line = text.unsafe_substring(start=0, end=i)
-        if line.has_suffix("\r") {
-          line.unsafe_substring(start=0, end=line.length() - 1)
-        } else {
-          line
-        }
-      }
-      None => text
+    defer reader.close()
+    let first_line = reader.next_line() catch {
+      e => raise IO("\{line_error_message(e)} (\{path})")
     }
-    if !text.is_empty() && regex.is_match(first_line) && !ids.is_empty() {
+    if first_line is Some(first_line) &&
+      regex.is_match(first_line) &&
+      !ids.is_empty() {
       let configuration = self.language_configurations[ids[0]]
       let language = self.language_for_id(configuration.language_id)
       result = Some((language, configuration))
@@ -445,7 +467,7 @@ pub async fn Loader::language_configuration_for_file_name(
   } else {
     // If multiple language configurations match, then determine which one
     // to use by applying the configurations' content regexes.
-    let contents = @fs.read_file(path).binary() catch {
+    let contents = @support.read_file(path) catch {
       e => raise IO(@support.io_error_with_path(e, Some(path)))
     }
     let file_contents = @support.utf8_lossy(contents)
@@ -512,7 +534,10 @@ pub async fn Loader::language_for_configuration(
 }
 
 ///|
-async fn Loader::language_for_id(self : Loader, id : Int32) -> @treesitter.Language {
+async fn Loader::language_for_id(
+  self : Loader,
+  id : Int32,
+) -> @treesitter.Language {
   let entry = self.languages_by_id[id]
   match entry.language {
     Some(language) => language
@@ -572,6 +597,7 @@ async fn needs_recompile(
 fn to_loader_error(e : Error) -> LoaderError {
   match e {
     IO(m) => IO(m)
+    LockFileTimeout(p) => LockFileTimeout(p)
     CurrentDirectoryLoad(l) => CurrentDirectoryLoad(l)
     ExternalFile(a, b) => ExternalFile(a, b)
     FileNameLoad(a, l) => FileNameLoad(a, l)
@@ -639,14 +665,63 @@ async fn Loader::load_language_tables(
     self.parser_lib_path,
     lib_name + ".language.json",
   )
-  if !self.force_rebuild && !needs_recompile(output_path, paths_to_check) {
-    return read_language_json(output_path)
+  let recompile = self.force_rebuild ||
+    needs_recompile(output_path, paths_to_check)
+  // Create a unique lock path based on the output path hash to prevent
+  // interference when multiple processes build the same grammar (by name)
+  // to different output locations
+  let lock_hash = path_hash_hex(output_path)
+  let lock_path = match @support.cache_dir() {
+    Some(dir) =>
+      @support.path_join(dir, "tree-sitter/lock/\{name}-\{lock_hash}.lock")
+    None => raise HomeDir
   }
+  // Synchronize generation across processes using an atomic lock file.
+  // Exactly one caller wins the race to generate. Losers wait for the lock
+  // file to be removed, then skip generation and proceed to loading.
+  //
+  // Loading only (`recompile == false`) doesn't need a lock because
+  // `generate_language_tables` writes to a temp file and atomically renames
+  // it into place, so loaders always see a complete language file (either
+  // the new or previous copy).
+  //
+  // `LockFile::drop` runs on every exit of the winner, and stale locks from
+  // killed processes are detected via a timeout in `wait_for_removal`.
+  if recompile {
+    let parent_path = @support.parent(lock_path).unwrap()
+    @support.create_dir_all(parent_path) catch {
+      e => raise IO(@support.io_error_with_path(e, Some(parent_path)))
+    }
+    match LockFile::create(lock_path) {
+      Some(lock) => {
+        // We won the race, so generate with the lock.
+        defer lock.drop()
+        return generate_language_tables(src_path, output_path)
+      }
+      // Another process is generating (or a previous run crashed and left a
+      // stale lock). Wait for it to finish.
+      None => LockFile::wait_for_removal(lock_path, 30000)
+    }
+  }
+  read_language_json(output_path)
+}
+
+///|
+/// The port of `compile_parser_to_dylib`: generate the language tables from
+/// `src/grammar.json` and publish them at `output_path`.
+async fn generate_language_tables(
+  src_path : String,
+  output_path : String,
+) -> @language.Language {
+  let grammar_path = @support.path_join(src_path, "grammar.json")
   let grammar_json = @fs.read_file(grammar_path).text() catch {
     e => raise IO(@support.io_error_with_path(e, Some(grammar_path)))
   }
   let repo_path = @support.parent(src_path).unwrap_or(".")
-  let semantic_version = read_grammar_version(repo_path)
+  let semantic_version = read_grammar_version(repo_path) catch {
+    IOError(e, path) => raise IO(@support.io_error_with_path(e, Some(path)))
+    e => raise Serialization(e.to_string())
+  }
   let generated = @generate.generate_from_grammar_json(
     grammar_json,
     semantic_version?,
@@ -654,18 +729,28 @@ async fn Loader::load_language_tables(
     e => raise Generate(grammar_path, e.to_string())
   }
   let language = generated.language
-  // Write through a temporary file so that concurrent loaders never see a
-  // partial file.
-  let temp = output_path + ".tmp"
+  // Write to a temporary path, then atomically rename into place. This
+  // ensures loaders never see a half-written language file.
+  let temp_output = temp_path(output_path)
   @fs.write_file(
-    temp,
+    temp_output,
     language.to_json().stringify(),
     create_mode=CreateOrTruncate,
   ) catch {
-    e => raise IO(@support.io_error_with_path(e, Some(temp)))
+    e => {
+      @fs.remove(temp_output) catch {
+        _ => ()
+      }
+      raise IO(@support.io_error_with_path(e, Some(temp_output)))
+    }
   }
-  @fs.rename(temp, output_path) catch {
-    e => raise IO(@support.io_error_with_path(e, Some(output_path)))
+  @fs.rename(temp_output, output_path) catch {
+    e => {
+      @fs.remove(temp_output) catch {
+        _ => ()
+      }
+      raise IO(@support.io_error_with_path(e, Some(output_path)))
+    }
   }
   language
 }
@@ -712,31 +797,45 @@ async fn Loader::scanner_for(
 }
 
 ///|
+/// `ParseVersionError` of the generate crate (`read_grammar_version`).
+pub(all) suberror ParseVersionError {
+  /// `Version(Box<str>)`.
+  VersionError(String)
+  /// `JSON(Box<str>)`.
+  JSONError(String)
+  /// `IO(IoError)`: the I/O error and its path.
+  IOError(Error, String)
+}
+
+///|
+pub impl Show for ParseVersionError with fn output(self, logger) {
+  match self {
+    VersionError(message) | JSONError(message) => logger.write_string(message)
+    IOError(e, path) =>
+      logger.write_string(@support.io_error_with_path(e, Some(path)))
+  }
+}
+
+///|
 /// `read_grammar_version` of the generate crate: the `metadata.version` of
 /// the nearest `tree-sitter.json` in `repo_path` or its ancestors.
-pub async fn read_grammar_version(repo_path : String) -> (Int32, Int32, Int32)? {
+pub async fn read_grammar_version(
+  repo_path : String,
+) -> (Int32, Int32, Int32)? raise ParseVersionError {
   let filename = "tree-sitter.json"
   let mut dir : String? = Some(repo_path)
   while dir is Some(d) {
     let path = @support.path_join(d, filename)
-    if @fs.exists(path) {
-      let contents = @fs.read_file(path).text() catch {
-        e => raise IO(@support.io_error_with_path(e, Some(path)))
+    if (@fs.exists(path) catch { _ => false }) {
+      let contents = @support.read_to_string(path) catch {
+        e => raise IOError(e, path)
       }
-      let json = @support.parse_json(contents) catch {
-        e =>
-          raise Serialization(
-            "Failed to parse `\{path}` -- \{@config.json_error_message(e)}",
-          )
-      }
-      guard json is { "metadata": { "version": String(version), .. }, .. } else {
-        raise Serialization(
-          "Failed to parse `\{path}` -- missing field `version`",
-        )
+      let version = @generate.tree_sitter_json_version(contents) catch {
+        e => raise JSONError("Failed to parse `\{path}` -- \{e}")
       }
       let v = SemverVersion::parse(version) catch {
         e =>
-          raise Serialization(
+          raise VersionError(
             "Failed to parse `\{path}` version as semver -- \{e}",
           )
       }
@@ -805,7 +904,7 @@ pub async fn Loader::find_language_configurations_at_path(
       // tree-sitter.json file already uses the same language.
       let mut language_id = None
       for id in language_count..<self.languages_by_id.length() {
-        if language_path == self.languages_by_id[id].path {
+        if @support.path_eq(language_path, self.languages_by_id[id].path) {
           language_id = Some(id)
         }
       }
@@ -943,20 +1042,19 @@ fn grammar_name(json_text : String) -> String? {
 ///|
 /// `grammar_json_name`: the name in the first three lines of `grammar.json`.
 pub async fn Loader::grammar_json_name(grammar_path : String) -> String {
-  let text = @fs.read_file(grammar_path).text() catch {
+  let reader = LineReader::open(grammar_path) catch {
     e => raise IO(@support.io_error_with_path(e, Some(grammar_path)))
   }
-  let lines = text.split("\n").take(3).map(l => l.to_owned()).collect()
-  // `BufRead::lines` strips a trailing `\r`.
-  let first_three_lines = lines
-    .map(l => {
-      if l.has_suffix("\r") {
-        l.unsafe_substring(start=0, end=l.length() - 1)
-      } else {
-        l
-      }
-    })
-    .join("\n")
+  defer reader.close()
+  // `BufReader::new(file).lines().take(3).collect::<Result<Vec<_>, _>>()`
+  let lines = []
+  for _ in 0..<3 {
+    match (reader.next_line() catch { _ => raise GrammarJSON(grammar_path) }) {
+      Some(line) => lines.push(line)
+      None => break
+    }
+  }
+  let first_three_lines = lines.join("\n")
   match grammar_name(first_three_lines) {
     Some(name) => name
     None => raise GrammarJSON(grammar_path)
@@ -1244,7 +1342,7 @@ async fn LanguageConfiguration::read_queries(
       for path in paths {
         let abs_path = @support.path_join(self.root_path, path)
         let prev_query_len = query_len
-        let text = @fs.read_file(abs_path).text() catch {
+        let text = @support.read_to_string(abs_path) catch {
           e => raise IO(@support.io_error_with_path(e, Some(abs_path)))
         }
         query.write_string(text)
@@ -1263,7 +1361,7 @@ async fn LanguageConfiguration::read_queries(
       let queries_path = @support.path_join(self.root_path, "queries")
       let path = @support.path_join(queries_path, default_path)
       if @fs.exists(path) {
-        let text = @fs.read_file(path).text() catch {
+        let text = @support.read_to_string(path) catch {
           e => raise IO(@support.io_error_with_path(e, Some(path)))
         }
         query.write_string(text)

@@ -86,9 +86,8 @@ fn PhpScanner::serialize(self : PhpScanner, buffer : FixedArray[Byte]) -> Int32 
   buffer[size] = self.heredocs.length().to_byte()
   size += 1
   for heredoc in self.heredocs {
-    let word_size = heredoc.word.length() * 4
-    // TREE_SITTER_SERIALIZATION_BUFFER_SIZE
-    if size + 5 + word_size >= SERIALIZATION_BUFFER_SIZE {
+    let word_size = php_word_size(heredoc.word.length())
+    if php_heredoc_overflows(size, word_size) {
       return 0
     }
     buffer[size] = if heredoc.end_word_indentation_allowed { 1 } else { 0 }
@@ -96,13 +95,29 @@ fn PhpScanner::serialize(self : PhpScanner, buffer : FixedArray[Byte]) -> Int32 
     php_write_i32(buffer, size, heredoc.word.length())
     size += 4
     if heredoc.word.length() > 0 {
-      for c in heredoc.word {
-        php_write_i32(buffer, size, c)
+      // `memcpy` of `word_size` bytes.
+      for k in 0..<(word_size / 4).reinterpret_as_int() {
+        php_write_i32(buffer, size, heredoc.word[k])
         size += 4
       }
     }
   }
   size
+}
+
+///|
+/// `heredoc->word.size * sizeof(heredoc->word.contents[0])` stored in an
+/// `unsigned`: it wraps modulo 2^32.
+fn php_word_size(word_length : Int32) -> UInt {
+  word_length.reinterpret_as_uint() * 4
+}
+
+///|
+/// `size + 5 + word_size >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE` in
+/// `unsigned` arithmetic.
+fn php_heredoc_overflows(size : Int32, word_size : UInt) -> Bool {
+  size.reinterpret_as_uint() + 5 + word_size >=
+  SERIALIZATION_BUFFER_SIZE.reinterpret_as_uint()
 }
 
 ///|

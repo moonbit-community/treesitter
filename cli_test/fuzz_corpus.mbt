@@ -155,20 +155,16 @@ pub fn set_included_ranges(
 }
 
 ///|
-/// `input[from..].windows(2).position(|win| win == needle).map(|i| from + i)`
-/// (the delimiters are two bytes long).
+/// `input[from..].windows(2).position(|win| win == needle).map(|i| from + i)`:
+/// the windows are always two bytes wide, so a delimiter of another length
+/// never matches.
 fn find_window(input : BytesView, from : Int32, needle : Bytes) -> Int32? {
-  let n = needle.length()
+  if needle.length() != 2 {
+    return None
+  }
   let mut i = from
-  while i + n <= input.length() {
-    let mut matched = true
-    for j in 0..<n {
-      if input[i + j] != needle[j] {
-        matched = false
-        break
-      }
-    }
-    if matched {
+  while i + 2 <= input.length() {
+    if input[i] == needle[0] && input[i + 1] == needle[1] {
       return Some(i)
     }
     i += 1
@@ -192,23 +188,68 @@ fn point_for_offset(text : BytesView, offset : Int32) -> @treesitter.Point {
 }
 
 ///|
-/// A parser that logs when `TREE_SITTER_LOG` is set. (`TREE_SITTER_LOG_GRAPHS`
-/// writes the debug graphs to standard output instead of a `log.html` file.)
-pub fn get_parser() -> @treesitter.Parser {
+/// A started `util::LogSession`: `close` is its `Drop`, called when the
+/// session goes out of scope upstream.
+pub(all) struct LogSession {
+  close : async () -> Unit
+}
+
+///|
+/// `util::log_graphs(parser, path, false)`. The CLI's `util` depends on this
+/// package, so the CLI installs it with `set_log_graphs`.
+let log_graphs_fn : Ref[(async (@treesitter.Parser, String) -> LogSession)?] = Ref(
+  None,
+)
+
+///|
+/// Install the CLI's `util::log_graphs(parser, path, false)`, which starts a
+/// `LogSession` writing the parser's debug graphs to `path` as an HTML file of
+/// SVG images. Without it (in the test suites), `TREE_SITTER_LOG_GRAPHS`
+/// writes the graphs to standard error in DOT format.
+pub fn set_log_graphs(
+  log_graphs : async (@treesitter.Parser, String) -> LogSession,
+) -> Unit {
+  log_graphs_fn.val = Some(log_graphs)
+}
+
+///|
+/// End the log session (`Drop for LogSession`), if there is one.
+pub async fn end_log_session(session : LogSession?) -> Unit {
+  if session is Some(session) {
+    (session.close)()
+  }
+}
+
+///|
+/// A parser that logs to standard error when `TREE_SITTER_LOG` is set, and
+/// whose debug graphs go to a `log_filename` log session (stored in
+/// `session`) when `TREE_SITTER_LOG_GRAPHS` is set.
+pub async fn get_parser(
+  session : Ref[LogSession?],
+  log_filename : String,
+) -> @treesitter.Parser {
   let parser = @treesitter.Parser::new()
   if log_enabled() {
     parser.set_logger(
       Some((log_type, msg) => {
         if log_type == @treesitter.LogType::Lex {
-          println("  \{msg}")
+          @support.print_err("  \{msg}\n")
         } else {
-          println(msg)
+          @support.print_err("\{msg}\n")
         }
       }),
     )
   }
   if log_graph_enabled() {
-    parser.print_dot_graphs(graph => println(graph))
+    session.val = Some(
+      match log_graphs_fn.val {
+        Some(log_graphs) => log_graphs(parser, log_filename)
+        None => {
+          parser.print_dot_graphs(graph => @support.print_err("\{graph}\n"))
+          { close: () => (), }
+        }
+      },
+    )
   }
   parser
 }

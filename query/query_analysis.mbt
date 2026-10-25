@@ -447,11 +447,16 @@ fn Query::perform_analysis(
           // query pattern, then advance to the next step at the current depth.
           // This involves skipping over any descendant steps of the current
           // child.
+          // `next_state.step_index` is a `uint16_t`; `next_step_position`
+          // tracks the `next_step` pointer, which upstream advances
+          // separately for pass-through steps.
           let mut next_step = step
+          let mut next_step_position = state.step_index
           if does_match {
             for ;; {
-              next_state.step_index += 1
-              next_step = self.steps[next_state.step_index]
+              next_state.step_index = (next_state.step_index + 1) & 0xFFFF
+              next_step_position = next_state.step_index
+              next_step = self.steps[next_step_position]
               if next_step.depth == pattern_done_marker ||
                 next_step.depth <= step.depth {
                 break
@@ -466,8 +471,9 @@ fn Query::perform_analysis(
             // query analysis does not need to process repetitions in order to
             // determine whether steps are possible and definite.
             if next_step.is_pass_through {
-              next_state.step_index += 1
-              next_step = self.steps[next_state.step_index]
+              next_state.step_index = (next_state.step_index + 1) & 0xFFFF
+              next_step_position += 1
+              next_step = self.steps[next_step_position]
               continue
             }
             // If the pattern is finished or hypothetical parent node is
@@ -500,7 +506,8 @@ fn Query::perform_analysis(
               next_step.alternative_index != none &&
               next_step.alternative_index > next_state.step_index {
               next_state.step_index = next_step.alternative_index
-              next_step = self.steps[next_state.step_index]
+              next_step_position = next_state.step_index
+              next_step = self.steps[next_step_position]
             } else {
               break
             }
@@ -525,7 +532,8 @@ fn Query::analyze_patterns(self : Query) -> UInt? {
     if !pattern.is_rooted {
       let step = self.steps[pattern.step_index]
       if step.symbol != wildcard_symbol {
-        non_rooted_pattern_start_steps.push(i)
+        // An `Array(uint16_t)` upstream.
+        non_rooted_pattern_start_steps.push(i & 0xFFFF)
       }
     }
   }
@@ -706,7 +714,9 @@ fn Query::analyze_patterns(self : Query) -> UInt? {
   // match, and identify all of the possible children within the pattern
   // where matching could fail.
   let analysis = QueryAnalysis::new()
-  for parent_step_index in parent_step_indices {
+  for full_parent_step_index in parent_step_indices {
+    // `uint16_t parent_step_index` upstream.
+    let parent_step_index = full_parent_step_index & 0xFFFF
     let parent_depth = self.steps[parent_step_index].depth
     let parent_symbol = self.steps[parent_step_index].symbol
     if parent_symbol == @language.ts_builtin_sym_error {
@@ -737,7 +747,7 @@ fn Query::analyze_patterns(self : Query) -> UInt? {
       analysis_state_set_push(
         analysis.states,
         AnalysisState::new(
-          parent_step_index + 1,
+          (parent_step_index + 1) & 0xFFFF,
           { parse_state, parent_symbol, child_index: 0, field_id: 0, done: false },
           parent_symbol,
         ),
@@ -804,7 +814,8 @@ fn Query::analyze_patterns(self : Query) -> UInt? {
     for j in start..<(start + pattern.predicate_steps.length) {
       let step = self.predicate_steps[j]
       if step.type_ == Capture {
-        insert_sorted_int(predicate_capture_ids, step.value_id)
+        // `uint16_t value_id = step->value_id`.
+        insert_sorted_int(predicate_capture_ids, step.value_id & 0xFFFF)
       }
     }
     // Find all of the steps that have these captures.

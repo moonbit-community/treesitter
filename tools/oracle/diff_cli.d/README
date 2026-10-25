@@ -1,0 +1,17 @@
+Extra sections of tools/oracle/diff_cli.sh.
+
+Each file <name>.sh in this directory is sourced by diff_cli.sh and must
+define a shell function `section_<name>` (so <name> must be a valid shell
+identifier). The section runs by default after the built-in ones, or alone
+with `bash tools/oracle/diff_cli.sh <name>`.
+
+Inside the function the helpers and variables of diff_cli.sh are available:
+
+  run_case NAME DIR [env VAR=VALUE ... --] ARGS...
+      run both CLIs in DIR and compare stdout, stderr and exit status
+  compare_trees NAME DIR_UP DIR_MBT FILE...
+      compare files that both CLIs produced in two copies of a directory
+  mask            timing mask filter (stdin -> stdout)
+  $WORK $GRAMMARS $UP $MBT $ROOT $UPSTREAM
+
+Prefix case names with the section name so they stay unique.

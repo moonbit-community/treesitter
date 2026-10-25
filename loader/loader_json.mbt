@@ -22,38 +22,55 @@ pub(all) struct LoaderConfig {
 }
 
 ///|
-/// `Config::get::<Config>()`: `parser-directories` with `~` and `$HOME`
-/// expanded (`deserialize_parser_directories`).
-pub fn LoaderConfig::from_json(json : Json) -> LoaderConfig raise JsonError {
-  let dirs = []
-  match json {
-    { "parser-directories": value, .. } =>
-      match value {
-        Array(items) =>
-          for item in items {
-            guard item is String(path) else {
-              raise JsonError(
-                "invalid type: \{json_type_name(item)}, expected a path",
-              )
-            }
-            dirs.push(path)
-          }
-        _ =>
-          raise JsonError(
-            "invalid type: \{json_type_name(value)}, expected a sequence",
-          )
-      }
-    Object(_) => ()
-    _ =>
-      raise JsonError(
-        "invalid type: \{json_type_name(json)}, expected struct Config",
+/// `Config::get::<Config>()`: `#[derive(Deserialize)]` of `Config`, whose
+/// `parser-directories` (`#[serde(default)]`) are read by
+/// `deserialize_parser_directories`.
+pub fn LoaderConfig::from_json(
+  config : @support.Value,
+) -> LoaderConfig raise JsonError {
+  @support.from_value(config, LoaderConfig::deserialize) catch {
+    e => raise JsonError(e.to_string())
+  }
+}
+
+///|
+fn LoaderConfig::deserialize(
+  de : @support.Deserializer,
+) -> LoaderConfig raise @support.SerdeJsonError {
+  de.deserialize_struct(
+    "struct Config",
+    seq => {
+      let parser_directories = seq
+        .next_element(deserialize_parser_directories)
+        .unwrap_or([])
+      { parser_directories, }
+    },
+    map => {
+      let parser_directories : @support.StructField[Array[String]] = @support.StructField::new(
+        "parser-directories",
       )
-  }
-  match @support.home_dir() {
-    Some(home) =>
-      { parser_directories: dirs.map(p => standardize_path(p, home)), }
-    None => { parser_directories: dirs, }
-  }
+      while map.next_key() is Some(key) {
+        match key {
+          "parser-directories" =>
+            parser_directories.next_value(map, deserialize_parser_directories)
+          _ => map.next_value_ignored()
+        }
+      }
+      { parser_directories: parser_directories.or_default([]), }
+    },
+  )
+}
+
+///|
+/// Replace `~` or `$HOME` with home path string. (While paths like
+/// "~/.tree-sitter/config.json" can be deserialized, they're not valid path
+/// for I/O modules.)
+fn deserialize_parser_directories(
+  de : @support.Deserializer,
+) -> Array[String] raise @support.SerdeJsonError {
+  let paths = @support.deserialize_vec(de, @support.deserialize_path_buf)
+  guard @support.home_dir() is Some(home) else { return paths }
+  paths.map(path => standardize_path(path, home))
 }
 
 ///|
@@ -88,24 +105,6 @@ pub fn LoaderConfig::initial() -> LoaderConfig {
 pub fn LoaderConfig::to_json(self : LoaderConfig) -> Json {
   {
     "parser-directories": Json::array(self.parser_directories.map(Json::string)),
-  }
-}
-
-///|
-fn json_type_name(json : Json) -> String {
-  match json {
-    Null => "null"
-    True => "boolean `true`"
-    False => "boolean `false`"
-    Number(n, ..) =>
-      if n == n.floor() {
-        "integer `\{n.to_int64()}`"
-      } else {
-        "floating point `\{n}`"
-      }
-    String(s) => "string \"\{s}\""
-    Array(_) => "sequence"
-    Object(_) => "map"
   }
 }
 
@@ -146,27 +145,30 @@ pub fn PathsJSON::to_variable_value(
 }
 
 ///|
-fn PathsJSON::from_json(json : Json?) -> PathsJSON raise JsonError {
-  match json {
-    None | Some(Null) => Empty
-    Some(String(s)) => Single(s)
-    Some(Array(items)) =>
-      Multiple(
-        items.map(item => {
-          match item {
-            String(s) => s
-            _ =>
-              raise JsonError(
-                "data did not match any variant of untagged enum PathsJSON",
-              )
-          }
-        }),
-      )
-    Some(_) =>
-      raise JsonError(
-        "data did not match any variant of untagged enum PathsJSON",
-      )
+/// `#[serde(untagged)]` deserialization of `PathsJSON`: the value is
+/// buffered (`Content`) and tried as `Empty` (a unit), `Single(PathBuf)` and
+/// `Multiple(Vec<PathBuf>)` in turn.
+fn PathsJSON::deserialize(
+  de : @support.Deserializer,
+) -> PathsJSON raise @support.SerdeJsonError {
+  let content = de.deserialize_value()
+  match content {
+    Null => return Empty
+    String(s) => return Single(s)
+    Array(items) => {
+      let paths = []
+      for item in items {
+        guard item is String(path) else { break }
+        paths.push(path)
+      } nobreak {
+        return Multiple(paths)
+      }
+    }
+    _ => ()
   }
+  raise @support.SerdeJsonError::custom(
+    "data did not match any variant of untagged enum PathsJSON",
+  )
 }
 
 ///|
@@ -304,96 +306,186 @@ pub(all) struct TreeSitterJSON {
 } derive(Debug)
 
 ///|
-fn opt_string(obj : Map[String, Json], key : String) -> String? raise JsonError {
-  match obj.get(key) {
-    None | Some(Null) => None
-    Some(String(s)) => Some(s)
-    Some(other) =>
-      raise JsonError(
-        "invalid type: \{json_type_name(other)}, expected a string",
-      )
-  }
+/// `Option::<String>::deserialize`.
+fn deserialize_opt_string(
+  de : @support.Deserializer,
+) -> String? raise @support.SerdeJsonError {
+  de.deserialize_option(@support.deserialize_string)
 }
 
 ///|
-fn req_string(obj : Map[String, Json], key : String) -> String raise JsonError {
-  match obj.get(key) {
-    Some(String(s)) => s
-    None => raise JsonError("missing field `\{key}`")
-    Some(other) =>
-      raise JsonError(
-        "invalid type: \{json_type_name(other)}, expected a string",
-      )
-  }
+/// `Option::<PathBuf>::deserialize`.
+fn deserialize_opt_path(
+  de : @support.Deserializer,
+) -> String? raise @support.SerdeJsonError {
+  de.deserialize_option(@support.deserialize_path_buf)
 }
 
 ///|
-fn opt_bool(
-  obj : Map[String, Json],
-  key : String,
-  default : Bool,
-) -> Bool raise JsonError {
-  match obj.get(key) {
-    None => default
-    Some(True) => true
-    Some(False) => false
-    Some(other) =>
-      raise JsonError(
-        "invalid type: \{json_type_name(other)}, expected a boolean",
+/// `#[derive(Deserialize)]` of `Grammar` (`rename_all = "kebab-case"`).
+fn Grammar::deserialize(
+  de : @support.Deserializer,
+) -> Grammar raise @support.SerdeJsonError {
+  let expecting = "struct Grammar with 15 elements"
+  de.deserialize_struct(
+    "struct Grammar",
+    seq => {
+      let name = seq.next_field(@support.deserialize_string, 0, expecting)
+      let camelcase = seq.next_field(deserialize_opt_string, 1, expecting)
+      let title = seq.next_field(deserialize_opt_string, 2, expecting)
+      let scope = seq.next_field(@support.deserialize_string, 3, expecting)
+      let path = seq.next_field(deserialize_opt_path, 4, expecting)
+      let external_files = seq
+        .next_element(PathsJSON::deserialize)
+        .unwrap_or(Empty)
+      let file_types = seq.next_field(
+        de => {
+          de.deserialize_option(de => {
+            @support.deserialize_vec(de, @support.deserialize_string)
+          })
+        },
+        6,
+        expecting,
       )
-  }
-}
-
-///|
-fn as_object(json : Json, what : String) -> Map[String, Json] raise JsonError {
-  match json {
-    Object(obj) => obj
-    other =>
-      raise JsonError(
-        "invalid type: \{json_type_name(other)}, expected \{what}",
+      let highlights = seq.next_element(PathsJSON::deserialize).unwrap_or(Empty)
+      let injections = seq.next_element(PathsJSON::deserialize).unwrap_or(Empty)
+      let locals = seq.next_element(PathsJSON::deserialize).unwrap_or(Empty)
+      let tags = seq.next_element(PathsJSON::deserialize).unwrap_or(Empty)
+      let injection_regex = seq.next_field(
+        deserialize_opt_string, 11, expecting,
       )
-  }
-}
-
-///|
-fn Grammar::from_json(json : Json) -> Grammar raise JsonError {
-  let obj = as_object(json, "struct Grammar")
-  let file_types = match obj.get("file-types") {
-    None | Some(Null) => None
-    Some(Array(items)) =>
-      Some(
-        items.map(i => {
-          match i {
-            String(s) => s
-            other =>
-              raise JsonError(
-                "invalid type: \{json_type_name(other)}, expected a string",
-              )
-          }
-        }),
+      let first_line_regex = seq.next_field(
+        deserialize_opt_string, 12, expecting,
       )
-    Some(other) =>
-      raise JsonError(
-        "invalid type: \{json_type_name(other)}, expected a sequence",
+      let content_regex = seq.next_field(deserialize_opt_string, 13, expecting)
+      let class_name = seq.next_field(deserialize_opt_string, 14, expecting)
+      {
+        name,
+        camelcase,
+        title,
+        scope,
+        path,
+        external_files,
+        file_types,
+        highlights,
+        injections,
+        locals,
+        tags,
+        injection_regex,
+        first_line_regex,
+        content_regex,
+        class_name,
+      }
+    },
+    map => {
+      let name : @support.StructField[String] = @support.StructField::new(
+        "name",
       )
-  }
-  {
-    name: req_string(obj, "name"),
-    camelcase: opt_string(obj, "camelcase"),
-    title: opt_string(obj, "title"),
-    scope: req_string(obj, "scope"),
-    path: opt_string(obj, "path"),
-    external_files: PathsJSON::from_json(obj.get("external-files")),
-    file_types,
-    highlights: PathsJSON::from_json(obj.get("highlights")),
-    injections: PathsJSON::from_json(obj.get("injections")),
-    locals: PathsJSON::from_json(obj.get("locals")),
-    tags: PathsJSON::from_json(obj.get("tags")),
-    injection_regex: opt_string(obj, "injection-regex"),
-    first_line_regex: opt_string(obj, "first-line-regex"),
-    content_regex: opt_string(obj, "content-regex"),
-    class_name: opt_string(obj, "class-name"),
-  }
+      let camelcase : @support.StructField[String?] = @support.StructField::new(
+        "camelcase",
+      )
+      let title : @support.StructField[String?] = @support.StructField::new(
+        "title",
+      )
+      let scope : @support.StructField[String] = @support.StructField::new(
+        "scope",
+      )
+      let path : @support.StructField[String?] = @support.StructField::new(
+        "path",
+      )
+      let external_files : @support.StructField[PathsJSON] = @support.StructField::new(
+        "external-files",
+      )
+      let file_types : @support.StructField[Array[String]?] = @support.StructField::new(
+        "file-types",
+      )
+      let highlights : @support.StructField[PathsJSON] = @support.StructField::new(
+        "highlights",
+      )
+      let injections : @support.StructField[PathsJSON] = @support.StructField::new(
+        "injections",
+      )
+      let locals : @support.StructField[PathsJSON] = @support.StructField::new(
+        "locals",
+      )
+      let tags : @support.StructField[PathsJSON] = @support.StructField::new(
+        "tags",
+      )
+      let injection_regex : @support.StructField[String?] = @support.StructField::new(
+        "injection-regex",
+      )
+      let first_line_regex : @support.StructField[String?] = @support.StructField::new(
+        "first-line-regex",
+      )
+      let content_regex : @support.StructField[String?] = @support.StructField::new(
+        "content-regex",
+      )
+      let class_name : @support.StructField[String?] = @support.StructField::new(
+        "class-name",
+      )
+      while map.next_key() is Some(key) {
+        match key {
+          "name" => name.next_value(map, @support.deserialize_string)
+          "camelcase" => camelcase.next_value(map, deserialize_opt_string)
+          "title" => title.next_value(map, deserialize_opt_string)
+          "scope" => scope.next_value(map, @support.deserialize_string)
+          "path" => path.next_value(map, deserialize_opt_path)
+          "external-files" =>
+            external_files.next_value(map, PathsJSON::deserialize)
+          "file-types" =>
+            file_types.next_value(map, de => {
+              de.deserialize_option(de => {
+                @support.deserialize_vec(de, @support.deserialize_string)
+              })
+            })
+          "highlights" => highlights.next_value(map, PathsJSON::deserialize)
+          "injections" => injections.next_value(map, PathsJSON::deserialize)
+          "locals" => locals.next_value(map, PathsJSON::deserialize)
+          "tags" => tags.next_value(map, PathsJSON::deserialize)
+          "injection-regex" =>
+            injection_regex.next_value(map, deserialize_opt_string)
+          "first-line-regex" =>
+            first_line_regex.next_value(map, deserialize_opt_string)
+          "content-regex" =>
+            content_regex.next_value(map, deserialize_opt_string)
+          "class-name" => class_name.next_value(map, deserialize_opt_string)
+          _ => map.next_value_ignored()
+        }
+      }
+      let name = name.required()
+      let camelcase = camelcase.optional()
+      let title = title.optional()
+      let scope = scope.required()
+      let path = path.optional()
+      let external_files = external_files.or_default(Empty)
+      let file_types = file_types.optional()
+      let highlights = highlights.or_default(Empty)
+      let injections = injections.or_default(Empty)
+      let locals = locals.or_default(Empty)
+      let tags = tags.or_default(Empty)
+      let injection_regex = injection_regex.optional()
+      let first_line_regex = first_line_regex.optional()
+      let content_regex = content_regex.optional()
+      let class_name = class_name.optional()
+      {
+        name,
+        camelcase,
+        title,
+        scope,
+        path,
+        external_files,
+        file_types,
+        highlights,
+        injections,
+        locals,
+        tags,
+        injection_regex,
+        first_line_regex,
+        content_regex,
+        class_name,
+      }
+    },
+  )
 }
 
 ///|
@@ -445,48 +537,155 @@ fn Grammar::to_json(self : Grammar) -> Json {
 }
 
 ///|
-fn Metadata::from_json(json : Json) -> Metadata raise JsonError {
-  let obj = as_object(json, "struct Metadata")
-  let version_text = req_string(obj, "version")
-  let version = SemverVersion::parse(version_text) catch {
-    SemverError(e) => raise JsonError(e)
-  }
-  let authors = match obj.get("authors") {
-    None | Some(Null) => None
-    Some(Array(items)) =>
-      Some(
-        items.map(item => {
-          let a = as_object(item, "struct Author")
-          Author::{
-            name: req_string(a, "name"),
-            email: opt_string(a, "email"),
-            url: opt_string(a, "url"),
-          }
-        }),
-      )
-    Some(other) =>
-      raise JsonError(
-        "invalid type: \{json_type_name(other)}, expected a sequence",
-      )
-  }
-  let links = match obj.get("links") {
-    None | Some(Null) => None
-    Some(l) => {
-      let l = as_object(l, "struct Links")
-      Some(Links::{
-        repository: req_string(l, "repository"),
-        funding: opt_string(l, "funding"),
-      })
+/// `Deserialize for Version` (semver's `serde` feature).
+fn deserialize_version(
+  de : @support.Deserializer,
+) -> SemverVersion raise @support.SerdeJsonError {
+  de.deserialize_str("semver version", string => {
+    SemverVersion::parse(string) catch {
+      e => raise @support.SerdeJsonError::custom(e.to_string())
     }
-  }
-  {
-    version,
-    license: opt_string(obj, "license"),
-    description: opt_string(obj, "description"),
-    authors,
-    links,
-    namespace: None,
-  }
+  })
+}
+
+///|
+/// `#[derive(Deserialize)]` of `Author`.
+fn Author::deserialize(
+  de : @support.Deserializer,
+) -> Author raise @support.SerdeJsonError {
+  let expecting = "struct Author with 3 elements"
+  de.deserialize_struct(
+    "struct Author",
+    seq => {
+      let name = seq.next_field(@support.deserialize_string, 0, expecting)
+      let email = seq.next_field(deserialize_opt_string, 1, expecting)
+      let url = seq.next_field(deserialize_opt_string, 2, expecting)
+      { name, email, url, }
+    },
+    map => {
+      let name : @support.StructField[String] = @support.StructField::new(
+        "name",
+      )
+      let email : @support.StructField[String?] = @support.StructField::new(
+        "email",
+      )
+      let url : @support.StructField[String?] = @support.StructField::new("url")
+      while map.next_key() is Some(key) {
+        match key {
+          "name" => name.next_value(map, @support.deserialize_string)
+          "email" => email.next_value(map, deserialize_opt_string)
+          "url" => url.next_value(map, deserialize_opt_string)
+          _ => map.next_value_ignored()
+        }
+      }
+      let name = name.required()
+      let email = email.optional()
+      let url = url.optional()
+      { name, email, url, }
+    },
+  )
+}
+
+///|
+/// `#[derive(Deserialize)]` of `Links`.
+fn Links::deserialize(
+  de : @support.Deserializer,
+) -> Links raise @support.SerdeJsonError {
+  let expecting = "struct Links with 2 elements"
+  de.deserialize_struct(
+    "struct Links",
+    seq => {
+      let repository = seq.next_field(@support.deserialize_string, 0, expecting)
+      let funding = seq.next_field(deserialize_opt_string, 1, expecting)
+      { repository, funding, }
+    },
+    map => {
+      let repository : @support.StructField[String] = @support.StructField::new(
+        "repository",
+      )
+      let funding : @support.StructField[String?] = @support.StructField::new(
+        "funding",
+      )
+      while map.next_key() is Some(key) {
+        match key {
+          "repository" =>
+            repository.next_value(map, @support.deserialize_string)
+          "funding" => funding.next_value(map, deserialize_opt_string)
+          _ => map.next_value_ignored()
+        }
+      }
+      let repository = repository.required()
+      let funding = funding.optional()
+      { repository, funding, }
+    },
+  )
+}
+
+///|
+fn deserialize_opt_authors(
+  de : @support.Deserializer,
+) -> Array[Author]? raise @support.SerdeJsonError {
+  de.deserialize_option(de => @support.deserialize_vec(de, Author::deserialize))
+}
+
+///|
+fn deserialize_opt_links(
+  de : @support.Deserializer,
+) -> Links? raise @support.SerdeJsonError {
+  de.deserialize_option(Links::deserialize)
+}
+
+///|
+/// `#[derive(Deserialize)]` of `Metadata` (`namespace` is
+/// `#[serde(skip)]`).
+fn Metadata::deserialize(
+  de : @support.Deserializer,
+) -> Metadata raise @support.SerdeJsonError {
+  let expecting = "struct Metadata with 5 elements"
+  de.deserialize_struct(
+    "struct Metadata",
+    seq => {
+      let version = seq.next_field(deserialize_version, 0, expecting)
+      let license = seq.next_field(deserialize_opt_string, 1, expecting)
+      let description = seq.next_field(deserialize_opt_string, 2, expecting)
+      let authors = seq.next_field(deserialize_opt_authors, 3, expecting)
+      let links = seq.next_field(deserialize_opt_links, 4, expecting)
+      { version, license, description, authors, links, namespace: None, }
+    },
+    map => {
+      let version : @support.StructField[SemverVersion] = @support.StructField::new(
+        "version",
+      )
+      let license : @support.StructField[String?] = @support.StructField::new(
+        "license",
+      )
+      let description : @support.StructField[String?] = @support.StructField::new(
+        "description",
+      )
+      let authors : @support.StructField[Array[Author]?] = @support.StructField::new(
+        "authors",
+      )
+      let links : @support.StructField[Links?] = @support.StructField::new(
+        "links",
+      )
+      while map.next_key() is Some(key) {
+        match key {
+          "version" => version.next_value(map, deserialize_version)
+          "license" => license.next_value(map, deserialize_opt_string)
+          "description" => description.next_value(map, deserialize_opt_string)
+          "authors" => authors.next_value(map, deserialize_opt_authors)
+          "links" => links.next_value(map, deserialize_opt_links)
+          _ => map.next_value_ignored()
+        }
+      }
+      let version = version.required()
+      let license = license.optional()
+      let description = description.optional()
+      let authors = authors.optional()
+      let links = links.optional()
+      { version, license, description, authors, links, namespace: None, }
+    },
+  )
 }
 
 ///|
@@ -526,25 +725,66 @@ fn Metadata::to_json(self : Metadata) -> Json {
 }
 
 ///|
-fn Bindings::from_json(json : Json?) -> Bindings raise JsonError {
-  let d = Bindings::default()
-  match json {
-    None => d
-    Some(json) => {
-      let obj = as_object(json, "struct Bindings")
-      {
-        c: opt_bool(obj, "c", d.c),
-        go: opt_bool(obj, "go", d.go),
-        java: opt_bool(obj, "java", d.java),
-        kotlin: d.kotlin,
-        node: opt_bool(obj, "node", d.node),
-        python: opt_bool(obj, "python", d.python),
-        rust: opt_bool(obj, "rust", d.rust),
-        swift: opt_bool(obj, "swift", d.swift),
-        zig: opt_bool(obj, "zig", d.zig),
+/// `#[derive(Deserialize)]` of `Bindings` (`#[serde(default)]`; `kotlin` is
+/// `#[serde(skip)]`).
+fn Bindings::deserialize(
+  de : @support.Deserializer,
+) -> Bindings raise @support.SerdeJsonError {
+  let default = Bindings::default()
+  de.deserialize_struct(
+    "struct Bindings",
+    seq => {
+      let bool = @support.Deserializer::deserialize_bool
+      let c = seq.next_element(bool).unwrap_or(default.c)
+      let go = seq.next_element(bool).unwrap_or(default.go)
+      let java = seq.next_element(bool).unwrap_or(default.java)
+      let node = seq.next_element(bool).unwrap_or(default.node)
+      let python = seq.next_element(bool).unwrap_or(default.python)
+      let rust = seq.next_element(bool).unwrap_or(default.rust)
+      let swift = seq.next_element(bool).unwrap_or(default.swift)
+      let zig = seq.next_element(bool).unwrap_or(default.zig)
+      { c, go, java, kotlin: default.kotlin, node, python, rust, swift, zig, }
+    },
+    map => {
+      let bool = @support.Deserializer::deserialize_bool
+      let c : @support.StructField[Bool] = @support.StructField::new("c")
+      let go : @support.StructField[Bool] = @support.StructField::new("go")
+      let java : @support.StructField[Bool] = @support.StructField::new("java")
+      let node : @support.StructField[Bool] = @support.StructField::new("node")
+      let python : @support.StructField[Bool] = @support.StructField::new(
+        "python",
+      )
+      let rust : @support.StructField[Bool] = @support.StructField::new("rust")
+      let swift : @support.StructField[Bool] = @support.StructField::new(
+        "swift",
+      )
+      let zig : @support.StructField[Bool] = @support.StructField::new("zig")
+      while map.next_key() is Some(key) {
+        match key {
+          "c" => c.next_value(map, bool)
+          "go" => go.next_value(map, bool)
+          "java" => java.next_value(map, bool)
+          "node" => node.next_value(map, bool)
+          "python" => python.next_value(map, bool)
+          "rust" => rust.next_value(map, bool)
+          "swift" => swift.next_value(map, bool)
+          "zig" => zig.next_value(map, bool)
+          _ => map.next_value_ignored()
+        }
       }
-    }
-  }
+      {
+        c: c.or_default(default.c),
+        go: go.or_default(default.go),
+        java: java.or_default(default.java),
+        kotlin: default.kotlin,
+        node: node.or_default(default.node),
+        python: python.or_default(default.python),
+        rust: rust.or_default(default.rust),
+        swift: swift.or_default(default.swift),
+        zig: zig.or_default(default.zig),
+      }
+    },
+  )
 }
 
 ///|
@@ -562,29 +802,62 @@ pub fn Bindings::to_json(self : Bindings) -> Json {
 }
 
 ///|
-/// Deserialize `tree-sitter.json` text.
-pub fn TreeSitterJSON::parse(text : String) -> TreeSitterJSON raise JsonError {
-  let json = @support.parse_json(text) catch {
-    e => raise JsonError(@config.json_error_message(e))
+/// `#[derive(Deserialize)]` of `TreeSitterJSON` (`rename_all =
+/// "kebab-case"`).
+fn TreeSitterJSON::deserialize(
+  de : @support.Deserializer,
+) -> TreeSitterJSON raise @support.SerdeJsonError {
+  let expecting = "struct TreeSitterJSON with 4 elements"
+  let grammars_de = (de : @support.Deserializer) => {
+    @support.deserialize_vec(de, Grammar::deserialize)
   }
-  let obj = as_object(json, "struct TreeSitterJSON")
-  let grammars = match obj.get("grammars") {
-    Some(Array(items)) => items.map(Grammar::from_json)
-    None => raise JsonError("missing field `grammars`")
-    Some(other) =>
-      raise JsonError(
-        "invalid type: \{json_type_name(other)}, expected a sequence",
+  de.deserialize_struct(
+    "struct TreeSitterJSON",
+    seq => {
+      let schema = seq.next_field(deserialize_opt_string, 0, expecting)
+      let grammars = seq.next_field(grammars_de, 1, expecting)
+      let metadata = seq.next_field(Metadata::deserialize, 2, expecting)
+      let bindings = seq
+        .next_element(Bindings::deserialize)
+        .unwrap_or(Bindings::default())
+      { schema, grammars, metadata, bindings, }
+    },
+    map => {
+      let schema : @support.StructField[String?] = @support.StructField::new(
+        "$schema",
       )
-  }
-  let metadata = match obj.get("metadata") {
-    Some(m) => Metadata::from_json(m)
-    None => raise JsonError("missing field `metadata`")
-  }
-  {
-    schema: opt_string(obj, "$schema"),
-    grammars,
-    metadata,
-    bindings: Bindings::from_json(obj.get("bindings")),
+      let grammars : @support.StructField[Array[Grammar]] = @support.StructField::new(
+        "grammars",
+      )
+      let metadata : @support.StructField[Metadata] = @support.StructField::new(
+        "metadata",
+      )
+      let bindings : @support.StructField[Bindings] = @support.StructField::new(
+        "bindings",
+      )
+      while map.next_key() is Some(key) {
+        match key {
+          "$schema" => schema.next_value(map, deserialize_opt_string)
+          "grammars" => grammars.next_value(map, grammars_de)
+          "metadata" => metadata.next_value(map, Metadata::deserialize)
+          "bindings" => bindings.next_value(map, Bindings::deserialize)
+          _ => map.next_value_ignored()
+        }
+      }
+      let schema = schema.optional()
+      let grammars = grammars.required()
+      let metadata = metadata.required()
+      let bindings = bindings.or_default(Bindings::default())
+      { schema, grammars, metadata, bindings, }
+    },
+  )
+}
+
+///|
+/// `serde_json::from_str::<TreeSitterJSON>`.
+pub fn TreeSitterJSON::parse(text : String) -> TreeSitterJSON raise JsonError {
+  @support.from_str_with(text, TreeSitterJSON::deserialize) catch {
+    e => raise JsonError(e.to_string())
   }
 }
 
@@ -605,7 +878,7 @@ pub fn TreeSitterJSON::to_json(self : TreeSitterJSON) -> Json {
 /// `TreeSitterJSON::from_file`: read `<path>/tree-sitter.json`.
 pub async fn TreeSitterJSON::from_file(path : String) -> TreeSitterJSON {
   let path = @support.path_join(path, "tree-sitter.json")
-  let text = @fs.read_file(path).text() catch {
+  let text = @support.read_to_string(path) catch {
     e => raise LoaderError::IO(@support.io_error_with_path(e, Some(path)))
   }
   TreeSitterJSON::parse(text) catch {
