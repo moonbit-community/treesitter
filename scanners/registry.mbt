@@ -14,6 +14,7 @@ pub fn scanner_for(name : String) -> @runtime.ExternalScannerFactory? {
     "python" => Some(python_scanner)
     "ruby" => Some(ruby_scanner)
     "rust" => Some(rust_scanner)
+    "scala" => Some(scala_scanner)
     "php" => Some(php_scanner)
     "php_only" => Some(php_only_scanner)
     "typescript" => Some(typescript_scanner)
