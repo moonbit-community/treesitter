@@ -35,16 +35,3 @@ pub fn u8_from_str_radix(src : BytesView, radix : Int32) -> Int32? {
   }
   Some(result)
 }
-
-///|
-/// A Rust panic in the main thread with the default hook: the message on
-/// standard error and exit status 101. (Rust 1.97 also prints the OS
-/// thread id after `'main'`, which differs from run to run and is not
-/// reproduced.)
-pub fn rust_panic(location : String, message : String) -> Unit {
-  flush()
-  print_err(
-    "\nthread 'main' panicked at \{location}:\n\{message}\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
-  )
-  exit(101)
-}

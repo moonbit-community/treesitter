@@ -57,16 +57,17 @@ pub fn format_duration_debug(nanos : Int64) -> String {
 }
 
 ///|
-pub async fn query_file_at_path(
+pub fn query_file_at_path(
   language : @treesitter.Language,
   path : String,
   name : String,
   query_path : String,
   opts : QueryFileOptions,
   test_summary : TestSummary?,
-) -> Unit {
-  let stdout = StringBuilder()
-  let query_source = @fs.read_file(query_path).text() catch {
+) -> Unit raise {
+  let stdout = @support.BufWriter::stdout(capacity=64 * 1024)
+  defer stdout.drop()
+  let query_source = @support.read_to_string(query_path) catch {
     e => raise with_context(e, "Error reading query file \{query_path}")
   }
   let query = @treesitter.Query::new(language, query_source) catch {
@@ -92,11 +93,15 @@ pub async fn query_file_at_path(
   if !should_test && !opts.stdin {
     stdout.write_string("\{name}\n")
   }
-  let source_code = @fs.read_file(path).binary() catch {
+  let source_code = @support.read_file(path) catch {
     e => raise with_context(e, "Error reading source file \{path}")
   }
   let tree = parser.parse(source_code).unwrap()
-  let text = (node : @treesitter.Node) => node.utf8_text(source_code) catch { _ => "" }
+  let text = (node : @treesitter.Node) => {
+    node.utf8_text(source_code) catch {
+      _ => ""
+    }
+  }
   let start = @support.now_ns()
   if opts.ordered_captures {
     let captures = query_cursor.captures(query, tree.root_node(), source_code)
@@ -160,8 +165,6 @@ pub async fn query_file_at_path(
     }
   }
   if query_cursor.did_exceed_match_limit() {
-    @support.print_out(stdout.to_string())
-    stdout.reset()
     log_warn("Query exceeded maximum number of in-progress captures!")
   }
   if test_summary is Some(test_summary) {
@@ -195,7 +198,6 @@ pub async fn query_file_at_path(
             test_num=test_summary.test_num,
           ),
         })
-        @support.print_out(stdout.to_string())
         raise e
       }
     }
@@ -203,5 +205,4 @@ pub async fn query_file_at_path(
   if opts.print_time {
     stdout.write_string("\{format_duration_debug(@support.now_ns() - start)}\n")
   }
-  @support.print_out(stdout.to_string())
 }

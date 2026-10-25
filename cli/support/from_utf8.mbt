@@ -1,18 +1,5 @@
-// `std::fs::read_to_string`: the file's bytes as a string, failing with the
-// standard library's `io::Error` for invalid UTF-8 (`str::from_utf8`
-// semantics; a byte order mark is kept).
-
-///|
-/// The `io::Error` of `read_to_string` for a file that is not UTF-8
-/// (`io::Error::INVALID_UTF8`).
-pub(all) suberror InvalidUtf8 {
-  InvalidUtf8
-} derive(Debug)
-
-///|
-pub impl Show for InvalidUtf8 with fn output(_self, logger) {
-  logger.write_string("stream did not contain valid UTF-8")
-}
+// `str::from_utf8`, used by `read_to_string` (fs.mbt) and the serde_json
+// reader.
 
 ///|
 /// `str::from_utf8`: `None` unless `bytes` is well-formed UTF-8 (no
@@ -50,14 +37,4 @@ pub fn from_utf8(bytes : BytesView) -> String? {
     i += len
   }
   Some(@utf8.decode_lossy(bytes))
-}
-
-///|
-/// `fs::read_to_string`.
-pub async fn read_to_string(path : String) -> String {
-  let data = @fs.read_file(path).binary()
-  match from_utf8(data) {
-    Some(s) => s
-    None => raise InvalidUtf8
-  }
 }
