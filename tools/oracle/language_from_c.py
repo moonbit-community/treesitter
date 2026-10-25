@@ -1,11 +1,11 @@
 """Development-only oracle: convert an upstream-generated parser.c into the
 JSON form of language's `Language`.
 
-The parse tables come from compiling parser.c with tools/next/dump_language.c
+The parse tables come from compiling parser.c with tools/oracle/dump_language.c
 (so every array is exactly what the C runtime reads); the lex functions are
 parsed from the C text into `LexProgram`s.
 
-Usage: python3 tools/next/language_from_c.py <src dir containing parser.c> <out.json>
+Usage: python3 tools/oracle/language_from_c.py <src dir containing parser.c> <out.json>
 """
 import json
 import os

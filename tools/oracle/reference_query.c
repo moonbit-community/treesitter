@@ -1,5 +1,5 @@
 // Development-only: run a query with the C runtime and print matches and
-// captures in the same format as `next/probe query`.
+// captures in the same format as `tools/probe query`.
 #include <tree_sitter/api.h>
 #include <stdio.h>
 #include <stdlib.h>

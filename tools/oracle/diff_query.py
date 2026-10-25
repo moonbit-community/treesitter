@@ -4,7 +4,7 @@ For every fixture grammar without (or with ported) external scanners, compile
 each queries/*.scm file of the grammar with both implementations and compare
 metadata, matches and captures over the grammar's corpus inputs.
 
-Usage: python3 tools/next/diff_query.py [--externals] [--extra queries.txt] [names...]
+Usage: python3 tools/oracle/diff_query.py [--externals] [--extra queries.txt] [names...]
 """
 import argparse
 import json

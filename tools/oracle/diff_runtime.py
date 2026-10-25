@@ -5,7 +5,7 @@ were converted to _build/reflang/<name>.json (language_from_c.py), parse the
 grammar's corpus inputs (and optional mutations) with both runtimes and
 compare the S-expressions.
 
-Usage: python3 tools/next/diff_runtime.py [--mutate N] [names...]
+Usage: python3 tools/oracle/diff_runtime.py [--mutate N] [names...]
 """
 import argparse
 import os
@@ -100,7 +100,7 @@ def build_ref(name, main='reference_parse.c', suffix=''):
             break
     cmd = ['cc', '-O1', '-w', '-I', str(UPSTREAM / 'lib/include'), '-I', str(UPSTREAM / 'lib/src'), '-I', str(src),
            f'-DLANGUAGE=tree_sitter_{language}', str(UPSTREAM / 'lib/src/lib.c'), *sources,
-           str(ROOT / 'tools/next' / main), '-o', str(exe)]
+           str(ROOT / 'tools/oracle' / main), '-o', str(exe)]
     subprocess.run(cmd, check=True)
     return exe
 

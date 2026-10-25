@@ -1,5 +1,5 @@
 // Decoding of the generated tables of regex-syntax 0.8.11
-// `src/unicode_tables/*.rs` (see tools/next/import_regex_unicode.py).
+// `src/unicode_tables/*.rs` (see tools/oracle/import_regex_unicode.py).
 
 ///|
 fn hex_digit(c : Char) -> Int32 {

@@ -1,5 +1,5 @@
 // Development-only oracle for next/regex: reads the JSON-lines corpus written
-// by tools/next/regex_corpus.py and prints, per pattern, `ERR` when
+// by tools/oracle/regex_corpus.py and prints, per pattern, `ERR` when
 // `regex::bytes::Regex::new` rejects it, or one `0`/`1` per haystack giving
 // `is_match`. next/regex/probe prints the same format.
 use std::io::{BufRead, Write};

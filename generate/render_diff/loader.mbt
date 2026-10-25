@@ -1,5 +1,5 @@
 // Loader for the `render_c_code` inputs serialized by the differential
-// harness (tools/next/render_harness/render_dump.rs). Tool-only.
+// harness (tools/oracle/render_harness/render_dump.rs). Tool-only.
 
 ///|
 suberror LoadError {

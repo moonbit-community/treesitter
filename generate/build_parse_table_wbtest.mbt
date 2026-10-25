@@ -128,7 +128,7 @@ test "rust_str_cmp orders by code point" {
 
 ///|
 /// Iteration orders of `FxHashSet<u32>`s, compared by FNV-1a hash with the
-/// output of tools/next/build_tables_harness/fxset.rs built with Rust 1.97.1.
+/// output of tools/oracle/build_tables_harness/fxset.rs built with Rust 1.97.1.
 test "fx_hash_set_u32_order matches Rust" {
   let mut state : UInt64 = 12345
   let buf = StringBuilder()

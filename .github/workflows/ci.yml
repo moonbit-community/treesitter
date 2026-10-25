@@ -64,10 +64,10 @@ jobs:
             ~/.cargo/registry
           key: oracle-${{ runner.os }}-4a412a01a0147d0f50bf7e749572fa632d1ab203
       - name: Set up the pinned upstream and reference outputs
-        run: sh tools/next/oracle_setup.sh
+        run: sh tools/oracle/oracle_setup.sh
       - name: Differential oracle
-        run: sh tools/next/oracle.sh
+        run: sh tools/oracle/oracle.sh
       - name: CLI differential
-        run: sh tools/next/diff_cli.sh
+        run: sh tools/oracle/diff_cli.sh
       - name: Ported upstream test suites (with fixtures)
         run: moon test --target native

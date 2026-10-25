@@ -96,9 +96,9 @@ MoonBit cannot load compiled parsers, so:
 Every package is compared with the pinned upstream build:
 
 ```sh
-CARGO="cargo +1.97.1" sh tools/next/oracle_setup.sh  # pinned upstream + reference outputs
-sh tools/next/oracle.sh                               # generator, runtime, queries
-sh tools/next/diff_cli.sh                             # CLI commands
+CARGO="cargo +1.97.1" sh tools/oracle/oracle_setup.sh  # pinned upstream + reference outputs
+sh tools/oracle/oracle.sh                               # generator, runtime, queries
+sh tools/oracle/diff_cli.sh                             # CLI commands
 moon test --target native                             # ported upstream test suites
 ```
 

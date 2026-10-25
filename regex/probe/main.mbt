@@ -1,7 +1,7 @@
 // Differential probe (development only): reads the JSON-lines corpus of
-// tools/next/regex_corpus.py and prints, per pattern, `ERR` when
+// tools/oracle/regex_corpus.py and prints, per pattern, `ERR` when
 // `Regex::new` fails, or one `0`/`1` per haystack giving `is_match`.
-// tools/next/regex_harness prints the same format for the Rust `regex` crate.
+// tools/oracle/regex_harness prints the same format for the Rust `regex` crate.
 
 ///|
 fn unhex(s : String) -> Bytes {

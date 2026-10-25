@@ -2,13 +2,13 @@
 # Differential harness for generate/render.mbt.
 #
 # Builds a copy of the pinned upstream CLI whose `render_c_code` serializes its
-# inputs to JSON (tools/next/render_harness), then regenerates every grammar
-# produced by tools/next/ref_generate.sh, writing for each variant
+# inputs to JSON (tools/oracle/render_harness), then regenerates every grammar
+# produced by tools/oracle/ref_generate.sh, writing for each variant
 #   _build/render_dump/<name>/input<variant>.json   inputs of render_c_code
 #   _build/render_dump/<name>/parser<variant>.c     upstream output for them
 # Variants: "" (ABI 15, the `ref_generate.sh` configuration, checked against
 # _build/ref), "_abi14" (`--abi 14`) and "_semver" (with a tree-sitter.json
-# declaring version 1.22.333). Run `sh tools/next/ref_generate.sh` first.
+# declaring version 1.22.333). Run `sh tools/oracle/ref_generate.sh` first.
 # Development-only.
 set -u
 cd "$(dirname "$0")/../.."
@@ -18,8 +18,8 @@ UPSTREAM=${UPSTREAM:-$(cd ../../.. 2>/dev/null && pwd)/.repos/ts-pinned}
 COPY=${RENDER_HARNESS_DIR:-$ROOT/_build/render_harness}
 mkdir -p "$COPY"
 rsync -a --exclude target --exclude test/fixtures --exclude .git "$UPSTREAM/" "$COPY/"
-cp tools/next/render_harness/render_dump.rs "$COPY/crates/generate/src/render_dump.rs"
-python3 -I tools/next/render_harness/patch.py "$COPY/crates/generate/src"
+cp tools/oracle/render_harness/render_dump.rs "$COPY/crates/generate/src/render_dump.rs"
+python3 -I tools/oracle/render_harness/patch.py "$COPY/crates/generate/src"
 (cd "$COPY" && cargo +1.97.1 build --release -p tree-sitter-cli) || exit 1
 TS="$COPY/target/release/tree-sitter"
 OUT=_build/render_dump

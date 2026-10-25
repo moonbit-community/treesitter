@@ -290,10 +290,10 @@ async fn test_language_corpus(
 ///|
 async test "feature_corpus_files" {
   // The test grammars, with their `grammar.json` (`load_grammar_file`), as
-  // copied by tools/next/ref_generate.sh.
+  // copied by tools/oracle/ref_generate.sh.
   guard ref_dir() is Some(test_grammars_dir) else {
     println(
-      "note: skipping feature_corpus_files (run tools/next/ref_generate.sh)",
+      "note: skipping feature_corpus_files (run tools/oracle/ref_generate.sh)",
     )
     return
   }

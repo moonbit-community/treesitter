@@ -1,6 +1,6 @@
 // Development-only oracle: dump a compiled upstream TSLanguage (from a
 // generated parser.c) as JSON in the shape of next/language's derived ToJson.
-// The lex functions are not dumped here; tools/next/language_from_c.py parses
+// The lex functions are not dumped here; tools/oracle/language_from_c.py parses
 // them from the parser.c text.
 #include "tree_sitter/parser.h"
 #include <stdio.h>

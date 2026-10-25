@@ -1,5 +1,5 @@
 // Loader for the `build_tables` inputs serialized by the upstream harness
-// (`_build/tsgen/src/harness.rs`, see tools/next/build_tables_ref.sh).
+// (`_build/tsgen/src/harness.rs`, see tools/oracle/build_tables_ref.sh).
 
 ///|
 pub(all) struct BuildTablesInputs {

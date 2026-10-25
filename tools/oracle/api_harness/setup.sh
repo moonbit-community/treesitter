@@ -4,7 +4,7 @@
 # workspace) to _build/api_harness with standalone manifests, then builds the
 # harness, which links the upstream-generated json, c and javascript parsers.
 #
-#   sh tools/next/api_harness/setup.sh
+#   sh tools/oracle/api_harness/setup.sh
 #   _build/api_harness/target/release/api_harness   # query errors, Debug/Display
 #   _build/api_harness/target/release/scenarios     # api/tests/scenarios_test.mbt
 set -eu
@@ -15,7 +15,7 @@ rm -rf "$OUT/ts-lib" "$OUT/ts-language"
 mkdir -p "$OUT"
 cp -R "$UPSTREAM/lib" "$OUT/ts-lib"
 cp -R "$UPSTREAM/crates/language" "$OUT/ts-language"
-cp tools/next/api_harness/ts-lib.Cargo.toml "$OUT/ts-lib/Cargo.toml"
-cp tools/next/api_harness/ts-language.Cargo.toml "$OUT/ts-language/Cargo.toml"
+cp tools/oracle/api_harness/ts-lib.Cargo.toml "$OUT/ts-lib/Cargo.toml"
+cp tools/oracle/api_harness/ts-language.Cargo.toml "$OUT/ts-language/Cargo.toml"
 UPSTREAM="$UPSTREAM" cargo +1.97.1 build --release --offline \
-  --manifest-path tools/next/api_harness/Cargo.toml --target-dir "$OUT/target"
+  --manifest-path tools/oracle/api_harness/Cargo.toml --target-dir "$OUT/target"

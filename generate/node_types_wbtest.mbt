@@ -5,7 +5,7 @@
 // a `declare`d contract in `interfaces.mbt` (calling it aborts). Until it is
 // ported they return early; flip `prepare_grammar_ported` when it lands. The
 // prepared grammars of exactly these tests are also checked by the
-// differential oracle (`tools/next/node_types_oracle.sh`).
+// differential oracle (`tools/oracle/node_types_oracle.sh`).
 
 ///|
 let prepare_grammar_ported : Bool = true

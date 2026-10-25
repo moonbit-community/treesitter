@@ -2,8 +2,8 @@
 # Differential oracle for the node_types port (generate/node_types*.mbt).
 #
 # 1. Copies upstream crates/generate into _build/next_oracle/tsharness, patches
-#    in a dump harness (tools/next/oracle) and builds it with the pinned toolchain.
-# 2. Dumps, for every _build/ref/*/src/grammar.json (run tools/next/ref_generate.sh
+#    in a dump harness (tools/oracle/oracle) and builds it with the pinned toolchain.
+# 2. Dumps, for every _build/ref/*/src/grammar.json (run tools/oracle/ref_generate.sh
 #    first), for the upstream node_types unit-test grammars and for a few extra
 #    grammars: the prepared inputs of get_variable_info/generate_node_types_json
 #    and upstream's outputs (variable info, supertype symbol map, node-types.json
@@ -23,7 +23,7 @@ cp -R "$UPSTREAM/crates/generate" "$WS/crates/"
 cp "$UPSTREAM/Cargo.lock" "$WS/"
 cp "$UPSTREAM/lib/include/tree_sitter/api.h" "$WS/lib/include/tree_sitter/"
 cp "$UPSTREAM/lib/src/parser.h" "$WS/lib/src/"
-python3 tools/next/oracle/patch_upstream.py "$WS" "$UPSTREAM"
+python3 tools/oracle/oracle/patch_upstream.py "$WS" "$UPSTREAM"
 CARGO="cargo +1.97.1"
 FEATURES="--offline --no-default-features --features load -p tree-sitter-generate"
 (cd "$WS" && $CARGO build $FEATURES --example nt_dump --quiet)
@@ -32,7 +32,7 @@ rm -rf "$OUT/node_types" "$OUT/node_types_tests" "$OUT/node_types_extra" "$OUT/e
 mkdir -p "$OUT/node_types_tests"
 "$WS/target/debug/examples/nt_dump" "$REPO/_build/ref" "$OUT/node_types" > /dev/null
 (cd "$WS" && NT_TEST_DUMP_DIR="$OUT/node_types_tests" $CARGO test $FEATURES --lib --quiet node_types:: > /dev/null)
-python3 tools/next/oracle/extra_node_types_grammars.py "$OUT/extra_grammars"
+python3 tools/oracle/oracle/extra_node_types_grammars.py "$OUT/extra_grammars"
 "$WS/target/debug/examples/nt_dump" "$OUT/extra_grammars" "$OUT/node_types_extra" > /dev/null
 
 moon build --target native generate/oracle

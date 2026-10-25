@@ -5,7 +5,7 @@
 # pinned checkout itself is never modified.
 set -eu
 cd "$(dirname "$0")/../../.."
-HERE=tools/next/build_tables_harness
+HERE=tools/oracle/build_tables_harness
 UPSTREAM=${UPSTREAM:-$(git rev-parse --path-format=absolute --git-common-dir)/../.repos/ts-pinned}
 OUT=_build/tsgen
 rm -rf "$OUT/src"

@@ -1,10 +1,10 @@
 # Faithful port: conventions
 
-`next/` holds a structural port of Tree-sitter 0.28.0 (pinned at
-`4a412a01a0147d0f50bf7e749572fa632d1ab203`) that will replace the earlier
-reimplementation. The pinned upstream checkout lives at
-`/Users/dii/git/treesitter/.repos/ts-pinned` (its CLI is built at
-`target/release/tree-sitter`; run cargo with `+1.97.1`).
+This module is a structural port of Tree-sitter 0.28.0 (pinned at
+`4a412a01a0147d0f50bf7e749572fa632d1ab203`). The differential oracle expects
+the pinned upstream checkout at `.repos/ts-pinned` next to the repository's
+git directory, with its CLI built at `target/release/tree-sitter` (cargo
+1.97.1); `tools/oracle/oracle_setup.sh` sets it up.
 
 Packages:
 
@@ -16,8 +16,8 @@ Packages:
   generator uses (AST parser, HIR translator, smart constructors, Unicode).
 - `regex`: an `is_match` equivalent of `regex::bytes::Regex` (used for
   `#match?` predicates) over `regex_syntax`'s HIR. Differential oracle:
-  tools/next/regex_corpus.py, tools/next/regex_harness, regex/probe and
-  tools/next/regex_compare.py.
+  tools/oracle/regex_corpus.py, tools/oracle/regex_harness, regex/probe and
+  tools/oracle/regex_compare.py.
 - `highlight`, `tags`: ports of `crates/highlight/src/highlight.rs`
   and `crates/tags/src/tags.rs` on top of `api` (the C APIs are not
   ported). `usize::MAX` is `Int::max_value()`, `Range<usize>` is an
@@ -31,12 +31,12 @@ Packages:
 - `fixtures`: test helpers (upstream's `helpers/fixtures.rs`) for the
   native-only test packages of the three packages above.
 - `cli` (+ `cli/commands`, `cli/support`, `cli/init`),
-  `loader`, `config`, `next/cmd/treesitter`: port of
+  `loader`, `config`, `cmd/treesitter`: port of
   `crates/cli`, `crates/loader` and `crates/config`. The command line is
   parsed by `clap` (the subset of clap_builder 4.6.7 the CLI uses, with
   identical help, usage and error texts) and shell completions come from
   `clap_complete` (clap_complete 4.6.11 + clap_complete_nushell 4.6.2).
-  Differential oracle: `bash tools/next/diff_cli.sh [sections]` runs both
+  Differential oracle: `bash tools/oracle/diff_cli.sh [sections]` runs both
   CLIs on copies of the fixture and test grammars and compares stdout,
   stderr, exit codes and written files (report in `_build/cli_diff`).
   MoonBit-specific behaviour (documented in cli/main.mbt and
@@ -64,7 +64,7 @@ Packages:
 - `api`: port of the Rust binding `lib/binding_rust/lib.rs`, the public
   API (it will become the module's root package). Tests that need fixture
   languages live in the native-only `api/tests`; expected outputs of the
-  adapted tests come from tools/next/api_harness (the upstream binding).
+  adapted tests come from tools/oracle/api_harness (the upstream binding).
 
 ## Rules
 
@@ -103,7 +103,7 @@ Packages:
    in `interfaces.mbt` by moving the declaration into your file as a real
    definition with the same signature.
 6. Validate with `moon check`, `moon test generate` (and your package),
-   and the differential oracle: `sh tools/next/ref_generate.sh` writes
+   and the differential oracle: `sh tools/oracle/ref_generate.sh` writes
    upstream outputs for every test and fixture grammar to `_build/ref/<name>`.
    For intermediate structures, copy the upstream crate to a scratch
    directory and add debug prints there; never modify the pinned checkout.

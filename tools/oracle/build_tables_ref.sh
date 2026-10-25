@@ -1,7 +1,7 @@
 #!/bin/sh
 # Differential oracle for the `build_tables` port.
 #
-# 1. Builds the upstream harness (tools/next/build_tables_harness/setup.sh) if
+# 1. Builds the upstream harness (tools/oracle/build_tables_harness/setup.sh) if
 #    needed, and runs it over every reference grammar from ref_generate.sh,
 #    writing _build/bt_ref/<name>/{inputs.json,tables.txt,time_us}: the
 #    serialized inputs of upstream's build_tables, a canonical dump of its
@@ -12,7 +12,7 @@
 set -u
 cd "$(dirname "$0")/../.."
 DUMP=_build/tsgen/target/release/dump
-[ -x "$DUMP" ] || sh tools/next/build_tables_harness/setup.sh || exit 1
+[ -x "$DUMP" ] || sh tools/oracle/build_tables_harness/setup.sh || exit 1
 OUT=_build/bt_ref
 mkdir -p "$OUT"
 for g in _build/ref/*/src/grammar.json; do
@@ -22,7 +22,7 @@ for g in _build/ref/*/src/grammar.json; do
 done
 # Grammars for paths the reference grammars don't reach (ambiguous extras,
 # unnecessary conflicts).
-for g in tools/next/build_tables_extra/*.json; do
+for g in tools/oracle/build_tables_extra/*.json; do
   name=extra_$(basename "$g" .json)
   mkdir -p "$OUT/$name"
   "$DUMP" "$g" "$OUT/$name" > "$OUT/$name/time_us" || echo "$name harness FAILED"

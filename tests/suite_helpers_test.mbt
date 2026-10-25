@@ -6,7 +6,7 @@
 // `get_test_language`); here the grammar JSON goes through the MoonBit
 // generator (`generate`) and its portable `Language` tables. The test
 // grammars of `get_test_fixture_language` are read from their `grammar.json`
-// as produced by `tools/next/ref_generate.sh` (`_build/ref/<name>`); the
+// as produced by `tools/oracle/ref_generate.sh` (`_build/ref/<name>`); the
 // corpora come from the pinned upstream checkout.
 
 ///|
@@ -51,7 +51,7 @@ async fn fixtures_dir() -> String? {
 }
 
 ///|
-/// The directory holding the reference outputs of `tools/next/ref_generate.sh`
+/// The directory holding the reference outputs of `tools/oracle/ref_generate.sh`
 /// (`_build/ref`), if present.
 async fn ref_dir() -> String? {
   for prefix in root_prefixes {
@@ -77,7 +77,7 @@ async fn load_test_grammar_json(name : String) -> String? {
   if !missing_languages.contains(name) {
     missing_languages[name] = true
     println(
-      "note: skipping tests that need the `\{name}` test grammar (run tools/next/ref_generate.sh)",
+      "note: skipping tests that need the `\{name}` test grammar (run tools/oracle/ref_generate.sh)",
     )
   }
   None

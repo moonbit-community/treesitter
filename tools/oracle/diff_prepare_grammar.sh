@@ -3,7 +3,7 @@
 #
 # Compares the MoonBit dump (`generate/cmd/dump_prepared`) against the
 # same dump produced by a scratch copy of the upstream crate, for every
-# `_build/ref/*/src/grammar.json` written by `tools/next/ref_generate.sh`.
+# `_build/ref/*/src/grammar.json` written by `tools/oracle/ref_generate.sh`.
 #
 # UPSTREAM_DUMP must point at the upstream dump binary: a copy of
 # `crates/generate` with `src/dump.rs` (the Rust twin of

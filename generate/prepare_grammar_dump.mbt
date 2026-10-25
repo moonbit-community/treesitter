@@ -1,5 +1,5 @@
 // Development-only canonical dump of a `PreparedGrammar` for the differential
-// harness (`tools/next/diff_prepare_grammar.sh`). The format matches the dump
+// harness (`tools/oracle/diff_prepare_grammar.sh`). The format matches the dump
 // added to a scratch copy of the upstream crate; lexical `start_state` and the
 // NFA are excluded.
 

@@ -1,7 +1,7 @@
-"""Development-only: compare the outputs of tools/next/regex_harness and
+"""Development-only: compare the outputs of tools/oracle/regex_harness and
 regex/probe on the same corpus and report agreement.
 
-Usage: python3 tools/next/regex_compare.py corpus.jsonl rust.out mbt.out
+Usage: python3 tools/oracle/regex_compare.py corpus.jsonl rust.out mbt.out
 """
 import json
 import sys

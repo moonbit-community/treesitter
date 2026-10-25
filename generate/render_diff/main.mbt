@@ -1,7 +1,7 @@
 // Differential test of `render_c_code` / `render_language` against upstream.
 //
 // Usage: moon run --target native generate/render_diff -- [dir] [names...]
-// where `dir` defaults to `_build/render_dump` (see tools/next/render_dump.sh).
+// where `dir` defaults to `_build/render_dump` (see tools/oracle/render_dump.sh).
 // For every `<name>/input<variant>.json`, renders C from the dumped inputs and
 // compares it byte for byte with `<name>/parser<variant>.c`, then checks the
 // `Language` arrays against that C text.

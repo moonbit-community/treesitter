@@ -5,10 +5,10 @@ upstream's fixture grammars and in crates/cli/src/tests/*.rs, adds hand-written
 edge cases, and pairs each pattern with a deterministic set of haystacks.
 
 Output: JSON lines `{"p": pattern, "t": [hex-encoded haystack bytes...]}`.
-Feed the file to both tools/next/regex_harness (Rust `regex::bytes::Regex`)
+Feed the file to both tools/oracle/regex_harness (Rust `regex::bytes::Regex`)
 and regex/probe (MoonBit) and diff their outputs.
 
-Usage: python3 tools/next/regex_corpus.py <upstream checkout> [random pattern count] > corpus.jsonl
+Usage: python3 tools/oracle/regex_corpus.py <upstream checkout> [random pattern count] > corpus.jsonl
 """
 import json
 import random

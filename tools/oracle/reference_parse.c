@@ -1,5 +1,5 @@
 // Development-only: print the S-expression of each file parsed with the C
-// runtime, in the same format as next/probe.
+// runtime, in the same format as tools/probe.
 #include <tree_sitter/api.h>
 #include <stdio.h>
 #include <stdlib.h>

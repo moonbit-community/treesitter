@@ -27,7 +27,7 @@ if [ ! -d "$UPSTREAM/test/fixtures/grammars/json" ]; then
   (cd "$UPSTREAM" && $CARGO xtask fetch-fixtures)
 fi
 
-UPSTREAM=$UPSTREAM sh tools/next/ref_generate.sh
+UPSTREAM=$UPSTREAM sh tools/oracle/ref_generate.sh
 
 mkdir -p _build/reflang
 for src in _build/ref/*/src; do
@@ -35,7 +35,7 @@ for src in _build/ref/*/src; do
   name=$(basename "$(dirname "$src")")
   out=_build/reflang/$name.json
   if [ ! -f "$out" ] || [ "$src/parser.c" -nt "$out" ]; then
-    python3 tools/next/language_from_c.py "$src" "$out"
+    python3 tools/oracle/language_from_c.py "$src" "$out"
   fi
 done
 echo "oracle ready: $(ls _build/reflang | wc -l | tr -d ' ') languages"

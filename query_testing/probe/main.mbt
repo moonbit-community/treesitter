@@ -33,10 +33,16 @@ let all_languages : Array[String] = [
 ]
 
 ///|
-let ported_scanners : Array[String] = ["bash", "ruby", "python", "cpp", "jsdoc"]
+let ported_scanners : Array[String] = all_languages
 
 ///|
-let grammars : String = "/Users/dii/git/treesitter/.repos/ts-pinned/test/fixtures/grammars"
+/// The upstream fixture grammars: `$TS_PINNED/test/fixtures/grammars`, with
+/// `TS_PINNED` defaulting to `.repos/ts-pinned`.
+let grammars : String = (match @env.get_env_var("TS_PINNED") {
+    Some(dir) => dir
+    None => ".repos/ts-pinned"
+  }) +
+  "/test/fixtures/grammars"
 
 ///|
 fn fixture_file(name : String) -> String {

@@ -813,10 +813,9 @@ async fn query_run(
 ///|
 async fn first_language_in_current_path(
   loader : @loader.Loader,
-  current_dir : String,
+  languages : Array[(@treesitter.Language, String)],
   language_names : Array[String]?,
 ) -> (@treesitter.Language, @loader.LanguageConfiguration) {
-  let languages = loader.languages_at_path(current_dir)
   let language = match language_names {
     Some(names) => {
       let mut found = None
@@ -859,6 +858,7 @@ async fn highlight_run(
   let loader_config = load_loader_config(config)
   loader.find_all_languages(loader_config)
   loader.force_rebuild(m.get_flag("rebuild") || m.contains_id("grammar_path"))
+  let languages = loader.languages_at_path(current_dir)
   let mut language_and_config = None
   if m.get_one("scope") is Some(scope) {
     language_and_config = loader.language_configuration_for_scope(scope)
@@ -933,7 +933,7 @@ async fn highlight_run(
       let path = get_tmp_source_file(contents)
       let (language, language_config) = first_language_in_current_path(
         loader,
-        current_dir,
+        languages,
         Some(language_names),
       )
       match language_config.highlight_config(language, query_paths) {
@@ -952,7 +952,7 @@ async fn highlight_run(
       let path = get_tmp_source_file(contents)
       let (language, language_config) = match language_and_config {
         Some(lc) => lc
-        None => first_language_in_current_path(loader, current_dir, None)
+        None => first_language_in_current_path(loader, languages, None)
       }
       match language_config.highlight_config(language, query_paths) {
         Some(highlight_config) =>
@@ -1022,7 +1022,7 @@ async fn tags_run(
       let path = get_tmp_source_file(contents)
       let (language, language_config) = first_language_in_current_path(
         loader,
-        current_dir,
+        loader.languages_at_path(current_dir),
         Some(language_names),
       )
       match language_config.tags_config(language) {
@@ -1038,7 +1038,7 @@ async fn tags_run(
       let path = get_tmp_source_file(contents)
       let (language, language_config) = match language_and_config {
         Some(lc) => lc
-        None => first_language_in_current_path(loader, current_dir, None)
+        None => first_language_in_current_path(loader, loader.languages_at_path(current_dir), None)
       }
       match language_config.tags_config(language) {
         Some(tags_config) =>

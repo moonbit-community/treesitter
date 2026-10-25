@@ -18,7 +18,7 @@ revision 77a3747266f4d621d0757825e6b11edcbf991ca5, MIT license.
 Copyright (c) 2017 Maxim Sokolov. The MoonBit translation is in
 examples/rust/scanner.mbtx; its license is preserved alongside it.
 
-Fixture grammar scanners (next/scanners): faithful MoonBit ports of the
+Fixture grammar scanners (scanners): faithful MoonBit ports of the
 src/scanner.c files of the fixture grammars pinned in Tree-sitter's
 test/fixtures/fixtures.json, all distributed under the MIT license:
 - tree-sitter-bash v0.25.0, Copyright (c) 2017 Max Brunsfeld (bash.mbt)

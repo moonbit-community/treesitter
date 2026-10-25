@@ -1,7 +1,7 @@
 // Development-only differential oracle for the generator port.
 //
 // Loads the prepared-grammar JSON written by the scratch upstream harness
-// (`tools/next/node_types_oracle.sh`) and dumps this port's results in the
+// (`tools/oracle/node_types_oracle.sh`) and dumps this port's results in the
 // same canonical shape, so both sides can be compared textually.
 
 ///|

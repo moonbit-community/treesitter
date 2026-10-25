@@ -1,5 +1,5 @@
 #!/bin/bash
-# Differential test of the MoonBit tree-sitter CLI (next/cmd/treesitter)
+# Differential test of the MoonBit tree-sitter CLI (cmd/treesitter)
 # against the pinned upstream CLI: help texts, usage errors, shell
 # completions, `generate` outputs and errors, `parse` in each output mode,
 # `query`, `highlight`, `tags`, `test` and `dump-languages`, on copies of the
@@ -7,7 +7,7 @@
 # working directory and configuration; stdout, stderr and exit status are
 # compared (timings are masked). Results: _build/cli_diff/{report.txt,cases}.
 #
-# Usage: sh tools/next/diff_cli.sh [section...]
+# Usage: sh tools/oracle/diff_cli.sh [section...]
 #   sections: help errors completions generate parse query highlight tags test langs
 set -u
 cd "$(dirname "$0")/../.."
@@ -15,11 +15,11 @@ ROOT=$(pwd)
 UPSTREAM=${UPSTREAM:-$(cd ../../.. 2>/dev/null && pwd)/.repos/ts-pinned}
 [ -d "$UPSTREAM/test" ] || UPSTREAM=$(git rev-parse --path-format=absolute --git-common-dir)/../.repos/ts-pinned
 UP="$UPSTREAM/target/release/tree-sitter"
-MBT="$ROOT/_build/native/release/build/next/cmd/treesitter/treesitter.exe"
+MBT="$ROOT/_build/native/release/build/cmd/treesitter/treesitter.exe"
 WORK="$ROOT/_build/cli_diff"
 SECTIONS=${*:-"help errors completions generate parse query highlight tags test langs misc"}
 
-moon build --target native --release next/cmd/treesitter >/dev/null || exit 1
+moon build --target native --release cmd/treesitter >/dev/null || exit 1
 
 mkdir -p "$WORK"
 rm -rf "$WORK/cases"
@@ -297,6 +297,15 @@ for section in $SECTIONS; do
     run_case highlight-injection "$WORK" highlight "$WORK/inj.html"
     run_case highlight-html-injection "$WORK" highlight --html "$WORK/inj.html"
     run_case highlight-injection-erb "$WORK" highlight "$GRAMMARS/tree-sitter-embedded-template/test/corpus/main.txt" --scope text.html.erb
+    # A grammar directory without a configured parser directory (the
+    # languages come from the current directory); generated from mbtx.
+    rm -rf "$WORK/example-json" "$WORK/noconfig"
+    cp -R "$ROOT/examples/json" "$WORK/example-json"
+    mkdir -p "$WORK/noconfig"
+    (cd "$WORK/example-json" && "$MBT" generate grammar.mbtx > /dev/null 2>&1)
+    for cmd in parse highlight tags; do
+      run_case "example-json-$cmd" "$WORK/example-json" env TREE_SITTER_DIR="$WORK/noconfig" -- $cmd sample.json
+    done
     ;;
   tags)
     for g in javascript python rust ruby c go; do
