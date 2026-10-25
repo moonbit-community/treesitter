@@ -159,8 +159,13 @@ int main(void) {
   printf("\"supertype_map_slices\":[");
   uint32_t super_end = 0;
   if (l->supertype_count) {
+    // ts_supertype_map_slices is rendered with designated initializers, so it
+    // ends at the largest supertype symbol; the slices after it are empty.
+    uint32_t slices_end = 0;
+    for (uint32_t i = 0; i < l->supertype_count; i++)
+      if (l->supertype_symbols[i] + 1u > slices_end) slices_end = l->supertype_symbols[i] + 1u;
     for (uint32_t i = 0; i < symbols; i++) {
-      TSMapSlice s = l->supertype_map_slices[i];
+      TSMapSlice s = i < slices_end ? l->supertype_map_slices[i] : (TSMapSlice){0, 0};
       printf(i ? ",{\"index\":%u,\"length\":%u}" : "{\"index\":%u,\"length\":%u}", s.index, s.length);
       if (s.index + s.length > super_end) super_end = s.index + s.length;
     }
