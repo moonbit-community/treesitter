@@ -1,5 +1,6 @@
 import {
   "moonbit-community/treesitter",
+  "moonbit-community/treesitter/cli/support",
   "moonbit-community/treesitter/regex",
   "moonbitlang/async/fs",
   "moonbitlang/core/encoding/utf8",

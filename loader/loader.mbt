@@ -130,28 +130,9 @@ pub fn LoaderRegex::is_match(self : LoaderRegex, text : String) -> Bool {
 }
 
 ///|
-/// Rust's `Debug for str`.
+/// Rust's `Debug for str` (`@support.rust_debug_str`).
 pub fn rust_debug_str(s : String) -> String {
-  let sb = StringBuilder()
-  sb.write_char('"')
-  for c in s {
-    match c {
-      '"' => sb.write_string("\\\"")
-      '\\' => sb.write_string("\\\\")
-      '\n' => sb.write_string("\\n")
-      '\r' => sb.write_string("\\r")
-      '\t' => sb.write_string("\\t")
-      '\u{0}' => sb.write_string("\\0")
-      _ =>
-        if c.to_int() < 0x20 || c.to_int() == 0x7f {
-          sb.write_string("\\u{\{c.to_int().to_string(radix=16)}}")
-        } else {
-          sb.write_char(c)
-        }
-    }
-  }
-  sb.write_char('"')
-  sb.to_string()
+  @support.rust_debug_str(s)
 }
 
 ///|
