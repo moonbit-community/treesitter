@@ -67,5 +67,7 @@ jobs:
         run: sh tools/next/oracle_setup.sh
       - name: Differential oracle
         run: sh tools/next/oracle.sh
+      - name: CLI differential
+        run: sh tools/next/diff_cli.sh
       - name: Ported upstream test suites (with fixtures)
         run: moon test --target native

@@ -369,3 +369,4 @@ for section in $SECTIONS; do
 done
 
 echo "pass: $pass, fail: $fail" | tee -a "$WORK/report.txt"
+[ "$fail" -eq 0 ]
