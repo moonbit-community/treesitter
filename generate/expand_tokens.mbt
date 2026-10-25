@@ -381,9 +381,9 @@ fn NfaBuilder::expand_regex(
     Class(class) =>
       match class {
         Unicode(class) => {
-          let mut chars = CharacterSet::empty()
+          let chars = CharacterSet::empty()
           for c in class.ranges() {
-            chars = chars.add_range(c.start(), c.end())
+            chars.add_range_in_place(c.start(), c.end())
           }
           self.push_advance(chars, next_state_id)
           true
@@ -393,12 +393,12 @@ fn NfaBuilder::expand_regex(
         // code point, so it converts exactly. Above that, a byte is one
         // part of a UTF-8 sequence and has no character to convert to.
         Bytes(bytes_class) => {
-          let mut chars = CharacterSet::empty()
+          let chars = CharacterSet::empty()
           for c in bytes_class.ranges() {
             if c.end() > 0x7F {
               raise NonAsciiByteClass({ start: c.start(), end: c.end(), })
             }
-            chars = chars.add_range(c.start().to_int(), c.end().to_int())
+            chars.add_range_in_place(c.start().to_int(), c.end().to_int())
           }
           self.push_advance(chars, next_state_id)
           true

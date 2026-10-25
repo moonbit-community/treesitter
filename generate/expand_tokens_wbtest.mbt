@@ -568,3 +568,31 @@ test "expand_tokens error messages" {
     ),
   )
 }
+
+///|
+test "rule expansion: class with many separated ranges" {
+  // Each range is appended to the class under construction in place, as
+  // upstream does through its owned `Vec` (copying the set for every range
+  // made this quadratic).
+  let count = 20000
+  let pattern = StringBuilder()
+  pattern.write_char('[')
+  for i in 0..<count {
+    pattern.write_string("\\u{\{(0x10000 + 2 * i).to_string(radix=16)}}")
+  }
+  pattern.write_char(']')
+  let pool = RulePool::new()
+  let root = et_pat(pool, pattern.to_string(), "")
+  let vars = [
+    LexicalToken::{ name: pool.intern("tok"), kind: Anonymous, root, },
+  ]
+  let grammar = expand_tokens(pool, vars, [])
+  let cursor = NfaCursor::new(grammar.nfa, [grammar.variables[0].start_state])
+  let transitions = cursor.transitions()
+  inspect(transitions.length(), content="1")
+  let chars = transitions[0].characters
+  inspect(chars.range_count(), content="20000")
+  let last = 0x10000 + 2 * (count - 1)
+  assert_true(chars.contains(last))
+  assert_false(chars.contains(last - 1))
+}

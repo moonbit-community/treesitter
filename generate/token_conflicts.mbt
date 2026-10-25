@@ -273,9 +273,9 @@ fn get_starting_chars(
   let result = Array(capacity=grammar.variables.length())
   for variable in grammar.variables {
     cursor.reset([variable.start_state])
-    let mut all_chars = CharacterSet::empty()
+    let all_chars = CharacterSet::empty()
     for transition in cursor.transition_chars() {
-      all_chars = all_chars.add(transition.0)
+      all_chars.add_in_place(transition.0)
     }
     result.push(all_chars)
   }
@@ -288,10 +288,10 @@ fn get_following_chars(
   following_tokens : Array[TokenSet],
 ) -> Array[CharacterSet] {
   following_tokens.map(following_tokens => {
-    let mut chars = CharacterSet::empty()
+    let chars = CharacterSet::empty()
     for token in following_tokens.iter() {
       if token.terminal_index() is Some(index) {
-        chars = chars.add(starting_chars[index])
+        chars.add_in_place(starting_chars[index])
       }
     }
     chars

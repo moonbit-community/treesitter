@@ -42,7 +42,7 @@ fn Generator::lex_state_code(
   }
   let chars_copy = CharacterSet::empty()
   let large_set = CharacterSet::empty()
-  let mut ruled_out_chars = CharacterSet::empty()
+  let ruled_out_chars = CharacterSet::empty()
 
   // The transitions in a lex state are sorted with the single-character
   // transitions first. If there are many single-character transitions,
@@ -78,7 +78,7 @@ fn Generator::lex_state_code(
           advance_map.push((end, action.state))
         }
       }
-      ruled_out_chars = ruled_out_chars.add(chars)
+      ruled_out_chars.add_in_place(chars)
     }
   } else {
     leading_simple_transition_count = 0
@@ -138,7 +138,7 @@ fn Generator::lex_state_code(
 
     // Add this transition's character set to the set of ruled out characters,
     // which don't need to be checked for subsequent transitions in this state.
-    ruled_out_chars = ruled_out_chars.add(chars)
+    ruled_out_chars.add_in_place(chars)
     let mut large_char_set_ix = None
     let mut asserted_chars = simplified_chars
     let mut negated_chars = CharacterSet::empty()
