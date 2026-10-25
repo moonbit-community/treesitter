@@ -35,6 +35,8 @@ pub let end_name_id : StrId
 
 pub fn expand_tokens(RulePool, ArrayView[LexicalToken], ArrayView[RuleId]) -> LexicalGrammar raise
 
+pub fn generate_error_json(Error) -> Json?
+
 pub fn generate_from_grammar_json(String, semantic_version? : (Int32, Int32, Int32), abi_version? : Int32, report_symbol_name? : String, optimizations? : OptLevel, diagnostics? : Array[Diagnostic]) -> GeneratedParser raise
 
 pub fn generate_node_types_for_grammar(String, Array[Diagnostic]) -> String raise
