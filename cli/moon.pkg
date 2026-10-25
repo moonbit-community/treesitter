@@ -17,7 +17,6 @@ import {
   "moonbitlang/async/fs",
   "moonbitlang/async/os_error",
   "moonbitlang/async/pipe",
-  "moonbitlang/async/process",
   "moonbitlang/async/stdio",
   "moonbitlang/core/bigint",
   "moonbitlang/core/buffer",

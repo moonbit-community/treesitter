@@ -379,9 +379,9 @@ async fn load_js_grammar_file(
   // `Stdio::piped()` for stdin and stdout; stderr is inherited. The child's
   // ends are blocking, as Rust's pipes are (a non-blocking stdin makes some
   // runtimes fail with EAGAIN on Linux). Every end is closed when a later
-  // step fails, as dropping Rust's pipes does. (`@process.write_to_process`
-  // and `read_from_process` make the same pipes, but their child ends can
-  // only be closed by spawning a process.)
+  // step fails, as dropping Rust's pipes does. (moonbitlang/async's
+  // `write_to_process` and `read_from_process` make the same pipes, but
+  // their child ends can only be closed by spawning a process.)
   let (stdin_read, js_stdin) = @pipe.pipe() catch { e => raise spawn_error(e) }
   let (js_stdout, stdout_write) = @pipe.pipe() catch {
     e => {
@@ -393,12 +393,12 @@ async fn load_js_grammar_file(
   let pid = try {
     @support.set_blocking(stdin_read.fd())
     @support.set_blocking(stdout_write.fd())
-    @process.spawn_orphan(
+    @support.spawn(
       js_runtime,
       args,
-      extra_env=Map::from_array([("TREE_SITTER_GRAMMAR_PATH", grammar_path)]),
-      stdin=stdin_read,
-      stdout=stdout_write,
+      extra_env=[("TREE_SITTER_GRAMMAR_PATH", grammar_path)],
+      stdin=Fd(stdin_read.fd()),
+      stdout=Fd(stdout_write.fd()),
     )
   } catch {
     e => {

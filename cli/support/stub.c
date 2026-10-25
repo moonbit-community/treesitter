@@ -25,11 +25,13 @@
 #include <pthread.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <spawn.h>
 #ifdef __linux__
 #include <sys/syscall.h>
 #endif
 #endif
 #ifdef __APPLE__
+#include <Availability.h>
 #include <dlfcn.h>
 #endif
 
@@ -387,6 +389,136 @@ moonbit_bytes_t ts_cli_getcwd(void) {
   ts_cli_read_errno = ENOSYS;
 #endif
   return moonbit_make_bytes(0, 0);
+}
+
+// `Command::spawn` with `posix_spawn(p)` as Rust's standard library does it:
+// the child gets an empty signal mask and the default `SIGPIPE` action, and
+// the environment of this process with the `KEY=VALUE` entries of `env_in`
+// added or replacing. `argv_in`, `env_in` and `cwd` hold NUL-terminated
+// strings (`cwd` is empty for the current directory). Each of `in_fd`,
+// `out_fd` and `err_fd` is a file descriptor to give the child as that
+// stream, -1 to inherit it or -2 for `/dev/null` (`Stdio::null()`). Returns
+// the child's pid, or the negated `errno`.
+#ifndef _WIN32
+extern char **environ;
+#if defined(__APPLE__) && defined(__MAC_OS_X_VERSION_MIN_REQUIRED)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 260000
+#define posix_spawn_file_actions_addchdir_np posix_spawn_file_actions_addchdir
+#endif
+#endif
+#endif
+
+MOONBIT_FFI_EXPORT
+int32_t ts_cli_spawn(
+  moonbit_bytes_t *argv_in,
+  moonbit_bytes_t *env_in,
+  moonbit_bytes_t cwd,
+  int32_t in_fd,
+  int32_t out_fd,
+  int32_t err_fd
+) {
+#ifndef _WIN32
+  int32_t argc = Moonbit_array_length(argv_in);
+  int32_t extra = Moonbit_array_length(env_in);
+  size_t inherited = 0;
+  while (environ[inherited] != NULL) {
+    inherited++;
+  }
+  char **argv = (char **)malloc(sizeof(char *) * ((size_t)argc + 1));
+  char **envp = (char **)malloc(sizeof(char *) * (inherited + (size_t)extra + 1));
+  if (argv == NULL || envp == NULL || argc == 0) {
+    free(argv);
+    free(envp);
+    return argc == 0 ? -EINVAL : -ENOMEM;
+  }
+  for (int32_t i = 0; i < argc; i++) {
+    argv[i] = (char *)argv_in[i];
+  }
+  argv[argc] = NULL;
+  size_t k = 0;
+  for (size_t i = 0; i < inherited; i++) {
+    const char *entry = environ[i];
+    const char *eq = strchr(entry, '=');
+    size_t key_len = eq == NULL ? strlen(entry) : (size_t)(eq - entry);
+    int replaced = 0;
+    for (int32_t j = 0; j < extra; j++) {
+      const char *added = (const char *)env_in[j];
+      if (strncmp(added, entry, key_len) == 0 && added[key_len] == '=') {
+        replaced = 1;
+        break;
+      }
+    }
+    if (!replaced) {
+      envp[k++] = (char *)entry;
+    }
+  }
+  for (int32_t j = 0; j < extra; j++) {
+    envp[k++] = (char *)env_in[j];
+  }
+  envp[k] = NULL;
+
+  posix_spawn_file_actions_t actions;
+  posix_spawnattr_t attr;
+  int err = posix_spawn_file_actions_init(&actions);
+  if (err != 0) {
+    free(argv);
+    free(envp);
+    return -err;
+  }
+  err = posix_spawnattr_init(&attr);
+  if (err != 0) {
+    posix_spawn_file_actions_destroy(&actions);
+    free(argv);
+    free(envp);
+    return -err;
+  }
+  int32_t fds[3] = {in_fd, out_fd, err_fd};
+  for (int i = 0; i < 3 && err == 0; i++) {
+    if (fds[i] == -2) {
+      err = posix_spawn_file_actions_addopen(
+        &actions, i, "/dev/null", i == 0 ? O_RDONLY : O_WRONLY, 0);
+    } else if (fds[i] >= 0) {
+      err = posix_spawn_file_actions_adddup2(&actions, fds[i], i);
+    }
+  }
+  if (err == 0 && Moonbit_array_length(cwd) > 1) {
+    err = posix_spawn_file_actions_addchdir_np(&actions, (const char *)cwd);
+  }
+  sigset_t set;
+  sigemptyset(&set);
+  if (err == 0) {
+    err = posix_spawnattr_setsigmask(&attr, &set);
+  }
+  sigaddset(&set, SIGPIPE);
+  if (err == 0) {
+    err = posix_spawnattr_setsigdefault(&attr, &set);
+  }
+  if (err == 0) {
+    err = posix_spawnattr_setflags(
+      &attr, POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF);
+  }
+  pid_t pid = 0;
+  if (err == 0) {
+    if (strchr(argv[0], '/') != NULL) {
+      err = posix_spawn(&pid, argv[0], &actions, &attr, argv, envp);
+    } else {
+      err = posix_spawnp(&pid, argv[0], &actions, &attr, argv, envp);
+    }
+  }
+  posix_spawnattr_destroy(&attr);
+  posix_spawn_file_actions_destroy(&actions);
+  free(argv);
+  free(envp);
+  return err != 0 ? -err : (int32_t)pid;
+#else
+  (void)argv_in;
+  (void)env_in;
+  (void)cwd;
+  (void)in_fd;
+  (void)out_fd;
+  (void)err_fd;
+  return -ENOSYS;
+#endif
 }
 
 // The fallback of `std::env::temp_dir` on Apple platforms when `TMPDIR` is

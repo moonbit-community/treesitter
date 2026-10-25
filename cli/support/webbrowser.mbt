@@ -203,14 +203,14 @@ async fn unix_open_browser_default(target : String) -> Unit {
 ///|
 /// `try_browser!`: run `name` (found as `for_matching_path` does) with
 /// `args`; whether that succeeded.
-async fn try_browser(name : String, args : Array[String]) -> Bool {
+fn try_browser(name : String, args : Array[String]) -> Bool {
   guard for_matching_path(name) is Some(pb) else { return false }
   run_command(pb, args, !is_text_browser(pb))
 }
 
 ///|
 /// `try_with_browser_env`.
-async fn try_with_browser_env(url : String) -> Bool {
+fn try_with_browser_env(url : String) -> Bool {
   let browser = @env.get_env_var("BROWSER").unwrap_or("")
   for browser_env in browser.split(":") {
     let browser_env = browser_env.to_owned()
@@ -349,7 +349,7 @@ fn guess_desktop_env() -> String {
 /// `try_wsl`: http(s) URLs through the Windows shell; local files (which
 /// upstream opens with the browser that PowerShell reports) are not
 /// supported.
-async fn try_wsl(target : String) -> Bool {
+fn try_wsl(target : String) -> Bool {
   if target.has_prefix("http:") || target.has_prefix("https:") {
     let url = target
     try_browser("cmd.exe", [
@@ -430,7 +430,7 @@ priv enum XdgResult {
 ///|
 /// `open_using_xdg_config`: run the `Exec` line of the `[Desktop Entry]`
 /// group of a desktop file.
-async fn open_using_xdg_config(config_path : String, url : String) -> XdgResult {
+fn open_using_xdg_config(config_path : String, url : String) -> XdgResult {
   let contents = read_file(config_path) catch {
     @os_error.OSError(_) as e if e.is_ENOENT() => return XdgNotFound
     _ => return XdgFailed
@@ -594,25 +594,15 @@ fn is_executable_file(path : String) -> Bool {
 /// `common::run_command` with the default options: a GUI browser runs in
 /// the background with its output suppressed, a text browser in the
 /// foreground. Whether it could be run.
-async fn run_command(
+fn run_command(
   program : String,
   args : Array[String],
   background : Bool,
 ) -> Bool {
   if background {
-    let null_in = @process.redirect_from_file("/dev/null")
-    let null_out = @process.redirect_to_file("/dev/null")
-    let null_err = @process.redirect_to_file("/dev/null")
+    // `Stdio::null()` for all three streams; the child is not waited for.
     try {
-      ignore(
-        @process.spawn_orphan(
-          program,
-          args,
-          stdin=null_in,
-          stdout=null_out,
-          stderr=null_err,
-        ),
-      )
+      ignore(spawn(program, args, stdin=Null, stdout=Null, stderr=Null))
       true
     } catch {
       _ => false

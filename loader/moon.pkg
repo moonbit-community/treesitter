@@ -12,7 +12,6 @@ import {
   "moonbit-community/treesitter/mbtx",
   "moonbitlang/async",
   "moonbitlang/async/fs",
-  "moonbitlang/async/process",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
 }

@@ -50,38 +50,24 @@ pub(all) suberror DotSpawnError {
 
 ///|
 async fn LogSession::new(path : String, open_log : Bool) -> LogSession {
-  @fs.write_file(
+  // `File::create(path)` and `write_all(HTML_HEADER)`: the file becomes
+  // dot's standard output, after the header.
+  let dot_file = @fs.open(
     path,
-    html_header,
+    mode=WriteOnly,
     create_mode=CreateOrTruncate,
     permission=0o666,
   )
+  defer dot_file.close()
+  // A `write(2)`, which moves the file position past the header (the
+  // `@fs.File` writes at explicit offsets).
+  raw_write_all(dot_file.fd(), utf8(html_header))
   // `Stdio::piped()`: the child's end is blocking, as Rust's pipes are. (A
   // non-blocking standard input makes `dot` take `EAGAIN` for the end of its
   // input when it reads before the first graph is written.) The parent's
   // end stays non-blocking; `write_graph` waits until it is writable.
-  // (`@process.write_to_process` creates the same pipe, but does not expose
-  // the parent's file descriptor, which the synchronous dot-graph callback
-  // needs.)
-  let (dot_stdin_read, dot_stdin) = @pipe.pipe()
-  let dot_process = try {
-    set_blocking(dot_stdin_read.fd())
-    @process.spawn_orphan(
-      "dot",
-      ["-Tsvg"],
-      stdin=dot_stdin_read,
-      stdout=@process.redirect_to_file(
-        path,
-        append=true,
-        create_mode=OpenExisting,
-      ),
-    )
-  } catch {
-    e => {
-      dot_stdin_read.close()
-      dot_stdin.close()
-      raise DotSpawnError(e)
-    }
+  let (dot_stdin_read, dot_stdin, dot_process) = spawn_dot(dot_file.fd()) catch {
+    e => raise DotSpawnError(e)
   }
   dot_stdin_read.close()
   {
@@ -90,6 +76,23 @@ async fn LogSession::new(path : String, open_log : Bool) -> LogSession {
     dot_process_stdin: Some(dot_stdin),
     open_log,
   }
+}
+
+///|
+/// Start `dot -Tsvg` with its output going to `out_fd`: the ends of its
+/// standard input pipe and its pid. Both ends are closed when a step fails.
+fn spawn_dot(out_fd : Int32) -> (@pipe.PipeRead, @pipe.PipeWrite, Int32) raise {
+  let (dot_stdin_read, dot_stdin) = @pipe.pipe()
+  errdefer dot_stdin_read.close()
+  errdefer dot_stdin.close()
+  set_blocking(dot_stdin_read.fd())
+  let pid = spawn(
+    "dot",
+    ["-Tsvg"],
+    stdin=Fd(dot_stdin_read.fd()),
+    stdout=Fd(out_fd),
+  )
+  (dot_stdin_read, dot_stdin, pid)
 }
 
 ///|

@@ -257,10 +257,10 @@ pub async fn run_with_scanners(
   @support.flush()
   // A blocking wait that tells a signal from an exit status (a driver ended
   // by a signal gives the status a shell would, 128 + the signal).
-  let pid = @process.spawn_orphan(
+  let pid = @support.spawn(
     driver,
     args[1:].to_owned(),
-    extra_env=Map::from_array([(driver_env_var, "1")]),
+    extra_env=[(driver_env_var, "1")],
     cwd=current_dir,
   )
   match @support.wait_exit_code(pid) {
