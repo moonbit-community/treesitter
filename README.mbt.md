@@ -14,6 +14,14 @@ involved. [COMPATIBILITY.md](COMPATIBILITY.md) lists what differs from
 upstream and why; [PORTING.md](PORTING.md) maps every package to its upstream
 source.
 
+## Install
+
+```sh
+moon add moonbit-community/treesitter@0.1.0
+moon add moonbit-community/tree-sitter-json@0.24.8   # or any module in grammars/
+moon install moonbit-community/treesitter/cmd/treesitter@0.1.0   # the CLI (native)
+```
+
 ## Library
 
 The root package `moonbit-community/treesitter` is the port of upstream's Rust
@@ -60,7 +68,7 @@ test "generate a grammar, parse and query" {
 | `generate` | `crates/generate` |
 | `regex_syntax`, `regex` | the `regex-syntax` 0.8 subset the generator and tags use, and a matcher |
 | `highlight`, `tags` | `crates/highlight`, `crates/tags` |
-| `scanners` | the C external scanners of the upstream fixture and test grammars |
+| `scanners` | the C external scanners of the upstream fixture and test grammars and of the grammars in `grammars/` |
 | `query_testing`, `cli_test` | the CLI's assertion and corpus testing |
 | `cli`, `loader`, `config`, `clap`, `clap_complete`, `cmd/treesitter` | `crates/cli`, `crates/loader`, `crates/config`, and the clap subset they use (native only) |
 | `grammar` | a MoonBit DSL producing `grammar.json` (no upstream equivalent; stands in for `grammar.js`) |
@@ -121,17 +129,18 @@ Every package is compared with the pinned upstream build:
 ```sh
 CARGO="cargo +1.97.1" sh tools/oracle/oracle_setup.sh  # pinned upstream + reference outputs
 sh tools/oracle/oracle.sh                               # generator, runtime, queries
-sh tools/oracle/diff_cli.sh                             # CLI commands
+bash tools/oracle/diff_cli.sh                           # CLI commands
+python3 tools/oracle/compare_modules.py                 # grammar modules' tables
 moon test --target native                             # ported upstream test suites
 ```
 
 The oracle checks that the generator emits byte-identical `parser.c` and
-`node-types.json` for all 91 upstream test and fixture grammars (including
-error messages for rejected grammars), that parse trees, incremental edits,
+`node-types.json` for all 108 upstream test, fixture and additional grammars
+(including error messages for rejected grammars), that parse trees, incremental edits,
 changed ranges, parser logs, UTF-16 input and included ranges match the C
 runtime on every corpus input and random mutations and edits of them, and
 that query matches and captures match `query.c`. The CLI comparison runs
-1151 command lines through both executables. The ported upstream test suites
+1,695 command lines through both executables. The ported upstream test suites
 (`tests/`, and the tests of each package) run with `moon test`.
 
 ## License

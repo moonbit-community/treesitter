@@ -10,17 +10,18 @@ intended to behave identically, and a difference is a bug.
 
 | Area | Check | Result |
 | --- | --- | --- |
-| Generator | `parser.c`, `node-types.json` and error text for the 74 upstream test grammars (12 of which upstream rejects) and 17 fixture grammars | 91/91 byte-identical |
-| Runtime | trees for every corpus input, plus 2 random mutations each | 5,487/5,487 |
-| Runtime | 3 random incremental edits per input: edited trees, changed ranges, fresh reparse | 5,487/5,487 |
-| Runtime | parser and lexer log streams | 3,658/3,658 |
-| Runtime | UTF-16LE, UTF-16BE, random included ranges | 1,838/1,838 each |
-| Queries | matches and captures of every upstream query file and test query | 4,964/4,964 |
+| Generator | `parser.c`, `node-types.json` and error text for the 74 upstream test grammars (12 of which upstream rejects), 17 fixture grammars and 17 additional languages | 108/108 byte-identical |
+| Runtime | trees for every corpus input, plus 2 random mutations each | 13,269/13,269 |
+| Runtime | 3 random incremental edits per input: edited trees, changed ranges, fresh reparse | 13,269/13,269 |
+| Runtime | parser and lexer log streams | 8,846/8,846 |
+| Runtime | UTF-16LE, UTF-16BE, random included ranges | 4,432/4,432 each |
+| Queries | matches and captures of every grammar's query files and the test queries | 11,623/11,623 |
+| Grammar modules | embedded tables of the 34 languages vs upstream's `parser.c` | 34/34 identical |
 | Highlight, tags | event streams, HTML, tags of 10 fixture grammars | byte-identical |
 | Regex | matching, `find_iter` and error messages vs the `regex` crate | 446,822 pairs identical |
 | Regex | compilation size limit at 316 boundary patterns | identical |
 | `grammar.json` reading | error messages for 3,001 malformed grammars (serde_json behaviour) | identical |
-| CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,151/1,151 command lines |
+| CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,695/1,695 command lines |
 
 The comparisons cover the upstream test and fixture grammars and the 14
 further grammar repositories pinned in
