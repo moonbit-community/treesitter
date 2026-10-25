@@ -10,18 +10,18 @@ intended to behave identically, and a difference is a bug.
 
 | Area | Check | Result |
 | --- | --- | --- |
-| Generator | `parser.c`, `node-types.json` and error text for the 74 upstream test grammars (12 of which upstream rejects), 17 fixture grammars and 17 additional languages | 108/108 byte-identical |
-| Runtime | trees for every corpus input, plus 2 random mutations each | 13,269/13,269 |
-| Runtime | 3 random incremental edits per input: edited trees, changed ranges, fresh reparse | 13,269/13,269 |
-| Runtime | parser and lexer log streams | 8,846/8,846 |
-| Runtime | UTF-16LE, UTF-16BE, random included ranges | 4,432/4,432 each |
-| Queries | matches and captures of every grammar's query files and the test queries | 11,623/11,623 |
+| Generator | `parser.c`, `node-types.json` and error text for the 74 upstream test grammars (12 of which upstream rejects), 17 fixture grammars and 17 additional languages | 108/108 byte-identical, warnings and errors compared in full |
+| Runtime | trees for every corpus input, plus 2 random mutations each | 13,800/13,800 |
+| Runtime | 3 random incremental edits per input: edited trees, changed ranges, fresh reparse | 13,800/13,800 |
+| Runtime | parser and lexer log streams | 9,200/9,200 |
+| Runtime | UTF-16LE, UTF-16BE, random included ranges | 4,600/4,600 each |
+| Queries | matches, captures and metadata of every grammar's query files and the test queries | 11,952/11,952 |
 | Grammar modules | embedded tables of the 34 languages vs upstream's `parser.c` | 34/34 identical |
 | Highlight, tags | event streams, HTML, tags of 10 fixture grammars | byte-identical |
 | Regex | `is_match`, `find`, `find_iter` (bytes and UTF-8 mode) and error messages vs the `regex` crate | 486,885 + 410,406 pairs identical |
 | Regex | compilation size limit at 316 boundary patterns | identical |
 | `grammar.json` reading | error messages for 3,001 malformed grammars (serde_json behaviour) | identical |
-| CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,695/1,695 command lines |
+| CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,774/1,774 command lines |
 
 The comparisons cover the upstream test and fixture grammars and the 14
 further grammar repositories pinned in
@@ -29,7 +29,10 @@ further grammar repositories pinned in
 julia, ocaml, regex, scala, verilog, lua, make, markdown, toml, yaml, zig),
 including every external scanner: the scanners of all fixture, test and
 additional grammars are ported to MoonBit and compiled from their original
-C sources for the reference side. They are reproduced by
+C sources for the reference side. Corpus inputs are extracted with a port of upstream's corpus parser
+(identical to upstream's extraction on all 375 corpus paths), and
+`tools/oracle/selftest.py` checks that the harness fails on injected
+differences, crashes, missing records and one-sided hangs. They are reproduced by
 `tools/oracle/oracle.sh` and `tools/oracle/diff_cli.sh` (run in CI by the
 `oracle` job). The upstream test suites of the CLI crate (`parser_test.rs`,
 `node_test.rs`, `tree_test.rs`, `query_test.rs`, `corpus_test.rs`,
