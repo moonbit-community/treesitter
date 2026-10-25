@@ -139,6 +139,17 @@ test "names are C strings" {
   assert_eq(language.symbol_for_name("a\u{0}bc", false), 1)
   assert_eq(language.symbol_for_name("a", false), 1)
   assert_eq(language.symbol_for_name("a\u{0}b", false), 0)
+  // `ts_language_name` is a `const char *` too; the stored value keeps the
+  // whole string.
+  let language = { ..language, name: "json\u{0}suffix" }
+  debug_inspect(language.language_name(), content="Some(\"json\")")
+  assert_eq(language.name, "json\u{0}suffix")
+  let decoded = @language.Language::from_compact(language.to_compact())
+  assert_eq(decoded.name, "json\u{0}suffix")
+  debug_inspect(
+    { ..language, abi_version: 14 }.language_name(),
+    content="None",
+  )
 }
 
 ///|
