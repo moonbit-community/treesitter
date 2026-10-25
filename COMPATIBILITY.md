@@ -18,6 +18,8 @@ intended to behave identically, and a difference is a bug.
 | Queries | matches and captures of every upstream query file and test query | 4,964/4,964 |
 | Highlight, tags | event streams, HTML, tags of 10 fixture grammars | byte-identical |
 | Regex | matching, `find_iter` and error messages vs the `regex` crate | 446,822 pairs identical |
+| Regex | compilation size limit at 316 boundary patterns | identical |
+| `grammar.json` reading | error messages for 3,001 malformed grammars (serde_json behaviour) | identical |
 | CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,151/1,151 command lines |
 
 All runtime comparisons include the external scanners of the html,
@@ -66,8 +68,17 @@ packages' own tests.
   a stable one. With more than 20 assertions at one position their order
   could differ.
 - The CLI's test diffs use an LCS diff instead of the `similar` crate's Myers
-  diff, so ambiguous diffs may be drawn differently; serde_json data errors
-  lack the `at line L column C` suffix.
+  diff, so ambiguous diffs may be drawn differently.
+- Portable symbol, field and language names are the values of the C string
+  literals in `parser.c`. Where C leaves a literal implementation-defined
+  (an out-of-range hexadecimal escape keeps its low 8 bits, as with GCC;
+  `\u` escapes below U+00A0 follow C23), the port picks that behaviour, and
+  bytes that are not UTF-8 decode to U+FFFD (the Rust binding would panic).
+- Upstream's debug-build assertions (for example the `u16` bounds of reduce
+  actions) are not reproduced; the port behaves like release builds.
+- The regex size limit reproduces regex-automata's NFA accounting; the meta
+  engine's exact-prefix literal bypass is not modelled, as it only applies
+  to regexes far below the limit.
 
 ## Undefined behaviour in upstream code
 
