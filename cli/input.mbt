@@ -41,23 +41,29 @@ pub async fn get_input(
     let incorporate_path = (path : String, positive : Bool) => {
       if positive {
         result.push(path)
-      } else if result.search(path) is Some(index) {
+      } else if result.search_by(p => @support.path_eq(p, path)) is Some(index) {
         result.remove(index) |> ignore
       }
     }
     for path in paths {
       let mut path = path
       let mut positive = true
-      if path.has_prefix("!") &&
-        @support.strip_path_prefix(path, "!") is Some(_) {
+      // `path.starts_with("!")` and `path.strip_prefix("!")` (component-wise)
+      if @support.path_strip_prefix(path, "!") is Some(rest) {
         positive = false
-        path = @support.strip_path_prefix(path, "!").unwrap()
+        path = rest
       }
-      if @fs.exists(path) {
+      if path_exists(path) {
         incorporate_path(path, positive)
       } else {
-        for p in glob(path) {
-          incorporate_path(p, positive)
+        let paths = @glob.glob(path) catch {
+          e => raise with_context(e, "Invalid glob pattern \{path}")
+        }
+        while paths.next() is Some(path) {
+          match path {
+            Ok(path) => incorporate_path(path, positive)
+            Err(e) => raise e
+          }
         }
       }
     }
@@ -139,132 +145,12 @@ pub async fn get_tmp_source_file(contents : Bytes) -> String {
   parse_path
 }
 
-// A port of the `glob` crate's matching (`*`, `?`, `[...]`, `**`), with
-// results in the crate's order (directory entries sorted by name).
-
 ///|
-fn glob_match_component(pattern : String, name : String) -> Bool {
-  let p = pattern.iter().collect()
-  let n = name.iter().collect()
-  fn go(pi : Int32, ni : Int32) -> Bool {
-    if pi == p.length() {
-      return ni == n.length()
-    }
-    match p[pi] {
-      '*' => {
-        for k in ni..<=n.length() {
-          if go(pi + 1, k) {
-            return true
-          }
-        }
-        false
-      }
-      '?' => ni < n.length() && go(pi + 1, ni + 1)
-      '[' => {
-        guard ni < n.length() else { return false }
-        let mut i = pi + 1
-        let negate = i < p.length() && (p[i] == '!' || p[i] == '^')
-        if negate {
-          i += 1
-        }
-        let mut matched = false
-        let mut first = true
-        while i < p.length() && (first || p[i] != ']') {
-          first = false
-          if i + 2 < p.length() && p[i + 1] == '-' && p[i + 2] != ']' {
-            if n[ni] >= p[i] && n[ni] <= p[i + 2] {
-              matched = true
-            }
-            i += 3
-          } else {
-            if n[ni] == p[i] {
-              matched = true
-            }
-            i += 1
-          }
-        }
-        if i >= p.length() {
-          // Unterminated class: match `[` literally.
-          return n[ni] == '[' && go(pi + 1, ni + 1)
-        }
-        matched != negate && go(i + 1, ni + 1)
-      }
-      c => ni < n.length() && n[ni] == c && go(pi + 1, ni + 1)
-    }
+/// `Path::exists`: `fs::metadata(path).is_ok()`.
+async fn path_exists(path : String) -> Bool {
+  try @fs.kind(path, follow_symlink=true) catch {
+    _ => false
+  } noraise {
+    _ => true
   }
-  go(0, 0)
-}
-
-///|
-/// Directory entries sorted as `glob` sorts paths (byte order).
-fn sorted_names(names : Array[String]) -> Array[String] {
-  let names = names.copy()
-  names.sort_by(compare_bytes)
-  names
-}
-
-///|
-fn has_glob_chars(s : String) -> Bool {
-  s.contains_any(chars="*?[")
-}
-
-///|
-/// Paths matching a glob pattern.
-pub async fn glob(pattern : String) -> Array[String] {
-  let absolute = pattern.has_prefix("/")
-  let parts = pattern
-    .split("/")
-    .map(p => p.to_owned())
-    .filter(p => !p.is_empty())
-    .collect()
-  let results = []
-  async fn walk(base : String, prefix : String, i : Int32) -> Unit {
-    if i == parts.length() {
-      results.push(prefix)
-      return
-    }
-    let part = parts[i]
-    let join = (name : String) => {
-      if prefix.is_empty() {
-        name
-      } else if prefix == "/" {
-        "/" + name
-      } else {
-        prefix + "/" + name
-      }
-    }
-    let dir = if base.is_empty() { "." } else { base }
-    if part == "**" {
-      walk(base, prefix, i + 1)
-      let entries = sorted_names(@fs.readdir(dir) catch { _ => return })
-      for name in entries {
-        let full = @support.path_join(dir, name)
-        if (@fs.kind(full) catch { _ => @fs.FileKind::Unknown }) is Directory {
-          walk(full, join(name), i)
-        }
-      }
-    } else if has_glob_chars(part) {
-      let entries = sorted_names(@fs.readdir(dir) catch { _ => return })
-      for name in entries {
-        if name.has_prefix(".") && !part.has_prefix(".") {
-          continue
-        }
-        if glob_match_component(part, name) {
-          let full = @support.path_join(dir, name)
-          if i + 1 < parts.length() &&
-            !((@fs.kind(full) catch { _ => @fs.FileKind::Unknown }) is Directory) {
-            continue
-          }
-          walk(full, join(name), i + 1)
-        }
-      }
-    } else {
-      let full = @support.path_join(dir, part)
-      if @fs.exists(full) {
-        walk(full, join(part), i + 1)
-      }
-    }
-  }
-  walk(if absolute { "/" } else { "" }, if absolute { "/" } else { "" }, 0)
-  results
 }
