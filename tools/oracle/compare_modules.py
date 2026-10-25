@@ -50,10 +50,13 @@ def normalize(language):
       condition (`((large || asserted) && negated)` with the other parts
       absent); use the negated part;
     - character ranges: C tests `lookahead == 'a' || lookahead == 'b'` are
-      read as two ranges where the generator has one; merge adjacent ranges;
+      read as two ranges where the generator has one; compare range
+      conditions by what they evaluate to (`condition_semantics`), not by
+      their ranges;
     - large character sets: the generator's `LexProgram` holds every large
       set of the grammar, parser.c only the ones used; replace set indices by
-      the sets.
+      the sets (with adjacent ranges merged when the set is sorted and
+      disjoint, which `set_contains`'s binary search needs).
     """
     if language['field_count'] == 0 and language['field_names'] == ['']:
         language['field_names'] = []
@@ -76,17 +79,61 @@ def normalize(language):
                     c['negated'] = c.pop('asserted')
                 for part in ('asserted', 'negated'):
                     if part in c:
-                        c[part]['ranges'] = merge_ranges(c[part]['ranges'])
+                        c[part] = condition_semantics(c[part])
                 if 'large_set' in c:
                     index, guarded = c['large_set']
-                    c['large_set'] = [merge_ranges(sets[index]), guarded]
+                    ranges = sets[index]
+                    if is_sorted_disjoint(ranges):
+                        ranges = merge_ranges(ranges)
+                    c['large_set'] = [ranges, guarded]
     return language
 
 
+def evaluate(condition, lookahead, eof):
+    """A `RangeCondition` as the C code `render.rs`
+    (`add_character_range_conditions`) emits for it evaluates."""
+    def included(start, end):
+        if start == 0:
+            return not eof and (lookahead == 0 if end == 0 else lookahead <= end)
+        return start <= lookahead <= end
+
+    def excluded(start, end):
+        if start == end or end == start + 1:
+            return lookahead != start and lookahead != end
+        if start != 0:
+            return lookahead < start or end < lookahead
+        return lookahead > end
+
+    ranges = [(r['start'], r['end']) for r in condition['ranges']]
+    if condition['is_included']:
+        return any(included(*r) for r in ranges)
+    return all(excluded(*r) for r in ranges)
+
+
+def condition_semantics(condition):
+    """What a `RangeCondition` evaluates to, as a comparable value. For a
+    lookahead of at least 1 every form of test is set membership, so the
+    sorted, merged set of characters decides it; a lookahead of 0 (with and
+    without `eof`) and of -1 (the lexer's decode-error value) depend on how
+    ranges starting at 0 are written, so their values are kept explicitly:
+    `[0, 32]` and `[0, 1], [2, 32]` contain the same characters but differ at
+    -1 when negated (`lookahead > ' '` against `lookahead != 0 && ...`)."""
+    ranges = sorted(condition['ranges'], key=lambda r: (r['start'], r['end']))
+    return {
+        'is_included': condition['is_included'],
+        'characters': merge_ranges(ranges),
+        'at': {f'{c},{eof}': evaluate(condition, c, eof) for c in (-1, 0) for eof in (False, True)},
+    }
+
+
+def is_sorted_disjoint(ranges):
+    return all(a['start'] <= a['end'] < b['start'] for a, b in zip(ranges, ranges[1:])) and \
+        all(r['start'] <= r['end'] for r in ranges)
+
+
 def merge_ranges(ranges):
-    """The same set of characters with adjacent ranges merged: C tests
-    `lookahead == 'a' || lookahead == 'b'` and the generator's range
-    ['a', 'b'] are the same condition."""
+    """The same set of characters with adjacent ranges merged (`ranges`
+    sorted by start)."""
     result = []
     for r in ranges:
         if result and r['start'] <= result[-1]['end'] + 1:

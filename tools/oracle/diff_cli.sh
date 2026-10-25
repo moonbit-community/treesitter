@@ -56,21 +56,70 @@ if [ ! -d "$GRAMMARS" ]; then
 fi
 printf '{\n  "parser-directories": [\n    "%s"\n  ]\n}\n' "$GRAMMARS" > "$WORK/config/config.json"
 
+# Mask what is nondeterministic, each in the context upstream prints it:
+# parse timings and rates (parse.rs: `<path>\tParse: {:>7.2} ms\t{:>6}
+# bytes/ms`, `\tParse: ... ms\t(timed out)`, `\tEdit:  {:>7.2} ms`), the
+# average speed of the parse statistics (`; average speed: N bytes/ms`), the
+# per-test rates and slow-parse warnings of `test` (` ({:.3} bytes/ms)`),
+# `--time` durations of query (`{:?}` on its own line), tags (`time: Nms`)
+# and highlight (`Time: Nms`), JSON durations, library paths and panic
+# thread ids. Captured text and deterministic statistics such as success
+# percentages are left alone.
+TAB=$(printf '\t')
 mask() {
   sed -E \
-    -e 's/[0-9]+\.[0-9]+ ms/X ms/g' \
-    -e 's/[0-9]+ bytes\/ms/X bytes\/ms/g' \
-    -e 's/\(([0-9]+\.[0-9]+) bytes\/ms\)/(X bytes\/ms)/g' \
+    -e "s/${TAB}Parse: +[0-9]+\.[0-9]+ ms${TAB} *[0-9]+ bytes\/ms/${TAB}Parse: X ms${TAB}X bytes\/ms/" \
+    -e "s/${TAB}Parse: +[0-9]+\.[0-9]+ ms${TAB}\(timed out\)/${TAB}Parse: X ms${TAB}(timed out)/" \
+    -e "s/^( *)${TAB}Edit: +[0-9]+\.[0-9]+ ms\$/\1${TAB}Edit: X ms/" \
+    -e 's/; average speed: [0-9]+ bytes\/ms$/; average speed: X bytes\/ms/' \
+    -e 's/ -- Warning: Slow parse rate \(([0-9]+\.[0-9]{3}|inf|NaN) bytes\/ms\)//' \
+    -e 's/ \(([0-9]+\.[0-9]{3}|inf|NaN) bytes\/ms\)$/ (X bytes\/ms)/' \
     -e 's/"(secs|nanos|parse_rate)": [0-9.e+-]+/"\1": X/g' \
-    -e 's/Time: [0-9]+ms/Time: Xms/g' \
-    -e 's/time: [0-9]+ms/time: Xms/g' \
+    -e 's/Time: [0-9]+ms$/Time: Xms/' \
+    -e 's/^( *)time: [0-9]+ms$/\1time: Xms/' \
     -e 's/^[0-9.]+(ns|µs|ms|s)$/DURATION/' \
     -e "s#$WORK/lib-(up|mbt)#LIBDIR#g" \
-    -e 's/ -- Warning: Slow parse rate \(X bytes\/ms\)//g' \
-    -e 's/success percentage: [0-9.]+%/success percentage: X%/g' \
-    -e "s/Parse: +X ms/Parse: X ms/g" \
-    -e "s/[[:blank:]]+X bytes\/ms/ X bytes\/ms/g" \
     -e "s/^thread 'main' \([0-9]+\) panicked/thread 'main' (TID) panicked/"
+}
+
+# build.zig.zon of `init` with only the random part of its fingerprint
+# masked: init.rs writes `0x{crc32("tree_sitter_<name>"):x}{random id:x}`.
+mask_zon() {
+  python3 - "$1" <<'PY'
+import re
+import sys
+import zlib
+text = open(sys.argv[1], encoding='utf-8').read()
+name = re.search(r'^    \.name = \.(\S+),$', text, re.M)
+checksum = format(zlib.crc32(name.group(1).encode()), 'x') if name else None
+
+
+def fingerprint(m):
+    value = m.group(1)
+    if checksum and value.startswith(checksum) and re.fullmatch(r'[1-9a-f][0-9a-f]{0,7}', value[len(checksum):]):
+        return f'.fingerprint = 0x{checksum}<random>,'
+    return m.group(0)
+
+
+sys.stdout.write(re.sub(r'\.fingerprint = 0x([0-9a-f]+),', fingerprint, text))
+PY
+}
+
+# Compare the trees two `init` runs produced: the same files, with the same
+# contents (build.zig.zon up to its random fingerprint).
+compare_init() {
+  name=$1; a=$2; b=$3
+  for d in "$a" "$b"; do
+    (cd "$d" && find . -type f ! -name '*.m' | sort | sed 's#^\./##') > "$d.files"
+    [ -f "$d/build.zig.zon" ] && mask_zon "$d/build.zig.zon" > "$d/build.zig.zon.m"
+  done
+  if cmp -s "$a.files" "$b.files"; then
+    pass=$((pass + 1)); echo "PASS $name:files" >> "$WORK/report.txt"
+  else
+    fail=$((fail + 1)); echo "FAIL $name:files" >> "$WORK/report.txt"; echo "FAIL $name:files"
+    diff -u "$a.files" "$b.files" | head -20
+  fi
+  compare_trees "$name" "$a" "$b" $(sed 's#^build\.zig\.zon$#build.zig.zon.m#' "$a.files")
 }
 
 # run_case NAME DIR [env assignments --] ARGS...
@@ -399,8 +448,21 @@ for section in $SECTIONS; do
        env NO_COLOR=1 "$cli" version > v1.out 2> v1.err; echo $? > v1.code
        env NO_COLOR=1 "$cli" version --bump minor > v2.out 2> v2.err; echo $? > v2.code)
     done
-    (cd "$WORK/init-up" && find . -type f | sort | sed 's#^\./##' | grep -v '^build.zig.zon$' > "$WORK/init-files.txt")
-    compare_trees init "$WORK/init-up" "$WORK/init-mbt" $(cat "$WORK/init-files.txt")
+    compare_init init "$WORK/init-up" "$WORK/init-mbt"
+    # init with the Zig bindings enabled (build.zig.zon has a random
+    # fingerprint).
+    for which in up mbt; do
+      d="$WORK/init-zig-$which"
+      rm -rf "$d"
+      mkdir -p "$d/src"
+      sed -e 's/"swift": true/"swift": true,\n    "zig": true/' "$GRAMMARS/tree-sitter-json/tree-sitter.json" | \
+        perl -pe 's/\\n/\n/g' > "$d/tree-sitter.json"
+      cp "$GRAMMARS/tree-sitter-json/grammar.js" "$d/"
+      cp "$GRAMMARS/tree-sitter-json/src/grammar.json" "$d/src/"
+      if [ $which = up ]; then cli=$UP; else cli=$MBT; fi
+      (cd "$d" && env NO_COLOR=1 "$cli" init > init.out 2> init.err; echo $? > init.code)
+    done
+    compare_init init-zig "$WORK/init-zig-up" "$WORK/init-zig-mbt"
     ;;
   *)
     if declare -F "section_$section" > /dev/null; then

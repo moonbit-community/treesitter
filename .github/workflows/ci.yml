@@ -76,6 +76,9 @@ jobs:
         run: sh tools/oracle/oracle_setup.sh
       - name: Differential oracle
         run: sh tools/oracle/oracle.sh ${{ matrix.steps }}
+      - name: Oracle self-test
+        if: matrix.steps == 'generate ucc'
+        run: python3 tools/oracle/selftest.py
       - name: CLI differential
         if: matrix.steps == 'generate ucc'
         run: bash tools/oracle/diff_cli.sh

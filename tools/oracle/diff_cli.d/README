@@ -11,6 +11,9 @@ Inside the function the helpers and variables of diff_cli.sh are available:
       run both CLIs in DIR and compare stdout, stderr and exit status
   compare_trees NAME DIR_UP DIR_MBT FILE...
       compare files that both CLIs produced in two copies of a directory
+  compare_init NAME DIR_UP DIR_MBT
+      compare the file lists and files of two `init` runs (build.zig.zon
+      up to its random fingerprint)
   mask            timing mask filter (stdin -> stdout)
   $WORK $GRAMMARS $UP $MBT $ROOT $UPSTREAM
 
