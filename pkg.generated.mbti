@@ -32,13 +32,14 @@ pub impl Show for LanguageError
 
 pub(all) suberror QueryError {
   QueryError(row~ : Int32, column~ : Int32, offset~ : Int32, message~ : String, kind~ : QueryErrorKind)
-} derive(Eq, @debug.Debug)
+} derive(Eq)
 pub fn QueryError::column(Self) -> Int32
 pub fn QueryError::kind(Self) -> QueryErrorKind
 pub fn QueryError::message(Self) -> String
 pub fn QueryError::offset(Self) -> Int32
 pub fn QueryError::row(Self) -> Int32
 pub impl Show for QueryError
+pub impl @debug.Debug for QueryError
 
 // Types and methods
 pub(all) enum CaptureQuantifier {
@@ -61,9 +62,10 @@ pub(all) struct InputEdit {
   start_position : Point
   old_end_position : Point
   new_end_position : Point
-} derive(Eq, @debug.Debug)
+} derive(Eq)
 pub fn InputEdit::edit_point(Self, Point, Int32) -> (Point, Int32)
 pub fn InputEdit::edit_range(Self, Range) -> Range
+pub impl @debug.Debug for InputEdit
 
 pub struct Language {
   // private fields
@@ -219,9 +221,10 @@ pub fn Parser::stop_printing_dot_graphs(Self) -> Unit
 pub(all) struct Point {
   row : Int32
   column : Int32
-} derive(Compare, Default, Eq, Hash, @debug.Debug)
+} derive(Compare, Default, Eq, Hash)
 pub fn Point::new(Int32, Int32) -> Self
 pub impl Show for Point
+pub impl @debug.Debug for Point
 
 pub struct Query {
   // private fields
@@ -319,26 +322,30 @@ pub fn[T] QueryMatches::set_point_range(Self[T], Point, Point) -> Unit
 pub(all) struct QueryPredicate {
   operator : String
   args : Array[QueryPredicateArg]
-} derive(Eq, @debug.Debug)
+} derive(Eq)
+pub impl @debug.Debug for QueryPredicate
 
 pub(all) enum QueryPredicateArg {
   Capture(Int32)
   String(String)
-} derive(Eq, @debug.Debug)
+} derive(Eq)
+pub impl @debug.Debug for QueryPredicateArg
 
 pub(all) struct QueryProperty {
   key : String
   value : String?
   capture_id : Int32?
-} derive(Eq, @debug.Debug)
+} derive(Eq)
 pub fn QueryProperty::new(String, String?, Int32?) -> Self
+pub impl @debug.Debug for QueryProperty
 
 pub(all) struct Range {
   start_byte : Int32
   end_byte : Int32
   start_point : Point
   end_point : Point
-} derive(Eq, Hash, @debug.Debug)
+} derive(Eq, Hash)
+pub impl @debug.Debug for Range
 
 pub struct TextCallback {
   // private fields
