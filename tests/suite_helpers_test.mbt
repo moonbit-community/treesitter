@@ -114,7 +114,7 @@ async fn get_test_fixture_language(name : String) -> @treesitter.Language? {
   // The grammars the query suite needs are committed under testdata/.
   let committed = "testdata/test_grammars/\{name}/grammar.json"
   let grammar_json = match
-    read_first(["api/tests/\{committed}", committed]) {
+    read_first(["tests/\{committed}", committed]) {
     Some(grammar_json) => grammar_json
     None => {
       guard load_test_grammar_json(name) is Some(grammar_json) else {

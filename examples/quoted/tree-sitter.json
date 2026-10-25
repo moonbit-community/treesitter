@@ -1,0 +1,18 @@
+{
+  "grammars": [
+    {
+      "name": "quoted",
+      "scope": "source.quoted",
+      "path": ".",
+      "file-types": [
+        "quoted"
+      ],
+      "highlights": "queries/highlights.scm"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Example grammar with a MoonBit external scanner"
+  }
+}

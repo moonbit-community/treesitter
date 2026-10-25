@@ -6,7 +6,7 @@
 #
 #   sh tools/oracle/api_harness/setup.sh
 #   _build/api_harness/target/release/api_harness   # query errors, Debug/Display
-#   _build/api_harness/target/release/scenarios     # api/tests/scenarios_test.mbt
+#   _build/api_harness/target/release/scenarios     # tests/scenarios_test.mbt
 set -eu
 cd "$(dirname "$0")/../../.."
 UPSTREAM=${UPSTREAM:-$(git rev-parse --path-format=absolute --git-common-dir)/../.repos/ts-pinned}

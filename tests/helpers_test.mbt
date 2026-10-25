@@ -34,7 +34,7 @@ async fn get_language(name : String) -> @treesitter.Language? {
   }
   let file = "fixture_\{name}.json"
   let candidates = [
-    "api/tests/testdata/\{name}.json",
+    "tests/testdata/\{name}.json",
     "testdata/\{name}.json",
     "_build/reflang/\{file}",
     "../../../_build/reflang/\{file}",

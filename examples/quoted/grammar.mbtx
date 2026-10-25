@@ -16,7 +16,6 @@ fn main raise {
           ),
         ],
         externals=[Symbol("open"), Symbol("content"), Symbol("close")],
-        extras=[],
       ),
     ).stringify(),
   )

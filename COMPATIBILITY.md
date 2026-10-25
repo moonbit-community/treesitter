@@ -1,99 +1,81 @@
-# Compatibility and missing functionality in 0.1.0
-
-Version 0.1.0 is an experimental, incomplete port of Tree-sitter to pure MoonBit.
-It is suitable for evaluating MoonBit grammars and the parser APIs. It does not
-yet provide full Tree-sitter behavior or stable API compatibility. The full
-repository remains the intended scope; publishing this release does not close
-that work.
+# Compatibility with upstream Tree-sitter
 
 The reference is Tree-sitter 0.28.0 at commit
-`4a412a01a0147d0f50bf7e749572fa632d1ab203`. Compatibility statements below refer
-to that baseline and the pinned grammar revisions in
-[tools/grammar_matrix.json](tools/grammar_matrix.json).
+`4a412a01a0147d0f50bf7e749572fa632d1ab203`. Every package is a structural
+port of the corresponding upstream source (see [PORTING.md](PORTING.md)) and
+is checked against a build of that commit; anything not listed here is
+intended to behave identically, and a difference is a bug.
 
-## Available now
+## Verified agreement
 
-- Typed MoonBit grammar definitions in `.mbtx`, upstream `grammar.json` input,
-  Unicode lexical compilation, LR table generation, precedence and conflicts.
-- Pure MoonBit parsing with GLR alternatives, error recovery, external scanner
-  callbacks, persistent trees and cursors, edits, incremental subtree reuse,
-  changed ranges, included ranges, UTF-8 and UTF-16 input.
-- Structural queries with captures, quantifiers and predicates; highlighting,
-  locals, injections, HTML output, tags and documentation captures.
-- Grammar discovery and native commands for generation, parsing, queries,
-  highlighting, tags, corpus testing/updating, deterministic edit fuzzing,
-  grammar initialization, node schemas and MoonBit language factories.
-- Portable libraries tested on native, JavaScript and Wasm GC. Filesystem,
-  process, loader and CLI integration require native MoonBit.
+| Area | Check | Result |
+| --- | --- | --- |
+| Generator | `parser.c`, `node-types.json` and error text for the 74 upstream test grammars (12 of which upstream rejects) and 17 fixture grammars | 91/91 byte-identical |
+| Runtime | trees for every corpus input, plus 2 random mutations each | 5,487/5,487 |
+| Runtime | 3 random incremental edits per input: edited trees, changed ranges, fresh reparse | 5,487/5,487 |
+| Runtime | parser and lexer log streams | 3,658/3,658 |
+| Runtime | UTF-16LE, UTF-16BE, random included ranges | 1,838/1,838 each |
+| Queries | matches and captures of every upstream query file and test query | 4,964/4,964 |
+| Highlight, tags | event streams, HTML, tags of 10 fixture grammars | byte-identical |
+| Regex | matching, `find_iter` and error messages vs the `regex` crate | 446,822 pairs identical |
+| CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,148/1,148 command lines |
 
-See [README.mbt.md](README.mbt.md) for examples and the command reference.
+All runtime comparisons include the external scanners of the html,
+javascript, typescript, tsx, rust, php, bash, ruby, python, cpp and jsdoc
+fixture grammars and of the 19 upstream test grammars. They are reproduced by
+`tools/oracle/oracle.sh` and `tools/oracle/diff_cli.sh` (run in CI by the
+`oracle` job). The upstream test suites of the CLI crate (`parser_test.rs`,
+`node_test.rs`, `tree_test.rs`, `query_test.rs`, `corpus_test.rs`,
+`highlight_test.rs`, `tags_test.rs` and others) are ported in `tests/` and the
+packages' own tests.
 
-## Missing or different
+## Not applicable or not ported
 
-| Area | Current limitation and practical consequence |
+| Upstream feature | Status |
 | --- | --- |
-| Grammar migration | JavaScript `grammar.js` is not evaluated. Supply upstream `grammar.json` or rewrite the grammar with the MoonBit DSL. C/C++ external scanners must be ported to MoonBit. JavaScript and Rust scanner examples are included. |
-| Generated languages | This project uses its own versioned portable table format. It cannot load upstream `parser.c`, native shared libraries, C language ABI objects or upstream Wasm language binaries. |
-| Queries | Rooted/nonlocal pattern analysis and guaranteed-step metadata APIs are missing. Some grouped/quantified alternatives, match completion ordering, and ranged queries differ, especially around hidden repetition nodes and uncaptured alternatives. Do not assume identical capture streams for every upstream query. |
-| Tags | Tag generation requires a UTF-8 tree and rejects UTF-16/custom-encoded trees with `UnsupportedEncoding`. Convert and reparse input as UTF-8 before extracting tags; tag byte ranges then refer to that converted input. |
-| Error recovery | Malformed input can produce different error trees, missing-token choices and token placement. These differences can also change reported changed ranges. |
-| Incremental performance | Deterministic subtrees can be reused, but ambiguous regions and encoded/included-range inputs are handled conservatively. Full graph-structured stack sharing and upstream performance parity have not been established. |
-| Node schemas | One of 62 frozen schema fixtures differs: `uses_current_column` reports a different `children.required` value for its block node. |
-| Diagnostics and CLI | Parser/tree DOT graph diagnostics, the playground and shell completions are missing. CLI flags and output formats are this project's interface, not a promise of upstream command compatibility. |
-| API coverage | The complete upstream API/feature inventory and regression migration remain unfinished. Numeric node IDs are not globally unique; node equality represents persistent identity within a tree. |
-| Test tooling | The public highlight/tag annotation reader supports the checked ASCII fixtures; upstream-compatible grapheme-column handling for non-ASCII annotations is unfinished. |
+| Loading compiled parsers (`parser.c`, shared libraries, `TSLanguage` ABI objects) | MoonBit cannot load native code. Languages are portable tables, produced by `generate` (`src/language.json`) or by the `build` command as a MoonBit module. |
+| Wasm grammars (`wasm_store.c`, `TREE_SITTER_FEATURE_WASM`), `build --wasm`, `playground` | Not ported. |
+| C API (`lib/include/tree_sitter/api.h`), `c_lib.rs` of highlight and tags, custom allocators | Not exposed; the public API is the port of the Rust binding. |
+| External scanners written in C | Each scanner is ported to MoonBit (`scanners`). New grammars provide `src/scanner.mbtx`, which the CLI compiles into a cached driver. |
+| QuickJS (`--js-runtime native`) | Not available; `grammar.js` is evaluated with node, bun or deno, as upstream does. |
+| CLI: Ctrl-C cancellation, generator debug traces under `generate --log`, dialoguer's terminal UI in `init` (line prompts instead), colored clap output | Not ported. |
 
-This is a known-gap inventory, not a guarantee that all other edge cases match.
-Unrecognized behavior may still need implementation or correction. A complete
-whole-port review and broader performance comparison are still outstanding.
+## Representation differences
 
-## Validation evidence
+- Numeric node ids (`Node::id`) are unique within a tree but are not memory
+  addresses; `usize::MAX` sentinels are `0x7FFFFFFF`.
+- `Range<usize>` values are `(Int, Int)` pairs; cancellation flags are
+  `Ref[Int]`.
+- Upstream sorts query-testing assertions with an unstable sort; the port uses
+  a stable one. With more than 20 assertions at one position their order
+  could differ.
+- The CLI's test diffs use an LCS diff instead of the `similar` crate's Myers
+  diff, so ambiguous diffs may be drawn differently; serde_json data errors
+  lack the `at line L column C` suffix.
 
-The release preparation checkpoint passed 358 native, 349 JavaScript and
-349 Wasm GC tests, plus the CLI integration suite. The public grammar audit
-passes all 462 unchanged corpus cases across JSON, C, JavaScript, Go, Regex and
-Rust, all 15 query-file compilation checks, 90 highlight/tag position assertions,
-2,772 incremental/fresh/undo checks and named-tree hashes for 10 larger examples
-containing 877,693 bytes. These selected suites do not constitute full upstream
-compatibility.
+## Undefined behaviour in upstream code
 
-Development-only differential probes found additional gaps that are not hidden
-by the passing corpus matrix:
+The `uses_current_column` test grammar's C scanner writes past its indent
+buffer on some malformed inputs. C then crashes or stops at an arbitrary
+point; the port follows the scanner's logic without corrupting memory and
+does not reproduce that. The oracle compares this grammar on its unmodified
+corpus only.
 
-- A 1,153-edit runtime probe retained 79 tree-output differences and 50
-  changed-range differences among cases with matching tree output. It found no
-  parser failures or disagreement between this port's fresh and incremental
-  tree outputs.
-- 1,224 unbounded query probes and 378 quantified-alternative probes matched
-  the reference exactly. Other probes retained 15 differences in 300 root/range
-  cases, 21 in 196 group-capture cases, and 12 in 225 extended-alternative cases.
-  Ten upstream timeouts were excluded from the latter comparison. A separate
-  positive-closure probe retained 12 ranged-query differences in 96 cases.
+External scanners use the C library's character classes in the "C" locale
+(ASCII-only `isw*`), as the upstream fixtures do when run by the CLI.
 
-These probes cover overlapping cases and are not a combined pass percentage.
-Their temporary development harnesses are not shipped; the committed,
-reproducible checks are:
+## Platform
 
-```sh
-sh tools/check.sh
-python3 tools/audit_grammars.py --fetch
-```
+The library packages are pure MoonBit and build for native, JavaScript and
+Wasm GC. The CLI, loader and config are native only and use a 64-line C file
+(`cli/support/stub.c`) for unbuffered binary writes to stdout and stderr,
+process exit, a monotonic clock, `isatty` and `strerror`.
 
-The public audit fetches pinned grammar repositories only for testing. The
-distributed implementation does not call the upstream C runtime or Rust
-generator. [PLAN.md](PLAN.md) records the ongoing implementation history.
+## Performance
 
-## Next milestones
+Measured on an Apple M-series machine against release builds of the pinned
+upstream:
 
-Progress and remaining release tasks are tracked in
-[issue #1](https://github.com/moonbit-community/treesitter/issues/1).
-
-1. Finish query analysis and close the remaining completion/range discrepancies.
-2. Align recovery and changed-range behavior with the C reference.
-3. Complete the API, diagnostics and CLI inventory and remaining implementations.
-4. Measure and improve generator, GLR and incremental performance.
-5. Run the final whole-port Codex CLI ultra review and address its findings.
-
-Report reproducible issues with the grammar, input, query or edit sequence,
-MoonBit version, and expected upstream behavior. Keep the grammar's original
-license and attribution when sharing fixtures.
+- Generator: 3.1–3.4× the CPU time of `tree-sitter generate` (cpp, c,
+  rust, ruby, typescript); table construction is 2.8–3.1×.
+- Runtime: RUNTIME_PLACEHOLDER

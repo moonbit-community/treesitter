@@ -1,0 +1,55 @@
+///|
+/// External scanner of the `quoted` example grammar: `open` is a single
+/// quote, `content` everything up to the next quote and `close` that quote.
+/// The state records whether a quote is open, as a C scanner would keep in
+/// its payload.
+import {
+  "moonbit-community/treesitter/runtime",
+}
+
+///|
+pub fn scanner() -> @runtime.ExternalScanner {
+  let open = Ref::new(false)
+  {
+    scan: (lexer, valid_symbols) => {
+      if !(valid_symbols[1] && open.val) {
+        // Skip whitespace before `open` and `close`.
+        while lexer.lookahead == ' '.to_int() ||
+              lexer.lookahead == '\t'.to_int() ||
+              lexer.lookahead == '\n'.to_int() ||
+              lexer.lookahead == '\r'.to_int() {
+          lexer.advance(true)
+        }
+      }
+      if valid_symbols[0] && !open.val && lexer.lookahead == '\''.to_int() {
+        lexer.advance(false)
+        lexer.result_symbol = 0
+        open.val = true
+        return true
+      }
+      if valid_symbols[1] &&
+        open.val &&
+        !lexer.eof() &&
+        lexer.lookahead != '\''.to_int() {
+        while !lexer.eof() && lexer.lookahead != '\''.to_int() {
+          lexer.advance(false)
+        }
+        lexer.result_symbol = 1
+        return true
+      }
+      if valid_symbols[2] && open.val && lexer.lookahead == '\''.to_int() {
+        lexer.advance(false)
+        lexer.result_symbol = 2
+        open.val = false
+        return true
+      }
+      false
+    },
+    serialize: buffer => {
+      buffer[0] = if open.val { 1 } else { 0 }
+      1
+    },
+    deserialize: state => open.val = state.length() > 0 && state[0] == 1,
+    destroy: () => (),
+  }
+}

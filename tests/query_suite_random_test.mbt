@@ -11,7 +11,7 @@ async test "query_random" {
 
   // include_str!("helpers/query_helpers.rs")
   guard read_first([
-      "api/tests/testdata/query_helpers.rs", "testdata/query_helpers.rs",
+      "tests/testdata/query_helpers.rs", "testdata/query_helpers.rs",
     ])
     is Some(query_helpers_rs) else {
     fail("missing testdata/query_helpers.rs")

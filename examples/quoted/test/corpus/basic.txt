@@ -1,0 +1,12 @@
+==================
+Quoted text
+==================
+
+'hello MoonBit'
+
+---
+
+(document
+  (open)
+  (content)
+  (close))

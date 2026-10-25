@@ -6,12 +6,15 @@ the remaining porting work.
 
 ## Validate a release
 
-1. Update `moon.mod` and the versioned dependencies generated in
-   `loader/loader.mbt` and the CLI version in `cli/cli.mbt` together.
-   Update installation examples and compatibility
-   notes for the new version.
-2. Run `sh tools/check.sh`, `moon info`, `moon info --target native`, and
-   `python3 tools/audit_grammars.py --fetch`. Review generated interface changes.
+1. Update `moon.mod` and the versioned dependency that `loader/mbtx.mbt`
+   writes into the workspaces of `.mbtx` grammars and scanner drivers
+   together. The CLI reports the upstream version it ports
+   (`cli/commands/commands.mbt`), which changes only with the upstream
+   baseline. Update installation examples and compatibility notes.
+2. Run `sh tools/check.sh`, `moon info`, `moon info --target native`, and the
+   differential oracle (`CARGO="cargo +1.97.1" sh tools/oracle/oracle_setup.sh`,
+   `sh tools/oracle/oracle.sh`, `sh tools/oracle/diff_cli.sh`). Review generated
+   interface changes.
 3. Run `moon package --list` and inspect the package contents. `moon publish
    --dry-run` also validates the extracted package and authenticates with
    Mooncakes; it needs credentials for the module's namespace.

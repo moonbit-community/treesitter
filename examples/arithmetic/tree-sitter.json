@@ -1,0 +1,17 @@
+{
+  "grammars": [
+    {
+      "name": "arithmetic",
+      "scope": "source.arithmetic",
+      "path": ".",
+      "file-types": [
+        "arith"
+      ]
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Minimal arithmetic grammar written in MoonBit"
+  }
+}
