@@ -69,5 +69,13 @@ jobs:
         run: sh tools/oracle/oracle.sh
       - name: CLI differential
         run: sh tools/oracle/diff_cli.sh
+      - name: Grammar modules match upstream's tables
+        run: |
+          moon build --target native --release tools/grammar_modules
+          python3 tools/oracle/compare_modules.py
+      - name: Grammar modules are up to date
+        run: |
+          sh tools/grammars/update.sh
+          git diff --exit-code
       - name: Ported upstream test suites (with fixtures)
         run: moon test --target native
