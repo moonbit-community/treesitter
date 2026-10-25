@@ -519,12 +519,10 @@ fn replace_cmake_version(content : String, version : String) -> String {
     }
   }
 
-  // The end of group 1 and the end of the match, for a match at `start`.
-  fn match_at(start : Int32) -> (Int32, Int32)? {
-    let mut i = start
-    while i < n && is_space(chars[i]) {
-      i += 1
-    }
+  // The end of group 1 and the end of the match, for a match whose leading
+  // `\s*` ends at `i`.
+  fn match_after_spaces(i : Int32) -> (Int32, Int32)? {
+    let mut i = i
     let keyword = "VERSION"
     for k in 0..<keyword.length() {
       if i + k >= n || chars[i + k].to_int() != keyword[k].to_int() {
@@ -550,12 +548,21 @@ fn replace_cmake_version(content : String, version : String) -> String {
     Some((group_end, i + 1))
   }
 
-  for start in 0..<=n {
-    if match_at(start) is Some((group_end, end)) {
+  // Leftmost-first: a match starting anywhere in a run of whitespace (or at
+  // the character after it) depends only on what follows the run, so each
+  // run is scanned once and the search stays linear.
+  let mut start = 0
+  while start <= n {
+    let mut i = start
+    while i < n && is_space(chars[i]) {
+      i += 1
+    }
+    if match_after_spaces(i) is Some((group_end, end)) {
       return String::from_array(chars[:group_end]) +
         "\"\{version}\"" +
         String::from_array(chars[end:])
     }
+    start = i + 1
   }
   content
 }

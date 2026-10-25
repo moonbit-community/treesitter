@@ -87,6 +87,17 @@ test "replace_cmake_version" {
     replace_cmake_version("VERSION 1.0.0", "2.0.0"),
     content="VERSION 1.0.0",
   )
+  inspect(
+    replace_cmake_version("  VERSION\t \"1.2.3\"x VERSION \"4.5.6\"", "2.0.0"),
+    content="  VERSION\t \"2.0.0\"x VERSION \"4.5.6\"",
+  )
+  // Long whitespace runs without a match are scanned in linear time (the
+  // search used to restart the whitespace scan at every character).
+  let spaces = " ".repeat(200000)
+  let content = spaces + "# comment\n" + spaces + "VERSION  \"1.2.3\""
+  let replaced = replace_cmake_version(content, "2.0.0")
+  inspect(replaced.has_suffix(spaces + "VERSION  \"2.0.0\""), content="true")
+  inspect(replaced.length() == content.length(), content="true")
 }
 
 ///|
