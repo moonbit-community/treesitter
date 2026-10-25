@@ -26,7 +26,7 @@ pub fn iterate_assertions(
     // position, looking for one that matches the assertion.
     actual_highlights.clear()
     let mut passed = false
-    let end_column = position.column + length - 1
+    let end_column = assertion_end_column(position.column, length)
     for highlight in highlights[i:] {
       // The assertions are ordered by position, so skip past all of the highlights that
       // end at or before this assertion's position.
@@ -102,8 +102,9 @@ pub fn get_highlight_positions(
   let mut was_newline = false
   let result = []
   let highlight_stack = []
-  // `String::from_utf8_lossy(source)`
-  let source = @utf8.encode(lossy_utf8(source))
+  // `String::from_utf8_lossy(source)`: each maximal invalid subpart
+  // becomes U+FFFD.
+  let source = @utf8.encode(@utf8.decode_lossy(source))
   let char_indices = char_indices(source)
   let mut next_char = 0
   let events = highlighter.highlight(
@@ -148,15 +149,4 @@ pub fn get_highlight_positions(
     }
   }
   result
-}
-
-///|
-/// `String::from_utf8_lossy`.
-fn lossy_utf8(bytes : BytesView) -> String {
-  let out = StringBuilder()
-  let chunks = @treesitter.LossyUtf8::new(bytes)
-  while chunks.next() is Some(chunk) {
-    out.write_string(chunk)
-  }
-  out.to_string()
 }

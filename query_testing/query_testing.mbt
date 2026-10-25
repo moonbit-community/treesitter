@@ -326,6 +326,19 @@ pub fn parse_position_comments(
 }
 
 ///|
+/// `column + length - 1` in `usize` arithmetic, which wraps in the release
+/// CLI: a zero-length assertion at column 0 ends at `usize::MAX`
+/// (`0x7FFFFFFF` here).
+fn assertion_end_column(column : Int, length : Int) -> Int {
+  let end = column + length
+  if end == 0 {
+    0x7FFFFFFF
+  } else {
+    end - 1
+  }
+}
+
+///|
 pub fn assert_expected_captures(
   infos : ArrayView[CaptureInfo],
   assertions : ArrayView[Assertion],
@@ -336,7 +349,7 @@ pub fn assert_expected_captures(
       .find_first(p => {
         let assertion_end = Utf8Point::new(
           assertion.position.row,
-          assertion.position.column + assertion.length - 1,
+          assertion_end_column(assertion.position.column, assertion.length),
         )
         assertion.position >= p.start && assertion_end < p.end
       })
@@ -348,7 +361,7 @@ pub fn assert_expected_captures(
       }
     } else {
       raise Message(
-        "Assertion failed: could not match \{assertion.expected_capture_name} at row \{assertion.position.row}, column \{assertion.position.column + assertion.length - 1}",
+        "Assertion failed: could not match \{assertion.expected_capture_name} at row \{assertion.position.row}, column \{assertion_end_column(assertion.position.column, assertion.length)}",
       )
     }
   }

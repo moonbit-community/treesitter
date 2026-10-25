@@ -54,3 +54,30 @@ test "to_utf8_point" {
     content="{ row: 1, column: 0 }",
   )
 }
+
+///|
+test "zero_length_assertion_end_column_wraps" {
+  // `column + length - 1` is `usize` arithmetic: the release CLI wraps to
+  // `usize::MAX` (0x7FFFFFFF here), so this assertion cannot match.
+  let captures : Array[@query_testing.CaptureInfo] = [
+    {
+      name: "foo",
+      start: @query_testing.Utf8Point::new(0, 0),
+      end: @query_testing.Utf8Point::new(0, 1),
+    },
+  ]
+  let check = assertion => {
+    Ok(@query_testing.assert_expected_captures(captures, [assertion])) catch {
+      e => Err(e)
+    }
+  }
+  inspect(
+    check(@query_testing.Assertion::new(0, 0, 0, false, "foo")),
+    content="Err(Assertion failed: could not match foo at row 0, column 2147483647)",
+  )
+  // A zero-length assertion at a later column ends one column before it.
+  inspect(
+    check(@query_testing.Assertion::new(0, 1, 0, false, "foo")),
+    content="Ok(1)",
+  )
+}
