@@ -158,6 +158,18 @@ fn bash_bool_byte(b : Bool) -> Byte {
 }
 
 ///|
+/// `size + 3 + sizeof(uint32_t) + heredoc->delimiter.size >=
+/// TREE_SITTER_SERIALIZATION_BUFFER_SIZE`: `sizeof` makes it `size_t`
+/// (64-bit) arithmetic.
+fn bash_heredoc_overflows(size : Int32, delimiter_length : Int32) -> Bool {
+  size.reinterpret_as_uint().to_uint64() +
+  3 +
+  4 +
+  delimiter_length.reinterpret_as_uint().to_uint64() >=
+  SERIALIZATION_BUFFER_SIZE.to_uint64()
+}
+
+///|
 fn BashScanner::serialize(
   self : BashScanner,
   buffer : FixedArray[Byte],
@@ -172,7 +184,7 @@ fn BashScanner::serialize(
   buffer[size] = self.heredocs.length().to_byte()
   size += 1
   for heredoc in self.heredocs {
-    if size + 3 + 4 + heredoc.delimiter.length() >= SERIALIZATION_BUFFER_SIZE {
+    if bash_heredoc_overflows(size, heredoc.delimiter.length()) {
       return 0
     }
     buffer[size] = bash_bool_byte(heredoc.is_raw)
@@ -239,7 +251,9 @@ fn BashScanner::deserialize(self : BashScanner, buffer : BytesView) -> Unit {
         size += n
       }
     }
-    guard size == length else { abort("assert(size == length)") }
+    guard size == length else {
+      c_assert_fail("size == length", "deserialize", 153)
+    }
   }
 }
 
