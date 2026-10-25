@@ -15,6 +15,7 @@ import random
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -135,16 +136,17 @@ def run(cmds, timeout):
     """Run the commands concurrently; returns [(stdout or None on timeout,
     exit code or 'timeout')]."""
     procs = [subprocess.Popen(c, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) for c in cmds]
+    # All commands share one deadline (they run concurrently).
+    deadline = time.monotonic() + timeout
     results = []
     for p in procs:
         try:
-            out, _ = p.communicate(timeout=timeout)
+            out, _ = p.communicate(timeout=max(0.1, deadline - time.monotonic()))
             results.append((out.decode(errors='replace'), p.returncode))
         except subprocess.TimeoutExpired:
             p.kill()
             p.communicate()
             results.append((None, 'timeout'))
-        timeout = 1  # the others ran concurrently
     return results
 
 
