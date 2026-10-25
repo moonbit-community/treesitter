@@ -68,7 +68,7 @@ jobs:
       - name: Differential oracle
         run: sh tools/oracle/oracle.sh
       - name: CLI differential
-        run: sh tools/oracle/diff_cli.sh
+        run: bash tools/oracle/diff_cli.sh
       - name: Grammar modules match upstream's tables
         run: |
           moon build --target native --release tools/grammar_modules
