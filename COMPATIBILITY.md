@@ -78,4 +78,7 @@ upstream:
 
 - Generator: 3.1–3.4× the CPU time of `tree-sitter generate` (cpp, c,
   rust, ruby, typescript); table construction is 2.8–3.1×.
-- Runtime: RUNTIME_PLACEHOLDER
+- Runtime: 1.4–2.0× the time of the C runtime (`-O2`) to parse a file
+  from scratch (C 1.36×, JSON 2.0×, Go 1.85×, Python 1.65×, JavaScript 1.84×,
+  Rust 1.82× on upstream example files). Most of the
+  remaining cost is reference counting and allocating subtrees.
