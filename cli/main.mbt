@@ -492,7 +492,7 @@ fn pick_test_language(
 /// The `u32` value of the `--test-number` argument, which clap's `u32` value
 /// parser has validated with `i64::from_str` and a range check (so `-0` is
 /// 0).
-fn test_number(m : @clap.ArgMatches) -> UInt? {
+fn test_number(m : @clap.ArgMatches) -> UInt32? {
   match m.get_one("test_number") {
     Some(n) => {
       let n = if n.has_prefix("-") {

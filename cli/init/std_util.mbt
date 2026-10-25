@@ -155,7 +155,7 @@ fn rust_trim(s : String) -> String {
 ///|
 /// Whether `c` lies in one of the inclusive ranges of `table` (a flat array
 /// of `lo, hi` pairs in ascending order; see unicode_data.mbt).
-fn in_char_table(table : FixedArray[UInt], c : Char) -> Bool {
+fn in_char_table(table : FixedArray[UInt32], c : Char) -> Bool {
   let v = c.to_uint()
   for lo = 0, hi = table.length() / 2; lo < hi; {
     let mid = lo + (hi - lo) / 2
@@ -193,7 +193,7 @@ fn char_is_uppercase(c : Char) -> Bool {
 /// The mapping of `c` in a case-mapping table of unicode_data.mbt, if `c`
 /// does not map to itself.
 fn case_mapping(
-  keys : FixedArray[UInt],
+  keys : FixedArray[UInt32],
   values : FixedArray[String],
   c : Char,
 ) -> String? {

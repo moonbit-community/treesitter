@@ -232,9 +232,7 @@ async fn set_choice(opts : JsonConfigOpts, choice : String) -> Bool {
         ),
       )
     "funding" =>
-      opts.funding = Some(
-        rust_trim(input("Funding URL", allow_empty=true)),
-      )
+      opts.funding = Some(rust_trim(input("Funding URL", allow_empty=true)))
     "scope" =>
       opts.scope = input("TextMate scope", default="source.\{opts.name}", validate=input => {
         if input.has_prefix("source.") || input.has_prefix("text.") {
@@ -262,8 +260,7 @@ async fn set_choice(opts : JsonConfigOpts, choice : String) -> Bool {
       let e = input("Author email", allow_empty=true)
       opts.email = if !rust_trim(e).is_empty() { Some(e) } else { None }
     }
-    "url" =>
-      opts.url = Some(rust_trim(input("Author URL", allow_empty=true)))
+    "url" => opts.url = Some(rust_trim(input("Author URL", allow_empty=true)))
     "namespace" =>
       opts.namespace = Some(
         input(

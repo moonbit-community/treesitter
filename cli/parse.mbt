@@ -26,12 +26,12 @@ pub fn format_fixed2(x : Double) -> String {
 /// rounded to `precision` decimals, with ties to even (Rust's exact-mode
 /// `float_to_decimal_exact`); the sign is printed for every negative value,
 /// `-0.0` included.
-pub fn format_fixed(x : Double, precision : Int) -> String {
+pub fn format_fixed(x : Double, precision : Int32) -> String {
   if x.is_nan() {
     return "NaN"
   }
   let bits = x.reinterpret_as_uint64()
-  let sign = if (bits >> 63) != 0UL { "-" } else { "" }
+  let sign = if bits >> 63 != 0UL { "-" } else { "" }
   if x.is_inf() {
     return sign + "inf"
   }

@@ -265,8 +265,14 @@ async test "get_root_path" {
     rel(@init.get_root_path(dir + "/a/b/c/tree-sitter.json")),
     content="DIR/a",
   )
-  inspect(rel(@init.get_root_path(dir + "/a/b/c/package.json")), content="DIR/a")
-  inspect(rel(@init.get_root_path(dir + "/a/tree-sitter.json")), content="DIR/a")
+  inspect(
+    rel(@init.get_root_path(dir + "/a/b/c/package.json")),
+    content="DIR/a",
+  )
+  inspect(
+    rel(@init.get_root_path(dir + "/a/tree-sitter.json")),
+    content="DIR/a",
+  )
   // An invalid file stops the search.
   @fs.write_file(
     dir + "/a/b/tree-sitter.json",

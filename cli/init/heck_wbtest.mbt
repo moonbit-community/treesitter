@@ -2,44 +2,13 @@
 /// Expected values: heck 0.5.0 and `str::to_lowercase` under Rust 1.97.1.
 test "heck case conversions of non-ASCII names" {
   let names = [
-    "\u{C9}Foo",
-    "\u{E9}Foo",
-    "foo\u{C9}",
-    "\u{3A3}\u{391}\u{3A3}",
-    "a\u{3A3}",
-    "\u{3A3}a",
-    "\u{3A3}\u{3A3}",
-    "stra\u{DF}e",
-    "STRASSE",
-    "\u{1C5}emal",
-    "\u{130}stanbul",
-    "\u{149}",
-    "\u{FB03}",
-    "foo\u{2014}bar",
-    "foo\u{B7}bar",
-    "a\u{661}b",
-    "\u{216B}foo",
-    "\u{391}\u{392}\u{393}\u{3B4}",
-    "HTTPServer",
-    "fooBarBaz",
-    "foo_bar",
-    "x\u{B2}y",
-    "\u{65E5}\u{672C}\u{8A9E}",
-    "\u{1F88}",
-    "\u{FB00}oo",
-    "a\u{3A3}_b",
-    "A\u{3A3}-B",
-    "\u{1C8}\u{1C8}",
-    "\u{3A3}\u{3A3}a",
-    "Ab\u{301}C",
-    "a\u{345}B",
-    "\u{24D0}\u{24B6}b",
-    "\u{AB70}",
-    "\u{13A0}\u{AB70}",
-    "\u{1C90}\u{1C91}",
-    "\u{1F0}",
-    "\u{390}",
-    "\u{1E9E}a",
+    "\u{C9}Foo", "\u{E9}Foo", "foo\u{C9}", "\u{3A3}\u{391}\u{3A3}", "a\u{3A3}", "\u{3A3}a",
+    "\u{3A3}\u{3A3}", "stra\u{DF}e", "STRASSE", "\u{1C5}emal", "\u{130}stanbul",
+    "\u{149}", "\u{FB03}", "foo\u{2014}bar", "foo\u{B7}bar", "a\u{661}b", "\u{216B}foo",
+    "\u{391}\u{392}\u{393}\u{3B4}", "HTTPServer", "fooBarBaz", "foo_bar", "x\u{B2}y",
+    "\u{65E5}\u{672C}\u{8A9E}", "\u{1F88}", "\u{FB00}oo", "a\u{3A3}_b", "A\u{3A3}-B",
+    "\u{1C8}\u{1C8}", "\u{3A3}\u{3A3}a", "Ab\u{301}C", "a\u{345}B", "\u{24D0}\u{24B6}b",
+    "\u{AB70}", "\u{13A0}\u{AB70}", "\u{1C90}\u{1C91}", "\u{1F0}", "\u{390}", "\u{1E9E}a",
   ]
   let rows = names.map(n => {
     "\{n}: \{to_kebab_case(n)} \{to_snake_case(n)} \{to_shouty_snake_case(n)} \{to_upper_camel_case(n)} | \{str_to_lowercase(n)}"
@@ -92,11 +61,11 @@ test "heck case conversions of non-ASCII names" {
 ///|
 test "str::to_lowercase final sigma" {
   let inputs = [
-    "ΣΑΣ", "AΣ", "AΣ b", "AΣb", "Σ", "aΣ\u{301}", "a\u{301}Σ", "1Σ", "ΑΣ.Α", "ΑΣ'Α",
+    "ΣΑΣ", "AΣ", "AΣ b", "AΣb", "Σ", "aΣ\u{301}", "a\u{301}Σ", "1Σ", "ΑΣ.Α",
+    "ΑΣ'Α",
   ]
   inspect(
     inputs.map(str_to_lowercase).join(" "),
     content="σας aς aς b aσb σ aς\u{301} a\u{301}ς 1σ ασ.α ασ'α",
   )
 }
-

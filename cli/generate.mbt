@@ -156,8 +156,8 @@ pub async fn generate_parser_in_directory(
     abi_version.to_int()
   }
   let generated = @generate.generate_parser_for_grammar_with_opts(
-    input_grammar, generator_abi_version, semantic_version, report_symbol_name,
-    optimizations, diagnostics,
+    input_grammar, generator_abi_version, semantic_version, report_symbol_name, optimizations,
+    diagnostics,
   ) catch {
     @generate.RenderError::ABI(_) as e if abi_version > 0x7FFFFFFFUL => {
       ignore(e)

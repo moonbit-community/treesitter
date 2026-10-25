@@ -1062,7 +1062,10 @@ fn path_push(base : String, rel : String) -> String {
 /// `str::eq_ignore_ascii_case`.
 fn eq_ignore_ascii_case(a : String, b : String) -> Bool {
   a.length() == b.length() &&
-  a.iter().zip(b.iter()).all(p => p.0.to_ascii_lowercase() == p.1.to_ascii_lowercase())
+  a
+  .iter()
+  .zip(b.iter())
+  .all(p => p.0.to_ascii_lowercase() == p.1.to_ascii_lowercase())
 }
 
 // TODO: remove old migrations
