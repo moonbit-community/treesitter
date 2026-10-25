@@ -245,23 +245,7 @@ pub fn TestSummary::to_json(self : TestSummary) -> Json {
 ///|
 /// `format!("{:.3}", x)`.
 fn format_fixed3(x : Double) -> String {
-  if x.is_nan() {
-    return "NaN"
-  }
-  if x.is_inf() {
-    return if x > 0.0 { "inf" } else { "-inf" }
-  }
-  let neg = x < 0.0
-  let n = (x.abs() * 1000.0).round().to_int64()
-  let frac = (n % 1000L).to_int()
-  let frac_str = if frac < 10 {
-    "00\{frac}"
-  } else if frac < 100 {
-    "0\{frac}"
-  } else {
-    "\{frac}"
-  }
-  (if neg { "-" } else { "" }) + "\{n / 1000L}.\{frac_str}"
+  format_fixed(x, 3)
 }
 
 ///|
@@ -687,7 +671,7 @@ async fn run_tests(
         let adj_parse_rate = adjusted_parse_rate(tree, parse_time)
         test_summary.parse_stats.total_parses += 1
         test_summary.parse_stats.total_duration += parse_time
-        test_summary.parse_stats.total_bytes += byte_len
+        test_summary.parse_stats.total_bytes += byte_len.to_uint64()
         let parse_rate = Some((true_parse_rate, adj_parse_rate))
         if attributes.expectation is Error {
           if tree.root_node().has_error() {

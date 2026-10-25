@@ -368,7 +368,7 @@ async fn parse_run(
       }
       if parse_result.duration is Some(duration) &&
         parse_result.bytes is Some(bytes) {
-        stats.cumulative_stats.total_bytes += bytes
+        stats.cumulative_stats.total_bytes += bytes.to_uint64()
         stats.cumulative_stats.total_duration += duration
       }
     }

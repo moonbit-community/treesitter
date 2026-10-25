@@ -1,11 +1,11 @@
 // Port of tree-sitter crates/cli/src/parse.rs.
 
 ///|
-/// `Stats`.
+/// `Stats`. The counters are `usize`s.
 pub struct Stats {
-  mut successful_parses : Int32
-  mut total_parses : Int32
-  mut total_bytes : Int32
+  mut successful_parses : UInt64
+  mut total_parses : UInt64
+  mut total_bytes : UInt64
   /// Nanoseconds.
   mut total_duration : Int64
 }
@@ -18,13 +18,67 @@ pub fn Stats::default() -> Stats {
 ///|
 /// `format!("{:.2}", x)`.
 pub fn format_fixed2(x : Double) -> String {
-  let neg = x < 0.0
-  let scaled = (x.abs() * 100.0).round()
-  let n = scaled.to_int64()
-  let int_part = n / 100L
-  let frac = (n % 100L).to_int()
-  let frac_str = if frac < 10 { "0\{frac}" } else { "\{frac}" }
-  (if neg && n != 0L { "-" } else { "" }) + "\{int_part}.\{frac_str}"
+  format_fixed(x, 2)
+}
+
+///|
+/// `format!("{:.precision$}", x)` for an `f64`: the exact binary value
+/// rounded to `precision` decimals, with ties to even (Rust's exact-mode
+/// `float_to_decimal_exact`); the sign is printed for every negative value,
+/// `-0.0` included.
+pub fn format_fixed(x : Double, precision : Int) -> String {
+  if x.is_nan() {
+    return "NaN"
+  }
+  let bits = x.reinterpret_as_uint64()
+  let sign = if (bits >> 63) != 0UL { "-" } else { "" }
+  if x.is_inf() {
+    return sign + "inf"
+  }
+  let biased_exponent = ((bits >> 52) & 0x7FFUL).to_int()
+  let fraction = bits & 0xFFFFFFFFFFFFFUL
+  // x = mantissa * 2^exponent
+  let (mantissa, exponent) = if biased_exponent == 0 {
+    (fraction, -1074)
+  } else {
+    (fraction | 0x10000000000000UL, biased_exponent - 1075)
+  }
+  let mantissa = @bigint.BigInt::from_uint64(mantissa)
+  let one = @bigint.BigInt::from_int(1)
+  let scale = @bigint.BigInt::from_int(10).pow(
+    @bigint.BigInt::from_int(precision),
+  )
+  // The value times 10^precision, rounded to an integer.
+  let scaled = if exponent >= 0 {
+    (mantissa << exponent) * scale
+  } else {
+    let k = -exponent
+    let product = mantissa * scale
+    let q = product >> k
+    let rem = product - (q << k)
+    let cmp = rem.compare(one << (k - 1))
+    if cmp > 0 || (cmp == 0 && !q.land(one).is_zero()) {
+      q + one
+    } else {
+      q
+    }
+  }
+  let digits = scaled.to_string()
+  let digits = if digits.length() <= precision {
+    "0".repeat(precision + 1 - digits.length()) + digits
+  } else {
+    digits
+  }
+  let point = digits.length() - precision
+  let int_part = digits.unsafe_substring(start=0, end=point)
+  if precision == 0 {
+    sign + int_part
+  } else {
+    sign +
+    int_part +
+    "." +
+    digits.unsafe_substring(start=point, end=digits.length())
+  }
 }
 
 ///|
@@ -66,11 +120,27 @@ pub impl Show for Stats with fn output(self, f) {
   } else if duration_us == 0L {
     "0 bytes/ms"
   } else {
-    "\{self.total_bytes.to_int64() * 1000L / duration_us} bytes/ms"
+    // `((self.total_bytes as u128) * 1_000) / duration_us` is q * 1000 + r,
+    // which may exceed `u64::MAX`.
+    let duration_us = duration_us.reinterpret_as_uint64()
+    let q = self.total_bytes / duration_us
+    let r = self.total_bytes % duration_us * 1000UL / duration_us
+    if q == 0 {
+      "\{r} bytes/ms"
+    } else {
+      let r = r.to_string()
+      "\{q}\{"0".repeat(3 - r.length())}\{r} bytes/ms"
+    }
   }
   f.write_string(
     "Total parses: \{self.total_parses}; successful parses: \{self.successful_parses}; failed parses: \{self.total_parses - self.successful_parses}; success percentage: \{success_rate}; average speed: \{duration_str}\n",
   )
+}
+
+///|
+/// A `usize` serialized by serde_json.
+fn usize_json(n : UInt64) -> Json {
+  Json::number(n.to_double(), repr=n.to_string())
 }
 
 ///|
@@ -84,9 +154,9 @@ fn duration_json(nanos : Int64) -> Json {
 ///|
 fn Stats::to_json(self : Stats) -> Json {
   {
-    "successful_parses": Json::number(self.successful_parses.to_double()),
-    "total_parses": Json::number(self.total_parses.to_double()),
-    "total_bytes": Json::number(self.total_bytes.to_double()),
+    "successful_parses": usize_json(self.successful_parses),
+    "total_parses": usize_json(self.total_parses),
+    "total_bytes": usize_json(self.total_bytes),
     "total_duration": duration_json(self.total_duration),
   }
 }
