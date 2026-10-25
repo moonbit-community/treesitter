@@ -133,7 +133,15 @@ the orders upstream can produce:
   include them.
 - Writes to stdout are all-or-error (no partial writes). File names that are
   not valid UTF-8 are decoded lossily, so glob patterns may match or sort
-  them differently.
+  them differently, and such a path that does not exist gives "No files
+  were found…" rather than upstream's "Invalid path: …".
+- When a command is re-run through a compiled MoonBit scanner driver,
+  arguments that are not valid UTF-8 reach the driver decoded lossily, so
+  clap's InvalidUtf8 check does not apply there.
+- Query `--byte-range`/`--row-range` values are truncated to u32 as the
+  Rust binding does; values above 0x7FFFFFFE are represented as 0x7FFFFFFF,
+  so a range whose start and end both lie in 2³¹…2³²−2 with start > end is
+  set (and matches nothing) instead of being ignored by the C cursor.
 - A failed C `assert` in a ported external scanner prints macOS libc's
   diagnostic (`Assertion failed: (expr), function f, file scanner.c, line
   N.`) on stderr and then ends with a MoonBit panic instead of `abort()`.
@@ -161,9 +169,11 @@ indents) abort in the port.
 The library packages are pure MoonBit and build for native, JavaScript and
 Wasm GC. The CLI, loader and config are native only and use one C file of
 host bindings (`cli/support/stub.c`): binary writes to stdout and stderr with
-errno, reading special files, process exit and wait status, a monotonic
-clock, `isatty`, `strerror`, the passwd home directory, the target OS, and
-macOS Launch Services for `--open-log`.
+errno, reading special files, process spawning (`posix_spawn`, with Rust's
+signal setup and blocking pipe ends) and wait status, `fcntl` blocking mode,
+process exit, a monotonic clock, `isatty`, `strerror`, `getcwd`, the default
+temporary directory, the passwd home directory, the target OS, and macOS
+Launch Services for `--open-log`.
 
 ## Performance
 
