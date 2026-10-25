@@ -874,3 +874,9 @@ fn Arg::render_arg_val(self : Arg, required : Bool) -> String {
 pub impl Show for Arg with output(self, logger) {
   logger.write_string(self.stylized())
 }
+
+///|
+/// The `Display` text of an argument (`--long <VALUE>`).
+pub fn Arg::to_string(self : Arg) -> String {
+  self.stylized()
+}

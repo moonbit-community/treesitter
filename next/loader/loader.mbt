@@ -664,6 +664,7 @@ async fn Loader::scanner_for(
   if @fs.exists(mbtx) {
     let path = @fs.realpath(mbtx)
     self.mbtx_scanners[name] = path
+    required_mbtx_scanners[name] = path
     let required = []
     for n, p in self.mbtx_scanners {
       required.push((n, p))

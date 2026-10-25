@@ -87,6 +87,7 @@ pub fn Arg::short(Self, Char) -> Self
 pub fn Arg::short_alias(Self, Char) -> Self
 pub fn Arg::stylize_arg_suffix(Self, required? : Bool) -> String
 pub fn Arg::stylized(Self, required? : Bool) -> String
+pub fn Arg::to_string(Self) -> String
 pub fn Arg::value_hint(Self, ValueHint) -> Self
 pub fn Arg::value_name(Self, String) -> Self
 pub fn Arg::value_parser(Self, ValueParser) -> Self

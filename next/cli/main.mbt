@@ -1118,7 +1118,11 @@ pub async fn run(
   }
   match result {
     Ok(code) => code
-    Err(@loader.ScannerRequired(required)) =>
+    Err(_) if !@loader.required_mbtx_scanners.is_empty() => {
+      let required = []
+      for name, path in @loader.required_mbtx_scanners {
+        required.push((name, path))
+      }
       if @env.get_env_var(@loader.driver_env_var) is Some(_) {
         @support.log_error(
           "The MoonBit scanners \{required.map(r => r.1).join(", ")} are not registered in this driver",
@@ -1132,6 +1136,7 @@ pub async fn run(
           }
         }
       }
+    }
     Err(err) => {
       let chain = CliError(error_chain(err))
       if !error_message(chain).is_empty() {

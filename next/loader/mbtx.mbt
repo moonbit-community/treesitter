@@ -12,11 +12,22 @@
 // keyed by the set of scanner files, and re-run with the original arguments.
 
 ///|
+/// The MoonBit scanners (language name to `scanner.mbtx` path) that were
+/// needed in this process but are not registered; the CLI re-runs itself
+/// through a driver with them (see `run_with_scanners`).
+pub let required_mbtx_scanners : Map[String, String] = Map([])
+
+///|
 /// The environment variable that marks a process as a scanner driver.
 pub let driver_env_var : String = "TREE_SITTER_MBT_DRIVER"
 
 ///|
 async fn write_file(path : String, content : String) -> Unit {
+  // Leave unchanged files alone so that cached driver builds stay valid.
+  if @fs.exists(path) &&
+    (@fs.read_file(path).text() catch { _ => "" }) == content {
+    return
+  }
   @fs.write_file(path, content, create_mode=CreateOrTruncate)
 }
 
@@ -199,7 +210,7 @@ pub async fn build_scanner_driver(
   )
   write_file(
     @support.path_join(script, "driver/main.mbt"),
-    "fn scanners(name : String) -> @runtime.ExternalScannerFactory? {\n  match name {\n\{cases.to_string()}    _ => None\n  }\n}\n\nasync fn main {\n  @cli.main(@env.args(), scanners~)\n}\n",
+    "fn scanners(name : String) -> @runtime.ExternalScannerFactory? {\n  match name {\n\{cases.to_string()}    _ => None\n  }\n}\n\nasync fn main {\n  @cli.cli_main(@env.args(), scanners~)\n}\n",
   )
   let (code, _, stderr) = @process.collect_output(
     "moon",
