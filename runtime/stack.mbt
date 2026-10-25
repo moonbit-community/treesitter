@@ -173,7 +173,7 @@ fn stack_node_clear_links(node : StackNode) -> Unit {
   for i in 0..<node.links.length() {
     node.links[i] = {
       node: stack_node_detached,
-      subtree: Null,
+      subtree: Subtree::null(),
       is_pending: false,
     }
   }
@@ -399,8 +399,8 @@ fn Stack::recycle_head(self : Stack, head : StackHead) -> Unit {
   // record may also stay reachable from spare capacity of `heads`.
   head.node = self.base_node
   head.summary = None
-  head.last_external_token = Null
-  head.lookahead_when_paused = Null
+  head.last_external_token = Subtree::null()
+  head.lookahead_when_paused = Subtree::null()
   if self.head_pool.length() < max_record_pool_size {
     self.head_pool.push(head)
   }
@@ -453,7 +453,7 @@ fn Stack::add_version(
     None,
     original.node_count_at_last_error,
     original.last_external_token,
-    Null,
+    Subtree::null(),
     Active,
   )
   self.heads.push(head)
@@ -972,7 +972,7 @@ pub fn Stack::resume(self : Stack, version : Int32) -> Subtree {
   let head = self.heads[version]
   let result = head.lookahead_when_paused
   head.status = Active
-  head.lookahead_when_paused = Null
+  head.lookahead_when_paused = Subtree::null()
   result
 }
 
@@ -984,7 +984,16 @@ pub fn Stack::clear(self : Stack) -> Unit {
     self.recycle_head(head)
   }
   self.heads.clear()
-  self.heads.push(self.new_head(self.base_node, None, 0, Null, Null, Active))
+  self.heads.push(
+    self.new_head(
+      self.base_node,
+      None,
+      0,
+      Subtree::null(),
+      Subtree::null(),
+      Active,
+    ),
+  )
 }
 
 ///|

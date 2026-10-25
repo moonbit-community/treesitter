@@ -306,10 +306,9 @@ pub(all) struct StackSummaryEntry {
 } derive(Eq, @debug.Debug)
 
 #alias(MutableSubtree)
-pub(all) enum Subtree {
-  Null
-  Inline(SubtreeInlineData)
-  Heap(SubtreeHeapData)
+pub(all) struct Subtree {
+  data : SubtreeInlineData
+  heap : SubtreeHeapData?
 }
 pub fn Subtree::address(Self) -> Int32
 pub fn Subtree::child_count(Self) -> Int32
@@ -327,6 +326,8 @@ pub fn Subtree::external_scanner_state_eq(Self, Self) -> Bool
 pub fn Subtree::extra(Self) -> Bool
 pub fn Subtree::fragile_left(Self) -> Bool
 pub fn Subtree::fragile_right(Self) -> Bool
+pub fn Subtree::from_heap(SubtreeHeapData) -> Self
+pub fn Subtree::from_inline(SubtreeInlineData) -> Self
 pub fn Subtree::has_changes(Self) -> Bool
 pub fn Subtree::has_external_scanner_state_change(Self) -> Bool
 pub fn Subtree::has_external_tokens(Self) -> Bool
@@ -349,6 +350,7 @@ pub fn Subtree::new_error_node(Array[Self], Bool, @language.Language) -> Self
 pub fn Subtree::new_leaf(Int32, Length, Length, UInt32, Int32, Bool, Bool, Bool, @language.Language) -> Self
 pub fn Subtree::new_missing_leaf(Int32, Int32, Length, UInt32, @language.Language) -> Self
 pub fn Subtree::new_node(Int32, Array[Self], Int32, @language.Language) -> Self
+pub fn Subtree::null() -> Self
 pub fn Subtree::padding(Self) -> Length
 pub fn Subtree::parse_state(Self) -> Int32
 pub fn Subtree::print_dot_graph(Self, @language.Language, @buffer.Buffer) -> Unit
@@ -404,21 +406,24 @@ pub(all) struct SubtreeHeapData {
 }
 
 pub(all) struct SubtreeInlineData {
-  visible : Bool
-  named : Bool
-  extra : Bool
-  has_changes : Bool
-  is_missing : Bool
-  is_keyword : Bool
-  depends_on_column : Bool
-  symbol : Int32
-  parse_state : Int32
-  padding_columns : UInt32
-  padding_rows : UInt32
-  lookahead_bytes : UInt32
-  padding_bytes : UInt32
-  size_bytes : UInt32
+  bits : UInt64
 } derive(Eq, @debug.Debug)
+pub fn SubtreeInlineData::depends_on_column(Self) -> Bool
+pub fn SubtreeInlineData::extra(Self) -> Bool
+pub fn SubtreeInlineData::has_changes(Self) -> Bool
+pub fn SubtreeInlineData::is_inline(Self) -> Bool
+pub fn SubtreeInlineData::is_keyword(Self) -> Bool
+pub fn SubtreeInlineData::is_missing(Self) -> Bool
+pub fn SubtreeInlineData::lookahead_bytes(Self) -> UInt32
+pub fn SubtreeInlineData::named(Self) -> Bool
+pub fn SubtreeInlineData::new(visible~ : Bool, named~ : Bool, extra~ : Bool, has_changes~ : Bool, is_missing~ : Bool, is_keyword~ : Bool, depends_on_column~ : Bool, symbol~ : Int32, parse_state~ : Int32, padding_columns~ : UInt32, padding_rows~ : UInt32, lookahead_bytes~ : UInt32, padding_bytes~ : UInt32, size_bytes~ : UInt32) -> Self
+pub fn SubtreeInlineData::padding_bytes(Self) -> UInt32
+pub fn SubtreeInlineData::padding_columns(Self) -> UInt32
+pub fn SubtreeInlineData::padding_rows(Self) -> UInt32
+pub fn SubtreeInlineData::parse_state(Self) -> Int32
+pub fn SubtreeInlineData::size_bytes(Self) -> UInt32
+pub fn SubtreeInlineData::symbol(Self) -> Int32
+pub fn SubtreeInlineData::visible(Self) -> Bool
 
 pub(all) struct SubtreeSlot {
   array : Array[Subtree]

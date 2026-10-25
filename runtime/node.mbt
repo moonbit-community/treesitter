@@ -108,7 +108,7 @@ fn Node::iterate_children(self : Node) -> NodeChildIterator {
   let subtree = self.subtree()
   if subtree.child_count() == 0 {
     return {
-      parent: Null,
+      parent: Subtree::null(),
       tree: self.tree,
       position: length_zero(),
       child_index: 0,
