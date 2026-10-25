@@ -113,7 +113,7 @@ fn powershell_generate_aliases(
     let tooltip = powershell_escape_help(arg.get_help(), aliases[0].to_string())
     for alias in aliases {
       // make PowerShell realize there is a difference between `-s` and `-S`
-      let upper = if alias.is_ascii_uppercase() { " " } else { "" }
+      let upper = if is_uppercase(alias) { " " } else { "" }
       completions.write_string(
         "\{preamble}'-\{alias}', '-\{alias}\{upper}', [CompletionResultType]::ParameterName, '\{tooltip}')",
       )

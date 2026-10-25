@@ -259,20 +259,25 @@ fn compare_keys(a : (Int32, String), b : (Int32, String)) -> Int32 {
 }
 
 ///|
-/// Byte-wise string comparison (Rust's `Ord for str`).
+/// Rust's `Ord for str`: lexicographic UTF-8 byte order, which is the order
+/// of the code point sequences (UTF-16 code units would sort U+10000 before
+/// U+E000).
 fn String::compare_bytes(self : String, other : String) -> Int32 {
-  let n = if self.length() < other.length() {
-    self.length()
-  } else {
-    other.length()
-  }
-  for i in 0..<n {
-    let c = self[i].to_int().compare(other[i].to_int())
-    if c != 0 {
-      return c
+  let a = self.iter()
+  let b = other.iter()
+  for ;; {
+    match (a.next(), b.next()) {
+      (Some(x), Some(y)) => {
+        let c = x.to_int().compare(y.to_int())
+        if c != 0 {
+          return c
+        }
+      }
+      (Some(_), None) => return 1
+      (None, Some(_)) => return -1
+      (None, None) => return 0
     }
   }
-  self.length().compare(other.length())
 }
 
 ///|
@@ -621,36 +626,6 @@ fn display_width(s : String) -> Int32 {
     }
   }
   width
-}
-
-///|
-/// `util::Escape`: values that are empty or contain whitespace are printed
-/// with `Debug` quoting.
-fn escape(s : String) -> String {
-  if s.is_empty() || s.iter().any(c => c.is_whitespace()) {
-    debug_str(s)
-  } else {
-    s
-  }
-}
-
-///|
-/// Rust's `Debug for str` for the characters that occur in option values.
-fn debug_str(s : String) -> String {
-  let sb = StringBuilder()
-  sb.write_char('"')
-  for c in s {
-    match c {
-      '"' => sb.write_string("\\\"")
-      '\\' => sb.write_string("\\\\")
-      '\n' => sb.write_string("\\n")
-      '\r' => sb.write_string("\\r")
-      '\t' => sb.write_string("\\t")
-      _ => sb.write_char(c)
-    }
-  }
-  sb.write_char('"')
-  sb.to_string()
 }
 
 ///|
