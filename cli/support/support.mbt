@@ -166,17 +166,6 @@ pub fn path_starts_with(path : String, prefix : String) -> Bool {
 }
 
 ///|
-/// `Path::strip_prefix` (component-wise).
-pub fn strip_path_prefix(path : String, prefix : String) -> String? {
-  if !path_starts_with(path, prefix) {
-    return None
-  }
-  let a = components(path)
-  let b = components(prefix)
-  Some(a[b.length():].to_owned().join("/"))
-}
-
-///|
 extern "C" fn ts_cli_passwd_home() -> Bytes = "ts_cli_passwd_home"
 
 ///|
