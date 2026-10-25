@@ -1,15 +1,13 @@
 // Port of tree-sitter crates/generate/src/parse_grammar.rs.
 //
-// Upstream deserializes `grammar.json` with serde. The `RuleJSON`,
-// `PrecedenceValueJSON` and `GrammarJSON` decoders below reproduce serde's
-// observable behavior: which document is accepted, the order in which errors
-// are found and the text of serde's messages. serde's ` at line L column C`
-// suffix on errors raised while reading the top-level document is not
-// reproduced (errors raised by `serde_json::from_value` for rule bodies carry
-// no position upstream either). Nor is serde's `duplicate field` error for a
-// key repeated inside the top-level object or an `extras`/`externals`/
-// `precedences` rule: `@json.parse` keeps the last value, as upstream does for
-// the `rules` and `reserved` maps. JSON syntax errors use `@json`'s text.
+// Upstream deserializes `grammar.json` with serde (serde_json 1.0.154, serde
+// 1.0.229). The `RuleJSON`, `PrecedenceValueJSON` and `GrammarJSON` decoders
+// below are what serde_derive generates for them, written against the
+// serde_json port in `serde_json`: the same documents are accepted, errors are
+// found in the same order and have the same text, including serde_json's
+// ` at line L column C` suffix. The rule bodies in `rules` and `reserved` are
+// read as `serde_json::Value`s first and converted with
+// `serde_json::from_value`, whose errors have no position.
 
 ///|
 /// `RuleJSON`: one rule of `grammar.json`, tagged by its `type` field.
@@ -43,7 +41,7 @@ priv enum PrecedenceValueJSON {
 ///|
 priv struct GrammarJSON {
   name : String
-  rules : Map[String, Json]
+  rules : Map[String, @serde_json.Value]
   precedences : Array[Array[RuleJSON]]
   conflicts : Array[Array[String]]
   externals : Array[RuleJSON]
@@ -51,7 +49,7 @@ priv struct GrammarJSON {
   inline : Array[String]
   supertypes : Array[String]
   word : String?
-  reserved : Map[String, Json]
+  reserved : Map[String, @serde_json.Value]
 }
 
 ///|
@@ -84,138 +82,13 @@ pub impl Show for ParseGrammarError with fn output(self, logger) {
   }
 }
 
-// serde's error vocabulary ----------------------------------------------------
-
 ///|
-/// serde_json's `JsonUnexpected` rendering of the value that had the wrong type.
-fn serde_unexpected(json : Json) -> String {
-  match json {
-    Null => "null"
-    True => "boolean `true`"
-    False => "boolean `false`"
-    Number(n, repr~) =>
-      match json_integer(n, repr) {
-        Some(i) => "integer `\{i}`"
-        None => "floating point `\{serde_float(n)}`"
-      }
-    String(s) => "string \{rust_debug_str(s)}"
-    Array(_) => "sequence"
-    Object(_) => "map"
-  }
+/// `impl From<serde_json::Error> for ParseGrammarError`.
+fn serialization_error(e : @serde_json.JsonError) -> ParseGrammarError {
+  Serialization(e.to_string())
 }
 
-///|
-/// Rust's `{:?}` for a `&str`.
-fn rust_debug_str(s : String) -> String {
-  let sb = StringBuilder()
-  sb.write_char('"')
-  for c in s {
-    match c {
-      '"' => sb.write_string("\\\"")
-      '\\' => sb.write_string("\\\\")
-      '\n' => sb.write_string("\\n")
-      '\r' => sb.write_string("\\r")
-      '\t' => sb.write_string("\\t")
-      '\u{0}' => sb.write_string("\\0")
-      c if c.to_int() < 0x20 || c.to_int() == 0x7f => {
-        sb.write_string("\\u{")
-        sb.write_string(c.to_int().to_string(radix=16))
-        sb.write_char('}')
-      }
-      c => sb.write_char(c)
-    }
-  }
-  sb.write_char('"')
-  sb.to_string()
-}
-
-///|
-/// serde_json prints floats in `invalid type` errors with a decimal point.
-fn serde_float(n : Double) -> String {
-  let s = n.to_string()
-  if s.contains(".") || s.contains("e") || s.contains("N") || s.contains("I") {
-    s
-  } else {
-    s + ".0"
-  }
-}
-
-///|
-/// The decimal text of the integer a JSON number denotes, if serde_json reads
-/// it as an integer (no fraction or exponent, and within `i64` or `u64`;
-/// larger literals are read as floats). Requires the number's source text.
-fn json_integer(n : Double, repr : String?) -> String? {
-  let text = match repr {
-    Some(text) => text
-    None => n.to_string()
-  }
-  if text.contains(".") || text.contains("e") || text.contains("E") {
-    return None
-  }
-  try @string.parse_int64(text) catch {
-    _ =>
-      try @string.parse_uint64(text) catch {
-        _ => None
-      } noraise {
-        u => Some(u.to_string())
-      }
-  } noraise {
-    i => Some(i.to_string())
-  }
-}
-
-///|
-fn invalid_type(json : Json, expected : String) -> ParseGrammarError {
-  Serialization("invalid type: \{serde_unexpected(json)}, expected \{expected}")
-}
-
-///|
-fn missing_field(name : String) -> ParseGrammarError {
-  Serialization("missing field `\{name}`")
-}
-
-///|
-fn de_string(json : Json) -> String raise ParseGrammarError {
-  match json {
-    String(s) => s
-    _ => raise invalid_type(json, "a string")
-  }
-}
-
-///|
-fn de_bool(json : Json) -> Bool raise ParseGrammarError {
-  match json {
-    True => true
-    False => false
-    _ => raise invalid_type(json, "a boolean")
-  }
-}
-
-///|
-fn de_i32(json : Json) -> Int32 raise ParseGrammarError {
-  guard json is Number(n, repr~) else { raise invalid_type(json, "i32") }
-  guard json_integer(n, repr) is Some(text) else {
-    raise invalid_type(json, "i32")
-  }
-  @string.parse_int(text) catch {
-    _ => raise Serialization("invalid value: integer `\{text}`, expected i32")
-  }
-}
-
-///|
-fn[T] de_seq(
-  json : Json,
-  f : (Json) -> T raise ParseGrammarError,
-) -> Array[T] raise ParseGrammarError {
-  guard json is Array(items) else { raise invalid_type(json, "a sequence") }
-  items.map(f)
-}
-
-///|
-fn de_map(json : Json) -> Map[String, Json] raise ParseGrammarError {
-  guard json is Object(map) else { raise invalid_type(json, "a map") }
-  map
-}
+// serde_derive's `Deserialize` impls --------------------------------------------
 
 ///|
 let rule_json_variants : Array[String] = [
@@ -242,220 +115,209 @@ fn rule_json_fields(variant : String) -> Array[String] {
 }
 
 ///|
-fn PrecedenceValueJSON::from_json(
-  json : Json,
-) -> PrecedenceValueJSON raise ParseGrammarError {
-  match json {
-    String(s) => Name(s)
-    Number(n, repr~) =>
-      match json_integer(n, repr) {
-        Some(text) =>
-          Integer(
-            @string.parse_int(text) catch {
-              _ =>
-                raise Serialization(
-                  "data did not match any variant of untagged enum PrecedenceValueJSON",
-                )
-            },
-          )
-        None =>
-          raise Serialization(
-            "data did not match any variant of untagged enum PrecedenceValueJSON",
-          )
-      }
-    _ =>
-      raise Serialization(
-        "data did not match any variant of untagged enum PrecedenceValueJSON",
-      )
-  }
+let rule_json_expecting = "internally tagged enum RuleJSON"
+
+///|
+/// `RuleJSON::deserialize` from the `serde_json` stream.
+fn RuleJSON::deserialize(
+  de : @serde_json.Deserializer,
+) -> RuleJSON raise @serde_json.JsonError {
+  let (variant, content) = de.deserialize_internally_tagged(
+    "type", rule_json_expecting, rule_json_variants,
+  )
+  RuleJSON::from_variant(variant, content)
 }
 
 ///|
-/// serde's internally tagged enum: find the tag, then read the variant's
-/// fields in document order, then report the first missing field.
-fn RuleJSON::from_json(json : Json) -> RuleJSON raise ParseGrammarError {
-  guard json is Object(map) else {
-    raise invalid_type(json, "internally tagged enum RuleJSON")
+/// `RuleJSON::deserialize` from a `ContentDeserializer` (a nested rule).
+fn RuleJSON::from_content(
+  content : @serde_json.Content,
+) -> RuleJSON raise @serde_json.JsonError {
+  let (variant, content) = content.deserialize_internally_tagged(
+    "type", rule_json_expecting, rule_json_variants,
+  )
+  RuleJSON::from_variant(variant, content)
+}
+
+///|
+/// `serde_json::from_value::<RuleJSON>`.
+fn RuleJSON::from_value(
+  value : @serde_json.Value,
+) -> RuleJSON raise @serde_json.JsonError {
+  let (variant, content) = value.deserialize_internally_tagged(
+    "type", rule_json_expecting, rule_json_variants,
+  )
+  RuleJSON::from_variant(variant, content)
+}
+
+///|
+/// The variant of an internally tagged `RuleJSON`, from the content left
+/// once the tag was found.
+fn RuleJSON::from_variant(
+  variant : Int32,
+  content : @serde_json.Content,
+) -> RuleJSON raise @serde_json.JsonError {
+  let name = rule_json_variants[variant]
+  if name == "BLANK" || name == "EOF" {
+    content.deserialize_internally_tagged_unit("RuleJSON", name)
+    return if name == "BLANK" { BLANK } else { EOF }
   }
-  guard map.get("type") is Some(tag) else { raise missing_field("type") }
-  let variant = match tag {
-    String(s) => s
-    _ => raise invalid_type(tag, "variant identifier")
-  }
-  if !rule_json_variants.contains(variant) {
-    let expected = rule_json_variants.map(v => "`\{v}`").join(", ")
-    raise Serialization(
-      "unknown variant `\{variant}`, expected one of \{expected}",
-    )
-  }
-  let fields = rule_json_fields(variant)
-  let values : Map[String, String] = Map([])
-  let content : Ref[RuleJSON?] = { val: None, }
+  let fields = rule_json_fields(name)
+  let rule : Ref[RuleJSON?] = { val: None, }
   let members : Ref[Array[RuleJSON]?] = { val: None, }
-  let prec : Ref[PrecedenceValueJSON?] = { val: None, }
-  let int_value : Ref[Int32?] = { val: None, }
   let named : Ref[Bool?] = { val: None, }
-  for key, value in map {
-    if key == "type" || !fields.contains(key) {
-      continue
-    }
-    match (variant, key) {
-      (_, "content") => content.val = Some(RuleJSON::from_json(value))
-      (_, "members") => members.val = Some(de_seq(value, RuleJSON::from_json))
-      ("ALIAS", "named") => named.val = Some(de_bool(value))
-      ("PREC_DYNAMIC", "value") => int_value.val = Some(de_i32(value))
-      ("PREC_LEFT" | "PREC_RIGHT" | "PREC", "value") =>
-        prec.val = Some(PrecedenceValueJSON::from_json(value))
-      ("PATTERN", "flags") =>
-        if !(value is Null) {
-          values[key] = de_string(value)
-        }
-      _ => values[key] = de_string(value)
-    }
-  }
-  fn string_field(name : String) -> String raise ParseGrammarError {
-    match values.get(name) {
-      Some(s) => s
-      _ => raise missing_field(name)
-    }
-  }
-
-  fn content_field() -> RuleJSON raise ParseGrammarError {
-    match content.val {
-      Some(c) => c
-      None => raise missing_field("content")
-    }
-  }
-
-  fn prec_field() -> PrecedenceValueJSON raise ParseGrammarError {
-    match prec.val {
-      Some(p) => p
-      None => raise missing_field("value")
-    }
-  }
-
-  fn members_field() -> Array[RuleJSON] raise ParseGrammarError {
-    match members.val {
-      Some(m) => m
-      None => raise missing_field("members")
-    }
-  }
-
-  match variant {
-    "ALIAS" => {
-      let content = content_field()
-      guard named.val is Some(named) else { raise missing_field("named") }
-      ALIAS(content~, named~, value=string_field("value"))
-    }
-    "BLANK" => BLANK
-    "STRING" => STRING(value=string_field("value"))
-    "PATTERN" => {
-      let value = string_field("value")
-      let flags = match values.get("flags") {
-        Some(f) => Some(f)
-        _ => None
+  let int_value : Ref[Int32?] = { val: None, }
+  let prec : Ref[PrecedenceValueJSON?] = { val: None, }
+  let flags : Ref[String?] = { val: None, }
+  let strings : Map[String, String] = Map([])
+  content.deserialize_struct(
+    "struct variant RuleJSON::\{name}",
+    fields,
+    (i, value) => {
+      let field = fields[i]
+      match field {
+        "content" => rule.val = Some(RuleJSON::from_content(value))
+        "members" =>
+          members.val = Some(value.deserialize_vec(RuleJSON::from_content))
+        "named" => named.val = Some(value.deserialize_bool())
+        "value" if name == "PREC_DYNAMIC" =>
+          int_value.val = Some(value.deserialize_i32())
+        "value" if name is ("PREC_LEFT" | "PREC_RIGHT" | "PREC") =>
+          prec.val = Some(PrecedenceValueJSON::from_content(value))
+        "flags" =>
+          flags.val = value.deserialize_option(c => c.deserialize_string())
+        _ => strings[field] = value.deserialize_string()
       }
-      PATTERN(value~, flags~)
-    }
-    "SYMBOL" => SYMBOL(name=string_field("name"))
-    "CHOICE" => CHOICE(members=members_field())
-    "FIELD" => {
-      let name = string_field("name")
-      FIELD(name~, content=content_field())
-    }
-    "SEQ" => SEQ(members=members_field())
-    "REPEAT" => REPEAT(content=content_field())
-    "REPEAT1" => REPEAT1(content=content_field())
-    "PREC_DYNAMIC" => {
-      guard int_value.val is Some(value) else { raise missing_field("value") }
-      PREC_DYNAMIC(value~, content=content_field())
-    }
-    "PREC_LEFT" => {
-      let value = prec_field()
-      PREC_LEFT(value~, content=content_field())
-    }
-    "PREC_RIGHT" => {
-      let value = prec_field()
-      PREC_RIGHT(value~, content=content_field())
-    }
-    "PREC" => {
-      let value = prec_field()
-      PREC(value~, content=content_field())
-    }
-    "TOKEN" => TOKEN(content=content_field())
-    "IMMEDIATE_TOKEN" => IMMEDIATE_TOKEN(content=content_field())
-    "RESERVED" => {
-      let context_name = string_field("context_name")
-      RESERVED(context_name~, content=content_field())
-    }
-    _ => EOF
-  }
+    },
+    present => {
+      // The values of absent fields, in field order: `None` for an
+      // `Option`, a `missing field` error otherwise.
+      for i, field in fields {
+        if !present[i] && field != "flags" {
+          raise @serde_json.missing_field(field)
+        }
+      }
+      let string_field = (field : String) => strings.get(field).unwrap()
+      let content_field = () => rule.val.unwrap()
+      match name {
+        "ALIAS" =>
+          ALIAS(
+            content=content_field(),
+            named=named.val.unwrap(),
+            value=string_field("value"),
+          )
+        "STRING" => STRING(value=string_field("value"))
+        "PATTERN" => PATTERN(value=string_field("value"), flags=flags.val)
+        "SYMBOL" => SYMBOL(name=string_field("name"))
+        "CHOICE" => CHOICE(members=members.val.unwrap())
+        "FIELD" => FIELD(name=string_field("name"), content=content_field())
+        "SEQ" => SEQ(members=members.val.unwrap())
+        "REPEAT" => REPEAT(content=content_field())
+        "REPEAT1" => REPEAT1(content=content_field())
+        "PREC_DYNAMIC" =>
+          PREC_DYNAMIC(value=int_value.val.unwrap(), content=content_field())
+        "PREC_LEFT" =>
+          PREC_LEFT(value=prec.val.unwrap(), content=content_field())
+        "PREC_RIGHT" =>
+          PREC_RIGHT(value=prec.val.unwrap(), content=content_field())
+        "PREC" => PREC(value=prec.val.unwrap(), content=content_field())
+        "TOKEN" => TOKEN(content=content_field())
+        "IMMEDIATE_TOKEN" => IMMEDIATE_TOKEN(content=content_field())
+        _ =>
+          RESERVED(
+            context_name=string_field("context_name"),
+            content=content_field(),
+          )
+      }
+    },
+  )
 }
 
 ///|
-/// `serde_json::from_str::<GrammarJSON>`: fields are read in document order,
-/// unknown fields are ignored, `#[serde(default)]` fields may be absent.
-fn GrammarJSON::from_str(input : String) -> GrammarJSON raise ParseGrammarError {
-  let json = @json.parse(input, preserve_number_repr=true) catch {
-    e => raise Serialization(e.to_string())
+/// `PrecedenceValueJSON::deserialize` (`#[serde(untagged)]`): the first
+/// variant the content deserializes as.
+fn PrecedenceValueJSON::from_content(
+  content : @serde_json.Content,
+) -> PrecedenceValueJSON raise @serde_json.JsonError {
+  if (Some(content.deserialize_i32()) catch { _ => None }) is Some(i) {
+    return Integer(i)
   }
-  let map = match json {
-    Object(map) => map
-    // serde also reads a struct from a sequence of its fields, in declaration
-    // order; trailing `#[serde(default)]` fields may be left out.
-    Array(items) => {
-      let fields = [
-        "name", "rules", "precedences", "conflicts", "externals", "extras", "inline",
-        "supertypes", "word", "reserved",
-      ]
-      if items.length() < 2 {
-        raise Serialization(
-          "invalid length \{items.length()}, expected struct GrammarJSON with 10 elements",
-        )
-      }
-      if items.length() > fields.length() {
-        raise Serialization("trailing characters")
-      }
-      let map : Map[String, Json] = Map([])
-      for i, item in items {
-        map[fields[i]] = item
-      }
-      map
-    }
-    _ => raise invalid_type(json, "struct GrammarJSON")
+  if (Some(content.deserialize_string()) catch { _ => None }) is Some(s) {
+    return Name(s)
   }
-  let mut name : String? = None
-  let mut rules : Map[String, Json]? = None
-  let mut precedences = []
-  let mut conflicts = []
-  let mut externals = []
-  let mut extras = []
-  let mut inline = []
-  let mut supertypes = []
-  let mut word = None
-  let mut reserved = Map([])
-  for key, value in map {
-    match key {
-      "name" => name = Some(de_string(value))
-      "rules" => rules = Some(de_map(value))
-      "precedences" =>
-        precedences = de_seq(value, list => de_seq(list, RuleJSON::from_json))
-      "conflicts" => conflicts = de_seq(value, list => de_seq(list, de_string))
-      "externals" => externals = de_seq(value, RuleJSON::from_json)
-      "extras" => extras = de_seq(value, RuleJSON::from_json)
-      "inline" => inline = de_seq(value, de_string)
-      "supertypes" => supertypes = de_seq(value, de_string)
-      "word" =>
-        word = match value {
-          Null => None
-          _ => Some(de_string(value))
-        }
-      "reserved" => reserved = de_map(value)
-      _ => ()
-    }
+  raise @serde_json.untagged_mismatch("PrecedenceValueJSON")
+}
+
+///|
+let grammar_json_fields : Array[String] = [
+  "name", "rules", "precedences", "conflicts", "externals", "extras", "inline", "supertypes",
+  "word", "reserved",
+]
+
+///|
+fn deserialize_strings(
+  de : @serde_json.Deserializer,
+) -> Array[String] raise @serde_json.JsonError {
+  de.deserialize_vec(de => de.deserialize_string())
+}
+
+///|
+fn deserialize_rules(
+  de : @serde_json.Deserializer,
+) -> Array[RuleJSON] raise @serde_json.JsonError {
+  de.deserialize_vec(RuleJSON::deserialize)
+}
+
+///|
+fn deserialize_word(
+  de : @serde_json.Deserializer,
+) -> String? raise @serde_json.JsonError {
+  de.deserialize_option_with(de => de.deserialize_string())
+}
+
+///|
+/// `GrammarJSON::deserialize`: a struct, read from a map (unknown fields are
+/// skipped, `#[serde(default)]` fields may be absent) or from a sequence of
+/// its fields in declaration order.
+fn GrammarJSON::deserialize(
+  de : @serde_json.Deserializer,
+) -> GrammarJSON raise @serde_json.JsonError {
+  de.deserialize_struct(
+    @serde_json.Visitor::new(
+      "struct GrammarJSON",
+      visit_seq=GrammarJSON::visit_seq,
+      visit_map=GrammarJSON::visit_map,
+    ),
+  )
+}
+
+///|
+fn GrammarJSON::visit_seq(
+  seq : @serde_json.SeqAccess,
+) -> GrammarJSON raise @serde_json.JsonError {
+  let expecting = "struct GrammarJSON with 10 elements"
+  let name = match seq.next_element(de => de.deserialize_string()) {
+    Some(name) => name
+    None => raise @serde_json.invalid_length(0, expecting)
   }
-  guard name is Some(name) else { raise missing_field("name") }
-  guard rules is Some(rules) else { raise missing_field("rules") }
+  let rules = match seq.next_element(de => de.deserialize_value_map()) {
+    Some(rules) => rules
+    None => raise @serde_json.invalid_length(1, expecting)
+  }
+  let precedences = seq
+    .next_element(de => de.deserialize_vec(deserialize_rules))
+    .unwrap_or([])
+  let conflicts = seq
+    .next_element(de => de.deserialize_vec(deserialize_strings))
+    .unwrap_or([])
+  let externals = seq.next_element(deserialize_rules).unwrap_or([])
+  let extras = seq.next_element(deserialize_rules).unwrap_or([])
+  let inline = seq.next_element(deserialize_strings).unwrap_or([])
+  let supertypes = seq.next_element(deserialize_strings).unwrap_or([])
+  let word = seq.next_element(deserialize_word).unwrap_or(None)
+  let reserved = seq
+    .next_element(de => de.deserialize_value_map())
+    .unwrap_or(Map([]))
   {
     name,
     rules,
@@ -467,6 +329,82 @@ fn GrammarJSON::from_str(input : String) -> GrammarJSON raise ParseGrammarError 
     supertypes,
     word,
     reserved,
+  }
+}
+
+///|
+fn GrammarJSON::visit_map(
+  map : @serde_json.MapAccess,
+) -> GrammarJSON raise @serde_json.JsonError {
+  let mut name = None
+  let mut rules = None
+  let mut precedences = None
+  let mut conflicts = None
+  let mut externals = None
+  let mut extras = None
+  let mut inline = None
+  let mut supertypes = None
+  let mut word = None
+  let mut reserved = None
+  while map.next_key(key => grammar_json_fields.search(key).unwrap_or(-1))
+        is Some(field) {
+    // serde_derive's `duplicate field` check.
+    if field >= 0 {
+      let present = match field {
+        0 => name is Some(_)
+        1 => rules is Some(_)
+        2 => precedences is Some(_)
+        3 => conflicts is Some(_)
+        4 => externals is Some(_)
+        5 => extras is Some(_)
+        6 => inline is Some(_)
+        7 => supertypes is Some(_)
+        8 => word is Some(_)
+        _ => reserved is Some(_)
+      }
+      if present {
+        raise @serde_json.duplicate_field(grammar_json_fields[field])
+      }
+    }
+    match field {
+      0 => name = Some(map.next_value(de => de.deserialize_string()))
+      1 => rules = Some(map.next_value(de => de.deserialize_value_map()))
+      2 =>
+        precedences = Some(
+          map.next_value(de => de.deserialize_vec(deserialize_rules)),
+        )
+      3 =>
+        conflicts = Some(
+          map.next_value(de => de.deserialize_vec(deserialize_strings)),
+        )
+      4 => externals = Some(map.next_value(deserialize_rules))
+      5 => extras = Some(map.next_value(deserialize_rules))
+      6 => inline = Some(map.next_value(deserialize_strings))
+      7 => supertypes = Some(map.next_value(deserialize_strings))
+      8 => word = Some(map.next_value(deserialize_word))
+      9 => reserved = Some(map.next_value(de => de.deserialize_value_map()))
+      _ => map.next_value(de => de.deserialize_ignored_any())
+    }
+  }
+  let name = match name {
+    Some(name) => name
+    None => raise @serde_json.missing_field("name")
+  }
+  let rules = match rules {
+    Some(rules) => rules
+    None => raise @serde_json.missing_field("rules")
+  }
+  {
+    name,
+    rules,
+    precedences: precedences.unwrap_or([]),
+    conflicts: conflicts.unwrap_or([]),
+    externals: externals.unwrap_or([]),
+    extras: extras.unwrap_or([]),
+    inline: inline.unwrap_or([]),
+    supertypes: supertypes.unwrap_or([]),
+    word: word.unwrap_or(None),
+    reserved: reserved.unwrap_or(Map([])),
   }
 }
 
@@ -554,7 +492,9 @@ pub fn parse_grammar(
   input : String,
   diagnostics : Array[Diagnostic],
 ) -> InputGrammar raise {
-  let grammar_json = GrammarJSON::from_str(input)
+  let grammar_json = @serde_json.from_str(input, GrammarJSON::deserialize) catch {
+    e => raise serialization_error(e)
+  }
   let pool = RulePool::new()
   let extra_roots = []
   for item in grammar_json.extras {
@@ -584,7 +524,9 @@ pub fn parse_grammar(
   let variables = []
   for name, r in grammar_json.rules {
     let name = pool.intern(name)
-    let rule = RuleJSON::from_json(r)
+    let rule = RuleJSON::from_value(r) catch {
+      e => raise serialization_error(e)
+    }
     variables.push({ name, root: pool.parse_rule(rule, false, diagnostics), })
   }
   let reserved_sets = []
@@ -596,7 +538,13 @@ pub fn parse_grammar(
     let roots = []
     for value in rule_values {
       roots.push(
-        pool.parse_rule(RuleJSON::from_json(value), false, diagnostics),
+        pool.parse_rule(
+          RuleJSON::from_value(value) catch {
+            e => raise serialization_error(e)
+          },
+          false,
+          diagnostics,
+        ),
       )
     }
     reserved_sets.push({ name, roots, })

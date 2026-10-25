@@ -11,6 +11,7 @@ import {
   "moonbit-community/treesitter/regex_syntax",
   "moonbit-community/treesitter/regex_syntax/ast",
   "moonbit-community/treesitter/regex_syntax/hir",
+  "moonbit-community/treesitter/serde_json",
 }
 
 warnings = "-implicit_impl_as_method-reserved_keyword"
