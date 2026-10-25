@@ -1,6 +1,7 @@
 // serde_json's serializers (`to_string`, `to_string_pretty`) over MoonBit's
 // `Json`, with serde_json's escaping and `PrettyFormatter` layout. Object
-// keys keep their insertion order (`preserve_order`).
+// keys keep their insertion order (`preserve_order`). A number with a
+// `repr` is written as that text (see `Value::to_json`).
 
 ///|
 fn write_json_string(sb : StringBuilder, s : String) -> Unit {
@@ -124,24 +125,9 @@ pub fn to_string(value : Json) -> String {
 }
 
 ///|
-/// Parse JSON text, dropping the original number representations so that
-/// re-serialization normalizes numbers as serde_json's `Value` does.
-pub fn parse_json(text : String) -> Json raise {
-  normalize_numbers(@json.parse(text))
-}
-
-///|
-fn normalize_numbers(value : Json) -> Json {
-  match value {
-    Number(n, ..) => Json::number(n)
-    Array(items) => Json::array(items.map(normalize_numbers))
-    Object(map) => {
-      let out : Map[String, Json] = Map([])
-      for k, v in map {
-        out[k] = normalize_numbers(v)
-      }
-      Json::object(out)
-    }
-    _ => value
-  }
+/// `serde_json::from_str::<Value>` as a core `Json` whose numbers carry
+/// serde_json's text as their `repr` (see `Value::to_json`), so that
+/// re-serializing it gives serde_json's output.
+pub fn parse_json(text : String) -> Json raise SerdeJsonError {
+  from_str(text).to_json()
 }

@@ -132,7 +132,7 @@ pub impl Show for DiffKey with fn output(_self, logger) {
 ///|
 /// Writes [`DiffKey`] to stdout
 pub fn DiffKey::print() -> Unit {
-  println(DiffKey::{ }.to_string())
+  @support.print_out(DiffKey::{ }.to_string() + "\n")
 }
 
 ///|
@@ -271,7 +271,7 @@ pub async fn parse_tests(path : String) -> TestEntry {
     let children = [ for child in children => parse_tests("\{path}/\{child}") ]
     Group(name~, children~, file_path=None)
   } else {
-    let content = @fs.read_file(path).text()
+    let content = @support.read_to_string(path)
     parse_test_content(name, content, Some(path))
   }
 }

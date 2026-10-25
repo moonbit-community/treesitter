@@ -74,7 +74,7 @@ pub async fn test_highlights(
         is Some(highlight_config) else {
         raise anyhow("No highlighting config found for \{test_file_path}")
       }
-      let source = @fs.read_file(test_file_path).binary()
+      let source = @support.read_file(test_file_path)
       let outcome = try
         test_highlight_loading(loader, highlighter, highlight_config, source)
       catch {
@@ -124,7 +124,7 @@ pub async fn test_tags(
       guard language_config.tags_config(language) is Some(tags_config) else {
         raise anyhow("No tags config found for \{test_file_path}")
       }
-      let source = @fs.read_file(test_file_path).binary()
+      let source = @support.read_file(test_file_path)
       let outcome = try
         @query_testing.test_tag(tags_context, tags_config, source)
       catch {

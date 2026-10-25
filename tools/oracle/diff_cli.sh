@@ -9,6 +9,7 @@
 #
 # Usage: sh tools/oracle/diff_cli.sh [section...]
 #   sections: help errors completions generate parse query highlight tags test langs
+#   misc, plus one per file in tools/oracle/diff_cli.d (see its README)
 set -u
 cd "$(dirname "$0")/../.."
 ROOT=$(pwd)
@@ -17,13 +18,26 @@ UPSTREAM=${UPSTREAM:-$(cd ../../.. 2>/dev/null && pwd)/.repos/ts-pinned}
 UP="$UPSTREAM/target/release/tree-sitter"
 MBT="$ROOT/_build/native/release/build/cmd/treesitter/treesitter.exe"
 WORK="$ROOT/_build/cli_diff"
-SECTIONS=${*:-"help errors completions generate parse query highlight tags test langs misc"}
+# Extra sections: tools/oracle/diff_cli.d/<name>.sh defines `section_<name>`.
+EXTRA_SECTIONS=""
+for extra in "$ROOT"/tools/oracle/diff_cli.d/*.sh; do
+  [ -f "$extra" ] || continue
+  . "$extra"
+  EXTRA_SECTIONS="$EXTRA_SECTIONS $(basename "$extra" .sh)"
+done
+SECTIONS=${*:-"help errors completions generate parse query highlight tags test langs misc$EXTRA_SECTIONS"}
 
 moon build --target native --release cmd/treesitter >/dev/null || exit 1
 
 mkdir -p "$WORK"
 rm -rf "$WORK/cases"
 mkdir -p "$WORK/cases" "$WORK/config" "$WORK/lib-up" "$WORK/lib-mbt"
+# A private temporary directory: both CLIs write fixed names there (e.g.
+# `parse --test-number`'s `.tree-sitter-temp`), which concurrent runs of
+# this script in other checkouts would otherwise overwrite.
+rm -rf "$WORK/tmp"
+mkdir -p "$WORK/tmp"
+export TMPDIR="$WORK/tmp"
 : > "$WORK/report.txt"
 pass=0
 fail=0
@@ -55,7 +69,8 @@ mask() {
     -e 's/ -- Warning: Slow parse rate \(X bytes\/ms\)//g' \
     -e 's/success percentage: [0-9.]+%/success percentage: X%/g' \
     -e "s/Parse: +X ms/Parse: X ms/g" \
-    -e "s/[[:blank:]]+X bytes\/ms/ X bytes\/ms/g"
+    -e "s/[[:blank:]]+X bytes\/ms/ X bytes\/ms/g" \
+    -e "s/^thread 'main' \([0-9]+\) panicked/thread 'main' (TID) panicked/"
 }
 
 # run_case NAME DIR [env assignments --] ARGS...
@@ -303,8 +318,12 @@ for section in $SECTIONS; do
     cp -R "$ROOT/examples/json" "$WORK/example-json"
     mkdir -p "$WORK/noconfig"
     (cd "$WORK/example-json" && "$MBT" generate grammar.mbtx > /dev/null 2>&1)
+    # Upstream compiles this grammar to <libdir>/json.dylib, the name of the
+    # fixture json parser: use a separate library directory.
+    rm -rf "$WORK/example-lib"
+    mkdir -p "$WORK/example-lib"
     for cmd in parse highlight tags; do
-      run_case "example-json-$cmd" "$WORK/example-json" env TREE_SITTER_DIR="$WORK/noconfig" -- $cmd sample.json
+      run_case "example-json-$cmd" "$WORK/example-json" env TREE_SITTER_DIR="$WORK/noconfig" TREE_SITTER_LIBDIR="$WORK/example-lib" -- $cmd sample.json
     done
     # Both CLIs cache languages by name; drop the example's `json` so that
     # later runs do not reuse it for the fixture grammar of the same name.
@@ -376,6 +395,14 @@ for section in $SECTIONS; do
     done
     (cd "$WORK/init-up" && find . -type f | sort | sed 's#^\./##' | grep -v '^build.zig.zon$' > "$WORK/init-files.txt")
     compare_trees init "$WORK/init-up" "$WORK/init-mbt" $(cat "$WORK/init-files.txt")
+    ;;
+  *)
+    if declare -F "section_$section" > /dev/null; then
+      "section_$section"
+    else
+      fail=$((fail + 1))
+      echo "FAIL unknown-section-$section" | tee -a "$WORK/report.txt"
+    fi
     ;;
   esac
 done

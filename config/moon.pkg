@@ -2,7 +2,6 @@ import {
   "moonbit-community/treesitter/cli/support",
   "moonbitlang/async/fs",
   "moonbitlang/core/env",
-  "moonbitlang/core/json",
 }
 
 supported_targets = "+native"

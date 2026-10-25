@@ -1,11 +1,11 @@
 // Port of tree-sitter crates/cli/src/parse.rs.
 
 ///|
-/// `Stats`.
+/// `Stats`. The counters are `usize`s.
 pub struct Stats {
-  mut successful_parses : Int32
-  mut total_parses : Int32
-  mut total_bytes : Int32
+  mut successful_parses : UInt64
+  mut total_parses : UInt64
+  mut total_bytes : UInt64
   /// Nanoseconds.
   mut total_duration : Int64
 }
@@ -18,13 +18,67 @@ pub fn Stats::default() -> Stats {
 ///|
 /// `format!("{:.2}", x)`.
 pub fn format_fixed2(x : Double) -> String {
-  let neg = x < 0.0
-  let scaled = (x.abs() * 100.0).round()
-  let n = scaled.to_int64()
-  let int_part = n / 100L
-  let frac = (n % 100L).to_int()
-  let frac_str = if frac < 10 { "0\{frac}" } else { "\{frac}" }
-  (if neg && n != 0L { "-" } else { "" }) + "\{int_part}.\{frac_str}"
+  format_fixed(x, 2)
+}
+
+///|
+/// `format!("{:.precision$}", x)` for an `f64`: the exact binary value
+/// rounded to `precision` decimals, with ties to even (Rust's exact-mode
+/// `float_to_decimal_exact`); the sign is printed for every negative value,
+/// `-0.0` included.
+pub fn format_fixed(x : Double, precision : Int32) -> String {
+  if x.is_nan() {
+    return "NaN"
+  }
+  let bits = x.reinterpret_as_uint64()
+  let sign = if bits >> 63 != 0UL { "-" } else { "" }
+  if x.is_inf() {
+    return sign + "inf"
+  }
+  let biased_exponent = ((bits >> 52) & 0x7FFUL).to_int()
+  let fraction = bits & 0xFFFFFFFFFFFFFUL
+  // x = mantissa * 2^exponent
+  let (mantissa, exponent) = if biased_exponent == 0 {
+    (fraction, -1074)
+  } else {
+    (fraction | 0x10000000000000UL, biased_exponent - 1075)
+  }
+  let mantissa = @bigint.BigInt::from_uint64(mantissa)
+  let one = @bigint.BigInt::from_int(1)
+  let scale = @bigint.BigInt::from_int(10).pow(
+    @bigint.BigInt::from_int(precision),
+  )
+  // The value times 10^precision, rounded to an integer.
+  let scaled = if exponent >= 0 {
+    (mantissa << exponent) * scale
+  } else {
+    let k = -exponent
+    let product = mantissa * scale
+    let q = product >> k
+    let rem = product - (q << k)
+    let cmp = rem.compare(one << (k - 1))
+    if cmp > 0 || (cmp == 0 && !q.land(one).is_zero()) {
+      q + one
+    } else {
+      q
+    }
+  }
+  let digits = scaled.to_string()
+  let digits = if digits.length() <= precision {
+    "0".repeat(precision + 1 - digits.length()) + digits
+  } else {
+    digits
+  }
+  let point = digits.length() - precision
+  let int_part = digits.unsafe_substring(start=0, end=point)
+  if precision == 0 {
+    sign + int_part
+  } else {
+    sign +
+    int_part +
+    "." +
+    digits.unsafe_substring(start=point, end=digits.length())
+  }
 }
 
 ///|
@@ -66,11 +120,27 @@ pub impl Show for Stats with fn output(self, f) {
   } else if duration_us == 0L {
     "0 bytes/ms"
   } else {
-    "\{self.total_bytes.to_int64() * 1000L / duration_us} bytes/ms"
+    // `((self.total_bytes as u128) * 1_000) / duration_us` is q * 1000 + r,
+    // which may exceed `u64::MAX`.
+    let duration_us = duration_us.reinterpret_as_uint64()
+    let q = self.total_bytes / duration_us
+    let r = self.total_bytes % duration_us * 1000UL / duration_us
+    if q == 0 {
+      "\{r} bytes/ms"
+    } else {
+      let r = r.to_string()
+      "\{q}\{"0".repeat(3 - r.length())}\{r} bytes/ms"
+    }
   }
   f.write_string(
     "Total parses: \{self.total_parses}; successful parses: \{self.successful_parses}; failed parses: \{self.total_parses - self.successful_parses}; success percentage: \{success_rate}; average speed: \{duration_str}\n",
   )
+}
+
+///|
+/// A `usize` serialized by serde_json.
+fn usize_json(n : UInt64) -> Json {
+  Json::number(n.to_double(), repr=n.to_string())
 }
 
 ///|
@@ -84,9 +154,9 @@ fn duration_json(nanos : Int64) -> Json {
 ///|
 fn Stats::to_json(self : Stats) -> Json {
   {
-    "successful_parses": Json::number(self.successful_parses.to_double()),
-    "total_parses": Json::number(self.total_parses.to_double()),
-    "total_bytes": Json::number(self.total_bytes.to_double()),
+    "successful_parses": usize_json(self.successful_parses),
+    "total_parses": usize_json(self.total_parses),
+    "total_bytes": usize_json(self.total_bytes),
     "total_duration": duration_json(self.total_duration),
   }
 }
@@ -142,37 +212,129 @@ pub fn ParseTheme::default() -> ParseTheme {
 }
 
 ///|
-/// `Config::get::<parse::Config>()` + `From<ParseThemeRaw> for ParseTheme`:
-/// the `parse-theme` of `config.json` over the default theme.
-pub fn ParseTheme::from_config(config : Json) -> ParseTheme raise CliError {
-  let default = ParseTheme::default()
-  guard config is Object(obj) else { return default }
-  guard obj.get("parse-theme") is Some(raw) else { return default }
-  let raw = match raw {
-    Null => return default
-    Object(o) => o
-    _ => raise anyhow("invalid type: expected struct ParseThemeRaw")
+/// `Rgb(pub u8, pub u8, pub u8)`.
+priv struct ParseRgb(Int32, Int32, Int32)
+
+///|
+/// `#[derive(Deserialize)]` of the tuple struct `Rgb`.
+fn ParseRgb::deserialize(
+  de : @support.Deserializer,
+) -> ParseRgb raise @support.SerdeJsonError {
+  let expecting = "tuple struct Rgb with 3 elements"
+  de.deserialize_tuple_struct("tuple struct Rgb", seq => {
+    let u8 = @support.Deserializer::deserialize_u8
+    let red = seq.next_field(u8, 0, expecting)
+    let green = seq.next_field(u8, 1, expecting)
+    let blue = seq.next_field(u8, 2, expecting)
+    ParseRgb(red.to_int(), green.to_int(), blue.to_int())
+  })
+}
+
+///|
+fn deserialize_opt_rgb(
+  de : @support.Deserializer,
+) -> ParseRgb? raise @support.SerdeJsonError {
+  de.deserialize_option(ParseRgb::deserialize)
+}
+
+///|
+/// The fields of `ParseThemeRaw` (`rename_all = "kebab-case"`), in order.
+let parse_theme_raw_fields : FixedArray[String] = [
+  "node-kind", "node-text", "field", "row-color", "row-color-named", "extra", "error",
+  "missing", "line-feed", "backtick", "literal",
+]
+
+///|
+/// `#[derive(Deserialize)]` of `ParseThemeRaw`: its eleven `Option<Rgb>`
+/// fields, in declaration order.
+fn deserialize_parse_theme_raw(
+  de : @support.Deserializer,
+) -> Array[ParseRgb?] raise @support.SerdeJsonError {
+  let expecting = "struct ParseThemeRaw with 11 elements"
+  de.deserialize_struct(
+    "struct ParseThemeRaw",
+    seq => {
+      let values = []
+      for i in 0..<parse_theme_raw_fields.length() {
+        values.push(seq.next_field(deserialize_opt_rgb, i, expecting))
+      }
+      values
+    },
+    map => {
+      let fields : Array[@support.StructField[ParseRgb?]] = parse_theme_raw_fields
+        .iter()
+        .map(name => @support.StructField::new(name))
+        .collect()
+      while map.next_key() is Some(key) {
+        match parse_theme_raw_fields.search(key) {
+          Some(i) => fields[i].next_value(map, deserialize_opt_rgb)
+          None => map.next_value_ignored()
+        }
+      }
+      fields.map(field => field.optional())
+    },
+  )
+}
+
+///|
+/// `#[derive(Deserialize)]` of `parse::Config { parse_theme:
+/// Option<ParseThemeRaw> }`.
+fn deserialize_parse_config(
+  de : @support.Deserializer,
+) -> Array[ParseRgb?]? raise @support.SerdeJsonError {
+  let deserialize_parse_theme = (de : @support.Deserializer) => {
+    de.deserialize_option(deserialize_parse_theme_raw)
   }
-  let get = (key : String, d : Color?) => {
-    match raw.get(key) {
-      None | Some(Null) => d
-      Some([Number(r, ..), Number(g, ..), Number(b, ..)]) =>
-        Some(Rgb(r.to_int(), g.to_int(), b.to_int()))
-      Some(_) => raise anyhow("invalid type: expected a tuple struct Rgb")
+  de.deserialize_struct(
+    "struct Config",
+    seq => {
+      seq.next_field(deserialize_parse_theme, 0, "struct Config with 1 element")
+    },
+    map => {
+      let parse_theme : @support.StructField[Array[ParseRgb?]?] = @support.StructField::new(
+        "parse-theme",
+      )
+      while map.next_key() is Some(key) {
+        match key {
+          "parse-theme" => parse_theme.next_value(map, deserialize_parse_theme)
+          _ => map.next_value_ignored()
+        }
+      }
+      parse_theme.optional()
+    },
+  )
+}
+
+///|
+/// `Config::get::<parse::Config>()`, `.parse_theme.unwrap_or_default()`
+/// and `From<ParseThemeRaw> for ParseTheme`: the `parse-theme` of
+/// `config.json` over the default theme.
+pub fn ParseTheme::from_config(
+  config : @support.Value,
+) -> ParseTheme raise CliError {
+  let raw = @support.from_value(config, deserialize_parse_config) catch {
+    e => raise anyhow(e.to_string())
+  }
+  let raw = raw.unwrap_or(Array::make(11, None))
+  let default = ParseTheme::default()
+  fn val_or_default(val : ParseRgb?, default : Color?) -> Color? {
+    match val {
+      Some(ParseRgb(r, g, b)) => Some(Rgb(r, g, b))
+      None => default
     }
   }
   {
-    node_kind: get("node-kind", default.node_kind),
-    node_text: get("node-text", default.node_text),
-    field: get("field", default.field),
-    row_color: get("row-color", default.row_color),
-    row_color_named: get("row-color-named", default.row_color_named),
-    extra: get("extra", default.extra),
-    error: get("error", default.error),
-    missing: get("missing", default.missing),
-    line_feed: get("line-feed", default.line_feed),
-    backtick: get("backtick", default.backtick),
-    literal: get("literal", default.literal),
+    node_kind: val_or_default(raw[0], default.node_kind),
+    node_text: val_or_default(raw[1], default.node_text),
+    field: val_or_default(raw[2], default.field),
+    row_color: val_or_default(raw[3], default.row_color),
+    row_color_named: val_or_default(raw[4], default.row_color_named),
+    extra: val_or_default(raw[5], default.extra),
+    error: val_or_default(raw[6], default.error),
+    missing: val_or_default(raw[7], default.missing),
+    line_feed: val_or_default(raw[8], default.line_feed),
+    backtick: val_or_default(raw[9], default.backtick),
+    literal: val_or_default(raw[10], default.literal),
   }
 }
 
@@ -305,9 +467,12 @@ pub async fn parse_file_at_path(
   max_path_length : Int32,
   opts : ParseFileOptions,
 ) -> Unit {
-  let mut log_session = None
+  // Held for its `Drop` side effect: closed on every path out of this
+  // function (after `stdout` is dropped, as upstream's locals are).
+  let mut log_session : LogSession? = None
+  defer (if log_session is Some(session) { session.close() })
   parser.set_language(language)
-  let source_code = (@fs.read_file(path).binary() catch {
+  let source_code = (@support.read_file(path) catch {
     e => raise with_context(e, "Error reading \{rust_debug_str(name)}")
   }).to_array()
   // Render an HTML graph if `--debug-graph` was passed
@@ -396,7 +561,8 @@ pub async fn parse_file_at_path(
       )
   }
   let parse_duration = @support.now_ns() - parse_time
-  let stdout = StringBuilder()
+  let stdout = @support.BufWriter::stdout(capacity=64 * 1024)
+  defer stdout.drop()
   if tree is Some(tree) {
     let mut tree = tree
     let source_code = source_code
@@ -420,10 +586,6 @@ pub async fn parse_file_at_path(
     }
     let edit_duration = @support.now_ns() - edit_time
     parser.stop_printing_dot_graphs()
-    if log_session is Some(session) {
-      session.close()
-      log_session = None
-    }
     let source_bytes = Bytes::from_array(source_code)
     let parse_duration_ms = (parse_duration / 1000L).to_double() / 1.0e3
     let edit_duration_ms = (edit_duration / 1000L).to_double() / 1.0e3
@@ -582,9 +744,13 @@ pub async fn parse_file_at_path(
       cursor.reset(tree.root_node())
     }
     if opts.output == Dot {
-      @support.print_out(stdout.to_string())
-      stdout.reset()
-      print_tree_graph(tree, "log.html", opts.open_log)
+      print_tree_graph(tree, "log.html", opts.open_log) catch {
+        e =>
+          @support.rust_panic(
+            "called `Result::unwrap()` on an `Err` value: \{CliError(error_chain(e)).debug()}",
+            "crates/cli/src/parse.rs:621:70",
+          )
+      }
     }
     let first_error = find_first_error(cursor)
     if first_error is Some(_) || opts.print_time {
@@ -637,13 +803,9 @@ pub async fn parse_file_at_path(
       duration: Some(parse_duration),
       bytes: Some(source_code.length()),
     })
-    @support.print_out(stdout.to_string())
     return
   }
   parser.stop_printing_dot_graphs()
-  if log_session is Some(session) {
-    session.close()
-  }
   if opts.print_time {
     let duration = @support.now_ns() - parse_time
     let duration_ms = (duration / 1000L).to_double() / 1.0e3
@@ -659,7 +821,6 @@ pub async fn parse_file_at_path(
     duration: None,
     bytes: Some(source_code.length()),
   })
-  @support.print_out(stdout.to_string())
 }
 
 ///|
@@ -773,8 +934,8 @@ pub fn render_cst(
   tree : @treesitter.Tree,
   cursor : @treesitter.TreeCursor,
   opts : ParseFileOptions,
-  out : StringBuilder,
-) -> Unit {
+  out : @support.BufWriter,
+) -> Unit raise {
   let lossy_source_code = @support.utf8_lossy(source_code)
   let mut total_width = 0
   let mut any_line = false
@@ -886,14 +1047,14 @@ fn cst_node_range(
 ///|
 fn write_node_text(
   opts : ParseFileOptions,
-  out : StringBuilder,
+  out : @support.BufWriter,
   cursor : @treesitter.TreeCursor,
   is_named : Bool,
   source : String,
   color : Color?,
   total_width : Int32,
   indent_level : Int32,
-) -> Unit {
+) -> Unit raise {
   let (quote, quote_color) = if is_named {
     ("`", opts.parse_theme.backtick)
   } else {
@@ -952,11 +1113,11 @@ fn cst_render_node(
   opts : ParseFileOptions,
   cursor : @treesitter.TreeCursor,
   source_code : Bytes,
-  out : StringBuilder,
+  out : @support.BufWriter,
   total_width : Int32,
   indent_level : Int32,
   in_error : Bool,
-) -> Unit {
+) -> Unit raise {
   let node = cursor.node()
   let is_named = node.is_named()
   if !opts.no_ranges {

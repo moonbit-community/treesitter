@@ -17,6 +17,16 @@ fn ValueSource::is_explicit(self : ValueSource) -> Bool {
 }
 
 ///|
+/// `Ord for ValueSource` (declaration order).
+fn ValueSource::rank(self : ValueSource) -> Int32 {
+  match self {
+    DefaultValue => 0
+    EnvVariable => 1
+    CommandLine => 2
+  }
+}
+
+///|
 priv struct MatchedArg {
   mut source : ValueSource
   vals : Array[String]
@@ -32,6 +42,51 @@ pub struct ArgMatches {
 ///|
 fn ArgMatches::new() -> ArgMatches {
   { args: {}, subcommand: None, }
+}
+
+///|
+/// `Clone for MatchedArg`.
+fn MatchedArg::clone(self : MatchedArg) -> MatchedArg {
+  { source: self.source, vals: self.vals.copy(), }
+}
+
+///|
+/// `ArgMatcher::propagate_globals`: give every command on the path of used
+/// subcommands the values of the global arguments, taking those from the
+/// deepest command where they were set by a source at least as explicit.
+fn ArgMatches::propagate_globals(
+  self : ArgMatches,
+  global_arg_vec : Array[String],
+) -> Unit {
+  let vals_map : Map[String, MatchedArg] = Map([])
+  self.fill_in_global_values(global_arg_vec, vals_map)
+}
+
+///|
+/// `ArgMatcher::fill_in_global_values`.
+fn ArgMatches::fill_in_global_values(
+  self : ArgMatches,
+  global_arg_vec : Array[String],
+  vals_map : Map[String, MatchedArg],
+) -> Unit {
+  for global_arg in global_arg_vec {
+    if self.args.get(global_arg) is Some(ma) {
+      // We have to check if the parent's global arg wasn't used but still
+      // exists such as from a default value.
+      let to_update = match vals_map.get(global_arg) {
+        Some(parent_ma) if parent_ma.source.rank() > ma.source.rank() =>
+          parent_ma
+        _ => ma
+      }
+      vals_map[global_arg] = to_update.clone()
+    }
+  }
+  if self.subcommand is Some((_, sc)) {
+    sc.fill_in_global_values(global_arg_vec, vals_map)
+  }
+  for name, matched_arg in vals_map {
+    self.args[name] = matched_arg.clone()
+  }
 }
 
 ///|
@@ -130,27 +185,75 @@ priv struct Parser {
 }
 
 ///|
-/// `Command::try_get_matches_from`: `args[0]` is the binary name. The command
-/// is built first.
+/// `Command::try_get_matches_from` (`try_get_matches_from_mut`): `args[0]`
+/// is the program path; its file name becomes the binary name unless one was
+/// set.
 pub fn Command::try_get_matches_from(
   self : Command,
   args : Array[String],
 ) -> ArgMatches raise ClapError {
+  // Get the name of the program (argument 1 of env::args()) and determine
+  // the actual file that was used to execute the program.
+  if args.get(0) is Some(name) && path_file_name(name) is Some(s) {
+    if self.bin_name is None {
+      self.bin_name = Some(s)
+    }
+  }
+  self.do_parse(args)
+}
+
+///|
+/// `Path::file_name` on Unix: the last component, unless it is `..` or there
+/// is none (`.` components after the first are skipped by `Components`).
+fn path_file_name(path : String) -> String? {
+  let mut last : String? = None
+  for component in path.split("/") {
+    if component.is_empty() || component == "." {
+      continue
+    }
+    last = Some(component.to_owned())
+  }
+  match last {
+    Some("..") => None
+    l => l
+  }
+}
+
+///|
+/// `Command::_do_parse`.
+fn Command::do_parse(
+  self : Command,
+  args : Array[String],
+) -> ArgMatches raise ClapError {
+  // If there are global arguments, or settings we need to propagate them
+  // down to subcommands before parsing in case we run into a subcommand
   self.build_self()
-  self.build_bin_names_shallow()
   let p = Parser::{ cmd: self, matcher: ArgMatches::new(), pending: None, }
   p.get_matches_with(args, 1)
+  let global_arg_vec = []
+  self.get_used_global_args(p.matcher, global_arg_vec)
+  p.matcher.propagate_globals(global_arg_vec)
   p.matcher
 }
 
 ///|
-/// Build only this command's immediate bin names (subcommands are built
-/// lazily as they are parsed, like `_build_subcommand`).
-fn Command::build_bin_names_shallow(self : Command) -> Unit {
-  if self.bin_names_built {
-    return
+/// `Command::get_used_global_args`: the global arguments of the commands on
+/// the path of used subcommands.
+fn Command::get_used_global_args(
+  self : Command,
+  matches : ArgMatches,
+  global_arg_vec : Array[String],
+) -> Unit {
+  for a in self.args {
+    if a.global {
+      global_arg_vec.push(a.id)
+    }
   }
-  self.build_bin_names()
+  if matches.subcommand is Some((id, matches)) {
+    if self.find_subcommand(id) is Some(used_sub) {
+      used_sub.get_used_global_args(matches, global_arg_vec)
+    }
+  }
 }
 
 ///|
@@ -415,10 +518,8 @@ fn Parser::parse(
     }
   }
   if subcmd_name is Some(name) {
-    let sc = self.cmd.find_subcommand(name).unwrap()
     self.resolve_pending()
-    sc.build_self()
-    sc.build_bin_names_shallow()
+    let sc = self.cmd.build_subcommand(name).unwrap()
     let p = Parser::{ cmd: sc, matcher: ArgMatches::new(), pending: None, }
     p.get_matches_with(args, cursor)
     self.matcher.subcommand = Some((sc.name, p.matcher))
@@ -652,25 +753,34 @@ fn Parser::parse_value(
     error_value_validation(arg.to_string(), value, msg)
   }
   match arg.get_value_parser() {
-    String | PathBuf => value
+    String => value
+    // `PathBufValueParser`: empty paths are rejected.
+    PathBuf =>
+      if value.is_empty() {
+        raise error_invalid_value("", [], arg.to_string())
+      } else {
+        value
+      }
     Bool =>
       if value == "true" || value == "false" {
         value
       } else {
         raise error_invalid_value(value, ["true", "false"], arg.to_string())
       }
+    U8 =>
+      match ranged_i64(value, 255L) {
+        Ok(_) => value
+        Err(msg) => raise validation(msg)
+      }
     U32 =>
-      match parse_unsigned(value, 4294967295L) {
+      match ranged_i64(value, 4294967295L) {
         Ok(_) => value
         Err(msg) => raise validation(msg)
       }
-    U64 =>
-      match parse_unsigned(value, -1L) {
-        Ok(_) => value
-        Err(msg) => raise validation(msg)
-      }
-    Usize =>
-      match parse_unsigned(value, -1L) {
+    // `RangedU64ValueParser` (full range) and the `FromStr` parser of
+    // `usize`: only `u64::from_str` can fail.
+    U64 | Usize =>
+      match parse_u64(value) {
         Ok(_) => value
         Err(msg) => raise validation(msg)
       }
@@ -693,49 +803,86 @@ fn Parser::parse_value(
 }
 
 ///|
-/// Rust's integer `FromStr` errors (`max == -1` means `u64::MAX`), and clap's
-/// `RangedI64ValueParser` range message for `u32`.
-fn parse_unsigned(value : String, max : Int64) -> Result[UInt64, String] {
-  if value.is_empty() {
+/// `RangedI64ValueParser::parse_ref` for the range `0..=max`: `i64::from_str`,
+/// then the range check.
+fn ranged_i64(value : String, max : Int64) -> Result[Int64, String] {
+  match parse_i64(value) {
+    Err(msg) => Err(msg)
+    Ok(n) =>
+      if n < 0L || n > max {
+        Err("\{n} is not in 0..=\{max}")
+      } else {
+        Ok(n)
+      }
+  }
+}
+
+///|
+/// Rust's `i64::from_str` (`from_ascii_radix` with radix 10), with the
+/// `Display` texts of its `ParseIntError`s. Per digit, an invalid digit is
+/// reported before an overflow of the multiplication, and an overflow ends
+/// the parse.
+fn parse_i64(src : String) -> Result[Int64, String] {
+  if src.is_empty() {
     return Err("cannot parse integer from empty string")
   }
-  let mut s = value
-  if s.has_prefix("+") {
-    s = s.unsafe_substring(start=1, end=s.length())
-    if s.is_empty() {
+  let (is_positive, digits) = match src {
+    "+" | "-" => return Err("invalid digit found in string")
+    [.. "+", .. rest] => (true, rest)
+    [.. "-", .. rest] => (false, rest)
+    _ => (true, src[:])
+  }
+  let mut result = 0L
+  for c in digits {
+    let mul_overflows = if is_positive {
+      result > 922337203685477580L
+    } else {
+      result < -922337203685477580L
+    }
+    guard c >= '0' && c <= '9' else {
       return Err("invalid digit found in string")
     }
+    let x = (c.to_int() - '0'.to_int()).to_int64()
+    if is_positive {
+      if mul_overflows || result * 10L > 9223372036854775807L - x {
+        return Err("number too large to fit in target type")
+      }
+      result = result * 10L + x
+    } else {
+      if mul_overflows || result * 10L < -9223372036854775807L - 1L + x {
+        return Err("number too small to fit in target type")
+      }
+      result = result * 10L - x
+    }
   }
-  if max != -1L && value.has_prefix("-") {
-    // `u32` goes through `i64::from_str` and a range check.
-    let digits = value.unsafe_substring(start=1, end=value.length())
-    if digits.is_empty() || !digits.iter().all(c => c >= '0' && c <= '9') {
+  Ok(result)
+}
+
+///|
+/// Rust's `u64::from_str`: a leading `+` is accepted, a `-` is an invalid
+/// digit.
+fn parse_u64(src : String) -> Result[UInt64, String] {
+  if src.is_empty() {
+    return Err("cannot parse integer from empty string")
+  }
+  let digits = match src {
+    "+" | "-" => return Err("invalid digit found in string")
+    [.. "+", .. rest] => rest
+    _ => src[:]
+  }
+  let mut result = 0UL
+  for c in digits {
+    let mul_overflows = result > 1844674407370955161UL
+    guard c >= '0' && c <= '9' else {
       return Err("invalid digit found in string")
     }
-    return Err("\{value} is not in 0..=\{max}")
-  }
-  let mut n : UInt64 = 0
-  let mut overflow = false
-  for c in s {
-    if c < '0' || c > '9' {
-      return Err("invalid digit found in string")
-    }
-    let d = (c.to_int() - '0'.to_int()).to_uint64()
-    if n > (18446744073709551615UL - d) / 10UL {
-      overflow = true
-    }
-    n = n * 10UL + d
-  }
-  if max == -1L {
-    if overflow {
+    let x = (c.to_int() - '0'.to_int()).to_uint64()
+    if mul_overflows || result * 10UL > 18446744073709551615UL - x {
       return Err("number too large to fit in target type")
     }
-  } else if overflow || n > 9223372036854775807UL {
-    return Err("number too large to fit in target type")
-  } else if n > max.reinterpret_as_uint64() {
-    return Err("\{value} is not in 0..=\{max}")
+    result = result * 10UL + x
   }
-  Ok(n)
+  Ok(result)
 }
 
 ///|
@@ -775,17 +922,29 @@ fn Parser::react(
       ValuesDone
     }
     Count => {
-      let existing = match self.matcher.args.get(arg.id) {
-        Some(m) =>
-          m.vals
-          .get(0)
-          .map(v => @string.parse_int(v) catch { _ => 0 })
-          .unwrap_or(0)
-        None => 0
+      let raw_vals = if raw_vals.is_empty() {
+        // The stored value went through the `u8` value parser.
+        let existing_value = match self.matcher.args.get(arg.id) {
+          Some(m) =>
+            match m.vals.get(0) {
+              Some(v) => parse_i64(v).unwrap_or(0L)
+              None => 0L
+            }
+          None => 0L
+        }
+        // `u8::saturating_add`.
+        let next_value = if existing_value >= 255L {
+          255L
+        } else {
+          existing_value + 1L
+        }
+        ["\{next_value}"]
+      } else {
+        raw_vals
       }
       self.matcher.args.remove(arg.id)
       self.start_custom_arg(arg, source)
-      self.push_arg_values(arg, ["\{existing + 1}"])
+      self.push_arg_values(arg, raw_vals)
       ValuesDone
     }
     Help => {

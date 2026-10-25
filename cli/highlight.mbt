@@ -30,16 +30,16 @@ pub struct Theme {
 }
 
 ///|
-/// `Deserialize for Theme`: a map from highlight names (iterated in sorted
-/// order, as a `BTreeMap`) to styles; anything else gives an empty theme.
-pub fn Theme::from_json(json : Json) -> Theme {
+/// `Deserialize for Theme`: a `BTreeMap<String, Value>` from highlight
+/// names (in sorted order) to styles; anything else gives an empty theme.
+pub fn Theme::deserialize(de : @support.Deserializer) -> Theme {
   let styles = []
   let highlight_names = []
-  if json is Object(colors) {
-    let names = colors.keys().collect()
-    names.sort_by((a, b) => compare_bytes(a, b))
-    for name in names {
-      let style = parse_style(colors[name])
+  if (Some(@support.deserialize_btree_map(de)) catch { _ => None })
+    is Some(colors) {
+    for entry in colors {
+      let (name, style_value) = entry
+      let style = parse_style(style_value)
       highlight_names.push(name)
       styles.push(style)
     }
@@ -121,7 +121,7 @@ pub fn Theme::to_json(self : Theme) -> Json {
 ///|
 pub fn Theme::default() -> Theme {
   let n = (v : Int32) => Json::number(v.to_double())
-  Theme::from_json({
+  let json : Json = {
     "attribute": { "color": n(124), "italic": true },
     "comment": { "color": n(245), "italic": true },
     "constant": n(94),
@@ -148,6 +148,9 @@ pub fn Theme::default() -> Theme {
     "variable": n(252),
     "variable.builtin": { "color": n(252), "bold": true },
     "variable.parameter": { "color": n(252), "underline": true },
+  }
+  try! @support.from_value(@support.Value::from_json(json), de => {
+    Theme::deserialize(de)
   })
 }
 
@@ -157,25 +160,47 @@ pub fn Theme::default_style(_self : Theme) -> HlStyle {
 }
 
 ///|
-/// `Config::get::<ThemeConfig>()`.
-pub fn theme_config_from_json(config : Json) -> Theme {
-  match config {
-    { "theme": theme, .. } => Theme::from_json(theme)
-    _ => Theme::default()
-  }
+/// `Config::get::<ThemeConfig>()`: `#[derive(Deserialize)]` of
+/// `ThemeConfig { #[serde(default)] theme: Theme }`; returns its `theme`.
+pub fn theme_config_from_json(
+  config : @support.Value,
+) -> Theme raise @support.SerdeJsonError {
+  @support.from_value(config, de => {
+    de.deserialize_struct(
+      "struct ThemeConfig",
+      seq => {
+        seq
+        .next_element(de => Theme::deserialize(de))
+        .unwrap_or(Theme::default())
+      },
+      map => {
+        let theme : @support.StructField[Theme] = @support.StructField::new(
+          "theme",
+        )
+        while map.next_key() is Some(key) {
+          match key {
+            "theme" => theme.next_value(map, de => Theme::deserialize(de))
+            _ => map.next_value_ignored()
+          }
+        }
+        theme.or_default(Theme::default())
+      },
+    )
+  })
 }
 
 ///|
-fn parse_style(json : Json) -> HlStyle {
+fn parse_style(json : @support.Value) -> HlStyle {
   let mut ansi = Style::new()
   let mut css = None
   match json {
     Object(entries) => {
       for property_name, value in entries {
         match property_name {
-          "bold" if value is True => ansi = { ..ansi, bold: true, }
-          "italic" if value is True => ansi = { ..ansi, italic: true, }
-          "underline" if value is True => ansi = { ..ansi, underline: true, }
+          "bold" if value is Bool(true) => ansi = { ..ansi, bold: true, }
+          "italic" if value is Bool(true) => ansi = { ..ansi, italic: true, }
+          "underline" if value is Bool(true) =>
+            ansi = { ..ansi, underline: true, }
           "color" =>
             if parse_color(value) is Some(color) {
               ansi = ansi.fg_color(Some(color))
@@ -201,16 +226,12 @@ fn parse_style(json : Json) -> HlStyle {
 }
 
 ///|
-fn parse_color(json : Json) -> Color? {
+fn parse_color(json : @support.Value) -> Color? {
   match json {
-    Number(n, ..) =>
-      if n >= 0.0 && n == n.floor() {
-        Some(Ansi256(n.to_int() & 0xFF))
-      } else {
-        None
-      }
+    // `n.as_u64().map(|n| Color::Ansi256(Ansi256Color(n as u8)))`.
+    Number(n) => n.as_u64().map(n => Ansi256((n & 0xFFUL).to_int()))
     String(s) =>
-      match s.to_lower() {
+      match @support.rust_to_lowercase(s) {
         "black" => Some(black)
         "blue" => Some(blue)
         "cyan" => Some(cyan)
@@ -230,21 +251,47 @@ fn parse_color(json : Json) -> Color? {
 }
 
 ///|
-fn hex_string_to_rgb(s : String) -> (Int32, Int32, Int32)? {
-  if s.has_prefix("#") && @support.utf8_len(s) >= 7 {
-    let hex = (start : Int32) => {
-      @string.parse_int(
-        s.view(start_offset=start, end_offset=start + 2),
-        base=16,
-      ) catch {
-        _ => -1
+/// `u8::from_str_radix(&s[start..end], 16)` of the UTF-8 bytes of `s`, with
+/// the panic of `str` indexing at `location` for an index that is not a
+/// character boundary.
+fn hex_u8_slice(
+  bytes : Bytes,
+  start : Int32,
+  end : Int32,
+  location : String,
+) -> Int32? {
+  for index in [start, end] {
+    if index < bytes.length() && (bytes[index].to_int() & 0xC0) == 0x80 {
+      let mut char_start = index
+      while (bytes[char_start].to_int() & 0xC0) == 0x80 {
+        char_start -= 1
       }
+      let mut char_end = char_start + 1
+      while char_end < bytes.length() &&
+            (bytes[char_end].to_int() & 0xC0) == 0x80 {
+        char_end += 1
+      }
+      let ch = @support.utf8_lossy(bytes[char_start:char_end])
+      let which = if index == start { "start" } else { "end" }
+      @support.rust_panic(
+        "\{which} byte index \{index} is not a char boundary; it is inside \{@support.rust_debug_char(ch.get_char(0).unwrap())} (bytes \{char_start}..\{char_end} of string)",
+        location,
+      )
     }
-    let (r, g, b) = (hex(1), hex(3), hex(5))
-    if r >= 0 && g >= 0 && b >= 0 {
-      Some((r, g, b))
-    } else {
-      None
+  }
+  @support.u8_from_str_radix(bytes[start:end], 16)
+}
+
+///|
+fn hex_string_to_rgb(s : String) -> (Int32, Int32, Int32)? {
+  let bytes = @support.utf8(s)
+  if s.has_prefix("#") && bytes.length() >= 7 {
+    let red = hex_u8_slice(bytes, 1, 3, "crates/cli/src/highlight.rs:254:34")
+    let green = hex_u8_slice(bytes, 3, 5, "crates/cli/src/highlight.rs:255:34")
+    let blue = hex_u8_slice(bytes, 5, 7, "crates/cli/src/highlight.rs:256:34")
+    match (red, green, blue) {
+      (Some(red), Some(green), Some(blue)) => Some((red, green, blue))
+      _ => None
     }
   } else {
     None
@@ -346,22 +393,39 @@ fn encoding_flag(e : InputEncoding) -> UInt32 {
 }
 
 ///|
-/// Run the highlighter to completion, loading injected languages on demand
-/// (see `Loader::injection_callback`).
-pub async fn highlight_events(
+/// Load the languages that highlighting `source` injects.
+///
+/// Upstream's injection callback loads injected languages on demand, in the
+/// middle of highlighting; the loader loads languages asynchronously, so
+/// its callback only records the languages it is asked for
+/// (`Loader::injection_callback`). Before the events are streamed, the
+/// document is highlighted (discarding the events, and stopping as soon as
+/// an unknown language is requested) until no language is pending, so the
+/// final pass sees the same configurations as upstream's. Configurations
+/// whose queries capture no `injection.content` never call the callback and
+/// need no such pass.
+pub async fn load_injected_languages(
   loader : @loader.Loader,
-  highlighter : @highlight.Highlighter,
   config : @highlight.HighlightConfiguration,
   source : Bytes,
   encoding : UInt32?,
-) -> Array[Result[@highlight.HighlightEvent, @highlight.HighlightError]] {
+) -> Unit {
+  if config.query.capture_index_for_name("injection.content") is None {
+    return
+  }
   for ;; {
-    let events = highlighter
-      .highlight(config, source, encoding?, loader.injection_callback())
-      .iter()
-      .collect()
+    let highlighter = @highlight.Highlighter::new()
+    let events = highlighter.highlight(
+      config,
+      source,
+      encoding?,
+      loader.injection_callback(),
+    )
+    while !loader.has_pending_injections() && events.next() is Some(Ok(_)) {
+
+    }
     if !loader.has_pending_injections() {
-      return events
+      return
     }
     loader.resolve_pending_injections()
   }
@@ -379,7 +443,7 @@ pub async fn highlight(
   if opts.check {
     let names = match opts.captures_path {
       Some(path) => {
-        let file = @fs.read_file(path).text()
+        let file = @support.read_to_string(path)
         let capture_names = @hashset.HashSet([])
         for line in rust_lines(file) {
           let trimmed = line.trim()
@@ -401,7 +465,7 @@ pub async fn highlight(
       )
     }
   }
-  let source = @fs.read_file(path).binary()
+  let source = @support.read_file(path)
   let encoding = match opts.encoding {
     None if source.length() >= 2 =>
       if source[0] == 0xFF && source[1] == 0xFE {
@@ -413,39 +477,40 @@ pub async fn highlight(
       }
     e => e
   }
-  let stdout = @buffer.Buffer()
+  let stdout = @support.stdout_lock()
   let time = @support.now_ns()
   let highlighter = @highlight.Highlighter::new()
-  let events = highlight_events(
-    loader,
-    highlighter,
+  let encoding = encoding.map(encoding_flag)
+  load_injected_languages(loader, config, source, encoding)
+  let events = highlighter.highlight(
     config,
     source,
-    encoding.map(encoding_flag),
+    encoding?,
+    loader.injection_callback(),
   )
   let theme = opts.theme
   // A fragment is pure code markup, so it must not be prefixed with the
   // filename.
   let html_fragment = opts.html is Some((Fragment, _))
   if !opts.quiet && print_name && !html_fragment {
-    stdout.write_string_utf8("\{name}\n")
+    stdout.write_string("\{name}\n")
   }
   match opts.html {
     Some((layout, style)) => {
       if !opts.quiet && layout != Fragment {
-        stdout.write_string_utf8("\{html_head_header}\n")
+        stdout.write_string("\{html_head_header}\n")
         if layout == NumberedDocument {
-          stdout.write_string_utf8("\{html_line_number_style}\n")
+          stdout.write_string("\{html_line_number_style}\n")
         }
         if style == Classes {
           for i, name in theme.highlight_names {
             if theme.styles[i].css is Some(css) {
-              stdout.write_string_utf8("    .\{name} { \{css}; }\n")
+              stdout.write_string("    .\{name} { \{css}; }\n")
             }
           }
         }
-        stdout.write_string_utf8("  </style>\n")
-        stdout.write_string_utf8("\{html_body_header}\n")
+        stdout.write_string("  </style>\n")
+        stdout.write_string("\{html_body_header}\n")
       }
       let renderer = @highlight.HtmlRenderer::new()
       renderer.render(events.iter(), source, (highlight, output) => {
@@ -470,49 +535,50 @@ pub async fn highlight(
       })
       if !opts.quiet {
         if layout == NumberedDocument {
-          stdout.write_string_utf8("<table>\n")
+          stdout.write_string("<table>\n")
           for i, line in renderer.lines().collect() {
-            stdout.write_string_utf8(
+            stdout.write_string(
               "<tr><td class=line-number>\{i + 1}</td><td class=line>\{line}</td></tr>\n",
             )
           }
-          stdout.write_string_utf8("</table>\n")
+          stdout.write_string("</table>\n")
         } else {
           let mut body = renderer.lines().collect().join("")
           if body.has_suffix("\n") {
             body = body.unsafe_substring(start=0, end=body.length() - 1)
           }
-          stdout.write_string_utf8(
+          stdout.write_string(
             "<div class=\"highlight\">\n<pre><code>\{body}</code></pre>\n</div>\n",
           )
         }
         if layout != Fragment {
-          stdout.write_string_utf8("\{html_footer}\n")
+          stdout.write_string("\{html_footer}\n")
         }
       }
     }
     None => {
       let style_stack = [theme.default_style().ansi]
-      for event in events {
+      while events.next() is Some(event) {
         match event {
           Ok(HighlightStart(highlight)) =>
             style_stack.push(theme.styles[highlight.0].ansi)
           Ok(HighlightEnd) => ignore(style_stack.pop())
           Ok(Source(start~, end~)) => {
             let style = style_stack[style_stack.length() - 1]
-            stdout.write_string_utf8(style.render())
+            // `write!(&mut stdout, "{style}").unwrap()`
+            stdout.write_string(style.render()) catch {
+              e => unwrap_failed(e, "crates/cli/src/highlight.rs:507:52")
+            }
             stdout.write_bytes(source[start:end])
-            stdout.write_string_utf8(style.render_reset())
+            stdout.write_string(style.render_reset()) catch {
+              e => unwrap_failed(e, "crates/cli/src/highlight.rs:509:54")
+            }
           }
-          Err(e) => {
-            @support.write_stdout_bytes(stdout.to_bytes())
-            raise e
-          }
+          Err(e) => raise e
         }
       }
     }
   }
-  @support.write_stdout_bytes(stdout.to_bytes())
   if opts.print_time {
     log_info("Time: \{(@support.now_ns() - time) / 1000000L}ms")
   }
@@ -648,3 +714,12 @@ let ansi256_from_grey : Array[Int32] = [
   254, 254, 254, 254, 254, 254, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255,
   255, 255, 255, 255, 255, 231, 231, 231, 231, 231, 231, 231, 231, 231,
 ]
+
+///|
+/// `Result::unwrap` of a failed write.
+fn unwrap_failed(e : Error, location : String) -> Unit {
+  @support.rust_panic(
+    "called `Result::unwrap()` on an `Err` value: \{@support.io_error_debug(e)}",
+    location,
+  )
+}

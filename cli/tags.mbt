@@ -14,15 +14,15 @@ fn left(s : String, width : Int32) -> String {
 }
 
 ///|
-pub async fn generate_tags(
+pub fn generate_tags(
   path : String,
   name : String,
   config : @tags.TagsConfiguration,
   indent : Bool,
   opts : TagsOptions,
-) -> Unit {
+) -> Unit raise {
   let context = @tags.TagsContext::new()
-  let stdout = StringBuilder()
+  let stdout = @support.stdout_lock()
   let indent_str = if indent {
     if !opts.quiet {
       stdout.write_string("\{name}\n")
@@ -31,17 +31,11 @@ pub async fn generate_tags(
   } else {
     ""
   }
-  let source = @fs.read_file(path).binary()
+  let source = @support.read_file(path)
   let start = @support.now_ns()
   let (tags, _) = context.generate_tags(config, source)
   for tag in tags.iter() {
-    let tag = match tag {
-      Ok(tag) => tag
-      Err(e) => {
-        @support.print_out(stdout.to_string())
-        raise e
-      }
-    }
+    let tag = tag.unwrap_or_error()
     if !opts.quiet {
       let text = (range : (Int32, Int32)) => {
         @support.utf8_strict(source[range.0:range.1]).unwrap_or("")
@@ -66,7 +60,6 @@ pub async fn generate_tags(
       "\{indent_str}time: \{(@support.now_ns() - start) / 1000000L}ms\n",
     )
   }
-  @support.print_out(stdout.to_string())
 }
 
 ///|

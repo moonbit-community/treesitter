@@ -5,21 +5,6 @@
 // output.
 
 ///|
-#borrow(data)
-extern "C" fn ts_cli_write(
-  fd : Int32,
-  data : Bytes,
-  offset : Int32,
-  len : Int32,
-) = "ts_cli_write"
-
-///|
-extern "C" fn ts_cli_flush() = "ts_cli_flush"
-
-///|
-extern "C" fn ts_cli_exit(code : Int32) = "ts_cli_exit"
-
-///|
 extern "C" fn ts_cli_now_ns() -> Int64 = "ts_cli_now_ns"
 
 ///|
@@ -27,45 +12,6 @@ extern "C" fn ts_cli_isatty(fd : Int32) -> Int32 = "ts_cli_isatty"
 
 ///|
 extern "C" fn ts_cli_strerror(err : Int32) -> Bytes = "ts_cli_strerror"
-
-///|
-/// Write raw bytes to standard output (buffered with `println`'s stream).
-pub fn write_stdout_bytes(data : BytesView) -> Unit {
-  let bytes = data.to_owned()
-  ts_cli_write(1, bytes, 0, bytes.length())
-}
-
-///|
-/// Write raw bytes to standard error.
-pub fn write_stderr_bytes(data : BytesView) -> Unit {
-  let bytes = data.to_owned()
-  ts_cli_write(2, bytes, 0, bytes.length())
-}
-
-///|
-/// `print!`: write a string to standard output as UTF-8.
-pub fn print_out(s : String) -> Unit {
-  let bytes = @utf8.encode(s)
-  ts_cli_write(1, bytes, 0, bytes.length())
-}
-
-///|
-/// `eprint!`: write a string to standard error as UTF-8.
-pub fn print_err(s : String) -> Unit {
-  let bytes = @utf8.encode(s)
-  ts_cli_write(2, bytes, 0, bytes.length())
-}
-
-///|
-pub fn flush() -> Unit {
-  ts_cli_flush()
-}
-
-///|
-/// `std::process::exit`.
-pub fn exit(code : Int32) -> Unit {
-  ts_cli_exit(code)
-}
 
 ///|
 /// Nanoseconds from a monotonic clock (`Instant`).
@@ -231,9 +177,24 @@ pub fn strip_path_prefix(path : String, prefix : String) -> String? {
 }
 
 ///|
-/// `etcetera::home_dir`.
+extern "C" fn ts_cli_passwd_home() -> Bytes = "ts_cli_passwd_home"
+
+///|
+/// `etcetera::home_dir`, i.e. `std::env::home_dir`: `HOME` when it is set
+/// and not empty, otherwise the home directory of the current user in the
+/// account database (`getpwuid_r`).
 pub fn home_dir() -> String? {
-  @env.get_env_var("HOME")
+  match @env.get_env_var("HOME") {
+    Some(home) if !home.is_empty() => Some(home)
+    _ => {
+      let entry = ts_cli_passwd_home()
+      if entry[0] == 1 {
+        Some(@utf8.decode_lossy(entry[1:]))
+      } else {
+        None
+      }
+    }
+  }
 }
 
 ///|
@@ -315,21 +276,9 @@ pub fn char_count(s : String) -> Int32 {
 }
 
 ///|
-/// `std::env::consts::OS`.
-#cfg(platform="macos")
-pub let current_os : String = "macos"
-
-///|
-#cfg(platform="linux")
-pub let current_os : String = "linux"
-
-///|
-#cfg(platform="windows")
-pub let current_os : String = "windows"
-
-///|
-#cfg(not(any(platform="macos", platform="linux", platform="windows")))
-pub let current_os : String = "unknown"
+/// `std::env::consts::OS`. (Taken from the C compiler's target macros:
+/// `#cfg(platform=...)` conditions are not set by every build of moon.)
+pub let current_os : String = target_os()
 
 ///|
 /// `fs::create_dir_all`: create a directory and its parents; existing

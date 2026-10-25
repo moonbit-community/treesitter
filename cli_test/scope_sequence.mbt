@@ -50,21 +50,7 @@ fn debug_scope_stack(stack : Array[String]?) -> String {
 ///|
 /// `{:?}` of a `&str`.
 fn rust_debug_str(s : String) -> String {
-  let buf = StringBuilder()
-  buf.write_char('"')
-  for c in s {
-    match c {
-      '"' => buf.write_string("\\\"")
-      '\\' => buf.write_string("\\\\")
-      '\n' => buf.write_string("\\n")
-      '\r' => buf.write_string("\\r")
-      '\t' => buf.write_string("\\t")
-      '\u{0}' => buf.write_string("\\0")
-      _ => buf.write_char(c)
-    }
-  }
-  buf.write_char('"')
-  buf.to_string()
+  @support.rust_debug_str(s)
 }
 
 ///|

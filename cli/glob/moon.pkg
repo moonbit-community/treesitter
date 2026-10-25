@@ -1,0 +1,12 @@
+import {
+  "moonbit-community/treesitter/cli/support",
+  "moonbitlang/async/fs",
+}
+
+import {
+  "moonbitlang/async",
+} for "test"
+
+supported_targets = "+native"
+
+warnings = "-implicit_impl_as_method-reserved_keyword"

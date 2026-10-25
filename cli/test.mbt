@@ -20,6 +20,8 @@ pub struct TestOptions {
   file_name : String?
   update : Bool
   open_log : Bool
+  /// A `BTreeMap<&str, &Language>`: unique names in Rust's `str` order (see
+  /// `languages_by_name`).
   languages : Array[(String, @treesitter.Language)]
   show_fields : Bool
   overview_only : Bool
@@ -245,23 +247,7 @@ pub fn TestSummary::to_json(self : TestSummary) -> Json {
 ///|
 /// `format!("{:.3}", x)`.
 fn format_fixed3(x : Double) -> String {
-  if x.is_nan() {
-    return "NaN"
-  }
-  if x.is_inf() {
-    return if x > 0.0 { "inf" } else { "-inf" }
-  }
-  let neg = x < 0.0
-  let n = (x.abs() * 1000.0).round().to_int64()
-  let frac = (n % 1000L).to_int()
-  let frac_str = if frac < 10 {
-    "00\{frac}"
-  } else if frac < 100 {
-    "0\{frac}"
-  } else {
-    "\{frac}"
-  }
-  (if neg { "-" } else { "" }) + "\{n / 1000L}.\{frac_str}"
+  format_fixed(x, 3)
 }
 
 ///|
@@ -344,7 +330,11 @@ fn TestSummary::fmt_parse_results(
       if expected == "NO ERROR" {
         f.write_string("\n  \{i + 1}. \{name}:\n\n")
         f.write_string("  Expected an ERROR node, but got:\n")
-        let actual = if is_cst { actual } else { @treesitter.format_sexp(actual, 2) }
+        let actual = if is_cst {
+          actual
+        } else {
+          @treesitter.format_sexp(actual, 2)
+        }
         f.write_string("  \{paint(Some(red), actual)}\n")
       } else {
         f.write_string("\n  \{i + 1}. \{name}:\n")
@@ -510,6 +500,9 @@ pub async fn run_tests_at_path(
   } else {
     None
   }
+  // `Drop for LogSession` at the end of the function, also when an error
+  // is returned.
+  defer (if log_session is Some(session) { session.close() })
   if opts.debug {
     parser.set_logger(
       Some((log_type, message) => {
@@ -525,9 +518,6 @@ pub async fn run_tests_at_path(
     run_tests(parser, test_entry, opts, test_summary, corrected_entries, true),
   )
   parser.stop_printing_dot_graphs()
-  if log_session is Some(session) {
-    session.close()
-  }
   if test_summary.parse_failures.is_empty() ||
     (opts.update && !test_summary.has_parse_errors) {
     ()
@@ -551,7 +541,7 @@ pub async fn check_queries_at_path(
       continue
     }
     let filepath = @support.file_name(entry).unwrap_or("")
-    let content = @fs.read_file(entry).text() catch {
+    let content = @support.read_to_string(entry) catch {
       e =>
         raise with_context(
           e,
@@ -571,25 +561,39 @@ pub async fn check_queries_at_path(
 }
 
 ///|
-/// `walkdir::WalkDir::new(path)` filtered to files, in walkdir's default
-/// order (directory entries in the order the file system returns them;
-/// sorted by name here for determinism).
+/// The paths of `walkdir::WalkDir::new(path).into_iter()
+/// .filter_map(Result::ok).filter(|e| e.file_type().is_file())` (walkdir
+/// 2.5.0 with its default options): a depth-first walk in the order the
+/// file system lists each directory, which does not follow symbolic links
+/// below the root (a symbolic link is neither a file nor a directory) but
+/// follows a root that is a symbolic link to a directory. Entries that
+/// cannot be read are skipped.
 pub async fn walk_files(path : String) -> Array[String] {
   let result = []
-  async fn visit(p : String) -> Unit {
-    let kind = @fs.kind(p, follow_symlink=true) catch { _ => return }
-    if kind is Directory {
-      let entries = @fs.readdir(p, include_hidden=true, sort=true) catch {
-        _ => return
+  async fn visit(dir : String) -> Unit {
+    let names = @fs.readdir(dir, include_hidden=true) catch { _ => return }
+    for name in names {
+      let child = @support.path_join(dir, name)
+      match (@fs.kind(child, follow_symlink=false) catch { _ => Unknown }) {
+        Directory => visit(child)
+        Regular => result.push(child)
+        _ => ()
       }
-      for name in entries {
-        visit(@support.path_join(p, name))
-      }
-    } else if kind is Regular {
-      result.push(p)
     }
   }
-  visit(path)
+
+  // The root entry takes `symlink_metadata`; `follow_root_links` descends
+  // into a root that links to a directory.
+  match (@fs.kind(path, follow_symlink=false) catch { _ => Unknown }) {
+    Directory => visit(path)
+    Regular => result.push(path)
+    SymLink =>
+      if (@fs.kind(path, follow_symlink=true) catch { _ => Unknown })
+        is Directory {
+        visit(path)
+      }
+    _ => ()
+  }
   result
 }
 
@@ -599,18 +603,39 @@ fn input_string(input : Bytes) -> String {
 }
 
 ///|
-fn language_named(opts : TestOptions, name : String) -> @treesitter.Language? {
-  for entry in opts.languages {
-    if entry.0 == name {
-      return Some(entry.1)
+/// `languages.iter().map(|(l, n)| (n.as_str(), l)).collect::<BTreeMap<_, _>>()`:
+/// keyed by name in Rust's `str` order; a later language replaces an earlier
+/// one of the same name.
+fn languages_by_name(
+  languages : Array[(@treesitter.Language, String)],
+) -> Array[(String, @treesitter.Language)] {
+  let map : Array[(String, @treesitter.Language)] = []
+  for entry in languages {
+    let (language, name) = entry
+    match map.search_by(e => e.0 == name) {
+      Some(i) => map[i] = (name, language)
+      None => map.push((name, language))
     }
   }
-  None
+  map.sort_by((a, b) => compare_bytes(a.0, b.0))
+  map
+}
+
+///|
+/// `opts.languages.get(name)`.
+fn language_named(opts : TestOptions, name : String) -> @treesitter.Language? {
+  match opts.languages.search_by(e => e.0 == name) {
+    Some(i) => Some(opts.languages[i].1)
+    None => None
+  }
 }
 
 ///|
 /// `adjusted_parse_rate`.
-fn adjusted_parse_rate(tree : @treesitter.Tree, parse_time_ns : Int64) -> Double {
+fn adjusted_parse_rate(
+  tree : @treesitter.Tree,
+  parse_time_ns : Int64,
+) -> Double {
   let (start, end) = tree.root_node().byte_range()
   @math.ln((end - start).to_double() / (parse_time_ns.to_double() / 1000000.0))
 }
@@ -687,7 +712,7 @@ async fn run_tests(
         let adj_parse_rate = adjusted_parse_rate(tree, parse_time)
         test_summary.parse_stats.total_parses += 1
         test_summary.parse_stats.total_duration += parse_time
-        test_summary.parse_stats.total_bytes += byte_len
+        test_summary.parse_stats.total_bytes += byte_len.to_uint64()
         let parse_rate = Some((true_parse_rate, adj_parse_rate))
         if attributes.expectation is Error {
           if tree.root_node().has_error() {
@@ -773,7 +798,10 @@ async fn run_tests(
               let (expected_output, actual_output) = if attributes.cst {
                 (output, actual)
               } else {
-                (@treesitter.format_sexp(output, 0), @treesitter.format_sexp(actual, 0))
+                (
+                  @treesitter.format_sexp(output, 0),
+                  @treesitter.format_sexp(actual, 0),
+                )
               }
               // Only bail early before updating if `actual` does not match
               // `output`. Sometimes users want to test cases that are
@@ -818,6 +846,7 @@ async fn run_tests(
         }
         if i == attributes.languages.length() - 1 {
           // reset to the first language
+          // (`opts.languages.values().next().unwrap()`)
           parser.set_language(opts.languages[0].1)
         }
       }

@@ -1,5 +1,1 @@
-import {
-  "moonbitlang/core/string",
-}
-
 warnings = "-implicit_impl_as_method-reserved_keyword-unused_mut"

@@ -67,6 +67,26 @@ fn encoding_values() -> Array[@clap.PossibleValue] {
 }
 
 ///|
+/// `#[derive(Args)]`'s `augment_args` for the argument struct `group_id`
+/// whose arguments `cmd` defines: the struct's argument group (named after
+/// the struct, `multiple(true)`, with every argument field) is added before
+/// the `#[command(group(...))]` groups.
+fn derive_args(
+  group_id : String,
+  cmd : @clap.Command,
+  groups~ : Array[@clap.ArgGroup] = [],
+) -> @clap.Command {
+  let members = cmd.get_arguments().map(a => a.get_id())
+  let cmd = cmd.group(
+    @clap.ArgGroup::new(group_id).multiple(true).args(members),
+  )
+  for group in groups {
+    let _ = cmd.group(group)
+  }
+  cmd
+}
+
+///|
 fn init_config_command() -> @clap.Command {
   @clap.Command::new("init-config").about("Generate a default config file")
 }
@@ -243,11 +263,17 @@ fn lang_name_arg() -> @clap.Arg {
 }
 
 ///|
+/// `Parse`'s `#[command(group(ArgGroup::new("graph_output").multiple(true)))]`
+/// (added by `derive_args`, after the struct's own group).
+fn graph_output_group() -> @clap.ArgGroup {
+  @clap.ArgGroup::new("graph_output").multiple(true)
+}
+
+///|
 fn parse_command() -> @clap.Command {
   @clap.Command::new("parse")
   .alias("p")
   .about("Parse files")
-  .group(@clap.ArgGroup::new("graph_output").multiple(true))
   .arg(
     path_opt("paths_file")
     .long("paths")
@@ -900,18 +926,20 @@ pub fn build_cli() -> @clap.Command {
   .disable_help_subcommand(true)
   .about("Generates and tests parsers")
   .author(authors)
-  .subcommand(init_config_command())
-  .subcommand(init_command())
-  .subcommand(generate_command())
-  .subcommand(build_command())
-  .subcommand(parse_command())
-  .subcommand(test_command())
-  .subcommand(version_command())
-  .subcommand(fuzz_command())
-  .subcommand(query_command())
-  .subcommand(highlight_command())
-  .subcommand(tags_command())
-  .subcommand(playground_command())
-  .subcommand(dump_languages_command())
-  .subcommand(complete_command())
+  .subcommand(derive_args("InitConfig", init_config_command()))
+  .subcommand(derive_args("Init", init_command()))
+  .subcommand(derive_args("Generate", generate_command()))
+  .subcommand(derive_args("Build", build_command()))
+  .subcommand(
+    derive_args("Parse", parse_command(), groups=[graph_output_group()]),
+  )
+  .subcommand(derive_args("Test", test_command()))
+  .subcommand(derive_args("Version", version_command()))
+  .subcommand(derive_args("Fuzz", fuzz_command()))
+  .subcommand(derive_args("Query", query_command()))
+  .subcommand(derive_args("Highlight", highlight_command()))
+  .subcommand(derive_args("Tags", tags_command()))
+  .subcommand(derive_args("Playground", playground_command()))
+  .subcommand(derive_args("DumpLanguages", dump_languages_command()))
+  .subcommand(derive_args("Complete", complete_command()))
 }
