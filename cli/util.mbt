@@ -111,14 +111,16 @@ pub async fn LogSession::close(self : LogSession) -> Unit {
   stdin.close()
   guard self.dot_process is Some(pid) else { return }
   self.dot_process = None
-  let status = @process.wait_pid(pid) catch {
+  // A blocking waitpid: moonbitlang/async's `wait_pid` fails with EAGAIN on
+  // Linux for this child.
+  let status = @support.wait_exit_code(pid) catch {
     e =>
       @support.rust_panic(
         "called `Result::unwrap()` on an `Err` value: \{@support.io_error_debug(e)}",
         "crates/cli/src/util.rs:118:74",
       )
   }
-  if status == 0 {
+  if status == Some(0) {
     if self.open_log {
       let len = file_len(self.path) catch {
         e =>
