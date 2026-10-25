@@ -42,6 +42,7 @@ pub(all) enum Precedence {
 
 ///|
 /// A grammar symbol: a kind together with that kind's index into its own table.
+#valtype
 pub(all) struct Symbol {
   kind : SymbolType
   index : Int

@@ -23,6 +23,7 @@ pub(all) enum GotoAction {
 
 ///|
 /// Index of an action list in an `ActionListPool`, plus the entry's reusable bit.
+#valtype
 pub(all) struct ActionListId {
   index : Int
   reusable : Bool
