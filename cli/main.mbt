@@ -108,9 +108,13 @@ async fn generate_run(m : @clap.ArgMatches, current_dir : String) -> Unit {
     Some("latest") => @commands.language_version.to_uint64()
     // `version.parse::<usize>().expect("invalid abi version flag")`
     Some(version) =>
-      match parse_unsigned(version, 0xFFFFFFFFFFFFFFFFUL) {
-        Some(v) => v
-        None => abort("invalid abi version flag")
+      match from_str_unsigned(version, 0xFFFFFFFFFFFFFFFFUL) {
+        Ok(v) => v
+        Err(kind) =>
+          @support.rust_panic(
+            "invalid abi version flag: ParseIntError { kind: \{kind} }",
+            "crates/cli/src/main.rs:950:41",
+          )
       }
   }
   let json_summary = if m.get_flag("json") {
@@ -152,9 +156,9 @@ async fn generate_run(m : @clap.ArgMatches, current_dir : String) -> Unit {
   if json_summary {
     let error = match result {
       Ok(_) => Json::null()
-      Err(GenerateError(variant~, message~)) =>
-        Json::object(Map::from_array([(variant, Json::string(message))]))
-      Err(e) => { "Prepare": Json::string(error_message(e)) }
+      Err(GenerateError(json~, ..)) => json
+      // Not a `GenerateError` (a bug of the port).
+      Err(e) => Json::string(error_message(e))
     }
     let envelope : Json = {
       "diagnostics": Json::array(diagnostics.map(diagnostic_json)),
@@ -511,24 +515,36 @@ fn test_number(m : @clap.ArgMatches) -> UInt32? {
 /// (`u32`, `u64`, `usize`): an optional `+` followed by decimal digits.
 /// `None` stands for a `ParseIntError`.
 fn parse_unsigned(s : String, max : UInt64) -> UInt64? {
+  match from_str_unsigned(s, max) {
+    Ok(n) => Some(n)
+    Err(_) => None
+  }
+}
+
+///|
+/// `<uN as FromStr>::from_str` with `max = uN::MAX`: the value, or the
+/// `IntErrorKind` of the `ParseIntError` (`Empty`, `InvalidDigit` or
+/// `PosOverflow`).
+fn from_str_unsigned(s : String, max : UInt64) -> Result[UInt64, String] {
+  if s.is_empty() {
+    return Err("Empty")
+  }
+  // A lone sign is an invalid digit; a leading `+` is accepted.
   let digits = if s.has_prefix("+") && s.length() > 1 {
     s.unsafe_substring(start=1, end=s.length())
   } else {
     s
   }
-  if digits.is_empty() {
-    return None
-  }
   let mut n = 0UL
   for c in digits {
-    guard c >= '0' && c <= '9' else { return None }
+    guard c >= '0' && c <= '9' else { return Err("InvalidDigit") }
     let digit = (c.to_int() - '0'.to_int()).to_uint64()
     if n > (max - digit) / 10UL {
-      return None
+      return Err("PosOverflow")
     }
     n = n * 10UL + digit
   }
-  Some(n)
+  Ok(n)
 }
 
 ///|

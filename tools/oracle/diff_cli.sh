@@ -32,6 +32,12 @@ moon build --target native --release cmd/treesitter >/dev/null || exit 1
 mkdir -p "$WORK"
 rm -rf "$WORK/cases"
 mkdir -p "$WORK/cases" "$WORK/config" "$WORK/lib-up" "$WORK/lib-mbt"
+# A private temporary directory: both CLIs write fixed names there (e.g.
+# `parse --test-number`'s `.tree-sitter-temp`), which concurrent runs of
+# this script in other checkouts would otherwise overwrite.
+rm -rf "$WORK/tmp"
+mkdir -p "$WORK/tmp"
+export TMPDIR="$WORK/tmp"
 : > "$WORK/report.txt"
 pass=0
 fail=0
@@ -63,7 +69,8 @@ mask() {
     -e 's/ -- Warning: Slow parse rate \(X bytes\/ms\)//g' \
     -e 's/success percentage: [0-9.]+%/success percentage: X%/g' \
     -e "s/Parse: +X ms/Parse: X ms/g" \
-    -e "s/[[:blank:]]+X bytes\/ms/ X bytes\/ms/g"
+    -e "s/[[:blank:]]+X bytes\/ms/ X bytes\/ms/g" \
+    -e "s/^thread 'main' \([0-9]+\) panicked/thread 'main' (TID) panicked/"
 }
 
 # run_case NAME DIR [env assignments --] ARGS...

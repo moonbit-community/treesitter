@@ -24,6 +24,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #ifdef __linux__
 #include <sys/syscall.h>
 #endif
@@ -588,6 +589,36 @@ MOONBIT_FFI_EXPORT
 moonbit_bytes_t ts_cli_macos_open_message(void) {
   const char *s = ts_cli_open_message ? ts_cli_open_message : "";
   return ts_cli_bytes_of(s, strlen(s));
+}
+
+// Wait for the child process `pid`: `ExitStatus::code()`, with -1 for a
+// process ended by a signal (no code), or -2 with `errno` set when waiting
+// fails (`ts_cli_wait_error`).
+static int ts_cli_last_wait_error = 0;
+
+MOONBIT_FFI_EXPORT
+int32_t ts_cli_wait_exit_code(int32_t pid) {
+#ifdef _WIN32
+  (void)pid;
+  ts_cli_last_wait_error = ENOSYS;
+  return -2;
+#else
+  int status;
+  for (;;) {
+    pid_t ret = waitpid((pid_t)pid, &status, 0);
+    if (ret == (pid_t)pid) break;
+    if (ret < 0 && errno == EINTR) continue;
+    ts_cli_last_wait_error = errno;
+    return -2;
+  }
+  if (WIFEXITED(status)) return WEXITSTATUS(status);
+  return -1;
+#endif
+}
+
+MOONBIT_FFI_EXPORT
+int32_t ts_cli_wait_error(void) {
+  return ts_cli_last_wait_error;
 }
 
 MOONBIT_FFI_EXPORT

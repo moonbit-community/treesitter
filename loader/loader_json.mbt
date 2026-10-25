@@ -887,61 +887,6 @@ pub async fn TreeSitterJSON::from_file(path : String) -> TreeSitterJSON {
 }
 
 ///|
-/// `serde_json::from_str::<TreeSitterJson>` of `read_grammar_version`
-/// (crates/generate/src/generate.rs), whose `#[derive(Deserialize)]` types
-/// are `TreeSitterJson { metadata: Metadata }` and `Metadata { version:
-/// String }`: the `metadata.version` of a `tree-sitter.json`.
-pub fn parse_grammar_version_json(text : String) -> String raise JsonError {
-  let deserialize_metadata = (de : @support.Deserializer) => {
-    de.deserialize_struct(
-      "struct Metadata",
-      seq => {
-        seq.next_field(
-          @support.deserialize_string, 0, "struct Metadata with 1 element",
-        )
-      },
-      map => {
-        let version : @support.StructField[String] = @support.StructField::new(
-          "version",
-        )
-        while map.next_key() is Some(key) {
-          match key {
-            "version" => version.next_value(map, @support.deserialize_string)
-            _ => map.next_value_ignored()
-          }
-        }
-        version.required()
-      },
-    )
-  }
-  let deserialize = (de : @support.Deserializer) => {
-    de.deserialize_struct(
-      "struct TreeSitterJson",
-      seq => {
-        seq.next_field(
-          deserialize_metadata, 0, "struct TreeSitterJson with 1 element",
-        )
-      },
-      map => {
-        let metadata : @support.StructField[String] = @support.StructField::new(
-          "metadata",
-        )
-        while map.next_key() is Some(key) {
-          match key {
-            "metadata" => metadata.next_value(map, deserialize_metadata)
-            _ => map.next_value_ignored()
-          }
-        }
-        metadata.required()
-      },
-    )
-  }
-  @support.from_str_with(text, deserialize) catch {
-    e => raise JsonError(e.to_string())
-  }
-}
-
-///|
 pub fn TreeSitterJSON::has_multiple_language_configs(
   self : TreeSitterJSON,
 ) -> Bool {

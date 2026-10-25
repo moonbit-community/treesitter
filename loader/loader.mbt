@@ -718,7 +718,10 @@ async fn generate_language_tables(
     e => raise IO(@support.io_error_with_path(e, Some(grammar_path)))
   }
   let repo_path = @support.parent(src_path).unwrap_or(".")
-  let semantic_version = read_grammar_version(repo_path)
+  let semantic_version = read_grammar_version(repo_path) catch {
+    IOError(e, path) => raise IO(@support.io_error_with_path(e, Some(path)))
+    e => raise Serialization(e.to_string())
+  }
   let generated = @generate.generate_from_grammar_json(
     grammar_json,
     semantic_version?,
@@ -794,31 +797,45 @@ async fn Loader::scanner_for(
 }
 
 ///|
+/// `ParseVersionError` of the generate crate (`read_grammar_version`).
+pub(all) suberror ParseVersionError {
+  /// `Version(Box<str>)`.
+  VersionError(String)
+  /// `JSON(Box<str>)`.
+  JSONError(String)
+  /// `IO(IoError)`: the I/O error and its path.
+  IOError(Error, String)
+}
+
+///|
+pub impl Show for ParseVersionError with fn output(self, logger) {
+  match self {
+    VersionError(message) | JSONError(message) => logger.write_string(message)
+    IOError(e, path) =>
+      logger.write_string(@support.io_error_with_path(e, Some(path)))
+  }
+}
+
+///|
 /// `read_grammar_version` of the generate crate: the `metadata.version` of
 /// the nearest `tree-sitter.json` in `repo_path` or its ancestors.
-pub async fn read_grammar_version(repo_path : String) -> (Int32, Int32, Int32)? {
+pub async fn read_grammar_version(
+  repo_path : String,
+) -> (Int32, Int32, Int32)? raise ParseVersionError {
   let filename = "tree-sitter.json"
   let mut dir : String? = Some(repo_path)
   while dir is Some(d) {
     let path = @support.path_join(d, filename)
-    if @fs.exists(path) {
-      let contents = @fs.read_file(path).text() catch {
-        e => raise IO(@support.io_error_with_path(e, Some(path)))
+    if (@fs.exists(path) catch { _ => false }) {
+      let contents = @support.read_to_string(path) catch {
+        e => raise IOError(e, path)
       }
-      let json = @support.parse_json(contents) catch {
-        e =>
-          raise Serialization(
-            "Failed to parse `\{path}` -- \{@config.json_error_message(e)}",
-          )
-      }
-      guard json is { "metadata": { "version": String(version), .. }, .. } else {
-        raise Serialization(
-          "Failed to parse `\{path}` -- missing field `version`",
-        )
+      let version = @generate.tree_sitter_json_version(contents) catch {
+        e => raise JSONError("Failed to parse `\{path}` -- \{e}")
       }
       let v = SemverVersion::parse(version) catch {
         e =>
-          raise Serialization(
+          raise VersionError(
             "Failed to parse `\{path}` version as semver -- \{e}",
           )
       }

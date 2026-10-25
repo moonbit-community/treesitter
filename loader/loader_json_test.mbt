@@ -73,9 +73,9 @@ test "config.json parser directories" {
 }
 
 ///|
-test "read_grammar_version's TreeSitterJson" {
+test "read_grammar_version's TreeSitterJson (@generate.tree_sitter_json_version)" {
   let version = (text : String) => {
-    @loader.parse_grammar_version_json(text) catch {
+    @generate.tree_sitter_json_version(text) catch {
       e => e.to_string()
     }
   }
