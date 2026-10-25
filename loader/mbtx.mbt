@@ -135,17 +135,17 @@ pub async fn run_grammar_script(path : String, current_dir : String) -> String {
     "\{imports}\noptions(\"is-main\": true)\n",
   )
   write_file(@support.path_join(temp, "script/main.mbt"), body)
-  let (code, stdout, stderr) = @process.collect_output(
+  let (code, stdout, stderr) = @support.command_output(
     "moon",
     ["run", "--target", "native", "."],
     cwd=@support.path_join(temp, "script"),
   )
-  if code != 0 {
+  if code != Some(0) {
     raise Script(
-      "`moon run` of \{path} exited with status \{code}\n\{stderr.text()}",
+      "`moon run` of \{path} \{exit_description(code)}\n\{@support.utf8_lossy(stderr)}",
     )
   }
-  stdout.text()
+  @support.utf8_lossy(stdout)
 }
 
 ///|
@@ -214,7 +214,7 @@ pub async fn build_scanner_driver(
     @support.path_join(script, "driver/main.mbt"),
     "fn scanners(name : String) -> @runtime.ExternalScannerFactory? {\n  match name {\n\{cases.to_string()}    _ => None\n  }\n}\n\nasync fn main {\n  @cli.cli_main(@env.args(), scanners~)\n}\n",
   )
-  let (code, _, stderr) = @process.collect_output(
+  let (code, _, stderr) = @support.command_output(
     "moon",
     [
       "build",
@@ -227,9 +227,9 @@ pub async fn build_scanner_driver(
     ],
     cwd=script,
   )
-  if code != 0 {
+  if code != Some(0) {
     raise Script(
-      "Compiling the MoonBit scanners failed (exit \{code}):\n\{stderr.text()}",
+      "Compiling the MoonBit scanners failed (\{exit_description(code)}):\n\{@support.utf8_lossy(stderr)}",
     )
   }
   let candidates = [
@@ -255,15 +255,27 @@ pub async fn run_with_scanners(
 ) -> Int32 {
   let driver = build_scanner_driver(scanners, current_dir)
   @support.flush()
-  @process.run(
+  // A blocking wait that tells a signal from an exit status (a driver ended
+  // by a signal gives the status a shell would, 128 + the signal).
+  let pid = @process.spawn_orphan(
     driver,
     args[1:].to_owned(),
     extra_env=Map::from_array([(driver_env_var, "1")]),
     cwd=current_dir,
-    stdin=@stdio.stdin,
-    stdout=@stdio.stdout,
-    stderr=@stdio.stderr,
   )
+  match @support.wait_exit_code(pid) {
+    Some(code) => code
+    None => 128 + @support.last_wait_signal()
+  }
+}
+
+///|
+/// "exited with status N", or the signal that ended a process.
+fn exit_description(code : Int32?) -> String {
+  match code {
+    Some(code) => "exited with status \{code}"
+    None => "was ended by signal \{@support.last_wait_signal()}"
+  }
 }
 
 ///|

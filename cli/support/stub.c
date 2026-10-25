@@ -644,6 +644,7 @@ moonbit_bytes_t ts_cli_macos_open_message(void) {
 // process ended by a signal (no code), or -2 with `errno` set when waiting
 // fails (`ts_cli_wait_error`).
 static int ts_cli_last_wait_error = 0;
+static int ts_cli_last_wait_signal = 0;
 
 MOONBIT_FFI_EXPORT
 int32_t ts_cli_wait_exit_code(int32_t pid) {
@@ -661,6 +662,7 @@ int32_t ts_cli_wait_exit_code(int32_t pid) {
     return -2;
   }
   if (WIFEXITED(status)) return WEXITSTATUS(status);
+  ts_cli_last_wait_signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
   return -1;
 #endif
 }
@@ -668,6 +670,13 @@ int32_t ts_cli_wait_exit_code(int32_t pid) {
 MOONBIT_FFI_EXPORT
 int32_t ts_cli_wait_error(void) {
   return ts_cli_last_wait_error;
+}
+
+// The signal that ended the process of the last `ts_cli_wait_exit_code`
+// that returned -1.
+MOONBIT_FFI_EXPORT
+int32_t ts_cli_wait_signal(void) {
+  return ts_cli_last_wait_signal;
 }
 
 MOONBIT_FFI_EXPORT

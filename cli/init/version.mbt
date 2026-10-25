@@ -396,15 +396,17 @@ async fn Version::update_cargo_lock(
   self : Version,
 ) -> Result[Unit, UpdateError] {
   if path_exists(@support.path_join(self.current_dir, "Cargo.lock")) {
-    let (code, _, stderr) = @process.collect_output(
+    // `Command::output()`: stdin is null, and a process ended by a signal
+    // did not succeed.
+    let (code, _, stderr) = @support.command_output(
       "cargo",
       ["generate-lockfile", "--offline"],
       cwd=self.current_dir,
     ) catch {
       _ => return Ok(()) // cargo is not `executable`, ignore
     }
-    if code != 0 {
-      let stderr = @support.utf8_lossy(stderr.binary())
+    if code != Some(0) {
+      let stderr = @support.utf8_lossy(stderr)
       return Err(UpdateError::Command("cargo generate-lockfile", stderr))
     }
   }
@@ -436,15 +438,17 @@ async fn Version::update_package_lock_json(
   self : Version,
 ) -> Result[Unit, UpdateError] {
   if path_exists(@support.path_join(self.current_dir, "package-lock.json")) {
-    let (code, _, stderr) = @process.collect_output(
+    // `Command::output()`: stdin is null, and a process ended by a signal
+    // did not succeed.
+    let (code, _, stderr) = @support.command_output(
       "npm",
       ["install", "--package-lock-only"],
       cwd=self.current_dir,
     ) catch {
       _ => return Ok(()) // npm is not `executable`, ignore
     }
-    if code != 0 {
-      let stderr = @support.utf8_lossy(stderr.binary())
+    if code != Some(0) {
+      let stderr = @support.utf8_lossy(stderr)
       return Err(UpdateError::Command("npm install", stderr))
     }
   }

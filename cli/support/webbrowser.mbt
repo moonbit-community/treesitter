@@ -371,19 +371,14 @@ async fn try_wsl(target : String) -> Bool {
 /// `try_xdg`: the browser of `xdg-settings get default-web-browser`.
 async fn try_xdg(url : String) -> Bool {
   guard for_matching_path("xdg-settings") is Some(pb) else { return false }
-  let null_in = @process.redirect_from_file("/dev/null")
-  let null_err = @process.redirect_to_file("/dev/null")
-  let (_, browser_name_os) = @process.collect_stdout(
+  let (_, browser_name_os, _) = command_output(
     pb,
     ["get", "default-web-browser"],
-    stdin=null_in,
-    stderr=null_err,
+    null_stderr=true,
   ) catch {
     _ => return false
   }
-  guard utf8_strict(browser_name_os.binary()) is Some(browser_name) else {
-    return false
-  }
+  guard utf8_strict(browser_name_os) is Some(browser_name) else { return false }
   let browser_name = browser_name.trim().to_owned()
   if browser_name.is_empty() {
     return false
@@ -622,6 +617,7 @@ async fn run_command(
       _ => false
     }
   } else {
-    (@process.run(program, args) catch { _ => -1 }) == 0
+    // `cmd.status()`: a process ended by a signal did not succeed.
+    (command_status(program, args) catch { _ => None }) == Some(0)
   }
 }
