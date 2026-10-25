@@ -143,7 +143,12 @@ pub fn get_test_info(
 /// Writes `contents` to a temporary file and returns the path to that file.
 pub async fn get_tmp_source_file(contents : Bytes) -> String {
   let parse_path = @support.path_join(@support.temp_dir(), ".tree-sitter-temp")
-  @fs.write_file(parse_path, contents, create_mode=CreateOrTruncate)
+  @fs.write_file(
+    parse_path,
+    contents,
+    create_mode=CreateOrTruncate,
+    permission=0o666,
+  )
   parse_path
 }
 

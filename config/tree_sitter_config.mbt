@@ -150,7 +150,13 @@ pub async fn Config::save(self : Config) -> Unit {
   @support.create_dir_all(config_dir) catch {
     e => raise IO(@support.io_error_with_path(e, Some(config_dir)))
   }
-  @fs.write_file(self.location, json, create_mode=CreateOrTruncate) catch {
+  // `fs::write` creates the file with mode 0o666 (less the umask).
+  @fs.write_file(
+    self.location,
+    json,
+    create_mode=CreateOrTruncate,
+    permission=0o666,
+  ) catch {
     e => raise IO(@support.io_error_with_path(e, Some(self.location)))
   }
 }

@@ -28,7 +28,7 @@ async fn write_file(path : String, content : String) -> Unit {
     (@fs.read_file(path).text() catch { _ => "" }) == content {
     return
   }
-  @fs.write_file(path, content, create_mode=CreateOrTruncate)
+  @fs.write_file(path, content, create_mode=CreateOrTruncate, permission=0o666)
 }
 
 ///|

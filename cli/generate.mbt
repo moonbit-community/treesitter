@@ -185,6 +185,7 @@ pub async fn generate_parser_in_directory(
       @support.path_join(src_path, "grammar.json"),
       grammar_json,
       create_mode=CreateOrTruncate,
+      permission=0o666,
     ) catch {
       e => raise io_error(e, Some(src_path))
     }
@@ -255,7 +256,7 @@ pub async fn generate_parser_in_directory(
 ///|
 /// `write_file`.
 async fn write_file(path : String, body : String) -> Unit {
-  @fs.write_file(path, body, create_mode=CreateOrTruncate) catch {
+  @fs.write_file(path, body, create_mode=CreateOrTruncate, permission=0o666) catch {
     e => raise io_error(e, Some(path))
   }
 }
