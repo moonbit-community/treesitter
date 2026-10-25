@@ -952,8 +952,10 @@ pub fn Subtree::retain(self : Subtree) -> Unit {
 
 ///|
 /// `pool->tree_stack` of `ts_subtree_release`: scratch space that is always
-/// empty between calls.
-let release_stack : Array[SubtreeHeapData] = []
+/// empty between calls. Each slot is reset to `Null` as it is popped, because
+/// a native `Array::pop` leaves the popped value in the backing buffer, which
+/// would keep a released tree reachable from this global.
+let release_stack : Array[Subtree] = []
 
 ///|
 /// `ts_subtree_release`. Memory is reclaimed by the GC; the counts are kept
@@ -965,13 +967,18 @@ pub fn Subtree::release(self : Subtree) -> Unit {
     return
   }
   let stack = release_stack
-  stack.push(d)
-  while stack.pop() is Some(tree) {
+  stack.push(self)
+  while stack.length() > 0 {
+    let top = stack.length() - 1
+    let tree = stack[top]
+    stack[top] = Null
+    stack.unsafe_pop() |> ignore
+    guard! tree is Heap(tree)
     for child in tree.children {
       if child is Heap(c) {
         c.ref_count -= 1
         if c.ref_count == 0 {
-          stack.push(c)
+          stack.push(child)
         }
       }
     }

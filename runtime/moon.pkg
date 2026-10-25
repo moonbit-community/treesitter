@@ -3,4 +3,8 @@ import {
   "moonbitlang/core/encoding/utf8",
 }
 
+import {
+  "moonbit-community/treesitter/generate",
+} for "wbtest"
+
 warnings = "-implicit_impl_as_method-reserved_keyword"

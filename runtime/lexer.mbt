@@ -471,7 +471,7 @@ pub fn Lexer::new() -> Lexer {
     included_ranges: [],
     chunk: b""[:],
     has_chunk: false,
-    input: { read: (_, _) => b"", encoding: UTF8, decode: None, },
+    input: no_input,
     logger: None,
     current_included_range_index: 0,
     chunk_start: 0,
@@ -493,6 +493,20 @@ pub fn Lexer::set_input(self : Lexer, input : Input) -> Unit {
   self.input = input
   self.clear_chunk()
   self.goto(self.current_position)
+}
+
+///|
+/// The input of a lexer that has none (`Lexer::new`, `release_input`).
+let no_input : Input = { read: (_, _) => b"", encoding: UTF8, decode: None, }
+
+///|
+/// Forget the input and its current chunk once a parse call returns. Upstream
+/// keeps dangling pointers to them (the Rust binding's input payload ends
+/// with the call); a retained closure would keep the source alive. Every
+/// parse call starts with `set_input`, which clears the chunk anyway.
+fn Lexer::release_input(self : Lexer) -> Unit {
+  self.input = no_input
+  self.clear_chunk()
 }
 
 ///|
