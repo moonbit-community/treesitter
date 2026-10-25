@@ -1091,7 +1091,40 @@ fn complete_run(m : @clap.ArgMatches) -> Unit {
     Some("zsh") => Zsh
     _ => Nushell
   }
-  @support.print_out(@clap_complete.generate(shell, cli, name))
+  // `generate(<shell>, cli, &name, &mut io::stdout())`: the generators
+  // write with `.expect("failed to write completion file")`.
+  let script = @clap_complete.generate(shell, cli, name)
+  let location = match shell {
+    Bash => "clap_complete-4.6.11/src/aot/shells/bash.rs:21:14"
+    Elvish => "clap_complete-4.6.11/src/aot/shells/elvish.rs:20:14"
+    Fish => "clap_complete-4.6.11/src/aot/shells/fish.rs:20:14"
+    PowerShell => "clap_complete-4.6.11/src/aot/shells/powershell.rs:20:14"
+    Zsh => "clap_complete-4.6.11/src/aot/shells/zsh.rs:19:14"
+    Nushell => "clap_complete_nushell-4.6.2/src/lib.rs:40:14"
+  }
+  let write = (text : StringView, location : String) => {
+    @support.stdout_write_string(text) catch {
+      e =>
+        @support.rust_panic(
+          "failed to write completion file: \{@support.io_error_debug(e)}",
+          @support.crate_location(location),
+        )
+    }
+  }
+  // Fish writes its subcommand helper functions (`gen_subcommand_helpers`)
+  // with a write of their own before the rest of the script.
+  let helpers_end = "\n    contains -- $cmd[1] $argv\nend\n\n"
+  match (shell, script.find(helpers_end)) {
+    (Fish, Some(i)) => {
+      let split = i + helpers_end.length()
+      write(
+        script.view(end_offset=split),
+        "clap_complete-4.6.11/src/aot/shells/fish.rs:277:11",
+      )
+      write(script.view(start_offset=split), location)
+    }
+    _ => write(script, location)
+  }
 }
 
 ///|
@@ -1126,10 +1159,13 @@ pub async fn run(
   let cli = make_cli()
   let matches = cli.try_get_matches_from(args) catch {
     @clap.ClapError(_) as e => {
+      // `Error::exit`: `let _ = self.print();`
       if e.use_stderr() {
-        @support.print_err(e.message())
+        @support.write_stderr_bytes(@support.utf8(e.message()))
       } else {
-        @support.print_out(e.message())
+        @support.stdout_write_string(e.message()) catch {
+          _ => ()
+        }
       }
       return e.exit_code()
     }
@@ -1158,6 +1194,8 @@ pub async fn run(
   }
   match result {
     Ok(code) => code
+    // Ignore BrokenPipe errors
+    Err(e) if @support.is_broken_pipe(e) => 0
     Err(_) if !@loader.required_mbtx_scanners.is_empty() => {
       let required = []
       for name, path in @loader.required_mbtx_scanners {
@@ -1241,6 +1279,7 @@ pub async fn cli_main(
   args : Array[String],
   scanners? : @loader.ScannerRegistry,
 ) -> Unit {
+  @support.runtime_init()
   let code = run(args, scanners?)
   @support.flush()
   @support.exit(code)

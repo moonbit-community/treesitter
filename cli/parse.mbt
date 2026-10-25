@@ -305,9 +305,12 @@ pub async fn parse_file_at_path(
   max_path_length : Int32,
   opts : ParseFileOptions,
 ) -> Unit {
-  let mut log_session = None
+  // Held for its `Drop` side effect: closed on every path out of this
+  // function (after `stdout` is dropped, as upstream's locals are).
+  let mut log_session : LogSession? = None
+  defer (if log_session is Some(session) { session.close() })
   parser.set_language(language)
-  let source_code = (@fs.read_file(path).binary() catch {
+  let source_code = (@support.read_file(path) catch {
     e => raise with_context(e, "Error reading \{rust_debug_str(name)}")
   }).to_array()
   // Render an HTML graph if `--debug-graph` was passed
@@ -396,7 +399,8 @@ pub async fn parse_file_at_path(
       )
   }
   let parse_duration = @support.now_ns() - parse_time
-  let stdout = StringBuilder()
+  let stdout = @support.BufWriter::stdout(capacity=64 * 1024)
+  defer stdout.drop()
   if tree is Some(tree) {
     let mut tree = tree
     let source_code = source_code
@@ -420,10 +424,6 @@ pub async fn parse_file_at_path(
     }
     let edit_duration = @support.now_ns() - edit_time
     parser.stop_printing_dot_graphs()
-    if log_session is Some(session) {
-      session.close()
-      log_session = None
-    }
     let source_bytes = Bytes::from_array(source_code)
     let parse_duration_ms = (parse_duration / 1000L).to_double() / 1.0e3
     let edit_duration_ms = (edit_duration / 1000L).to_double() / 1.0e3
@@ -582,9 +582,13 @@ pub async fn parse_file_at_path(
       cursor.reset(tree.root_node())
     }
     if opts.output == Dot {
-      @support.print_out(stdout.to_string())
-      stdout.reset()
-      print_tree_graph(tree, "log.html", opts.open_log)
+      print_tree_graph(tree, "log.html", opts.open_log) catch {
+        e =>
+          @support.rust_panic(
+            "called `Result::unwrap()` on an `Err` value: \{CliError(error_chain(e)).debug()}",
+            "crates/cli/src/parse.rs:621:70",
+          )
+      }
     }
     let first_error = find_first_error(cursor)
     if first_error is Some(_) || opts.print_time {
@@ -637,13 +641,9 @@ pub async fn parse_file_at_path(
       duration: Some(parse_duration),
       bytes: Some(source_code.length()),
     })
-    @support.print_out(stdout.to_string())
     return
   }
   parser.stop_printing_dot_graphs()
-  if log_session is Some(session) {
-    session.close()
-  }
   if opts.print_time {
     let duration = @support.now_ns() - parse_time
     let duration_ms = (duration / 1000L).to_double() / 1.0e3
@@ -659,7 +659,6 @@ pub async fn parse_file_at_path(
     duration: None,
     bytes: Some(source_code.length()),
   })
-  @support.print_out(stdout.to_string())
 }
 
 ///|
@@ -773,8 +772,8 @@ pub fn render_cst(
   tree : @treesitter.Tree,
   cursor : @treesitter.TreeCursor,
   opts : ParseFileOptions,
-  out : StringBuilder,
-) -> Unit {
+  out : @support.BufWriter,
+) -> Unit raise {
   let lossy_source_code = @support.utf8_lossy(source_code)
   let mut total_width = 0
   let mut any_line = false
@@ -886,14 +885,14 @@ fn cst_node_range(
 ///|
 fn write_node_text(
   opts : ParseFileOptions,
-  out : StringBuilder,
+  out : @support.BufWriter,
   cursor : @treesitter.TreeCursor,
   is_named : Bool,
   source : String,
   color : Color?,
   total_width : Int32,
   indent_level : Int32,
-) -> Unit {
+) -> Unit raise {
   let (quote, quote_color) = if is_named {
     ("`", opts.parse_theme.backtick)
   } else {
@@ -952,11 +951,11 @@ fn cst_render_node(
   opts : ParseFileOptions,
   cursor : @treesitter.TreeCursor,
   source_code : Bytes,
-  out : StringBuilder,
+  out : @support.BufWriter,
   total_width : Int32,
   indent_level : Int32,
   in_error : Bool,
-) -> Unit {
+) -> Unit raise {
   let node = cursor.node()
   let is_named = node.is_named()
   if !opts.no_ranges {

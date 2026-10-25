@@ -346,22 +346,39 @@ fn encoding_flag(e : InputEncoding) -> UInt32 {
 }
 
 ///|
-/// Run the highlighter to completion, loading injected languages on demand
-/// (see `Loader::injection_callback`).
-pub async fn highlight_events(
+/// Load the languages that highlighting `source` injects.
+///
+/// Upstream's injection callback loads injected languages on demand, in the
+/// middle of highlighting; the loader loads languages asynchronously, so
+/// its callback only records the languages it is asked for
+/// (`Loader::injection_callback`). Before the events are streamed, the
+/// document is highlighted (discarding the events, and stopping as soon as
+/// an unknown language is requested) until no language is pending, so the
+/// final pass sees the same configurations as upstream's. Configurations
+/// whose queries capture no `injection.content` never call the callback and
+/// need no such pass.
+pub async fn load_injected_languages(
   loader : @loader.Loader,
-  highlighter : @highlight.Highlighter,
   config : @highlight.HighlightConfiguration,
   source : Bytes,
   encoding : UInt32?,
-) -> Array[Result[@highlight.HighlightEvent, @highlight.HighlightError]] {
+) -> Unit {
+  if config.query.capture_index_for_name("injection.content") is None {
+    return
+  }
   for ;; {
-    let events = highlighter
-      .highlight(config, source, encoding?, loader.injection_callback())
-      .iter()
-      .collect()
+    let highlighter = @highlight.Highlighter::new()
+    let events = highlighter.highlight(
+      config,
+      source,
+      encoding?,
+      loader.injection_callback(),
+    )
+    while !loader.has_pending_injections() && events.next() is Some(Ok(_)) {
+
+    }
     if !loader.has_pending_injections() {
-      return events
+      return
     }
     loader.resolve_pending_injections()
   }
@@ -379,7 +396,7 @@ pub async fn highlight(
   if opts.check {
     let names = match opts.captures_path {
       Some(path) => {
-        let file = @fs.read_file(path).text()
+        let file = @support.read_to_string(path)
         let capture_names = @hashset.HashSet([])
         for line in rust_lines(file) {
           let trimmed = line.trim()
@@ -401,7 +418,7 @@ pub async fn highlight(
       )
     }
   }
-  let source = @fs.read_file(path).binary()
+  let source = @support.read_file(path)
   let encoding = match opts.encoding {
     None if source.length() >= 2 =>
       if source[0] == 0xFF && source[1] == 0xFE {
@@ -413,39 +430,40 @@ pub async fn highlight(
       }
     e => e
   }
-  let stdout = @buffer.Buffer()
+  let stdout = @support.stdout_lock()
   let time = @support.now_ns()
   let highlighter = @highlight.Highlighter::new()
-  let events = highlight_events(
-    loader,
-    highlighter,
+  let encoding = encoding.map(encoding_flag)
+  load_injected_languages(loader, config, source, encoding)
+  let events = highlighter.highlight(
     config,
     source,
-    encoding.map(encoding_flag),
+    encoding?,
+    loader.injection_callback(),
   )
   let theme = opts.theme
   // A fragment is pure code markup, so it must not be prefixed with the
   // filename.
   let html_fragment = opts.html is Some((Fragment, _))
   if !opts.quiet && print_name && !html_fragment {
-    stdout.write_string_utf8("\{name}\n")
+    stdout.write_string("\{name}\n")
   }
   match opts.html {
     Some((layout, style)) => {
       if !opts.quiet && layout != Fragment {
-        stdout.write_string_utf8("\{html_head_header}\n")
+        stdout.write_string("\{html_head_header}\n")
         if layout == NumberedDocument {
-          stdout.write_string_utf8("\{html_line_number_style}\n")
+          stdout.write_string("\{html_line_number_style}\n")
         }
         if style == Classes {
           for i, name in theme.highlight_names {
             if theme.styles[i].css is Some(css) {
-              stdout.write_string_utf8("    .\{name} { \{css}; }\n")
+              stdout.write_string("    .\{name} { \{css}; }\n")
             }
           }
         }
-        stdout.write_string_utf8("  </style>\n")
-        stdout.write_string_utf8("\{html_body_header}\n")
+        stdout.write_string("  </style>\n")
+        stdout.write_string("\{html_body_header}\n")
       }
       let renderer = @highlight.HtmlRenderer::new()
       renderer.render(events.iter(), source, (highlight, output) => {
@@ -470,49 +488,50 @@ pub async fn highlight(
       })
       if !opts.quiet {
         if layout == NumberedDocument {
-          stdout.write_string_utf8("<table>\n")
+          stdout.write_string("<table>\n")
           for i, line in renderer.lines().collect() {
-            stdout.write_string_utf8(
+            stdout.write_string(
               "<tr><td class=line-number>\{i + 1}</td><td class=line>\{line}</td></tr>\n",
             )
           }
-          stdout.write_string_utf8("</table>\n")
+          stdout.write_string("</table>\n")
         } else {
           let mut body = renderer.lines().collect().join("")
           if body.has_suffix("\n") {
             body = body.unsafe_substring(start=0, end=body.length() - 1)
           }
-          stdout.write_string_utf8(
+          stdout.write_string(
             "<div class=\"highlight\">\n<pre><code>\{body}</code></pre>\n</div>\n",
           )
         }
         if layout != Fragment {
-          stdout.write_string_utf8("\{html_footer}\n")
+          stdout.write_string("\{html_footer}\n")
         }
       }
     }
     None => {
       let style_stack = [theme.default_style().ansi]
-      for event in events {
+      while events.next() is Some(event) {
         match event {
           Ok(HighlightStart(highlight)) =>
             style_stack.push(theme.styles[highlight.0].ansi)
           Ok(HighlightEnd) => ignore(style_stack.pop())
           Ok(Source(start~, end~)) => {
             let style = style_stack[style_stack.length() - 1]
-            stdout.write_string_utf8(style.render())
+            // `write!(&mut stdout, "{style}").unwrap()`
+            stdout.write_string(style.render()) catch {
+              e => unwrap_failed(e, "crates/cli/src/highlight.rs:507:52")
+            }
             stdout.write_bytes(source[start:end])
-            stdout.write_string_utf8(style.render_reset())
+            stdout.write_string(style.render_reset()) catch {
+              e => unwrap_failed(e, "crates/cli/src/highlight.rs:509:54")
+            }
           }
-          Err(e) => {
-            @support.write_stdout_bytes(stdout.to_bytes())
-            raise e
-          }
+          Err(e) => raise e
         }
       }
     }
   }
-  @support.write_stdout_bytes(stdout.to_bytes())
   if opts.print_time {
     log_info("Time: \{(@support.now_ns() - time) / 1000000L}ms")
   }
@@ -648,3 +667,12 @@ let ansi256_from_grey : Array[Int32] = [
   254, 254, 254, 254, 254, 254, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255,
   255, 255, 255, 255, 255, 231, 231, 231, 231, 231, 231, 231, 231, 231,
 ]
+
+///|
+/// `Result::unwrap` of a failed write.
+fn unwrap_failed(e : Error, location : String) -> Unit {
+  @support.rust_panic(
+    "called `Result::unwrap()` on an `Err` value: \{@support.io_error_debug(e)}",
+    location,
+  )
+}
