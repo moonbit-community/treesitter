@@ -60,14 +60,15 @@ priv struct ItemKeyMap {
 
 ///|
 fn ItemKeyMap::new(grammar : SyntaxGrammar, str_pool : StrPool) -> ItemKeyMap {
-  let prod = (slot : Int32) => {
+  let slot_count = grammar.productions.length() + 1
+  let prods = Array::makei(slot_count, slot => {
     if slot == 0 {
       start_production()
     } else {
       grammar.production(slot - 1)
     }
-  }
-  let slot_count = grammar.productions.length() + 1
+  })
+  let prod = (slot : Int32) => prods[slot]
   let contents : Array[(Int32, Int32)] = []
   for pi in 0..<slot_count {
     for dot in 0..<=prod(pi).steps.length() {
@@ -106,18 +107,59 @@ fn ItemKeyMap::new(grammar : SyntaxGrammar, str_pool : StrPool) -> ItemKeyMap {
   }
 
   // Refine each cmp class by preceding symbols:  read only under
-  // `has_preceding_inherited_fields`.
-  let sym_classes : Map[(Int32, Array[Symbol]), Int32] = Map([])
+  // `has_preceding_inherited_fields`. Classes are numbered in order of their first
+  // pair, as the keys `(cmp, symbols before the dot)` first appear: a key is found by
+  // its hash and compared with its class's first pair.
+  let sym_classes = HashIndex::new()
+  let class_slots : Array[Int32] = []
+  let class_dots : Array[Int32] = []
   for pair in contents {
     let (pi, dot) = pair
     let steps = prod(pi).steps
-    let syms = Array::makei(dot, i => steps[i].symbol)
-    let next = sym_classes.length()
     let keys = slot_keys[pi][dot]
-    keys.eq_with_syms = sym_classes.get_or_init((keys.cmp, syms), () => next)
+    let mut acc = hash_mix(hash_mix(HASH_SEED, keys.cmp), dot)
+    for i in 0..<dot {
+      acc = hash_mix(acc, steps[i].symbol.code())
+    }
+    let hash = hash_finish(acc)
+    let mut class_id = -1
+    let mut slot = sym_classes.first_slot(hash)
+    while sym_classes.ids[slot] >= 0 {
+      let id = sym_classes.ids[slot]
+      if sym_classes.hashes[slot] == hash &&
+        class_dots[id] == dot &&
+        slot_keys[class_slots[id]][dot].cmp == keys.cmp &&
+        same_symbols(prod(class_slots[id]).steps, steps, dot) {
+        class_id = id
+        break
+      }
+      slot = sym_classes.next_slot(slot)
+    }
+    if class_id < 0 {
+      class_id = class_slots.length()
+      class_slots.push(pi)
+      class_dots.push(dot)
+      sym_classes.insert_new(hash, class_id)
+    }
+    keys.eq_with_syms = class_id
   }
   let start = slot_keys.remove(0)
   { keys: slot_keys, start, }
+}
+
+///|
+/// Whether the first `len` steps of `a` and `b` have the same symbols.
+fn same_symbols(
+  a : ArrayView[ProductionStep],
+  b : ArrayView[ProductionStep],
+  len : Int32,
+) -> Bool {
+  for i in 0..<len {
+    if a[i].symbol != b[i].symbol {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -140,6 +182,7 @@ fn ItemKeyMap::start_keys(self : ItemKeyMap) -> FixedArray[DotKeys] {
 /// `(production, dot)` directly. Ranking the set of all keys by this order makes
 /// the dense `cmp` order-preserving. Item ordering only ever compares same-dot pairs,
 /// and the dot comparison keeps the order total across dots so ranks are well defined.
+#valtype
 priv struct ItemContent {
   production : ProdRef
   dot : Int32
