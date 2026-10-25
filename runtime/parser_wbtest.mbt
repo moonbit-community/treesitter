@@ -62,7 +62,7 @@ fn assert_parser_scratch_released(parser : Parser) -> Unit raise {
   assert_eq(parser.lexer.chunk.length(), 0)
   assert_eq(parser.stack.slices.length(), 0)
   for slice in spare_slots(parser.stack.slices) {
-    assert_true(physical_equal(slice, stack_slice_none))
+    assert_true(physical_equal(slice.subtrees, no_subtrees))
   }
   assert_eq(parser.stack.iterators.length(), 0)
   assert_eq(parser.reusable_node.stack.length(), 0)

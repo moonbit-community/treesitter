@@ -17,6 +17,7 @@ pub type StackVersion = Int32
 pub let stack_version_none : Int32 = -1
 
 ///|
+#valtype
 pub(all) struct StackSlice {
   subtrees : Array[Subtree]
   version : Int32
