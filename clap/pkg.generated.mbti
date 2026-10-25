@@ -111,6 +111,7 @@ pub struct ArgGroup {
   // private fields
 }
 pub fn ArgGroup::arg(Self, String) -> Self
+pub fn ArgGroup::args(Self, Array[String]) -> Self
 pub fn ArgGroup::get_args(Self) -> Array[String]
 pub fn ArgGroup::get_id(Self) -> String
 pub fn ArgGroup::multiple(Self, Bool) -> Self
@@ -139,6 +140,7 @@ pub fn Command::bin_name(Self, String) -> Self
 pub fn Command::build(Self) -> Unit
 pub fn Command::build_with_help_tree(Self) -> Unit
 pub fn Command::disable_help_subcommand(Self, Bool) -> Self
+pub fn Command::display_order(Self, Int32) -> Self
 pub fn Command::find(Self, String) -> Arg?
 pub fn Command::find_subcommand(Self, String) -> Self?
 pub fn Command::get_about(Self) -> String?
@@ -236,6 +238,7 @@ pub(all) enum ValueParser {
   String
   PathBuf
   Bool
+  U8
   U32
   U64
   Usize

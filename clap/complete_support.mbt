@@ -29,15 +29,8 @@ fn Command::build_self_expanded(self : Command) -> Unit {
   if self.built {
     return
   }
-  // `_propagate`: `DisableHelpSubcommand` is a global setting. (When it was
-  // set by `_build_self` because there are no subcommands, there is nothing
-  // to propagate it to.)
+  self.build_settings()
   if self.disable_help_subcommand {
-    for sc in self.subcommands {
-      sc.disable_help_subcommand = true
-    }
-  }
-  if !self.has_subcommands() || self.disable_help_subcommand {
     self.build_self()
     return
   }
@@ -45,6 +38,7 @@ fn Command::build_self_expanded(self : Command) -> Unit {
   let help_about = "Print this message or the help of the given subcommand(s)"
   let help = Command::new("help").about(help_about)
   help.disable_help_subcommand = true
+  help.g_disable_help_subcommand = true
   help.disable_help_flag = true
   help.disable_version_flag = true
   for sc in self.subcommands {
