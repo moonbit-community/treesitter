@@ -22,9 +22,13 @@ intended to behave identically, and a difference is a bug.
 | `grammar.json` reading | error messages for 3,001 malformed grammars (serde_json behaviour) | identical |
 | CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,151/1,151 command lines |
 
-All runtime comparisons include the external scanners of the html,
-javascript, typescript, tsx, rust, php, bash, ruby, python, cpp and jsdoc
-fixture grammars and of the 19 upstream test grammars. They are reproduced by
+The comparisons cover the upstream test and fixture grammars and the 14
+further grammar repositories pinned in
+[grammars/grammars.json](grammars/grammars.json) (c-sharp, css, haskell,
+julia, ocaml, regex, scala, verilog, lua, make, markdown, toml, yaml, zig),
+including every external scanner: the scanners of all fixture, test and
+additional grammars are ported to MoonBit and compiled from their original
+C sources for the reference side. They are reproduced by
 `tools/oracle/oracle.sh` and `tools/oracle/diff_cli.sh` (run in CI by the
 `oracle` job). The upstream test suites of the CLI crate (`parser_test.rs`,
 `node_test.rs`, `tree_test.rs`, `query_test.rs`, `corpus_test.rs`,
@@ -40,7 +44,9 @@ packages' own tests.
 | C API (`lib/include/tree_sitter/api.h`), `c_lib.rs` of highlight and tags, custom allocators | Not exposed; the public API is the port of the Rust binding. |
 | External scanners written in C | Each scanner is ported to MoonBit (`scanners`). New grammars provide `src/scanner.mbtx`, which the CLI compiles into a cached driver. |
 | QuickJS (`--js-runtime native`) | Not available; `grammar.js` is evaluated with node, bun or deno, as upstream does. |
-| CLI: Ctrl-C cancellation, generator debug traces under `generate --log`, dialoguer's terminal UI in `init` (line prompts instead), colored clap output | Not ported. |
+| CLI: Ctrl-C cancellation, generator debug traces under `generate --log`, dialoguer's terminal UI in `init` (line prompts instead), colored clap output, `RUST_BACKTRACE` backtraces | Not ported. |
+| Optional query debug output (`DEBUG_QUERY_STEPS`, `DEBUG_ANALYZE_QUERY`, `DEBUG_EXECUTE_QUERY` in `query.c`) | Off in the default upstream build; not ported. |
+| `fuzz` allocation tracking | Not applicable (memory is garbage collected); a failed consistency assertion during a trial is reported as an error and counts as a failed test. |
 
 ## Representation differences
 
@@ -66,7 +72,8 @@ packages' own tests.
   `Ref[Int]`.
 - Upstream sorts query-testing assertions with an unstable sort; the port uses
   a stable one. With more than 20 assertions at one position their order
-  could differ.
+  could differ. `usize::MAX` in query-testing results (the end column of a
+  zero-length assertion at column 0) prints as 2147483647.
 - The CLI's test diffs use an LCS diff instead of the `similar` crate's Myers
   diff, so ambiguous diffs may be drawn differently.
 - Portable symbol, field and language names are the values of the C string
@@ -80,6 +87,42 @@ packages' own tests.
   engine's exact-prefix literal bypass is not modelled, as it only applies
   to regexes far below the limit.
 
+## Nondeterministic upstream behaviour
+
+Some CLI output depends on the iteration order of Rust `HashMap`/`HashSet`s
+with per-process random keys, so upstream can produce different results on
+different runs; the port always uses registration (or entry) order, one of
+the orders upstream can produce:
+
+- First-line language detection tries the distinct `first-line-regex`
+  patterns in map order and keeps the result of the last one tried (no
+  language if it does not match).
+- `init`'s file types and `fuzz`'s unmatched skip definitions are listed in
+  set/map order.
+
+## Other CLI differences
+
+- `parse --debug-graph` with an invalid `--edits`: upstream deadlocks (the
+  parser keeps a duplicate of dot's input open); the port finishes
+  `log.html` with the graphs produced so far and reports the error. Graph
+  node ids in `log.html` are object ids, not memory addresses.
+- Panics print Rust's message, location and thread id and exit with status
+  101; locations in crates.io dependencies are given under
+  `$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/`.
+- clap names the program after argv[0]; under moon's executable names
+  (`treesitter`, `treesitter.exe`) the CLI presents itself as `tree-sitter`.
+- `--open-log` uses Launch Services on macOS; under WSL, local files are not
+  opened through the Windows browser.
+- Highlighting a language with injections first loads the injected
+  languages in extra passes; the output is identical, reported times
+  include them.
+- Writes to stdout are all-or-error (no partial writes). File names that are
+  not valid UTF-8 are decoded lossily, so glob patterns may match or sort
+  them differently.
+- A failed C `assert` in a ported external scanner prints macOS libc's
+  diagnostic (`Assertion failed: (expr), function f, file scanner.c, line
+  N.`) on stderr and then ends with a MoonBit panic instead of `abort()`.
+
 ## Undefined behaviour in upstream code
 
 The `uses_current_column` test grammar's C scanner writes past its indent
@@ -91,12 +134,21 @@ corpus only.
 External scanners use the C library's character classes in the "C" locale
 (ASCII-only `isw*`), as the upstream fixtures do when run by the CLI.
 
+Scanner bugs that are well defined in C are reproduced, for example the
+OCaml scanner restoring only part of a quoted-string delimiter after an edit
+(it copies `length` bytes of an `int32_t` array). Paths that would be
+undefined in C but cannot be reached through serialization (such as the
+YAML scanner overflowing its serialization buffer with about 254 nested
+indents) abort in the port.
+
 ## Platform
 
 The library packages are pure MoonBit and build for native, JavaScript and
-Wasm GC. The CLI, loader and config are native only and use a 64-line C file
-(`cli/support/stub.c`) for unbuffered binary writes to stdout and stderr,
-process exit, a monotonic clock, `isatty` and `strerror`.
+Wasm GC. The CLI, loader and config are native only and use one C file of
+host bindings (`cli/support/stub.c`): binary writes to stdout and stderr with
+errno, reading special files, process exit and wait status, a monotonic
+clock, `isatty`, `strerror`, the passwd home directory, the target OS, and
+macOS Launch Services for `--open-log`.
 
 ## Performance
 
