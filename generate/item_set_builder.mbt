@@ -1,6 +1,7 @@
 // Port of tree-sitter crates/generate/src/build_tables/item_set_builder.rs.
 
 ///|
+#valtype
 priv struct TransitiveClosureAddition {
   item : ParseItem
   info : AdditionInfo
@@ -10,6 +11,7 @@ priv struct TransitiveClosureAddition {
 
 ///|
 /// `FollowSetInfo` with an interned lookahead set and word-token membership precomputed.
+#valtype
 priv struct AdditionInfo {
   lookaheads : Int32
   reserved_lookaheads : Int32
@@ -80,7 +82,7 @@ fn FirstStepKey::new(item : ParseItem) -> FirstStepKey {
   guard item.step_index == 0 && !item.has_preceding_inherited_fields else {
     abort("only items at their first step are ranked")
   }
-  { variable_index: item.variable_index, cmp: item.keys[0].cmp, }
+  { variable_index: item.variable_index, cmp: item.dot_cmp, }
 }
 
 ///|
@@ -121,53 +123,62 @@ fn FirstStepRanks::rank(self : FirstStepRanks, item : ParseItem) -> Int32 {
 /// all the others. Most of a closure's items are at their first step, and each of those has
 /// a rank and a slot for its entry. The rest are kernel items past their first
 /// step, which are found by hash and sorted.
+///
+/// An entry is named by a slot: a rank, or `-1 - i` for the `i`th of `later`.
 priv struct ClosureEntries {
-  /// The rank of every item that can be in `first_step`.
+  /// The rank of every item that can be in `first_step_items`.
   ranks : FirstStepRanks
-  /// The entry of each first-step item in the closure, by rank.
-  first_step : Array[ParseItemSetEntry?]
-  /// The ranks that have an entry in `first_step`, to find those without scanning it.
+  /// The item of each first-step entry in the closure, by rank (unset ranks hold a
+  /// placeholder).
+  first_step_items : FixedArray[ParseItem]
+  /// The lookaheads of each first-step entry, by rank.
+  first_step_lookaheads : FixedArray[Int32]
+  /// The following reserved word set of each first-step entry, by rank.
+  first_step_reserved : FixedArray[Int32]
+  /// The ranks that have an entry, to find those without scanning them all.
   occupied : BitVec
-  /// The number of entries in `first_step`.
-  mut first_step_len : Int32
   /// The entries of the items past their first step, in the order they were added.
-  later : Array[ParseItemSetEntry]
+  later : ParseItemSet
   /// The positions of `later`'s entries, by their items.
   later_indices : Map[ParseItem, Int32]
-  /// Entries of finished closures, to reuse for new ones.
-  spares : Array[ParseItemSetEntry]
+  /// Scratch for sorting `later`.
+  later_order : Array[Int32]
+  /// Finished closures, to reuse for new ones.
+  spares : Array[ParseItemSet]
 }
 
 ///|
-fn ClosureEntries::new(ranks : FirstStepRanks) -> ClosureEntries {
+fn ClosureEntries::new(
+  ranks : FirstStepRanks,
+  placeholder : ParseItem,
+) -> ClosureEntries {
   let occupied = BitVec::new()
   occupied.resize(ranks.len(), false)
   {
-    first_step: Array::make(ranks.len(), None),
+    first_step_items: FixedArray::make(ranks.len(), placeholder),
+    first_step_lookaheads: FixedArray::make(ranks.len(), 0),
+    first_step_reserved: FixedArray::make(ranks.len(), 0),
     ranks,
     occupied,
-    first_step_len: 0,
-    later: [],
+    later: ParseItemSet::new(),
     later_indices: {},
+    later_order: [],
     spares: [],
   }
 }
 
 ///|
-/// The entry of `addition`'s item, added if it's new.
+/// The slot of `addition`'s item's entry, added if it's new.
 fn ClosureEntries::addition_entry(
   self : ClosureEntries,
   addition : TransitiveClosureAddition,
-) -> ParseItemSetEntry {
+) -> Int32 {
   self.first_step_entry(addition.rank, addition.item)
 }
 
 ///|
-/// The entry of `item`, from the closure's kernel, added if it's new.
-fn ClosureEntries::kernel_entry(
-  self : ClosureEntries,
-  item : ParseItem,
-) -> ParseItemSetEntry {
+/// The slot of `item`'s entry, from the closure's kernel, added if it's new.
+fn ClosureEntries::kernel_entry(self : ClosureEntries, item : ParseItem) -> Int32 {
   // A kernel's items are past their first step, except for the start item.
   if item.step_index == 0 {
     let rank = self.ranks.rank(item)
@@ -178,104 +189,132 @@ fn ClosureEntries::kernel_entry(
 }
 
 ///|
-/// The entry of `item`, which is at its first step and has the given rank, added if it's
-/// new.
+/// The slot of `item`'s entry, which is at its first step and has the given rank, added
+/// if it's new.
 fn ClosureEntries::first_step_entry(
   self : ClosureEntries,
   rank : Int32,
   item : ParseItem,
-) -> ParseItemSetEntry {
-  match self.first_step[rank] {
-    Some(entry) => entry
-    None => {
-      self.occupied.set(rank, true)
-      self.first_step_len += 1
-      let entry = self.new_entry(item)
-      self.first_step[rank] = Some(entry)
-      entry
-    }
+) -> Int32 {
+  if !self.occupied.at(rank) {
+    self.occupied.set(rank, true)
+    self.first_step_items[rank] = item
+    self.first_step_lookaheads[rank] = lookahead_set_pool_empty
+    self.first_step_reserved[rank] = 0
   }
+  rank
 }
 
 ///|
-/// The entry of `item`, which is past its first step, added if it's new.
-fn ClosureEntries::later_entry(
-  self : ClosureEntries,
-  item : ParseItem,
-) -> ParseItemSetEntry {
-  match self.later_indices.get(item) {
-    Some(index) => self.later[index]
+/// The slot of `item`'s entry, which is past its first step, added if it's new.
+fn ClosureEntries::later_entry(self : ClosureEntries, item : ParseItem) -> Int32 {
+  let index = match self.later_indices.get(item) {
+    Some(index) => index
     None => {
-      let index = self.later.length()
+      let index = self.later.len()
       self.later_indices[item] = index
-      let entry = self.new_entry(item)
-      self.later.push(entry)
-      entry
+      self.later.push(item, lookahead_set_pool_empty, 0)
+      index
     }
+  }
+  -1 - index
+}
+
+///|
+fn ClosureEntries::lookaheads(self : ClosureEntries, slot : Int32) -> Int32 {
+  if slot >= 0 {
+    self.first_step_lookaheads[slot]
+  } else {
+    self.later.lookaheads[-1 - slot]
   }
 }
 
 ///|
-/// An entry for `item`, with no lookaheads yet.
-fn ClosureEntries::new_entry(
+fn ClosureEntries::set_lookaheads(
   self : ClosureEntries,
-  item : ParseItem,
-) -> ParseItemSetEntry {
-  match self.spares.pop() {
-    Some(entry) => {
-      entry.item = item
-      entry.lookaheads = lookahead_set_pool_empty
-      entry.following_reserved_word_set = 0
-      entry
-    }
-    None =>
-      {
-        item,
-        lookaheads: lookahead_set_pool_empty,
-        following_reserved_word_set: 0,
-      }
+  slot : Int32,
+  lookaheads : Int32,
+) -> Unit {
+  if slot >= 0 {
+    self.first_step_lookaheads[slot] = lookaheads
+  } else {
+    self.later.lookaheads[-1 - slot] = lookaheads
   }
 }
 
 ///|
-/// Takes back the entries of a closure from `Self::take_item_set` that is no longer
-/// used, to reuse for later closures.
+fn ClosureEntries::reserved(self : ClosureEntries, slot : Int32) -> Int32 {
+  if slot >= 0 {
+    self.first_step_reserved[slot]
+  } else {
+    self.later.following_reserved_word_sets[-1 - slot]
+  }
+}
+
+///|
+fn ClosureEntries::set_reserved(
+  self : ClosureEntries,
+  slot : Int32,
+  reserved : Int32,
+) -> Unit {
+  if slot >= 0 {
+    self.first_step_reserved[slot] = reserved
+  } else {
+    self.later.following_reserved_word_sets[-1 - slot] = reserved
+  }
+}
+
+///|
+/// Takes back a closure from `Self::take_item_set` that is no longer used, to reuse for
+/// later closures.
 fn ClosureEntries::recycle(
   self : ClosureEntries,
   item_set : ParseItemSet,
 ) -> Unit {
-  for entry in item_set.entries {
-    self.spares.push(entry)
-  }
-  item_set.entries.clear()
+  item_set.clear()
+  self.spares.push(item_set)
 }
 
 ///|
 /// Takes the entries out in item order, leaving this empty for the next closure.
 fn ClosureEntries::take_item_set(self : ClosureEntries) -> ParseItemSet {
-  let entries = Array(capacity=self.first_step_len + self.later.length())
+  let result = match self.spares.pop() {
+    Some(set) => set
+    None => ParseItemSet::new()
+  }
   let words = self.occupied.words()
   for wi in 0..<words.length() {
     let mut word = words[wi]
     while word != 0 {
       let rank = wi * 64 + word.ctz()
       word = word & (word - 1)
-      // INVARIANT: occupied ranks have entries
-      entries.push(self.first_step[rank].unwrap())
-      self.first_step[rank] = None
+      result.push(
+        self.first_step_items[rank],
+        self.first_step_lookaheads[rank],
+        self.first_step_reserved[rank],
+      )
     }
   }
   self.occupied.unset_all()
-  self.first_step_len = 0
   // Past their first step, these all come after the entries above. Their items
   // are distinct, so the order is total.
-  self.later.sort_by((a, b) => Compare::compare(a.item, b.item))
-  for entry in self.later {
-    entries.push(entry)
+  let later = self.later
+  let order = self.later_order
+  order.clear()
+  for i in 0..<later.len() {
+    order.push(i)
   }
-  self.later.clear()
+  order.sort_by((a, b) => Compare::compare(later.items[a], later.items[b]))
+  for i in order {
+    result.push(
+      later.items[i],
+      later.lookaheads[i],
+      later.following_reserved_word_sets[i],
+    )
+  }
+  later.clear()
   self.later_indices.clear()
-  { entries, }
+  result
 }
 
 ///|
@@ -297,7 +336,10 @@ fn ParseItemSetBuilder::new(
     key_map,
     lookaheads: LookaheadSetPool::new(),
     transitive_closure_additions: [],
-    closure_scratch: ClosureEntries::new(FirstStepRanks({})),
+    closure_scratch: ClosureEntries::new(
+      FirstStepRanks({}),
+      ParseItem::start(key_map),
+    ),
   }
 
   for key, ids in inlines.map {
@@ -596,7 +638,7 @@ fn ParseItemSetBuilder::new(
       { item, info, rank: ranks.rank(item), }
     })
   })
-  result.closure_scratch = ClosureEntries::new(ranks)
+  result.closure_scratch = ClosureEntries::new(ranks, ParseItem::start(key_map))
   result
 }
 
@@ -605,7 +647,8 @@ fn ParseItemSetBuilder::transitive_closure(
   self : ParseItemSetBuilder,
   item_set : ParseItemSet,
 ) -> ParseItemSet {
-  for entry in item_set.entries {
+  for i in 0..<item_set.len() {
+    let entry = item_set.entry(i)
     match self.inlined_prod_ids(entry.item.prod_id, entry.item.step_index) {
       Some(ids) =>
         for id in ids {
@@ -644,7 +687,8 @@ fn ParseItemSetBuilder::first_set(
   self : ParseItemSetBuilder,
   symbol : Symbol,
 ) -> TokenSet {
-  self.first_sets[symbol]
+  // The interned copy of `self.first_sets[symbol]`, found without hashing.
+  self.lookaheads.get(self.first_set_ids[self.symbol_indexer.index(symbol)])
 }
 
 ///|
@@ -671,47 +715,51 @@ fn ParseItemSetBuilder::add_item(
   self : ParseItemSetBuilder,
   entry : ParseItemSetEntry,
 ) -> Unit {
-  if entry.item.step(self.syntax_grammar) is Some(step) &&
-    step.non_terminal_index() is Some(index) {
-    // `entry.item.successor().step()`, without building the successor.
-    let next_step = entry.item.step_at(
-      self.syntax_grammar,
-      entry.item.step_index + 1,
-    )
-
+  let item = entry.item
+  if !item.is_done() &&
+    item.symbol_at(self.syntax_grammar, item.step_index).non_terminal_index()
+    is Some(index) {
     // Determine which tokens can follow this non-terminal.
     let mut following_tokens = entry.lookaheads
     let mut following_reserved_tokens = entry.following_reserved_word_set
-    if next_step is Some(next_step) {
-      let key = self.symbol_indexer.index(next_step.symbol)
+    // `entry.item.successor(..).step()`, without building the successor.
+    if item.step_index + 1 < item.steps_len {
+      let next_symbol = item.symbol_at(self.syntax_grammar, item.step_index + 1)
+      let key = self.symbol_indexer.index(next_symbol)
       following_tokens = self.first_set_ids[key]
       following_reserved_tokens = self.reserved_first_set_ids[key]
     }
 
     // Use the pre-computed *additions* to expand the non-terminal.
+    let closure = self.closure_scratch
     for addition in self.transitive_closure_additions[index] {
-      let e = self.closure_scratch.addition_entry(addition)
-      e.lookaheads = self.lookaheads.union(
-        e.lookaheads,
+      let e = closure.addition_entry(addition)
+      let mut lookaheads = self.lookaheads.union(
+        closure.lookaheads(e),
         addition.info.lookaheads,
       )
       if addition.info.contains_word &&
-        addition.info.reserved_lookaheads > e.following_reserved_word_set {
-        e.following_reserved_word_set = addition.info.reserved_lookaheads
+        addition.info.reserved_lookaheads > closure.reserved(e) {
+        closure.set_reserved(e, addition.info.reserved_lookaheads)
       }
       if addition.info.propagates_lookaheads {
-        e.lookaheads = self.lookaheads.union(e.lookaheads, following_tokens)
+        lookaheads = self.lookaheads.union(lookaheads, following_tokens)
         if self.syntax_grammar.word_token is Some(word_token) &&
           self.lookaheads.get(following_tokens).contains(word_token) &&
-          following_reserved_tokens > e.following_reserved_word_set {
-          e.following_reserved_word_set = following_reserved_tokens
+          following_reserved_tokens > closure.reserved(e) {
+          closure.set_reserved(e, following_reserved_tokens)
         }
       }
+      closure.set_lookaheads(e, lookaheads)
     }
   }
-  let e = self.closure_scratch.kernel_entry(entry.item)
-  e.lookaheads = self.lookaheads.union(e.lookaheads, entry.lookaheads)
-  if entry.following_reserved_word_set > e.following_reserved_word_set {
-    e.following_reserved_word_set = entry.following_reserved_word_set
+  let closure = self.closure_scratch
+  let e = closure.kernel_entry(entry.item)
+  closure.set_lookaheads(
+    e,
+    self.lookaheads.union(closure.lookaheads(e), entry.lookaheads),
+  )
+  if entry.following_reserved_word_set > closure.reserved(e) {
+    closure.set_reserved(e, entry.following_reserved_word_set)
   }
 }

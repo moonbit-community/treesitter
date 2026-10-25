@@ -547,6 +547,9 @@ pub fn[V] ParseStateEntries::new() -> Self[V]
 pub fn[V] ParseStateEntries::push(Self[V], Symbol, V) -> Unit
 pub fn[V] ParseStateEntries::retain(Self[V], (Symbol, V) -> Bool) -> Unit
 pub fn[V] ParseStateEntries::set_index(Self[V], Int32, Symbol, V) -> Unit
+pub fn[V] ParseStateEntries::set_value_at(Self[V], Int32, V) -> Unit
+pub fn[V] ParseStateEntries::symbol_at(Self[V], Int32) -> Symbol
+pub fn[V] ParseStateEntries::value_at(Self[V], Int32) -> V
 pub fn[V] ParseStateEntries::values(Self[V]) -> Array[V]
 
 pub(all) struct ParseTable {

@@ -134,7 +134,8 @@ pub fn generate_parser_for_grammar_with_opts(
     optimizations,
     diagnostics,
   )
-  let c_code = render_c_code(
+  // `render_c_code` and `render_language` compute the same tables: compute them once.
+  let rendered = Generator::new(
     grammar_name,
     tables,
     output.syntax_grammar,
@@ -144,18 +145,9 @@ pub fn generate_parser_for_grammar_with_opts(
     abi_version,
     semantic_version,
     supertype_symbol_map,
-  )
-  let language = render_language(
-    grammar_name,
-    tables,
-    output.syntax_grammar,
-    output.lexical_grammar,
-    output.simple_aliases,
-    output.str_pool,
-    abi_version,
-    semantic_version,
-    supertype_symbol_map,
-  )
+  ).generate()
+  let c_code = rendered.print_c()
+  let language = rendered.to_language()
   { c_code, node_types_json: output.node_types_json, language }
 }
 

@@ -41,12 +41,14 @@ fn start_production() -> ProdRef {
 /// for items without preceding inherited fields. `eq_with_syms` subdivides `cmp`
 /// by the completed steps' symbols, which participate in equality only when
 /// `has_preceding_inherited_fields` is set.
+#valtype
 priv struct DotKeys {
-  mut cmp : Int32
-  mut eq_with_syms : Int32
-  /// The production's step at the dot, if the dot isn't at the end. (Not a key:
-  /// cached here so that items find their steps without the grammar.)
-  step : ProductionStep?
+  cmp : Int32
+  eq_with_syms : Int32
+  /// Where the production's steps start in the grammar's `steps` (or in
+  /// `start_steps`, for the augmented start production). (Not a key: cached here
+  /// so that items can find their steps.)
+  steps_start : Int32
 }
 
 ///|
@@ -59,14 +61,15 @@ priv struct ItemKeyMap {
 
 ///|
 fn ItemKeyMap::new(grammar : SyntaxGrammar, str_pool : StrPool) -> ItemKeyMap {
-  let prod = (slot : Int32) => {
+  let slot_count = grammar.productions.length() + 1
+  let prods = Array::makei(slot_count, slot => {
     if slot == 0 {
       start_production()
     } else {
       grammar.production(slot - 1)
     }
-  }
-  let slot_count = grammar.productions.length() + 1
+  })
+  let prod = (slot : Int32) => prods[slot]
   let contents : Array[(Int32, Int32)] = []
   for pi in 0..<slot_count {
     for dot in 0..<=prod(pi).steps.length() {
@@ -81,13 +84,12 @@ fn ItemKeyMap::new(grammar : SyntaxGrammar, str_pool : StrPool) -> ItemKeyMap {
   // Upstream sorts with `sort_unstable_by`. Pairs with equal content tie, and
   // their order decides how `eq_with_syms` numbers their symbol classes below.
   rust_sort_unstable_by(contents, (a, b) => content(a).cmp(content(b)) < 0)
-  let slot_keys : Array[FixedArray[DotKeys]] = Array::makei(slot_count, pi => {
-    let steps = prod(pi).steps
-    FixedArray::makei(steps.length() + 1, dot => {
-      cmp: 0,
-      eq_with_syms: 0,
-      step: steps.get(dot),
-    })
+  // Each `(slot, dot)`'s `cmp` and `eq_with_syms`, by slot and dot.
+  let cmps : Array[FixedArray[Int32]] = Array::makei(slot_count, pi => {
+    FixedArray::make(prod(pi).steps.length() + 1, 0)
+  })
+  let eqs : Array[FixedArray[Int32]] = Array::makei(slot_count, pi => {
+    FixedArray::make(prod(pi).steps.length() + 1, 0)
   })
   // Dense ids in sorted order: equal content shares an id, distinct content gets the next up
   let mut cmp_id = 0
@@ -96,23 +98,76 @@ fn ItemKeyMap::new(grammar : SyntaxGrammar, str_pool : StrPool) -> ItemKeyMap {
     if prev is Some(p) && content(p).cmp(content(pair)) != 0 {
       cmp_id += 1
     }
-    slot_keys[pair.0][pair.1].cmp = cmp_id
+    cmps[pair.0][pair.1] = cmp_id
     prev = Some(pair)
   }
 
   // Refine each cmp class by preceding symbols:  read only under
-  // `has_preceding_inherited_fields`.
-  let sym_classes : Map[(Int32, Array[Symbol]), Int32] = Map([])
+  // `has_preceding_inherited_fields`. Classes are numbered in order of their first
+  // pair, as the keys `(cmp, symbols before the dot)` first appear: a key is found by
+  // its hash and compared with its class's first pair.
+  let sym_classes = HashIndex::new()
+  let class_slots : Array[Int32] = []
+  let class_dots : Array[Int32] = []
   for pair in contents {
     let (pi, dot) = pair
     let steps = prod(pi).steps
-    let syms = Array::makei(dot, i => steps[i].symbol)
-    let next = sym_classes.length()
-    let keys = slot_keys[pi][dot]
-    keys.eq_with_syms = sym_classes.get_or_init((keys.cmp, syms), () => next)
+    let cmp = cmps[pi][dot]
+    let mut acc = hash_mix(hash_mix(HASH_SEED, cmp), dot)
+    for i in 0..<dot {
+      acc = hash_mix(acc, steps[i].symbol.code())
+    }
+    let hash = hash_finish(acc)
+    let mut class_id = -1
+    let mut slot = sym_classes.first_slot(hash)
+    while sym_classes.ids[slot] >= 0 {
+      let id = sym_classes.ids[slot]
+      if sym_classes.hashes[slot] == hash &&
+        class_dots[id] == dot &&
+        cmps[class_slots[id]][dot] == cmp &&
+        same_symbols(prod(class_slots[id]).steps, steps, dot) {
+        class_id = id
+        break
+      }
+      slot = sym_classes.next_slot(slot)
+    }
+    if class_id < 0 {
+      class_id = class_slots.length()
+      class_slots.push(pi)
+      class_dots.push(dot)
+      sym_classes.insert_new(hash, class_id)
+    }
+    eqs[pi][dot] = class_id
   }
+  let slot_keys : Array[FixedArray[DotKeys]] = Array::makei(slot_count, pi => {
+    let steps_start = if pi == 0 {
+      0
+    } else {
+      grammar.productions[pi - 1].steps_start
+    }
+    FixedArray::makei(cmps[pi].length(), dot => {
+      cmp: cmps[pi][dot],
+      eq_with_syms: eqs[pi][dot],
+      steps_start,
+    })
+  })
   let start = slot_keys.remove(0)
   { keys: slot_keys, start, }
+}
+
+///|
+/// Whether the first `len` steps of `a` and `b` have the same symbols.
+fn same_symbols(
+  a : ArrayView[ProductionStep],
+  b : ArrayView[ProductionStep],
+  len : Int32,
+) -> Bool {
+  for i in 0..<len {
+    if a[i].symbol != b[i].symbol {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -135,6 +190,7 @@ fn ItemKeyMap::start_keys(self : ItemKeyMap) -> FixedArray[DotKeys] {
 /// `(production, dot)` directly. Ranking the set of all keys by this order makes
 /// the dense `cmp` order-preserving. Item ordering only ever compares same-dot pairs,
 /// and the dot comparison keeps the order total across dots so ranks are well defined.
+#valtype
 priv struct ItemContent {
   production : ProdRef
   dot : Int32
@@ -337,6 +393,8 @@ fn ItemContent::cmp(self : ItemContent, other : ItemContent) -> Int32 {
 
 ///|
 /// A `ParseItem` represents an in-progress match of a single production in a grammar.
+/// Stored by value, like upstream's `Copy` item.
+#valtype
 priv struct ParseItem {
   /// The index of the parent rule within the grammar.
   variable_index : Int32
@@ -344,8 +402,11 @@ priv struct ParseItem {
   step_index : Int32
   /// The id of the production being matched.
   prod_id : Int32
-  /// The `production`'s identity keys, indexed by `step_index`.
-  keys : FixedArray[DotKeys]
+  /// Where the production's steps start in the grammar's `steps` (or in
+  /// `start_steps`, for the augmented start production).
+  steps_start : Int32
+  /// The number of steps in the production.
+  steps_len : Int32
   /// A boolean indicating whether any of the already-matched children were
   /// hidden nodes and had fields. Ordinarily, a parse item's behavior is not
   /// affected by the symbols of its preceding children; it only needs to
@@ -360,16 +421,11 @@ priv struct ParseItem {
   /// true, then the item's set of inherited fields may depend on the specific
   /// symbols of its preceding children.
   has_preceding_inherited_fields : Bool
-  /// `keys[step_index]`'s keys, copied here so that comparing items doesn't
-  /// have to look them up.
+  /// The production's identity keys at `step_index`, copied here so that
+  /// comparing items doesn't have to look them up.
   dot_cmp : Int32
   /// See `dot_cmp`.
   dot_eq_with_syms : Int32
-  /// `Self::successor`, once built. Items are immutable, so each one builds
-  /// its successor at most once.
-  mut successor_cache : ParseItem?
-  /// `Self::with_preceding_inherited_fields`, once built.
-  mut inherited_cache : ParseItem?
 }
 
 ///|
@@ -383,13 +439,12 @@ fn ParseItem::new(
   {
     variable_index,
     prod_id,
-    keys,
+    steps_start: keys[0].steps_start,
+    steps_len: keys.length() - 1,
     step_index,
     has_preceding_inherited_fields,
     dot_cmp: keys[step_index].cmp,
     dot_eq_with_syms: keys[step_index].eq_with_syms,
-    successor_cache: None,
-    inherited_cache: None,
   }
 }
 
@@ -404,7 +459,7 @@ priv struct LookaheadSetPool {
   sets : Array[TokenSet]
   ids : Map[TokenSet, Int32]
   /// Keyed by both ids, packed (smaller first).
-  union_memo : Map[Int64, Int32]
+  union_memo : Int64Map
   /// Keyed by `insert_memo_key`: the id and the complete symbol, packed.
   insert_memo : Map[Int64, Int32]
   /// `insert_memo` for the (in practice unreachable) ids that do not fit
@@ -419,7 +474,7 @@ fn LookaheadSetPool::new() -> LookaheadSetPool {
   let pool = {
     sets: [],
     ids: {},
-    union_memo: {},
+    union_memo: Int64Map::new(),
     insert_memo: {},
     insert_memo_wide: {},
     symbol_lists: [],
@@ -544,13 +599,14 @@ fn LookaheadSetPool::union(
   }
   let (low, high) = if left < right { (left, right) } else { (right, left) }
   let key = (low.to_int64() << 32) | high.to_int64()
-  if self.union_memo.get(key) is Some(result) {
-    return result
+  let memo = self.union_memo.get(key)
+  if memo >= 0 {
+    return memo
   }
   let set = self.get(low).copy()
   ignore(set.insert_all(self.get(high)))
   let result = self.intern(set)
-  self.union_memo[key] = result
+  self.union_memo.insert_new(key, result)
   result
 }
 
@@ -560,28 +616,88 @@ fn LookaheadSetPool::union(
 /// For each in-progress match, a set of "lookaheads" (tokens that are allowed to
 /// *follow* the in-progress rule) are included. This object corresponds directly
 /// to a state in the final parse table.
+///
+/// The entries are kept in parallel arrays, sorted by item, without duplicate items.
 priv struct ParseItemSet {
-  entries : Array[ParseItemSetEntry]
+  items : Array[ParseItem]
+  /// Each entry's interned lookahead set.
+  lookaheads : Array[Int32]
+  /// Each entry's following reserved word set.
+  following_reserved_word_sets : Array[Int32]
 }
 
 ///|
+/// An entry of a `ParseItemSet`, read out of it.
+#valtype
 priv struct ParseItemSetEntry {
-  /// Only changes when an entry of a discarded set is reused.
-  mut item : ParseItem
-  mut lookaheads : Int32
-  mut following_reserved_word_set : Int32
-}
-
-///|
-/// A `ParseItemSetCore` is like a `ParseItemSet`, but without the lookahead
-/// information. Parse states with the same core are candidates for merging.
-priv struct ParseItemSetCore {
-  entries : Array[ParseItem]
+  item : ParseItem
+  lookaheads : Int32
+  following_reserved_word_set : Int32
 }
 
 ///|
 fn ParseItemSet::new() -> ParseItemSet {
-  { entries: [], }
+  { items: [], lookaheads: [], following_reserved_word_sets: [] }
+}
+
+///|
+/// A set with one entry.
+fn ParseItemSet::singleton(
+  item : ParseItem,
+  lookaheads : Int32,
+  following_reserved_word_set : Int32,
+) -> ParseItemSet {
+  {
+    items: [item],
+    lookaheads: [lookaheads],
+    following_reserved_word_sets: [following_reserved_word_set],
+  }
+}
+
+///|
+/// The number of entries.
+fn ParseItemSet::len(self : ParseItemSet) -> Int32 {
+  self.items.length()
+}
+
+///|
+/// The entry at `index`.
+fn ParseItemSet::entry(self : ParseItemSet, index : Int32) -> ParseItemSetEntry {
+  {
+    item: self.items[index],
+    lookaheads: self.lookaheads[index],
+    following_reserved_word_set: self.following_reserved_word_sets[index],
+  }
+}
+
+///|
+/// Adds an entry at the end. The caller keeps the entries sorted.
+fn ParseItemSet::push(
+  self : ParseItemSet,
+  item : ParseItem,
+  lookaheads : Int32,
+  following_reserved_word_set : Int32,
+) -> Unit {
+  self.items.push(item)
+  self.lookaheads.push(lookaheads)
+  self.following_reserved_word_sets.push(following_reserved_word_set)
+}
+
+///|
+fn ParseItemSet::copy(self : ParseItemSet) -> ParseItemSet {
+  {
+    items: self.items.copy(),
+    lookaheads: self.lookaheads.copy(),
+    following_reserved_word_sets: self.following_reserved_word_sets.copy(),
+  }
+}
+
+///|
+/// Removes every entry, keeping the arrays' capacity.
+fn ParseItemSet::clear(self : ParseItemSet) -> Unit {
+  self.items.clear()
+  self.lookaheads.clear()
+  self.following_reserved_word_sets.clear()
 }
 
 ///|
@@ -606,6 +722,32 @@ fn ParseItem::production(self : ParseItem, grammar : SyntaxGrammar) -> ProdRef {
 }
 
 ///|
+/// `self.production(grammar).dynamic_precedence`, without building the `ProdRef`.
+fn ParseItem::dynamic_precedence(
+  self : ParseItem,
+  grammar : SyntaxGrammar,
+) -> Int32 {
+  if self.prod_id == start_production_id {
+    0
+  } else {
+    grammar.productions[self.prod_id].dynamic_precedence
+  }
+}
+
+///|
+/// `self.production(grammar).requires_eof_lookahead`, without building the `ProdRef`.
+fn ParseItem::requires_eof_lookahead(
+  self : ParseItem,
+  grammar : SyntaxGrammar,
+) -> Bool {
+  if self.prod_id == start_production_id {
+    false
+  } else {
+    grammar.productions[self.prod_id].requires_eof_lookahead
+  }
+}
+
+///|
 fn ParseItem::step(
   self : ParseItem,
   grammar : SyntaxGrammar,
@@ -617,22 +759,34 @@ fn ParseItem::step(
 /// `production(grammar).steps.get(index)` without building a `ProdRef`.
 fn ParseItem::step_at(
   self : ParseItem,
-  _grammar : SyntaxGrammar,
+  grammar : SyntaxGrammar,
   index : Int32,
 ) -> ProductionStep? {
-  // `keys` has an entry for every dot, and each holds the step at its dot.
-  if index >= 0 && index < self.keys.length() {
-    self.keys[index].step
+  if index >= 0 && index < self.steps_len {
+    if self.prod_id == start_production_id {
+      Some(start_steps[index])
+    } else {
+      Some(grammar.steps[self.steps_start + index])
+    }
   } else {
     None
   }
 }
 
 ///|
-fn ParseItem::symbol(self : ParseItem, grammar : SyntaxGrammar) -> Symbol? {
-  match self.step(grammar) {
-    Some(step) => Some(step.symbol)
-    None => None
+/// The symbol of the step at `index`, which must be a step of the production:
+/// `self.step_at(grammar, index).unwrap().symbol`, without handing out the step.
+/// (Upstream's `ParseItem::symbol` is `symbol_at(grammar, step_index)` when the
+/// item isn't done.)
+fn ParseItem::symbol_at(
+  self : ParseItem,
+  grammar : SyntaxGrammar,
+  index : Int32,
+) -> Symbol {
+  if self.prod_id == start_production_id {
+    start_steps[index].symbol
+  } else {
+    grammar.steps[self.steps_start + index].symbol
   }
 }
 
@@ -672,7 +826,7 @@ fn ParseItem::prev_step(
 
 ///|
 fn ParseItem::is_done(self : ParseItem) -> Bool {
-  self.step_index + 1 == self.keys.length()
+  self.step_index == self.steps_len
 }
 
 ///|
@@ -682,20 +836,14 @@ fn ParseItem::is_augmented(self : ParseItem) -> Bool {
 
 ///|
 /// Create an item like this one, but advanced by one step.
-fn ParseItem::successor(self : ParseItem) -> ParseItem {
-  match self.successor_cache {
-    Some(successor) => successor
-    None => {
-      let successor = ParseItem::new(
-        variable_index=self.variable_index,
-        prod_id=self.prod_id,
-        keys=self.keys,
-        step_index=self.step_index + 1,
-        has_preceding_inherited_fields=self.has_preceding_inherited_fields,
-      )
-      self.successor_cache = Some(successor)
-      successor
-    }
+fn ParseItem::successor(self : ParseItem, key_map : ItemKeyMap) -> ParseItem {
+  let step_index = self.step_index + 1
+  let keys = key_map.keys_for(self.prod_id)[step_index]
+  {
+    ..self,
+    step_index,
+    dot_cmp: keys.cmp,
+    dot_eq_with_syms: keys.eq_with_syms,
   }
 }
 
@@ -705,20 +853,7 @@ fn ParseItem::with_preceding_inherited_fields(self : ParseItem) -> ParseItem {
   if self.has_preceding_inherited_fields {
     return self
   }
-  match self.inherited_cache {
-    Some(item) => item
-    None => {
-      let item = ParseItem::new(
-        variable_index=self.variable_index,
-        prod_id=self.prod_id,
-        keys=self.keys,
-        step_index=self.step_index,
-        has_preceding_inherited_fields=true,
-      )
-      self.inherited_cache = Some(item)
-      item
-    }
-  }
+  { ..self, has_preceding_inherited_fields: true }
 }
 
 ///|
@@ -739,20 +874,8 @@ fn ParseItem::substitute_production(
 }
 
 ///|
-fn ParseItemSet::insert(
-  self : ParseItemSet,
-  item : ParseItem,
-) -> ParseItemSetEntry {
-  self.insert_reusing(item, [])
-}
-
-///|
-/// `Self::insert`, taking a new entry from `spares` if it has one.
-fn ParseItemSet::insert_reusing(
-  self : ParseItemSet,
-  item : ParseItem,
-  spares : Array[ParseItemSetEntry],
-) -> ParseItemSetEntry {
+/// The index of `item`'s entry, which is added with no lookaheads if it's new.
+fn ParseItemSet::insert(self : ParseItemSet, item : ParseItem) -> Int32 {
   // `entries` is sorted with no duplicates, so an item that sorts after the last entry
   // belongs at the end, which is where the binary search would put it.
   //
@@ -761,36 +884,38 @@ fn ParseItemSet::insert_reusing(
   // Items are ordered by step index, then rule, then their content at the dot. Advancing
   // adds one to every step index and keeps every rule, so only items of the same rule at
   // the same step can change places.
-  let index = match self.entries.last() {
-    None => self.entries.length()
-    Some(last) if Compare::compare(last.item, item) < 0 => self.entries.length()
-    _ =>
-      match self.entries.binary_search_by(e => Compare::compare(e.item, item)) {
-        Ok(i) => return self.entries[i]
-        Err(i) => i
-      }
+  let len = self.items.length()
+  if len == 0 || Compare::compare(self.items[len - 1], item) < 0 {
+    self.push(item, lookahead_set_pool_empty, 0)
+    return len
   }
-  let entry = match spares.pop() {
-    Some(entry) => {
-      entry.item = item
-      entry.lookaheads = lookahead_set_pool_empty
-      entry.following_reserved_word_set = 0
-      entry
+  match self.items.binary_search_by(e => Compare::compare(e, item)) {
+    Ok(i) => i
+    Err(i) => {
+      self.items.insert(i, item)
+      self.lookaheads.insert(i, lookahead_set_pool_empty)
+      self.following_reserved_word_sets.insert(i, 0)
+      i
     }
-    None =>
-      {
-        item,
-        lookaheads: lookahead_set_pool_empty,
-        following_reserved_word_set: 0,
-      }
   }
-  self.entries.insert(index, entry)
-  entry
 }
 
 ///|
-fn ParseItemSet::core(self : ParseItemSet) -> ParseItemSetCore {
-  { entries: self.entries.map(e => e.item), }
+/// Upstream's `ParseItemSetCore` is like a `ParseItemSet`, but without the lookahead
+/// information. Parse states with the same core are candidates for merging. Here a
+/// set's core is its `items`, compared by `Self::same_core` and hashed by
+/// `Self::core_hash`.
+fn ParseItemSet::same_core(self : ParseItemSet, other : ParseItemSet) -> Bool {
+  self.items == other.items
+}
+
+///|
+fn ParseItemSet::core_hash(self : ParseItemSet) -> Int32 {
+  let mut acc = hash_mix(HASH_SEED, self.items.length())
+  for item in self.items {
+    acc = item.hash_acc(acc)
+  }
+  hash_finish(acc)
 }
 
 ///|
@@ -963,7 +1088,8 @@ fn ParseItemSet::display(
   lookaheads : LookaheadSetPool,
 ) -> String {
   let f = StringBuilder()
-  for entry in self.entries {
+  for i in 0..<self.len() {
+    let entry = self.entry(i)
     f.write_string(
       entry.item.display(syntax_grammar, lexical_grammar, str_pool),
     )
@@ -1066,19 +1192,16 @@ impl Compare for ParseItem with fn compare(self, other) {
 }
 
 ///|
-impl Eq for ParseItemSetEntry with fn equal(self, other) {
-  self.item == other.item &&
-  self.lookaheads == other.lookaheads &&
-  self.following_reserved_word_set == other.following_reserved_word_set
-}
-
-///|
 impl Eq for ParseItemSet with fn equal(self, other) {
-  if self.entries.length() != other.entries.length() {
+  let len = self.items.length()
+  if len != other.items.length() {
     return false
   }
-  for i, entry in self.entries {
-    if entry != other.entries[i] {
+  for i in 0..<len {
+    if self.lookaheads[i] != other.lookaheads[i] ||
+      self.following_reserved_word_sets[i] !=
+      other.following_reserved_word_sets[i] ||
+      self.items[i] != other.items[i] {
       return false
     }
   }
@@ -1087,53 +1210,25 @@ impl Eq for ParseItemSet with fn equal(self, other) {
 
 ///|
 impl Hash for ParseItemSet with fn hash_combine(self, hasher) {
-  hasher.combine_int(self.entries.length())
-  for entry in self.entries {
-    hasher.combine(entry.item)
-    hasher.combine_int(entry.lookaheads)
-    hasher.combine_int(entry.following_reserved_word_set)
+  hasher.combine_int(self.items.length())
+  for i in 0..<self.items.length() {
+    hasher.combine(self.items[i])
+    hasher.combine_int(self.lookaheads[i])
+    hasher.combine_int(self.following_reserved_word_sets[i])
   }
 }
 
 ///|
 impl Hash for ParseItemSet with fn hash(self) {
-  let mut acc = hash_mix(HASH_SEED, self.entries.length())
-  for entry in self.entries {
-    acc = entry.item.hash_acc(acc)
+  let mut acc = hash_mix(HASH_SEED, self.items.length())
+  for i in 0..<self.items.length() {
+    acc = self.items[i].hash_acc(acc)
     acc = hash_mix(
-      hash_mix(acc, entry.lookaheads),
-      entry.following_reserved_word_set,
+      hash_mix(acc, self.lookaheads[i]),
+      self.following_reserved_word_sets[i],
     )
   }
   hash_finish(acc)
 }
 
-///|
-impl Eq for ParseItemSetCore with fn equal(self, other) {
-  if self.entries.length() != other.entries.length() {
-    return false
-  }
-  for i, item in self.entries {
-    if item != other.entries[i] {
-      return false
-    }
-  }
-  true
-}
 
-///|
-impl Hash for ParseItemSetCore with fn hash_combine(self, hasher) {
-  hasher.combine_int(self.entries.length())
-  for item in self.entries {
-    hasher.combine(item)
-  }
-}
-
-///|
-impl Hash for ParseItemSetCore with fn hash(self) {
-  let mut acc = hash_mix(HASH_SEED, self.entries.length())
-  for item in self.entries {
-    acc = item.hash_acc(acc)
-  }
-  hash_finish(acc)
-}

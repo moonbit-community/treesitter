@@ -160,8 +160,8 @@ fn ConflictBits::new(minimizer : Minimizer) -> ConflictBits {
   )
   for s, state in minimizer.parse_table.states {
     let base = s * row_words
-    for symbol in state.terminal_entries.keys() {
-      if symbol.terminal_index() is Some(index) {
+    for k in 0..<state.terminal_entries.len() {
+      if state.terminal_entries.symbol_at(k).terminal_index() is Some(index) {
         set_bit(state_terminals, base * 64 + index)
       }
     }
@@ -254,8 +254,8 @@ fn ConflictPass::new(
   let states = minimizer.parse_table.states
   let builder = StateListsBuilder::new(states.length())
   for state in states {
-    for entry in state.terminal_entries.items() {
-      builder.push(minimizer.indexer.index(entry.0), entry.1.index)
+    for k in 0..<state.terminal_entries.len() {
+      builder.push(minimizer.indexer.index(state.terminal_entries.symbol_at(k)), state.terminal_entries.value_at(k).index)
     }
     builder.end_list()
   }
@@ -573,10 +573,10 @@ fn SuccessorPass::new(
   let states = minimizer.parse_table.states
   let builder = StateListsBuilder::new(states.length())
   for state in states {
-    for entry in state.nonterminal_entries.items() {
+    for k in 0..<state.nonterminal_entries.len() {
       builder.push(
-        entry.0.non_terminal_index().unwrap(),
-        match entry.1 {
+        state.nonterminal_entries.symbol_at(k).non_terminal_index().unwrap(),
+        match state.nonterminal_entries.value_at(k) {
           Goto(successor) => successor
           ShiftExtra => -1
         },
@@ -717,8 +717,8 @@ fn Minimizer::remove_unit_reductions(self : Minimizer) -> Unit {
     }
     let mut only_unit_reductions = true
     let mut unit_reduction_symbol : Symbol? = None
-    for entry in state.terminal_entries.items() {
-      for action in self.parse_table.action_lists.get(entry.1) {
+    for k in 0..<state.terminal_entries.len() {
+      for action in self.parse_table.action_lists.get(state.terminal_entries.value_at(k)) {
         match action {
           ShiftExtra => continue
           Reduce(child_count=1, production_id=0, symbol~, ..) if !self.simple_aliases.contains(
@@ -775,7 +775,7 @@ fn Minimizer::remove_unit_reductions(self : Minimizer) -> Unit {
         }
       })
       for i in 0..<state.terminal_entries.len() {
-        let (symbol, old_id) = state.terminal_entries.get_index(i)
+        let old_id = state.terminal_entries.value_at(i)
         // The list is only copied once it changes.
         let mut actions = action_lists.get(old_id)
         let mut changed = false
@@ -797,9 +797,8 @@ fn Minimizer::remove_unit_reductions(self : Minimizer) -> Unit {
         }
         if changed {
           let index = action_lists.intern(action_list_ids, actions)
-          state.terminal_entries.set_index(
+          state.terminal_entries.set_value_at(
             i,
-            symbol,
             ActionListId::new(index, old_id.reusable),
           )
         }
@@ -833,10 +832,10 @@ fn Minimizer::merge_compatible_states(self : Minimizer) -> Unit {
   // Keys are symbol positions, for single-instruction comparison.
   let builder = StateListsBuilder::new(self.parse_table.states.length())
   for state in self.parse_table.states {
-    for entry in state.terminal_entries.items() {
-      if self.parse_table.action_lists.get(entry.1).last()
+    for k in 0..<state.terminal_entries.len() {
+      if self.parse_table.action_lists.get(state.terminal_entries.value_at(k)).last()
         is Some(Shift(state=s, ..)) {
-        builder.push(self.indexer.index(entry.0), s)
+        builder.push(self.indexer.index(state.terminal_entries.symbol_at(k)), s)
       }
     }
     builder.end_list()
@@ -852,13 +851,31 @@ fn Minimizer::merge_compatible_states(self : Minimizer) -> Unit {
       conflict_pass.criterion(),
     ),
   )
-  let successor_pass = SuccessorPass::new(self, shift_maps).criterion()
-  while split_state_id_groups(
+  let successor_pass = SuccessorPass::new(self, shift_maps)
+  // The successor pass only looks at the groups of the states' successors, so a
+  // group needs another look only when one of its successors moves.
+  let changed = Some(
+    ChangedGroups::new(self.parse_table.states.length(), (state_id, f) => {
+      let shift_maps = successor_pass.shift_maps
+      for i in shift_maps.start(state_id)..<shift_maps.end(state_id) {
+        f(shift_maps.values[i])
+      }
+      let nonterminal_maps = successor_pass.nonterminal_maps
+      for i in nonterminal_maps.start(state_id)..<nonterminal_maps.end(state_id) {
+        if nonterminal_maps.values[i] >= 0 {
+          f(nonterminal_maps.values[i])
+        }
+      }
+    }),
+  )
+  let successor_criterion = successor_pass.criterion()
+  while split_state_id_groups_tracked(
           self.parse_table.states,
           state_ids_by_group_id,
           group_ids_by_state_id,
           0,
-          successor_pass,
+          successor_criterion,
+          changed,
         ) {
 
   }
@@ -909,15 +926,15 @@ fn Minimizer::merge_compatible_states(self : Minimizer) -> Unit {
       ignore(
         parse_state.reserved_words.insert_all(other_parse_state.reserved_words),
       )
-      for entry in parse_state.terminal_entries.items() {
-        ignore(parse_state.reserved_words.remove(entry.0))
+      for k in 0..<parse_state.terminal_entries.len() {
+        ignore(parse_state.reserved_words.remove(parse_state.terminal_entries.symbol_at(k)))
       }
     }
-    for entry in parse_state.terminal_entries.items() {
-      positions[self.indexer.index(entry.0)] = None
+    for k in 0..<parse_state.terminal_entries.len() {
+      positions[self.indexer.index(parse_state.terminal_entries.symbol_at(k))] = None
     }
-    for entry in parse_state.nonterminal_entries.items() {
-      positions[self.indexer.index(entry.0)] = None
+    for k in 0..<parse_state.nonterminal_entries.len() {
+      positions[self.indexer.index(parse_state.nonterminal_entries.symbol_at(k))] = None
     }
 
     // Update the new state's outgoing references using the new grouping.
@@ -1238,8 +1255,8 @@ fn[V] set_positions(
   positions : Array[Int32?],
   indexer : SymbolIndexer,
 ) -> Unit {
-  for position, entry in entries.items() {
-    positions[indexer.index(entry.0)] = Some(position)
+  for position in 0..<entries.len() {
+    positions[indexer.index(entries.symbol_at(position))] = Some(position)
   }
 }
 
@@ -1253,11 +1270,12 @@ fn[V] merge_entries(
   positions : Array[Int32?],
   indexer : SymbolIndexer,
 ) -> Unit {
-  for entry in other.items() {
-    let (symbol, value) = entry
+  for k in 0..<other.len() {
+    let symbol = other.symbol_at(k)
+    let value = other.value_at(k)
     let index = indexer.index(symbol)
     match positions[index] {
-      Some(position) => entries.set_index(position, symbol, value)
+      Some(position) => entries.set_value_at(position, value)
       None => {
         positions[index] = Some(entries.len())
         entries.push(symbol, value)
