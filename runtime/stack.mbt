@@ -8,6 +8,9 @@ let max_link_count : Int32 = 8
 let max_iterator_count : Int32 = 64
 
 ///|
+let max_node_pool_size : Int32 = 50
+
+///|
 pub type StackVersion = Int32
 
 ///|
@@ -30,6 +33,7 @@ pub(all) struct StackSummaryEntry {
 pub type StackSummary = Array[StackSummaryEntry]
 
 ///|
+#valtype
 priv struct StackLink {
   node : StackNode
   subtree : Subtree
@@ -38,15 +42,17 @@ priv struct StackLink {
 
 ///|
 priv struct StackNode {
-  state : Int32
+  mut state : Int32
   mut position : Length
-  links : Array[StackLink]
+  /// `links[0..link_count]`; a node rarely gains links after creation, so
+  /// the array is replaced rather than grown.
+  mut links : FixedArray[StackLink]
   mut ref_count : Int32
   mut error_cost : UInt32
   mut node_count : UInt32
   mut dynamic_precedence : Int32
   /// Stands in for the node's address in dot graphs.
-  id : Int32
+  mut id : Int32
 }
 
 ///|
@@ -80,16 +86,19 @@ priv struct StackHead {
 }
 
 ///|
-fn StackHead::copy(self : StackHead) -> StackHead {
-  { ..self, }
-}
-
-///|
 pub struct Stack {
   priv heads : Array[StackHead]
-  priv mut slices : Array[StackSlice]
+  priv slices : Array[StackSlice]
   priv iterators : Array[StackIterator]
   priv base_node : StackNode
+  /// Released nodes kept for reuse (`node_pool`), at most
+  /// `max_node_pool_size`.
+  priv node_pool : Array[StackNode]
+  /// Head and iterator records no longer in `heads`/`iterators`, kept for
+  /// reuse. Upstream stores both by value in its arrays; reusing the records
+  /// avoids allocating one per version and per pop.
+  priv head_pool : Array[StackHead]
+  priv iterator_pool : Array[StackIterator]
   priv mut next_node_id : Int32
 }
 
@@ -110,7 +119,7 @@ fn stack_node_retain(node : StackNode?) -> Unit {
 }
 
 ///|
-fn stack_node_release(node : StackNode) -> Unit {
+fn stack_node_release(node : StackNode, pool : Array[StackNode]) -> Unit {
   let mut current = node
   for ;; {
     current.ref_count -= 1
@@ -124,13 +133,16 @@ fn stack_node_release(node : StackNode) -> Unit {
         if !link.subtree.is_null() {
           link.subtree.release()
         }
-        stack_node_release(link.node)
+        stack_node_release(link.node, pool)
       }
       let link = current.links[0]
       if !link.subtree.is_null() {
         link.subtree.release()
       }
       first_predecessor = Some(current.links[0].node)
+    }
+    if pool.length() < max_node_pool_size {
+      pool.push(current)
     }
     match first_predecessor {
       Some(predecessor) => current = predecessor
@@ -166,18 +178,41 @@ fn Stack::node_new(
 ) -> StackNode {
   let id = self.next_node_id
   self.next_node_id += 1
-  let node : StackNode = {
-    state,
-    position: length_zero(),
-    links: [],
-    ref_count: 1,
-    error_cost: 0,
-    node_count: 0,
-    dynamic_precedence: 0,
-    id,
+  let node = match self.node_pool.pop() {
+    Some(node) => {
+      node.state = state
+      node.position = length_zero()
+      match previous_node {
+        Some(previous) =>
+          if node.links.length() == 1 {
+            node.links[0] = { node: previous, subtree, is_pending }
+          } else {
+            node.links = [{ node: previous, subtree, is_pending }]
+          }
+        None => node.links = []
+      }
+      node.ref_count = 1
+      node.error_cost = 0
+      node.node_count = 0
+      node.dynamic_precedence = 0
+      node.id = id
+      node
+    }
+    None => {
+      state,
+      position: length_zero(),
+      links: match previous_node {
+        Some(previous) => [{ node: previous, subtree, is_pending }]
+        None => []
+      },
+      ref_count: 1,
+      error_cost: 0,
+      node_count: 0,
+      dynamic_precedence: 0,
+      id,
+    }
   }
   if previous_node is Some(previous) {
-    node.links.push({ node: previous, subtree, is_pending, })
     node.position = previous.position
     node.error_cost = previous.error_cost
     node.dynamic_precedence = previous.dynamic_precedence
@@ -266,7 +301,10 @@ fn stack_node_add_link(target : StackNode, link : StackLink) -> Unit {
   stack_node_retain(Some(link.node))
   let mut node_count = link.node.node_count
   let mut dynamic_precedence = link.node.dynamic_precedence
-  target.links.push(link)
+  let link_count = target.links.length()
+  let links = FixedArray::make(link_count + 1, link)
+  links.unsafe_blit(0, target.links, 0, link_count)
+  target.links = links
   if !link.subtree.is_null() {
     link.subtree.retain()
     node_count += stack_subtree_node_count(link.subtree)
@@ -281,14 +319,84 @@ fn stack_node_add_link(target : StackNode, link : StackLink) -> Unit {
 }
 
 ///|
-fn stack_head_delete(head : StackHead) -> Unit {
+fn stack_head_delete(head : StackHead, pool : Array[StackNode]) -> Unit {
   if !head.last_external_token.is_null() {
     head.last_external_token.release()
   }
   if !head.lookahead_when_paused.is_null() {
     head.lookahead_when_paused.release()
   }
-  stack_node_release(head.node)
+  stack_node_release(head.node, pool)
+}
+
+///|
+let max_record_pool_size : Int32 = 16
+
+///|
+fn Stack::new_head(
+  self : Stack,
+  node : StackNode,
+  summary : StackSummary?,
+  node_count_at_last_error : UInt32,
+  last_external_token : Subtree,
+  lookahead_when_paused : Subtree,
+  status : StackStatus,
+) -> StackHead {
+  match self.head_pool.pop() {
+    Some(head) => {
+      head.node = node
+      head.summary = summary
+      head.node_count_at_last_error = node_count_at_last_error
+      head.last_external_token = last_external_token
+      head.lookahead_when_paused = lookahead_when_paused
+      head.status = status
+      head
+    }
+    None =>
+      {
+        node,
+        summary,
+        node_count_at_last_error,
+        last_external_token,
+        lookahead_when_paused,
+        status,
+      }
+  }
+}
+
+///|
+fn Stack::recycle_head(self : Stack, head : StackHead) -> Unit {
+  if self.head_pool.length() < max_record_pool_size {
+    head.summary = None
+    self.head_pool.push(head)
+  }
+}
+
+///|
+fn Stack::recycle_iterator(self : Stack, iterator : StackIterator) -> Unit {
+  if self.iterator_pool.length() < max_iterator_count {
+    self.iterator_pool.push(iterator)
+  }
+}
+
+///|
+fn Stack::new_iterator(
+  self : Stack,
+  node : StackNode,
+  subtrees : Array[Subtree],
+  subtree_count : Int32,
+  is_pending : Bool,
+) -> StackIterator {
+  match self.iterator_pool.pop() {
+    Some(iterator) => {
+      iterator.node = node
+      iterator.subtrees = subtrees
+      iterator.subtree_count = subtree_count
+      iterator.is_pending = is_pending
+      iterator
+    }
+    None => { node, subtrees, subtree_count, is_pending }
+  }
 }
 
 ///|
@@ -297,14 +405,15 @@ fn Stack::add_version(
   original_version : Int32,
   node : StackNode,
 ) -> Int32 {
-  let head : StackHead = {
+  let original = self.heads[original_version]
+  let head = self.new_head(
     node,
-    summary: None,
-    node_count_at_last_error: self.heads[original_version].node_count_at_last_error,
-    last_external_token: self.heads[original_version].last_external_token,
-    status: Active,
-    lookahead_when_paused: Null,
-  }
+    None,
+    original.node_count_at_last_error,
+    original.last_external_token,
+    Null,
+    Active,
+  )
   self.heads.push(head)
   stack_node_retain(Some(node))
   if !head.last_external_token.is_null() {
@@ -332,22 +441,31 @@ fn Stack::add_slice(
 }
 
 ///|
-fn Stack::iter(
+fn[P] Stack::iter(
   self : Stack,
   version : Int32,
-  callback : (StackIterator) -> Int32,
+  callback : (P, StackIterator) -> Int32,
+  payload : P,
   goal_subtree_count : Int32,
 ) -> Array[StackSlice] {
-  self.slices = []
+  // Like upstream, the result is `self.slices`, valid until the next pop.
+  self.slices.clear()
+  for iterator in self.iterators {
+    self.recycle_iterator(iterator)
+  }
   self.iterators.clear()
   let head = self.heads[version]
-  let new_iterator : StackIterator = {
-    node: head.node,
-    subtrees: [],
-    subtree_count: 0,
-    is_pending: true,
-  }
   let include_subtrees = goal_subtree_count >= 0
+  let new_iterator = self.new_iterator(
+    head.node,
+    if include_subtrees {
+      Array(capacity=goal_subtree_count)
+    } else {
+      []
+    },
+    0,
+    true,
+  )
   self.iterators.push(new_iterator)
   while self.iterators.length() > 0 {
     let mut i = 0
@@ -355,7 +473,7 @@ fn Stack::iter(
     while i < size {
       let iterator = self.iterators[i]
       let node = iterator.node
-      let action = callback(iterator)
+      let action = callback(payload, iterator)
       let should_pop = (action & stack_action_pop) != 0
       let should_stop = (action & stack_action_stop) != 0 ||
         node.links.length() == 0
@@ -371,7 +489,7 @@ fn Stack::iter(
         if !should_pop {
           subtree_array_delete(iterator.subtrees)
         }
-        ignore(self.iterators.remove(i))
+        self.recycle_iterator(self.iterators.remove(i))
         size -= 1
         continue
       }
@@ -386,7 +504,13 @@ fn Stack::iter(
             continue
           }
           link = node.links[j]
-          let current_iterator = self.iterators[i].copy()
+          let iterator_i = self.iterators[i]
+          let current_iterator = self.new_iterator(
+            iterator_i.node,
+            iterator_i.subtrees,
+            iterator_i.subtree_count,
+            iterator_i.is_pending,
+          )
           self.iterators.push(current_iterator)
           next_iterator = current_iterator
           next_iterator.subtrees = subtree_array_copy(next_iterator.subtrees)
@@ -421,6 +545,9 @@ pub fn Stack::new() -> Stack {
     heads: [],
     slices: [],
     iterators: [],
+    node_pool: [],
+    head_pool: [],
+    iterator_pool: [],
     base_node: {
       state: 1,
       position: length_zero(),
@@ -524,41 +651,42 @@ pub fn Stack::push(
 }
 
 ///|
+fn pop_count_callback(
+  goal_subtree_count : Int32,
+  iterator : StackIterator,
+) -> Int32 {
+  if iterator.subtree_count == goal_subtree_count {
+    stack_action_pop | stack_action_stop
+  } else {
+    stack_action_none
+  }
+}
+
+///|
 pub fn Stack::pop_count(
   self : Stack,
   version : Int32,
   count : Int32,
 ) -> Array[StackSlice] {
-  self.iter(
-    version,
-    iterator => {
-      if iterator.subtree_count == count {
-        stack_action_pop | stack_action_stop
-      } else {
-        stack_action_none
-      }
-    },
-    count,
-  )
+  self.iter(version, pop_count_callback, count, count)
+}
+
+///|
+fn pop_pending_callback(_payload : Unit, iterator : StackIterator) -> Int32 {
+  if iterator.subtree_count >= 1 {
+    if iterator.is_pending {
+      stack_action_pop | stack_action_stop
+    } else {
+      stack_action_stop
+    }
+  } else {
+    stack_action_none
+  }
 }
 
 ///|
 pub fn Stack::pop_pending(self : Stack, version : Int32) -> Array[StackSlice] {
-  let pop = self.iter(
-    version,
-    iterator => {
-      if iterator.subtree_count >= 1 {
-        if iterator.is_pending {
-          stack_action_pop | stack_action_stop
-        } else {
-          stack_action_stop
-        }
-      } else {
-        stack_action_none
-      }
-    },
-    0,
-  )
+  let pop = self.iter(version, pop_pending_callback, (), 0)
   if pop.length() > 0 {
     self.renumber_version(pop[0].version, version)
     pop[0] = { ..pop[0], version, }
@@ -567,27 +695,29 @@ pub fn Stack::pop_pending(self : Stack, version : Int32) -> Array[StackSlice] {
 }
 
 ///|
+fn pop_error_callback(
+  found_error : Ref[Bool],
+  iterator : StackIterator,
+) -> Int32 {
+  if iterator.subtrees.length() > 0 {
+    if !found_error.val && iterator.subtrees[0].is_error() {
+      found_error.val = true
+      stack_action_pop | stack_action_stop
+    } else {
+      stack_action_stop
+    }
+  } else {
+    stack_action_none
+  }
+}
+
+///|
 pub fn Stack::pop_error(self : Stack, version : Int32) -> Array[Subtree] {
   let node = self.heads[version].node
   for i in 0..<node.links.length() {
     if !node.links[i].subtree.is_null() && node.links[i].subtree.is_error() {
-      let mut found_error = false
-      let pop = self.iter(
-        version,
-        iterator => {
-          if iterator.subtrees.length() > 0 {
-            if !found_error && iterator.subtrees[0].is_error() {
-              found_error = true
-              stack_action_pop | stack_action_stop
-            } else {
-              stack_action_stop
-            }
-          } else {
-            stack_action_none
-          }
-        },
-        1,
-      )
+      let found_error = Ref(false)
+      let pop = self.iter(version, pop_error_callback, found_error, 1)
       if pop.length() > 0 {
         self.renumber_version(pop[0].version, version)
         return pop[0].subtrees
@@ -599,18 +729,17 @@ pub fn Stack::pop_error(self : Stack, version : Int32) -> Array[Subtree] {
 }
 
 ///|
+fn pop_all_callback(_payload : Unit, iterator : StackIterator) -> Int32 {
+  if iterator.node.links.length() == 0 {
+    stack_action_pop
+  } else {
+    stack_action_none
+  }
+}
+
+///|
 pub fn Stack::pop_all(self : Stack, version : Int32) -> Array[StackSlice] {
-  self.iter(
-    version,
-    iterator => {
-      if iterator.node.links.length() == 0 {
-        stack_action_pop
-      } else {
-        stack_action_none
-      }
-    },
-    0,
-  )
+  self.iter(version, pop_all_callback, (), 0)
 }
 
 ///|
@@ -623,7 +752,7 @@ pub fn Stack::record_summary(
   ignore(
     self.iter(
       version,
-      iterator => {
+      (_, iterator) => {
         let state = iterator.node.state
         let depth = iterator.subtree_count
         if depth > max_depth {
@@ -641,6 +770,7 @@ pub fn Stack::record_summary(
         summary.push({ position: iterator.node.position, depth, state, })
         stack_action_none
       },
+      (),
       -1,
     ),
   )
@@ -684,8 +814,8 @@ pub fn Stack::has_advanced_since_error(self : Stack, version : Int32) -> Bool {
 
 ///|
 pub fn Stack::remove_version(self : Stack, version : Int32) -> Unit {
-  stack_head_delete(self.heads[version])
-  ignore(self.heads.remove(version))
+  stack_head_delete(self.heads[version], self.node_pool)
+  self.recycle_head(self.heads.remove(version))
 }
 
 ///|
@@ -699,9 +829,12 @@ pub fn Stack::renumber_version(self : Stack, v1 : Int32, v2 : Int32) -> Unit {
     source_head.summary = target_head.summary
     target_head.summary = None
   }
-  stack_head_delete(target_head)
-  self.heads[v2] = source_head.copy()
+  stack_head_delete(target_head, self.node_pool)
+  // `*target_head = *source_head` followed by erasing `v1`: the source head
+  // record is moved rather than copied, since nothing else refers to it.
+  self.heads[v2] = source_head
   ignore(self.heads.remove(v1))
+  self.recycle_head(target_head)
 }
 
 ///|
@@ -713,7 +846,15 @@ pub fn Stack::swap_versions(self : Stack, v1 : Int32, v2 : Int32) -> Unit {
 
 ///|
 pub fn Stack::copy_version(self : Stack, version : Int32) -> Int32 {
-  let head = self.heads[version].copy()
+  let original = self.heads[version]
+  let head = self.new_head(
+    original.node,
+    original.summary,
+    original.node_count_at_last_error,
+    original.last_external_token,
+    original.lookahead_when_paused,
+    original.status,
+  )
   self.heads.push(head)
   stack_node_retain(Some(head.node))
   if !head.last_external_token.is_null() {
@@ -797,17 +938,11 @@ pub fn Stack::resume(self : Stack, version : Int32) -> Subtree {
 pub fn Stack::clear(self : Stack) -> Unit {
   stack_node_retain(Some(self.base_node))
   for head in self.heads {
-    stack_head_delete(head)
+    stack_head_delete(head, self.node_pool)
+    self.recycle_head(head)
   }
   self.heads.clear()
-  self.heads.push({
-    node: self.base_node,
-    summary: None,
-    node_count_at_last_error: 0,
-    status: Active,
-    last_external_token: Null,
-    lookahead_when_paused: Null,
-  })
+  self.heads.push(self.new_head(self.base_node, None, 0, Null, Null, Active))
 }
 
 ///|
