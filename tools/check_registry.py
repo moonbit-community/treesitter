@@ -67,7 +67,7 @@ def main():
             imports.append(f'"{name}" @{alias}')
             # Grammar modules with several languages name them language_<x>().
             function = 'language' if alias != 'tree_sitter_typescript' else 'language_typescript'
-            tests += TEST_GRAMMAR.format(alias=alias, function=function)
+            tests += TEST_GRAMMAR.replace('{alias}', alias).replace('{function}', function)
         (project / 'moon.pkg').write_text(
             'import {\n  ' + ',\n  '.join(imports) + ',\n} for "test"\n')
         (project / 'consumer_test.mbt').write_text(tests)
