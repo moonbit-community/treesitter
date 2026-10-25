@@ -18,7 +18,7 @@ intended to behave identically, and a difference is a bug.
 | Queries | matches and captures of every grammar's query files and the test queries | 11,623/11,623 |
 | Grammar modules | embedded tables of the 34 languages vs upstream's `parser.c` | 34/34 identical |
 | Highlight, tags | event streams, HTML, tags of 10 fixture grammars | byte-identical |
-| Regex | matching, `find_iter` and error messages vs the `regex` crate | 446,822 pairs identical |
+| Regex | `is_match`, `find`, `find_iter` (bytes and UTF-8 mode) and error messages vs the `regex` crate | 486,885 + 410,406 pairs identical |
 | Regex | compilation size limit at 316 boundary patterns | identical |
 | `grammar.json` reading | error messages for 3,001 malformed grammars (serde_json behaviour) | identical |
 | CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,695/1,695 command lines |
@@ -47,6 +47,7 @@ packages' own tests.
 | QuickJS (`--js-runtime native`) | Not available; `grammar.js` is evaluated with node, bun or deno, as upstream does. |
 | CLI: Ctrl-C cancellation, generator debug traces under `generate --log`, dialoguer's terminal UI in `init` (line prompts instead), colored clap output, `RUST_BACKTRACE` backtraces | Not ported. |
 | Optional query debug output (`DEBUG_QUERY_STEPS`, `DEBUG_ANALYZE_QUERY`, `DEBUG_EXECUTE_QUERY` in `query.c`) | Off in the default upstream build; not ported. |
+| Optional scanner debug traces (tree-sitter-scala's `scanner.c` compiled with `-DDEBUG`) | Off in the default upstream build; not ported. |
 | `fuzz` allocation tracking | Not applicable (memory is garbage collected); a failed consistency assertion during a trial is reported as an error and counts as a failed test. |
 
 ## Representation differences
@@ -86,7 +87,16 @@ packages' own tests.
   actions) are not reproduced; the port behaves like release builds.
 - The regex size limit reproduces regex-automata's NFA accounting; the meta
   engine's exact-prefix literal bypass is not modelled, as it only applies
-  to regexes far below the limit.
+  to regexes far below the limit. Alternations of 3,000 or more literals use
+  a port of aho-corasick's leftmost-first automaton, as upstream does.
+- `Regex::is_match` in UTF-8 mode, for regexes that can match the empty
+  string, follows the meta engine's choice of engine (lazy DFA; the bounded
+  backtracker for haystacks of at most 128 bytes once the lazy DFA gives up
+  on a Unicode word boundary; otherwise the PikeVM). The backtracker's
+  visited-set limit (NFAs of more than about 16,000 states) and the lazy DFA
+  giving up when its cache thrashes are not modelled.
+- The YAML scanner's schema (`YAML_SCHEMA` at build time upstream, `core` by
+  default) is selected with `@scanners.yaml_scanner_with_schema`.
 
 ## Nondeterministic upstream behaviour
 
