@@ -76,7 +76,7 @@ test "tree-sitter.json" {
   } noraise {
     _ => "ok"
   }
-  inspect(missing, content="missing field `metadata`")
+  inspect(missing, content="missing field `metadata` at line 1 column 16")
 }
 
 ///|

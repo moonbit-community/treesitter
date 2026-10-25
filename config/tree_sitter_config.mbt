@@ -30,7 +30,7 @@ pub impl Show for ConfigError with fn output(self, logger) {
 /// configuration fields that are specific to that component.
 pub struct Config {
   location : String
-  config : Json
+  config : @support.Value
 }
 
 ///|
@@ -110,29 +110,20 @@ pub async fn Config::load(path : String?) -> Config {
         None => return Config::initial()
       }
   }
-  let content = @fs.read_file(location).text() catch {
+  let content = @support.read_to_string(location) catch {
     e => raise IO(@support.io_error_with_path(e, Some(location)))
   }
-  let config = @support.parse_json(content) catch {
-    e => raise ConfigRead(location, json_error_message(e))
+  let config = @support.from_str(content) catch {
+    e => raise ConfigRead(location, e.to_string())
   }
   { location, config, }
 }
 
 ///|
-/// The message of a JSON syntax error, in serde_json's form where possible.
+/// The display text of a `serde_json::Error` (other errors are shown as
+/// they are).
 pub fn json_error_message(err : Error) -> String {
-  match err {
-    @json.InvalidChar(pos, _) | @json.InvalidIdentEscape(pos) =>
-      "expected value at line \{pos.line} column \{pos.column + 1}"
-    @json.InvalidNumber(pos, _) =>
-      "invalid number at line \{pos.line} column \{pos.column + 1}"
-    @json.DuplicateKey(pos, key) =>
-      "duplicate key `\{key}` at line \{pos.line} column \{pos.column + 1}"
-    @json.InvalidEof => "EOF while parsing a value"
-    @json.DepthLimitExceeded => "recursion limit exceeded"
-    _ => err.to_string()
-  }
+  err.to_string()
 }
 
 ///|
@@ -148,13 +139,13 @@ pub fn Config::initial() -> Config raise ConfigError {
     Some(dir) => @support.path_join(dir, "config.json")
     None => Config::xdg_config_file()
   }
-  { location, config: Json::object(Map([])), }
+  { location, config: Object(Map([])), }
 }
 
 ///|
 /// Saves this configuration to the file that it was originally loaded from.
 pub async fn Config::save(self : Config) -> Unit {
-  let json = @support.to_string_pretty(self.config)
+  let json = self.config.to_string_pretty()
   let config_dir = @support.parent(self.location).unwrap()
   @support.create_dir_all(config_dir) catch {
     e => raise IO(@support.io_error_with_path(e, Some(config_dir)))
@@ -165,18 +156,19 @@ pub async fn Config::save(self : Config) -> Unit {
 }
 
 ///|
-/// The configuration JSON, from which components extract their fields
-/// (`Config::get`).
-pub fn Config::get(self : Config) -> Json {
+/// The configuration JSON, which a component deserializes into its own
+/// configuration type (`Config::get` is `serde_json::from_value` of a
+/// clone; the deserializers do not modify the value).
+pub fn Config::get(self : Config) -> @support.Value {
   self.config
 }
 
 ///|
-/// Adds a component-specific configuration (a JSON object) to the
-/// configuration file (`Config::add`).
+/// Adds a component-specific configuration (the output of its `Serialize`,
+/// a JSON object) to the configuration file (`Config::add`).
 pub fn Config::add(self : Config, config : Json) -> Unit {
   guard self.config is Object(target) else { return }
-  guard config is Object(source) else { return }
+  guard @support.Value::from_json(config) is Object(source) else { return }
   for k, v in source {
     target[k] = v
   }
