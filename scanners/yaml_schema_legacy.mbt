@@ -6,12 +6,10 @@
 
 ///|
 /// `HAS_TIMESTAMP` of schema.legacy.c.
-#warnings("-unused_value")
 const YAML_LEGACY_HAS_TIMESTAMP : Bool = true
 
 ///|
 /// `adv_sch_stt` of schema.legacy.c: `sch_stt` is an `int8_t`.
-#warnings("-unused_value")
 fn yaml_legacy_adv_sch_stt(
   sch_stt : Int32,
   cur_chr : Int32,

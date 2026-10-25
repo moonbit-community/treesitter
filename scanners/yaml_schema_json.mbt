@@ -6,12 +6,10 @@
 
 ///|
 /// `HAS_TIMESTAMP` of schema.json.c.
-#warnings("-unused_value")
 const YAML_JSON_HAS_TIMESTAMP : Bool = false
 
 ///|
 /// `adv_sch_stt` of schema.json.c: `sch_stt` is an `int8_t`.
-#warnings("-unused_value")
 fn yaml_json_adv_sch_stt(
   sch_stt : Int32,
   cur_chr : Int32,

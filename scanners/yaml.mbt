@@ -385,16 +385,43 @@ priv enum YamlResultSchema {
 }
 
 ///|
-/// `#include _file(YAML_SCHEMA)` with the default `YAML_SCHEMA` (core).
-const YAML_HAS_TIMESTAMP : Bool = YAML_CORE_HAS_TIMESTAMP
+/// The YAML schema that decides the type of plain scalars (null, bool, int,
+/// float, timestamp or string). Upstream selects it when the scanner is
+/// compiled, `-DYAML_SCHEMA=core|json|legacy` (`YAML_SCHEMA` in the Makefile
+/// and CMakeLists.txt, core by default), which picks the
+/// `schema.<name>.c` that `scanner.c` includes.
+pub(all) enum YamlSchema {
+  /// The YAML 1.2 core schema (schema.core.c, the default).
+  Core
+  /// The YAML 1.2 JSON schema (schema.json.c).
+  Json
+  /// The YAML 1.1 types (schema.legacy.c), including timestamps.
+  Legacy
+} derive(Eq, Debug)
 
 ///|
-fn yaml_adv_sch_stt(
+/// `HAS_TIMESTAMP` of the included schema.
+fn YamlSchema::has_timestamp(self : YamlSchema) -> Bool {
+  match self {
+    Core => YAML_CORE_HAS_TIMESTAMP
+    Json => YAML_JSON_HAS_TIMESTAMP
+    Legacy => YAML_LEGACY_HAS_TIMESTAMP
+  }
+}
+
+///|
+/// `adv_sch_stt` of the included schema.
+fn YamlSchema::adv_sch_stt(
+  self : YamlSchema,
   sch_stt : Int32,
   cur_chr : Int32,
   rlt_sch : Ref[YamlResultSchema],
 ) -> Int32 {
-  yaml_core_adv_sch_stt(sch_stt, cur_chr, rlt_sch)
+  match self {
+    Core => yaml_core_adv_sch_stt(sch_stt, cur_chr, rlt_sch)
+    Json => yaml_json_adv_sch_stt(sch_stt, cur_chr, rlt_sch)
+    Legacy => yaml_legacy_adv_sch_stt(sch_stt, cur_chr, rlt_sch)
+  }
 }
 
 ///|
@@ -425,6 +452,8 @@ priv struct YamlScanner {
   mut sch_stt : Int32
   /// `ResultSchema rlt_sch`, passed by address to `adv_sch_stt`.
   rlt_sch : Ref[YamlResultSchema]
+  /// The schema compiled in (`YAML_SCHEMA`).
+  schema : YamlSchema
 }
 
 ///|
@@ -1305,7 +1334,11 @@ fn YamlScanner::scn_blk_str_cnt(
 
 ///|
 fn YamlScanner::adv_sch_stt(self : YamlScanner) -> Unit {
-  self.sch_stt = yaml_adv_sch_stt(self.sch_stt, self.cur_chr, self.rlt_sch)
+  self.sch_stt = self.schema.adv_sch_stt(
+    self.sch_stt,
+    self.cur_chr,
+    self.rlt_sch,
+  )
 }
 
 ///|
@@ -1372,7 +1405,7 @@ fn YamlScanner::sgl_pln_sym(
     RsBool => bol
     RsInt => int
     RsFloat => flt
-    RsTimestamp if YAML_HAS_TIMESTAMP => tms
+    RsTimestamp if self.schema.has_timestamp() => tms
     _ => str
   }
 }
@@ -2110,7 +2143,24 @@ fn YamlScanner::scan(
 }
 
 ///|
+/// The YAML external scanner with the core schema (`scanner_for("yaml")`).
 fn yaml_scanner() -> @runtime.ExternalScanner {
+  yaml_scanner_create(Core)
+}
+
+///|
+/// The factory of the YAML external scanner built with `schema`, the
+/// equivalent of compiling tree-sitter-yaml's scanner.c with
+/// `-DYAML_SCHEMA=core|json|legacy`. `scanner_for("yaml")` uses `Core`, the
+/// upstream default.
+pub fn yaml_scanner_with_schema(
+  schema : YamlSchema,
+) -> @runtime.ExternalScannerFactory {
+  () => yaml_scanner_create(schema)
+}
+
+///|
+fn yaml_scanner_create(schema : YamlSchema) -> @runtime.ExternalScanner {
   // `ts_calloc`: every field starts at zero.
   let scanner : YamlScanner = {
     row: 0,
@@ -2127,6 +2177,7 @@ fn yaml_scanner() -> @runtime.ExternalScanner {
     cur_chr: 0,
     sch_stt: 0,
     rlt_sch: Ref(RsStr),
+    schema,
   }
   scanner.deserialize(b""[:])
   {
