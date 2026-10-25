@@ -103,6 +103,9 @@ run_case() {
     fail=$((fail + 1))
     echo "FAIL $name" >> "$WORK/report.txt"
     echo "FAIL $name"
+    for part in out.m err.m code; do
+      diff -u "$case_dir/up.$part" "$case_dir/mbt.$part" 2>&1 | head -30
+    done
   fi
 }
 
@@ -115,6 +118,7 @@ compare_trees() {
         pass=$((pass + 1)); echo "PASS $name:$f" >> "$WORK/report.txt"
       else
         fail=$((fail + 1)); echo "FAIL $name:$f" >> "$WORK/report.txt"; echo "FAIL $name:$f"
+        diff -u "$a/$f" "$b/$f" 2>&1 | head -40
       fi
     fi
   done
