@@ -68,6 +68,29 @@ test "generate a grammar, parse and query" {
 The runtime, query, generator, highlight and tags packages build for native,
 JavaScript and Wasm GC. The CLI, loader and config are native only.
 
+## Grammar modules
+
+[grammars/](grammars) holds one MoonBit module per grammar repository of
+[grammars/grammars.json](grammars/grammars.json), for example
+`moonbit-community/tree-sitter-json` in [grammars/json](grammars/json). Each
+mirrors the grammar's Rust binding (`LANGUAGE` is `language()`,
+`HIGHLIGHTS_QUERY` is `highlights_query`, and so on) and embeds tables that
+this port's generator builds from the pinned `src/grammar.json`, in the
+compact format of `@language.Language::from_compact_base64`:
+
+```text
+import {
+  "moonbit-community/treesitter",
+  "moonbit-community/tree-sitter-json" @tree_sitter_json,
+}
+```
+
+The repository root is a workspace ([moon.work](moon.work)) of the core module
+and the grammar modules, so `moon check` and `moon test` cover them all.
+`sh tools/grammars/update.sh` regenerates the modules from the pinned grammar
+checkouts, and `python3 tools/oracle/compare_modules.py` checks their tables
+against upstream's `parser.c`.
+
 ## Command line
 
 ```sh
