@@ -154,12 +154,25 @@ pub fn Parser::set_logger(self : Parser, logger : Logger?) -> Unit {
 ///|
 /// Set the destination to which the parser should write debugging graphs
 /// during parsing. The graphs are formatted in the DOT language; `writer`
-/// receives the output in pieces.
+/// receives the output in pieces, decoded as UTF-8 with invalid sequences
+/// replaced by U+FFFD (see [`DotGraphOutput`]; use
+/// [`Parser::print_dot_graphs_to`] for upstream's exact bytes).
 pub fn Parser::print_dot_graphs(
   self : Parser,
   writer : (String) -> Unit,
 ) -> Unit {
-  self.raw.print_dot_graphs(Some(writer))
+  self.raw.print_dot_graphs(Some(bytes => writer(@utf8.decode_lossy(bytes))))
+}
+
+///|
+/// Set the destination to which the parser should write debugging graphs
+/// during parsing, as [`Parser::print_dot_graphs`] does; a `Buffer` output
+/// receives exactly the bytes upstream writes.
+pub fn[W : DotGraphOutput] Parser::print_dot_graphs_to(
+  self : Parser,
+  output : W,
+) -> Unit {
+  self.raw.print_dot_graphs(Some(bytes => output.write_dot_graph(bytes)))
 }
 
 ///|
@@ -255,9 +268,10 @@ fn utf16_input(
     read: (byte, position) => {
       let point : Point = {
         row: from_u32(position.row),
-        column: from_u32(position.column) / 2,
+        // lib.rs divides the `u32` values, so halve before converting.
+        column: from_u32(position.column / 2),
       }
-      utf16_memory_bytes(callback(from_u32(byte) / 2, point))
+      utf16_memory_bytes(callback(from_u32(byte / 2), point))
     },
     encoding,
     decode: None,
@@ -373,6 +387,21 @@ pub fn Parser::parse_custom_encoding(
 /// document, you must call `reset` first.
 pub fn Parser::reset(self : Parser) -> Unit {
   self.raw.reset()
+}
+
+///|
+/// Release the parser, as dropping the Rust `Parser` does: stop printing dot
+/// graphs, remove the logger and delete the C parser, which destroys the
+/// external scanner of a parse that was cancelled and not reset.
+///
+/// MoonBit has no destructors, so this is explicit; without it, an
+/// outstanding scanner's `destroy` callback is never called. The parser is
+/// left without a language and can be given a new one.
+pub fn Parser::delete(self : Parser) -> Unit {
+  self.stop_printing_dot_graphs()
+  self.set_logger(None)
+  self.raw.delete()
+  self.language = None
 }
 
 ///|

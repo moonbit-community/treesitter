@@ -559,7 +559,7 @@ pub fn Language::symbol_name(self : Language, symbol : Int32) -> String? {
   } else if symbol == ts_builtin_sym_error_repeat {
     Some("_ERROR")
   } else if symbol < self.symbol_count_with_aliases() {
-    Some(self.symbol_names[symbol])
+    Some(c_string(self.symbol_names[symbol]))
   } else {
     None
   }
@@ -582,7 +582,7 @@ pub fn Language::symbol_for_name(
     if (!metadata.visible && !metadata.supertype) || metadata.named != is_named {
       continue
     }
-    if c_name_equals(@utf8.encode(self.symbol_names[i]), @utf8.encode(string)) {
+    if c_name_equals(@utf8.encode(self.symbol_names[i]), string_bytes) {
       return self.public_symbol_map[i]
     }
   }
@@ -618,7 +618,7 @@ pub fn Language::symbol_type(self : Language, symbol : Int32) -> SymbolType {
 pub fn Language::field_name_for_id(self : Language, id : Int32) -> String? {
   let count = self.field_count
   if count != 0 && id <= count && id > 0 {
-    Some(self.field_names[id])
+    Some(c_string(self.field_names[id]))
   } else {
     None
   }
@@ -630,14 +630,17 @@ pub fn Language::field_name_for_id(self : Language, id : Int32) -> String? {
 /// returning -1).
 pub fn Language::field_id_for_name(self : Language, name : StringView) -> Int32 {
   let count = self.field_count & 0xFFFF
+  let name = @utf8.encode(name)
+  let name_length = name.length()
   for i in 1..<(count + 1) {
-    let field_name = self.field_names[i]
+    let field_name = @utf8.encode(self.field_names[i])
     // Upstream: `switch (strncmp(name, field_names[i], name_length))` with
-    // `case 0` (exact match check) and `case -1: return 0`. The C library
-    // returns the difference of the first differing bytes, so only a
-    // difference of exactly -1 ends the search early.
-    match strncmp(name, field_name, @utf8.encode(name).length()) {
-      0 => if field_name[:] == name { return i }
+    // `case 0: if (field_names[i][name_length] == 0) return i;` and
+    // `case -1: return 0`. The C library returns the difference of the
+    // first differing bytes, so only a difference of exactly -1 ends the
+    // search early.
+    match strncmp(name, field_name, name_length) {
+      0 => if c_byte(field_name, name_length) == 0 { return i }
       -1 => return 0
       _ => ()
     }
@@ -646,11 +649,30 @@ pub fn Language::field_id_for_name(self : Language, name : StringView) -> Int32 
 }
 
 ///|
-/// C `strncmp` over UTF-8 bytes, returning the difference of the first
-/// differing bytes (as the macOS/glibc implementations do).
-fn strncmp(a : StringView, b : StringView, n : Int32) -> Int32 {
-  let a = @utf8.encode(a)
-  let b = @utf8.encode(b)
+/// The C string `s` of a name table (`const char *`): its text up to the
+/// first NUL.
+fn c_string(s : String) -> String {
+  match s.find("\u{0}") {
+    Some(end) => s.view(end_offset=end).to_owned()
+    None => s
+  }
+}
+
+///|
+/// Byte `i` of the NUL-terminated C string whose bytes are `s` (`s[i]` in
+/// C). Past the terminator, C reads unrelated memory; this reads `0`.
+fn c_byte(s : Bytes, i : Int32) -> Int32 {
+  if i < s.length() {
+    s[i].to_int()
+  } else {
+    0
+  }
+}
+
+///|
+/// C `strncmp` over the bytes of two C strings, returning the difference of
+/// the first differing bytes (as the macOS/glibc implementations do).
+fn strncmp(a : Bytes, b : Bytes, n : Int32) -> Int32 {
   for i in 0..<n {
     let ca = if i < a.length() { a[i].to_int() } else { 0 }
     let cb = if i < b.length() { b[i].to_int() } else { 0 }
@@ -700,18 +722,9 @@ pub fn ParseActionEntry::normalized(self : ParseActionEntry) -> ParseActionEntry
 
 ///|
 /// `!strncmp(name, string, length) && !name[length]` over bytes, where
-/// `length` is the length of `string`.
+/// `length` is the length of `string`: `strncmp` stops at a NUL, but
+/// `name[length]` must be the terminator either way.
 fn c_name_equals(name : Bytes, string : Bytes) -> Bool {
   let length = string.length()
-  for i in 0..<length {
-    let a = if i < name.length() { name[i] } else { b'\x00' }
-    let b = string[i]
-    if a != b {
-      return false
-    }
-    if a == 0 {
-      return true
-    }
-  }
-  name.length() <= length || name[length] == 0
+  strncmp(name, string, length) == 0 && c_byte(name, length) == 0
 }

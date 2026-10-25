@@ -348,6 +348,26 @@ pub fn Subtree::child_count(self : Subtree) -> Int32 {
 }
 
 ///|
+/// The `repeat_depth` of an external leaf whose scanner state is `state`.
+///
+/// Upstream stores the state in a union with the fields of non-terminals:
+/// `short_data[24]` (states of at most 24 bytes; longer ones are on the
+/// heap) overlaps `repeat_depth`, a `uint16_t` at offset 16, and
+/// `ts_subtree_repeat_depth` reads it for leaves too. `ts_subtree_new_leaf`
+/// zeroes the union and `ts_external_scanner_state_init` copies the state
+/// into it, so bytes 16 and 17 of a short state (little-endian, as on the
+/// supported hosts) become the leaf's repeat depth.
+fn external_scanner_state_repeat_depth(state : Bytes) -> UInt32 {
+  let length = state.length()
+  if length > 24 || length <= 16 {
+    return 0
+  }
+  let low = state[16].to_uint()
+  let high = if length > 17 { state[17].to_uint() } else { 0 }
+  low | (high << 8)
+}
+
+///|
 pub fn Subtree::repeat_depth(self : Subtree) -> UInt32 {
   match self {
     Heap(d) => d.repeat_depth

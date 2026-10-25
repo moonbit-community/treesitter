@@ -799,7 +799,8 @@ pub fn TreeCursor::current_field_id(self : TreeCursor) -> Int32 {
 pub fn TreeCursor::current_field_name(self : TreeCursor) -> String? {
   let id = self.current_field_id()
   if id != 0 {
-    Some(self.language().field_names[id])
+    // `field_names[id]` is a C string.
+    self.language().field_name_for_id(id)
   } else {
     None
   }

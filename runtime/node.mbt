@@ -1170,7 +1170,8 @@ fn Node::field_name_from_language(
   for m in field_map..<field_map_end {
     let map = language.field_map_entries[m]
     if !map.inherited && map.child_index == structural_child_index {
-      return Some(language.field_names[map.field_id])
+      // `field_names[id]` is a C string.
+      return language.field_name_for_id(map.field_id)
     }
   }
   None

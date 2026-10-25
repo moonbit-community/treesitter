@@ -160,7 +160,8 @@ pub fn Subtree::to_sexp(
         for i in start..<end {
           let map = language.field_map_entries[i]
           if !map.inherited && map.child_index == frame.structural_child_index {
-            child_field_name = Some(language.field_names[map.field_id])
+            // `field_names[id]` is a C string.
+            child_field_name = language.field_name_for_id(map.field_id)
             break
           }
         }
@@ -199,34 +200,37 @@ fn write_dot_node(
   start_offset : UInt32,
   language : @language.Language,
   alias_symbol : Int32,
-  f : StringBuilder,
+  f : Buffer,
 ) -> Unit {
   let subtree_symbol = tree.symbol()
   let symbol = if alias_symbol != 0 { alias_symbol } else { subtree_symbol }
   let end_offset = start_offset + tree.total_bytes()
-  f.write_string("tree_\{id} [label=\"")
+  f.write_string_utf8("tree_\{id} [label=\"")
   write_symbol_as_dot_string(language, f, symbol)
-  f.write_string("\"")
+  f.write_string_utf8("\"")
   if tree.child_count() == 0 {
-    f.write_string(", shape=plaintext")
+    f.write_string_utf8(", shape=plaintext")
   }
   if tree.extra() {
-    f.write_string(", fontcolor=gray")
+    f.write_string_utf8(", fontcolor=gray")
   }
   if tree.has_changes() {
-    f.write_string(", color=green, penwidth=2")
+    f.write_string_utf8(", color=green, penwidth=2")
   }
   let b = (x : Bool) => if x { 1 } else { 0 }
-  f.write_string(
+  f.write_string_utf8(
     ", tooltip=\"range: \{start_offset} - \{end_offset}\nstate: \{tree.parse_state()}\nerror-cost: \{tree.error_cost()}\nhas-changes: \{b(tree.has_changes())}\ndepends-on-column: \{b(tree.depends_on_column())}\ndescendant-count: \{tree.visible_descendant_count()}\nrepeat-depth: \{tree.repeat_depth()}\nlookahead-bytes: \{tree.lookahead_bytes()}",
   )
   if tree.is_error() &&
     tree.child_count() == 0 &&
     tree.ptr().lookahead_char != 0 {
+    // `%c` writes the low byte of the character.
     let chr = tree.ptr().lookahead_char
-    f.write_string("\ncharacter: '\{Int::unsafe_to_char(chr & 0xFF)}'")
+    f.write_string_utf8("\ncharacter: '")
+    f.write_byte((chr & 0xFF).to_byte())
+    f.write_string_utf8("'")
   }
-  f.write_string("\"]\n")
+  f.write_string_utf8("\"]\n")
 }
 
 ///|
@@ -246,10 +250,10 @@ priv struct DotGraphFrame {
 pub fn Subtree::print_dot_graph(
   self : Subtree,
   language : @language.Language,
-  f : StringBuilder,
+  f : Buffer,
 ) -> Unit {
-  f.write_string("digraph tree {\n")
-  f.write_string("edge [arrowhead=none]\n")
+  f.write_string_utf8("digraph tree {\n")
+  f.write_string_utf8("edge [arrowhead=none]\n")
   write_dot_node(self, "0", 0, language, 0, f)
   let mut next_id = 1
   let stack : Array[DotGraphFrame] = [
@@ -268,7 +272,7 @@ pub fn Subtree::print_dot_graph(
     let subtree = frame.subtree
     let i = frame.child_index
     if i > 0 {
-      f.write_string(
+      f.write_string_utf8(
         "tree_\{frame.id} -> tree_\{frame.last_child_id} [tooltip=\{i - 1}]\n",
       )
     }
@@ -308,5 +312,5 @@ pub fn Subtree::print_dot_graph(
     frame.child_index += 1
     stack.push(child_frame)
   }
-  f.write_string("}\n")
+  f.write_string_utf8("}\n")
 }

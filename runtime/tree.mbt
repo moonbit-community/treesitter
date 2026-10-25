@@ -126,7 +126,7 @@ fn Tree::included_ranges_ref(self : Tree) -> Array[Range] {
 
 ///|
 /// `ts_tree_print_dot_graph`.
-pub fn Tree::print_dot_graph(self : Tree, f : StringBuilder) -> Unit {
+pub fn Tree::print_dot_graph(self : Tree, f : Buffer) -> Unit {
   self.root().print_dot_graph(self.language, f)
 }
 
