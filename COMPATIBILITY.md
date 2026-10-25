@@ -67,6 +67,9 @@ packages' own tests.
   Parsers are not destroyed automatically either: call `Parser::delete`
   (the equivalent of dropping the Rust `Parser`) to run the external
   scanner's `destroy` for a parse that was cancelled and not reset.
+- An idle parser (after a completed parse, `reset`, `set_language(None)` or
+  `delete`) holds no references to the previous tree or input. A cancelled
+  parse keeps its parse stack, as upstream does, but not its input callback.
 - A query cursor drops its tree once its execution is exhausted. A cursor
   whose matches or captures are abandoned before exhaustion keeps the tree
   alive until its next `exec` (this includes the cursors `Highlighter` and
