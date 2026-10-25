@@ -564,16 +564,23 @@ fn LookaheadSetPool::union(
 /// For each in-progress match, a set of "lookaheads" (tokens that are allowed to
 /// *follow* the in-progress rule) are included. This object corresponds directly
 /// to a state in the final parse table.
+///
+/// The entries are kept in parallel arrays, sorted by item, without duplicate items.
 priv struct ParseItemSet {
-  entries : Array[ParseItemSetEntry]
+  items : Array[ParseItem]
+  /// Each entry's interned lookahead set.
+  lookaheads : Array[Int32]
+  /// Each entry's following reserved word set.
+  following_reserved_word_sets : Array[Int32]
 }
 
 ///|
+/// An entry of a `ParseItemSet`, read out of it.
+#valtype
 priv struct ParseItemSetEntry {
-  /// Only changes when an entry of a discarded set is reused.
-  mut item : ParseItem
-  mut lookaheads : Int32
-  mut following_reserved_word_set : Int32
+  item : ParseItem
+  lookaheads : Int32
+  following_reserved_word_set : Int32
 }
 
 ///|
@@ -585,7 +592,58 @@ priv struct ParseItemSetCore {
 
 ///|
 fn ParseItemSet::new() -> ParseItemSet {
-  { entries: [], }
+  { items: [], lookaheads: [], following_reserved_word_sets: [] }
+}
+
+///|
+/// A set with one entry.
+fn ParseItemSet::singleton(
+  item : ParseItem,
+  lookaheads : Int32,
+  following_reserved_word_set : Int32,
+) -> ParseItemSet {
+  {
+    items: [item],
+    lookaheads: [lookaheads],
+    following_reserved_word_sets: [following_reserved_word_set],
+  }
+}
+
+///|
+/// The number of entries.
+fn ParseItemSet::len(self : ParseItemSet) -> Int32 {
+  self.items.length()
+}
+
+///|
+/// The entry at `index`.
+fn ParseItemSet::entry(self : ParseItemSet, index : Int32) -> ParseItemSetEntry {
+  {
+    item: self.items[index],
+    lookaheads: self.lookaheads[index],
+    following_reserved_word_set: self.following_reserved_word_sets[index],
+  }
+}
+
+///|
+/// Adds an entry at the end. The caller keeps the entries sorted.
+fn ParseItemSet::push(
+  self : ParseItemSet,
+  item : ParseItem,
+  lookaheads : Int32,
+  following_reserved_word_set : Int32,
+) -> Unit {
+  self.items.push(item)
+  self.lookaheads.push(lookaheads)
+  self.following_reserved_word_sets.push(following_reserved_word_set)
+}
+
+///|
+/// Removes every entry, keeping the arrays' capacity.
+fn ParseItemSet::clear(self : ParseItemSet) -> Unit {
+  self.items.clear()
+  self.lookaheads.clear()
+  self.following_reserved_word_sets.clear()
 }
 
 ///|
@@ -727,20 +785,8 @@ fn ParseItem::substitute_production(
 }
 
 ///|
-fn ParseItemSet::insert(
-  self : ParseItemSet,
-  item : ParseItem,
-) -> ParseItemSetEntry {
-  self.insert_reusing(item, [])
-}
-
-///|
-/// `Self::insert`, taking a new entry from `spares` if it has one.
-fn ParseItemSet::insert_reusing(
-  self : ParseItemSet,
-  item : ParseItem,
-  spares : Array[ParseItemSetEntry],
-) -> ParseItemSetEntry {
+/// The index of `item`'s entry, which is added with no lookaheads if it's new.
+fn ParseItemSet::insert(self : ParseItemSet, item : ParseItem) -> Int32 {
   // `entries` is sorted with no duplicates, so an item that sorts after the last entry
   // belongs at the end, which is where the binary search would put it.
   //
@@ -749,36 +795,25 @@ fn ParseItemSet::insert_reusing(
   // Items are ordered by step index, then rule, then their content at the dot. Advancing
   // adds one to every step index and keeps every rule, so only items of the same rule at
   // the same step can change places.
-  let index = match self.entries.last() {
-    None => self.entries.length()
-    Some(last) if Compare::compare(last.item, item) < 0 => self.entries.length()
-    _ =>
-      match self.entries.binary_search_by(e => Compare::compare(e.item, item)) {
-        Ok(i) => return self.entries[i]
-        Err(i) => i
-      }
+  let len = self.items.length()
+  if len == 0 || Compare::compare(self.items[len - 1], item) < 0 {
+    self.push(item, lookahead_set_pool_empty, 0)
+    return len
   }
-  let entry = match spares.pop() {
-    Some(entry) => {
-      entry.item = item
-      entry.lookaheads = lookahead_set_pool_empty
-      entry.following_reserved_word_set = 0
-      entry
+  match self.items.binary_search_by(e => Compare::compare(e, item)) {
+    Ok(i) => i
+    Err(i) => {
+      self.items.insert(i, item)
+      self.lookaheads.insert(i, lookahead_set_pool_empty)
+      self.following_reserved_word_sets.insert(i, 0)
+      i
     }
-    None =>
-      {
-        item,
-        lookaheads: lookahead_set_pool_empty,
-        following_reserved_word_set: 0,
-      }
   }
-  self.entries.insert(index, entry)
-  entry
 }
 
 ///|
 fn ParseItemSet::core(self : ParseItemSet) -> ParseItemSetCore {
-  { entries: self.entries.map(e => e.item), }
+  { entries: self.items.copy(), }
 }
 
 ///|
@@ -951,7 +986,8 @@ fn ParseItemSet::display(
   lookaheads : LookaheadSetPool,
 ) -> String {
   let f = StringBuilder()
-  for entry in self.entries {
+  for i in 0..<self.len() {
+    let entry = self.entry(i)
     f.write_string(
       entry.item.display(syntax_grammar, lexical_grammar, str_pool),
     )
@@ -1054,19 +1090,16 @@ impl Compare for ParseItem with fn compare(self, other) {
 }
 
 ///|
-impl Eq for ParseItemSetEntry with fn equal(self, other) {
-  self.item == other.item &&
-  self.lookaheads == other.lookaheads &&
-  self.following_reserved_word_set == other.following_reserved_word_set
-}
-
-///|
 impl Eq for ParseItemSet with fn equal(self, other) {
-  if self.entries.length() != other.entries.length() {
+  let len = self.items.length()
+  if len != other.items.length() {
     return false
   }
-  for i, entry in self.entries {
-    if entry != other.entries[i] {
+  for i in 0..<len {
+    if self.lookaheads[i] != other.lookaheads[i] ||
+      self.following_reserved_word_sets[i] !=
+      other.following_reserved_word_sets[i] ||
+      self.items[i] != other.items[i] {
       return false
     }
   }
@@ -1075,22 +1108,22 @@ impl Eq for ParseItemSet with fn equal(self, other) {
 
 ///|
 impl Hash for ParseItemSet with fn hash_combine(self, hasher) {
-  hasher.combine_int(self.entries.length())
-  for entry in self.entries {
-    hasher.combine(entry.item)
-    hasher.combine_int(entry.lookaheads)
-    hasher.combine_int(entry.following_reserved_word_set)
+  hasher.combine_int(self.items.length())
+  for i in 0..<self.items.length() {
+    hasher.combine(self.items[i])
+    hasher.combine_int(self.lookaheads[i])
+    hasher.combine_int(self.following_reserved_word_sets[i])
   }
 }
 
 ///|
 impl Hash for ParseItemSet with fn hash(self) {
-  let mut acc = hash_mix(HASH_SEED, self.entries.length())
-  for entry in self.entries {
-    acc = entry.item.hash_acc(acc)
+  let mut acc = hash_mix(HASH_SEED, self.items.length())
+  for i in 0..<self.items.length() {
+    acc = self.items[i].hash_acc(acc)
     acc = hash_mix(
-      hash_mix(acc, entry.lookaheads),
-      entry.following_reserved_word_set,
+      hash_mix(acc, self.lookaheads[i]),
+      self.following_reserved_word_sets[i],
     )
   }
   hash_finish(acc)

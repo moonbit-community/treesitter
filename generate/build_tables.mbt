@@ -495,9 +495,9 @@ fn report_state_info(
   for i, state in parse_table.states {
     all_state_indices.push(i)
     let item_set = parse_state_info.item_set(state.id)
-    for entry in item_set.entries {
-      if !entry.item.is_augmented() {
-        let indices = symbols_with_state_indices[entry.item.variable_index].1
+    for item in item_set.items {
+      if !item.is_augmented() {
+        let indices = symbols_with_state_indices[item.variable_index].1
         if indices.last() != Some(i) {
           indices.push(i)
         }

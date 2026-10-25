@@ -242,8 +242,6 @@ priv struct SuccessorSets {
   symbols : Array[Int32]
   /// Empty item sets to build successors in, so that most successors don't allocate.
   pool : Array[ParseItemSet]
-  /// Entries of discarded successor sets, to reuse.
-  spare_entries : Array[ParseItemSetEntry]
 }
 
 ///|
@@ -254,7 +252,6 @@ fn SuccessorSets::new(indexer : SymbolIndexer) -> SuccessorSets {
     occupied: FixedArray::make((indexer.symbol_count() + 63) / 64, 0),
     symbols: [],
     pool: [],
-    spare_entries: [],
   }
 }
 
@@ -307,13 +304,10 @@ fn SuccessorSets::take(self : SuccessorSets, index : Int32) -> ParseItemSet {
 }
 
 ///|
-/// Takes back a set from `Self::take_all` that no state kept, to build later
+/// Takes back a set from `Self::take` that no state kept, to build later
 /// successors in.
 fn SuccessorSets::recycle(self : SuccessorSets, set : ParseItemSet) -> Unit {
-  for entry in set.entries {
-    self.spare_entries.push(entry)
-  }
-  set.entries.clear()
+  set.clear()
   self.pool.push(set)
 }
 
@@ -739,15 +733,15 @@ fn ParseTableBuilder::build(
   // Add the starting state at index 1.
   let end_lookaheads = self.item_set_builder.lookaheads.singleton(symbol_end)
   ignore(
-    self.add_parse_state([], None, {
-      entries: [
-        {
-          item: ParseItem::start(self.item_set_builder.key_map),
-          lookaheads: end_lookaheads,
-          following_reserved_word_set: 0,
-        },
-      ],
-    }),
+    self.add_parse_state(
+      [],
+      None,
+      ParseItemSet::singleton(
+        ParseItem::start(self.item_set_builder.key_map),
+        end_lookaheads,
+        0,
+      ),
+    ),
   )
 
   // Compute the possible item sets for non-terminal extras.
@@ -760,19 +754,21 @@ fn ParseTableBuilder::build(
     let (start, end) = self.syntax_grammar.variable_prod_ids(extra_index)
     for prod_id in start..<end {
       let production = self.syntax_grammar.production(prod_id)
-      let entry = non_terminal_extra_item_sets_by_first_terminal
-        .get_or_init(production.first_symbol().unwrap(), ParseItemSet::new)
-        .insert(
-          ParseItem::new(
-            variable_index=extra_index,
-            prod_id~,
-            step_index=1,
-            keys=self.item_set_builder.key_map.keys_for(prod_id),
-            has_preceding_inherited_fields=false,
-          ),
-        )
-      entry.lookaheads = self.item_set_builder.lookaheads.insert(
-        entry.lookaheads,
+      let item_set = non_terminal_extra_item_sets_by_first_terminal.get_or_init(
+        production.first_symbol().unwrap(),
+        ParseItemSet::new,
+      )
+      let entry = item_set.insert(
+        ParseItem::new(
+          variable_index=extra_index,
+          prod_id~,
+          step_index=1,
+          keys=self.item_set_builder.key_map.keys_for(prod_id),
+          has_preceding_inherited_fields=false,
+        ),
+      )
+      item_set.lookaheads[entry] = self.item_set_builder.lookaheads.insert(
+        item_set.lookaheads[entry],
         symbol_end_of_nonterminal_extra,
       )
     }
@@ -1009,8 +1005,10 @@ fn ParseTableBuilder::add_actions(
 
   // Each item in the item set contributes to either or a Shift action or a Reduce
   // action in this state.
-  for entry in item_set.entries {
-    let { item, lookaheads, following_reserved_word_set: reserved_lookaheads, } = entry
+  for i in 0..<item_set.len() {
+    let { item, lookaheads, following_reserved_word_set: reserved_lookaheads, } = item_set.entry(
+      i,
+    )
     // If the item is unfinished, then this state has a transition for the item's
     // next symbol. Advance the item to its next step and insert the resulting
     // item into the successor item set.
@@ -1042,16 +1040,14 @@ fn ParseTableBuilder::add_actions(
         }
       }
       let successor_set = self.successor_sets.item_set(next_symbol)
-      let successor_entry = successor_set.insert_reusing(
-        successor,
-        self.successor_sets.spare_entries,
-      )
-      successor_entry.lookaheads = self.item_set_builder.lookaheads.union(
-        successor_entry.lookaheads,
+      let successor_entry = successor_set.insert(successor)
+      successor_set.lookaheads[successor_entry] = self.item_set_builder.lookaheads.union(
+        successor_set.lookaheads[successor_entry],
         lookaheads,
       )
-      if reserved_lookaheads > successor_entry.following_reserved_word_set {
-        successor_entry.following_reserved_word_set = reserved_lookaheads
+      if reserved_lookaheads >
+        successor_set.following_reserved_word_sets[successor_entry] {
+        successor_set.following_reserved_word_sets[successor_entry] = reserved_lookaheads
       }
     } else {
       // If the item is finished, then add a Reduce action to this state based
@@ -1178,9 +1174,13 @@ fn ParseTableBuilder::add_actions(
   if !lookaheads_with_conflicts.is_empty() {
     // Only fnished items and items past their first step can take part in a
     // conflict. Most of a closure is neither, so find those items once per state.
-    let candidates = item_set.entries.filter(entry => {
-      entry.item.step_index > 0 || entry.item.is_done()
-    })
+    let candidates : Array[ParseItemSetEntry] = []
+    for i in 0..<item_set.len() {
+      let item = item_set.items[i]
+      if item.step_index > 0 || item.is_done() {
+        candidates.push(item_set.entry(i))
+      }
+    }
     let symbols = lookaheads_with_conflicts.iter()
     for symbol in symbols {
       self.handle_conflict(
@@ -1205,8 +1205,7 @@ fn ParseTableBuilder::add_actions(
   if is_end_of_non_terminal_extra {
     if self.terminal_entries.length() > 1 {
       let parent_symbol_ids : Array[Int32] = []
-      for entry in item_set.entries {
-        let item = entry.item
+      for item in item_set.items {
         if !item.is_augmented() && item.step_index > 0 {
           parent_symbol_ids.push(item.variable_index)
         }
@@ -1250,7 +1249,8 @@ fn ParseTableBuilder::add_actions(
   }
   if self.syntax_grammar.word_token is Some(keyword_capture_token) {
     let mut reserved_word_set_id : Int32? = None
-    for entry in item_set.entries {
+    for i in 0..<item_set.len() {
+      let entry = item_set.entry(i)
       let id = match entry.item.step(self.syntax_grammar) {
         Some(next_step) =>
           if next_step.symbol == keyword_capture_token {
