@@ -405,7 +405,6 @@ async fn parse_run(
     m.get_one("paths_file"),
     m.get_many("paths"),
     test_number(m),
-    current_dir,
   )
   let scope = m.get_one("scope")
   match input {
@@ -844,7 +843,6 @@ async fn query_run(
     m.get_one("paths_file"),
     m.get_many("paths"),
     test_number(m),
-    current_dir,
   )
   let opts = (stdin : Bool) => QueryFileOptions::{
     ordered_captures: m.get_flag("captures"),
@@ -989,7 +987,6 @@ async fn highlight_run(
     m.get_one("paths_file"),
     m.get_many("paths"),
     test_number(m),
-    current_dir,
   )
   match input {
     Paths(paths) => {
@@ -1081,7 +1078,6 @@ async fn tags_run(
     m.get_one("paths_file"),
     m.get_many("paths"),
     test_number(m),
-    current_dir,
   )
   match input {
     Paths(paths) => {
@@ -1248,10 +1244,6 @@ pub async fn run(
   current_dir? : String,
   invalid_utf8~ : Array[Bool] = [],
 ) -> Int32 {
-  let process_dir = match current_dir {
-    Some(d) => d
-    None => @env.current_dir().unwrap_or(".")
-  }
   let cli = make_cli()
   let matches = cli.try_get_matches_from(args, invalid_utf8~) catch {
     @clap.ClapError(_) as e => {
@@ -1267,7 +1259,7 @@ pub async fn run(
     }
   }
   guard matches.subcommand() is Some((command, m)) else { return 2 }
-  let current_dir = match command {
+  let command_dir = match command {
     "init"
     | "parse"
     | "test"
@@ -1279,12 +1271,12 @@ pub async fn run(
     | "playground" =>
       match m.get_one("grammar_path") {
         Some(p) => p
-        None => process_dir
+        None => process_dir(current_dir)
       }
-    _ => process_dir
+    _ => process_dir(current_dir)
   }
   let result = Ok(
-    run_command(command, m, current_dir, args, scanners.unwrap_or(_ => None)),
+    run_command(command, m, command_dir, args, scanners.unwrap_or(_ => None)),
   ) catch {
     e => Err(e)
   }
@@ -1303,7 +1295,7 @@ pub async fn run(
         )
         1
       } else {
-        @loader.run_with_scanners(required, args, process_dir) catch {
+        @loader.run_with_scanners(required, args, process_dir(current_dir)) catch {
           e => {
             @support.log_error(
               with_context(e, "Failed to load the MoonBit external scanners").debug(),
@@ -1367,6 +1359,16 @@ async fn run_command(
     _ => ()
   }
   0
+}
+
+///|
+/// The directory commands run in without `--grammar-path`:
+/// `env::current_dir().unwrap()` (or `dir` when given).
+fn process_dir(dir : String?) -> String {
+  match dir {
+    Some(dir) => dir
+    None => @support.current_dir_or_panic("crates/cli/src/main.rs:2108:40")
+  }
 }
 
 ///|

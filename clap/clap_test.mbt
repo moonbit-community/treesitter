@@ -114,12 +114,11 @@ test "arguments that are not valid UTF-8" {
     try {
       let m = demo().try_get_matches_from(args, invalid_utf8~)
       match m.subcommand() {
-        Some((_, sub)) => "files=\{to_repr(sub.get_many("files"))}"
+        Some((_, sub)) => "files=\{Repr(sub.get_many("files"))}"
         None => "none"
       }
     } catch {
       @clap.ClapError(_) as e => "exit \{e.exit_code()}:\n\{e.message()}"
-      e => "\{e}"
     }
   }
   // `String` values must be `str`s.

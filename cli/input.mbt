@@ -12,7 +12,6 @@ pub async fn get_input(
   paths_file : String?,
   paths : Array[String]?,
   test_number : UInt32?,
-  current_dir : String,
 ) -> CliInput {
   if paths_file is Some(paths_file) {
     let text = @support.read_to_string(paths_file) catch {
@@ -21,6 +20,9 @@ pub async fn get_input(
     return Paths(rust_lines(text.trim().to_owned()))
   }
   if test_number is Some(test_number) {
+    let current_dir = @support.current_dir_or_panic(
+      "crates/cli/src/input.rs:45:51",
+    )
     let test_dir = @support.path_join(current_dir, "test/corpus")
     if !@fs.exists(test_dir) {
       raise anyhow(

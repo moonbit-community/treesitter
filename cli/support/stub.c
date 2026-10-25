@@ -355,6 +355,40 @@ int32_t ts_cli_read_error(void) {
   return ts_cli_read_errno;
 }
 
+// `std::env::current_dir`: `getcwd` with a growing buffer. On failure the
+// result is empty and `ts_cli_read_error` returns the `errno`.
+MOONBIT_FFI_EXPORT
+moonbit_bytes_t ts_cli_getcwd(void) {
+  ts_cli_read_errno = 0;
+#ifndef _WIN32
+  size_t cap = 512;
+  for (;;) {
+    char *buf = (char *)malloc(cap);
+    if (buf == NULL) {
+      ts_cli_read_errno = ENOMEM;
+      break;
+    }
+    if (getcwd(buf, cap) != NULL) {
+      size_t len = strlen(buf);
+      moonbit_bytes_t result = moonbit_make_bytes((int32_t)len, 0);
+      memcpy(result, buf, len);
+      free(buf);
+      return result;
+    }
+    int err = errno;
+    free(buf);
+    if (err != ERANGE) {
+      ts_cli_read_errno = err;
+      break;
+    }
+    cap *= 2;
+  }
+#else
+  ts_cli_read_errno = ENOSYS;
+#endif
+  return moonbit_make_bytes(0, 0);
+}
+
 // Write all bytes to a (possibly non-blocking) file descriptor, waiting
 // until it is writable. Errors are ignored, as tree-sitter ignores errors of
 // the stream its dot graphs are written to.

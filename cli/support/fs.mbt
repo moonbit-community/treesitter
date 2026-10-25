@@ -47,3 +47,29 @@ pub fn read_to_string(path : String) -> String raise {
 fn c_string(s : String) -> Bytes {
   @utf8.encode(s + "\u{0}")
 }
+
+///|
+extern "C" fn ts_cli_getcwd() -> Bytes = "ts_cli_getcwd"
+
+///|
+/// `std::env::current_dir()` (fails when the current directory was removed,
+/// for example).
+pub fn current_dir() -> String raise {
+  let dir = ts_cli_getcwd()
+  if dir.length() == 0 {
+    raise @os_error.OSError(ts_cli_read_error(), context="getcwd")
+  }
+  utf8_lossy(dir)
+}
+
+///|
+/// `std::env::current_dir().unwrap()` at `location`.
+pub fn current_dir_or_panic(location : String) -> String {
+  current_dir() catch {
+    e =>
+      rust_panic(
+        "called `Result::unwrap()` on an `Err` value: \{io_error_debug(e)}",
+        location,
+      )
+  }
+}

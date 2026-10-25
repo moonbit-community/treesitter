@@ -40,7 +40,7 @@ pub async fn webbrowser_open(url : String) -> Unit {
 ///|
 /// `TargetType::try_from`: a URL is used as it is, anything else is a file
 /// path converted to a `file://` URL.
-fn target_type_try_from(value : String) -> String {
+fn target_type_try_from(value : String) -> String raise {
   if has_url_scheme(value) {
     value
   } else {
@@ -66,11 +66,11 @@ fn has_url_scheme(value : String) -> Bool {
 ///|
 /// `TargetType::from_file_path`: `url::Url::from_file_path` of the path
 /// made absolute with the current directory.
-fn target_type_from_file_path(value : String) -> String {
+fn target_type_from_file_path(value : String) -> String raise {
   let path = if is_absolute(value) {
     value
   } else {
-    let current_dir = @env.current_dir().unwrap_or("/")
+    let current_dir = current_dir()
     path_join(current_dir, value)
   }
   let url = StringBuilder()
