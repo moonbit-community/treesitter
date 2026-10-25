@@ -10,6 +10,7 @@ import {
   "moonbit-community/treesitter/scanners",
   "moonbit-community/treesitter/tags",
   "moonbit-community/treesitter/mbtx",
+  "moonbitlang/async",
   "moonbitlang/async/fs",
   "moonbitlang/async/process",
   "moonbitlang/async/stdio",

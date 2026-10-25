@@ -114,7 +114,7 @@ impl Show for ErrorKind with fn output(self, formatter) {
 ///|
 /// `Error::new`.
 fn semver_error(kind : ErrorKind) -> SemverError {
-  SemverError(kind.to_string())
+  SemverError("\{kind}")
 }
 
 ///|

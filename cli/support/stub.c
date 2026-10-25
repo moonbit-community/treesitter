@@ -62,3 +62,20 @@ MOONBIT_FFI_EXPORT
 int32_t ts_cli_isatty(int32_t fd) {
   return isatty(fd) ? 1 : 0;
 }
+
+// ---- Loader cache publication (cli/support/fs_lock.mbt) ----
+// `std::process::id()`, used to name the loader's temporary output files.
+
+#ifdef _WIN32
+#include <process.h>
+#endif
+
+MOONBIT_FFI_EXPORT
+int32_t ts_cli_process_id(void) {
+#ifdef _WIN32
+  return (int32_t)_getpid();
+#else
+  return (int32_t)getpid();
+#endif
+}
+// ---- end of loader cache publication block ----

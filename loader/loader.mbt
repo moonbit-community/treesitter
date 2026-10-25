@@ -33,6 +33,7 @@ pub let default_tags_query_file_name : String = "tags.scm"
 /// `LoaderError`. `IO` and `Serialization` carry their display text.
 pub(all) suberror LoaderError {
   IO(String)
+  LockFileTimeout(String)
   CurrentDirectoryLoad(LoaderError)
   ExternalFile(String, String)
   FileNameLoad(String, LoaderError)
@@ -61,6 +62,10 @@ pub impl Show for LoaderError with fn output(self, logger) {
   match self {
     IO(message) | Serialization(message) | Scanner(message) | Script(message) =>
       logger.write_string(message)
+    LockFileTimeout(path) =>
+      logger.write_string(
+        "Lock file '\{path}' appears stale\nIf there isn't another concurrent tree-sitter instance, remove it",
+      )
     CurrentDirectoryLoad(e) =>
       logger.write_string("Failed to load language in current directory:\n\{e}")
     ExternalFile(a, b) =>
@@ -207,14 +212,37 @@ fn warn(message : String) -> Unit {
 
 ///|
 /// `Loader::new`: `$TREE_SITTER_LIBDIR`, else `<cache dir>/tree-sitter/lib`.
-pub fn Loader::new() -> Loader raise LoaderError {
+/// Without `TREE_SITTER_LIBDIR`, macOS removes the libraries that older
+/// versions cached in `~/Library/Caches/tree-sitter`.
+pub async fn Loader::new() -> Loader {
   let parser_lib_path = match @env.get_env_var("TREE_SITTER_LIBDIR") {
     Some(path) => path
-    None =>
+    None => {
+      if @support.current_os == "macos" {
+        // `etcetera::base_strategy::Apple::new()?.cache_dir()`
+        // (`$HOME/Library/Caches/`)
+        let legacy_apple_path = match @support.home_dir() {
+          Some(home) =>
+            @support.path_join(
+              @support.path_join(home, "Library/Caches/"),
+              "tree-sitter",
+            )
+          None => raise HomeDir
+        }
+        if @fs.exists(legacy_apple_path) && @support.is_dir(legacy_apple_path) {
+          @support.remove_dir_all(legacy_apple_path) catch {
+            e =>
+              raise IO(
+                @support.io_error_with_path(e, Some(legacy_apple_path)),
+              )
+          }
+        }
+      }
       match @support.cache_dir() {
         Some(dir) => @support.path_join(dir, "tree-sitter/lib")
         None => raise HomeDir
       }
+    }
   }
   Loader::with_parser_lib_path(parser_lib_path)
 }
@@ -297,13 +325,14 @@ pub async fn Loader::languages_at_path(
     _ => return []
   }
   let language_ids = configurations.map(c => (c.language_id, c.language_name))
-  // `sort_unstable` + `dedup` on (id, name) pairs.
+  // `sort_unstable` + `dedup` on (id, name) pairs: elements that compare
+  // equal are identical, so the unstable sort is deterministic.
   language_ids.sort_by((a, b) => {
     let c = a.0.compare(b.0)
     if c != 0 {
       c
     } else {
-      a.1.compare(b.1)
+      rust_str_cmp(a.1, b.1)
     }
   })
   let deduped : Array[(Int32, String)] = []
@@ -318,6 +347,25 @@ pub async fn Loader::languages_at_path(
     result.push((self.language_for_id(entry.0), entry.1))
   }
   result
+}
+
+///|
+/// Rust's `str::cmp`: lexicographic by UTF-8 bytes, which is the order of
+/// code points (MoonBit's `String::compare` orders by length first).
+fn rust_str_cmp(a : String, b : String) -> Int32 {
+  let a = a.iter()
+  let b = b.iter()
+  for ;; {
+    match (a.next(), b.next()) {
+      (Some(x), Some(y)) =>
+        if x != y {
+          return x.to_int().compare(y.to_int())
+        }
+      (Some(_), None) => return 1
+      (None, Some(_)) => return -1
+      (None, None) => return 0
+    }
+  }
 }
 
 ///|
@@ -553,6 +601,7 @@ async fn needs_recompile(
 fn to_loader_error(e : Error) -> LoaderError {
   match e {
     IO(m) => IO(m)
+    LockFileTimeout(p) => LockFileTimeout(p)
     CurrentDirectoryLoad(l) => CurrentDirectoryLoad(l)
     ExternalFile(a, b) => ExternalFile(a, b)
     FileNameLoad(a, l) => FileNameLoad(a, l)
@@ -620,9 +669,54 @@ async fn Loader::load_language_tables(
     self.parser_lib_path,
     lib_name + ".language.json",
   )
-  if !self.force_rebuild && !needs_recompile(output_path, paths_to_check) {
-    return read_language_json(output_path)
+  let recompile = self.force_rebuild ||
+    needs_recompile(output_path, paths_to_check)
+  // Create a unique lock path based on the output path hash to prevent
+  // interference when multiple processes build the same grammar (by name)
+  // to different output locations
+  let lock_hash = path_hash_hex(output_path)
+  let lock_path = match @support.cache_dir() {
+    Some(dir) => @support.path_join(dir, "tree-sitter/lock/\{name}-\{lock_hash}.lock")
+    None => raise HomeDir
   }
+  // Synchronize generation across processes using an atomic lock file.
+  // Exactly one caller wins the race to generate. Losers wait for the lock
+  // file to be removed, then skip generation and proceed to loading.
+  //
+  // Loading only (`recompile == false`) doesn't need a lock because
+  // `generate_language_tables` writes to a temp file and atomically renames
+  // it into place, so loaders always see a complete language file (either
+  // the new or previous copy).
+  //
+  // `LockFile::drop` runs on every exit of the winner, and stale locks from
+  // killed processes are detected via a timeout in `wait_for_removal`.
+  if recompile {
+    let parent_path = @support.parent(lock_path).unwrap()
+    @support.create_dir_all(parent_path) catch {
+      e => raise IO(@support.io_error_with_path(e, Some(parent_path)))
+    }
+    match LockFile::create(lock_path) {
+      Some(lock) => {
+        // We won the race, so generate with the lock.
+        defer lock.drop()
+        return generate_language_tables(src_path, output_path)
+      }
+      // Another process is generating (or a previous run crashed and left a
+      // stale lock). Wait for it to finish.
+      None => LockFile::wait_for_removal(lock_path, 30000)
+    }
+  }
+  read_language_json(output_path)
+}
+
+///|
+/// The port of `compile_parser_to_dylib`: generate the language tables from
+/// `src/grammar.json` and publish them at `output_path`.
+async fn generate_language_tables(
+  src_path : String,
+  output_path : String,
+) -> @language.Language {
+  let grammar_path = @support.path_join(src_path, "grammar.json")
   let grammar_json = @fs.read_file(grammar_path).text() catch {
     e => raise IO(@support.io_error_with_path(e, Some(grammar_path)))
   }
@@ -635,18 +729,28 @@ async fn Loader::load_language_tables(
     e => raise Generate(grammar_path, e.to_string())
   }
   let language = generated.language
-  // Write through a temporary file so that concurrent loaders never see a
-  // partial file.
-  let temp = output_path + ".tmp"
+  // Write to a temporary path, then atomically rename into place. This
+  // ensures loaders never see a half-written language file.
+  let temp_output = temp_path(output_path)
   @fs.write_file(
-    temp,
+    temp_output,
     language.to_json().stringify(),
     create_mode=CreateOrTruncate,
   ) catch {
-    e => raise IO(@support.io_error_with_path(e, Some(temp)))
+    e => {
+      @fs.remove(temp_output) catch {
+        _ => ()
+      }
+      raise IO(@support.io_error_with_path(e, Some(temp_output)))
+    }
   }
-  @fs.rename(temp, output_path) catch {
-    e => raise IO(@support.io_error_with_path(e, Some(output_path)))
+  @fs.rename(temp_output, output_path) catch {
+    e => {
+      @fs.remove(temp_output) catch {
+        _ => ()
+      }
+      raise IO(@support.io_error_with_path(e, Some(output_path)))
+    }
   }
   language
 }
