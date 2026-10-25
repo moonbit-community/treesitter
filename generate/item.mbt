@@ -41,9 +41,10 @@ fn start_production() -> ProdRef {
 /// for items without preceding inherited fields. `eq_with_syms` subdivides `cmp`
 /// by the completed steps' symbols, which participate in equality only when
 /// `has_preceding_inherited_fields` is set.
+#valtype
 priv struct DotKeys {
-  mut cmp : Int32
-  mut eq_with_syms : Int32
+  cmp : Int32
+  eq_with_syms : Int32
   /// Where the production's steps start in the grammar's `steps` (or in
   /// `start_steps`, for the augmented start production). (Not a key: cached here
   /// so that items can find their steps.)
@@ -83,17 +84,12 @@ fn ItemKeyMap::new(grammar : SyntaxGrammar, str_pool : StrPool) -> ItemKeyMap {
   // Upstream sorts with `sort_unstable_by`. Pairs with equal content tie, and
   // their order decides how `eq_with_syms` numbers their symbol classes below.
   rust_sort_unstable_by(contents, (a, b) => content(a).cmp(content(b)) < 0)
-  let slot_keys : Array[FixedArray[DotKeys]] = Array::makei(slot_count, pi => {
-    let steps_start = if pi == 0 {
-      0
-    } else {
-      grammar.productions[pi - 1].steps_start
-    }
-    FixedArray::makei(prod(pi).steps.length() + 1, _ => {
-      cmp: 0,
-      eq_with_syms: 0,
-      steps_start,
-    })
+  // Each `(slot, dot)`'s `cmp` and `eq_with_syms`, by slot and dot.
+  let cmps : Array[FixedArray[Int32]] = Array::makei(slot_count, pi => {
+    FixedArray::make(prod(pi).steps.length() + 1, 0)
+  })
+  let eqs : Array[FixedArray[Int32]] = Array::makei(slot_count, pi => {
+    FixedArray::make(prod(pi).steps.length() + 1, 0)
   })
   // Dense ids in sorted order: equal content shares an id, distinct content gets the next up
   let mut cmp_id = 0
@@ -102,7 +98,7 @@ fn ItemKeyMap::new(grammar : SyntaxGrammar, str_pool : StrPool) -> ItemKeyMap {
     if prev is Some(p) && content(p).cmp(content(pair)) != 0 {
       cmp_id += 1
     }
-    slot_keys[pair.0][pair.1].cmp = cmp_id
+    cmps[pair.0][pair.1] = cmp_id
     prev = Some(pair)
   }
 
@@ -116,8 +112,8 @@ fn ItemKeyMap::new(grammar : SyntaxGrammar, str_pool : StrPool) -> ItemKeyMap {
   for pair in contents {
     let (pi, dot) = pair
     let steps = prod(pi).steps
-    let keys = slot_keys[pi][dot]
-    let mut acc = hash_mix(hash_mix(HASH_SEED, keys.cmp), dot)
+    let cmp = cmps[pi][dot]
+    let mut acc = hash_mix(hash_mix(HASH_SEED, cmp), dot)
     for i in 0..<dot {
       acc = hash_mix(acc, steps[i].symbol.code())
     }
@@ -128,7 +124,7 @@ fn ItemKeyMap::new(grammar : SyntaxGrammar, str_pool : StrPool) -> ItemKeyMap {
       let id = sym_classes.ids[slot]
       if sym_classes.hashes[slot] == hash &&
         class_dots[id] == dot &&
-        slot_keys[class_slots[id]][dot].cmp == keys.cmp &&
+        cmps[class_slots[id]][dot] == cmp &&
         same_symbols(prod(class_slots[id]).steps, steps, dot) {
         class_id = id
         break
@@ -141,8 +137,20 @@ fn ItemKeyMap::new(grammar : SyntaxGrammar, str_pool : StrPool) -> ItemKeyMap {
       class_dots.push(dot)
       sym_classes.insert_new(hash, class_id)
     }
-    keys.eq_with_syms = class_id
+    eqs[pi][dot] = class_id
   }
+  let slot_keys : Array[FixedArray[DotKeys]] = Array::makei(slot_count, pi => {
+    let steps_start = if pi == 0 {
+      0
+    } else {
+      grammar.productions[pi - 1].steps_start
+    }
+    FixedArray::makei(cmps[pi].length(), dot => {
+      cmp: cmps[pi][dot],
+      eq_with_syms: eqs[pi][dot],
+      steps_start,
+    })
+  })
   let start = slot_keys.remove(0)
   { keys: slot_keys, start, }
 }

@@ -1,6 +1,7 @@
 // Port of tree-sitter crates/generate/src/build_tables/item_set_builder.rs.
 
 ///|
+#valtype
 priv struct TransitiveClosureAddition {
   item : ParseItem
   info : AdditionInfo
@@ -10,6 +11,7 @@ priv struct TransitiveClosureAddition {
 
 ///|
 /// `FollowSetInfo` with an interned lookahead set and word-token membership precomputed.
+#valtype
 priv struct AdditionInfo {
   lookaheads : Int32
   reserved_lookaheads : Int32
