@@ -330,7 +330,11 @@ fn TestSummary::fmt_parse_results(
       if expected == "NO ERROR" {
         f.write_string("\n  \{i + 1}. \{name}:\n\n")
         f.write_string("  Expected an ERROR node, but got:\n")
-        let actual = if is_cst { actual } else { @treesitter.format_sexp(actual, 2) }
+        let actual = if is_cst {
+          actual
+        } else {
+          @treesitter.format_sexp(actual, 2)
+        }
         f.write_string("  \{paint(Some(red), actual)}\n")
       } else {
         f.write_string("\n  \{i + 1}. \{name}:\n")
@@ -498,11 +502,7 @@ pub async fn run_tests_at_path(
   }
   // `Drop for LogSession` at the end of the function, also when an error
   // is returned.
-  defer {
-    if log_session is Some(session) {
-      session.close()
-    }
-  }
+  defer (if log_session is Some(session) { session.close() })
   if opts.debug {
     parser.set_logger(
       Some((log_type, message) => {
@@ -632,7 +632,10 @@ fn language_named(opts : TestOptions, name : String) -> @treesitter.Language? {
 
 ///|
 /// `adjusted_parse_rate`.
-fn adjusted_parse_rate(tree : @treesitter.Tree, parse_time_ns : Int64) -> Double {
+fn adjusted_parse_rate(
+  tree : @treesitter.Tree,
+  parse_time_ns : Int64,
+) -> Double {
   let (start, end) = tree.root_node().byte_range()
   @math.ln((end - start).to_double() / (parse_time_ns.to_double() / 1000000.0))
 }
@@ -795,7 +798,10 @@ async fn run_tests(
               let (expected_output, actual_output) = if attributes.cst {
                 (output, actual)
               } else {
-                (@treesitter.format_sexp(output, 0), @treesitter.format_sexp(actual, 0))
+                (
+                  @treesitter.format_sexp(output, 0),
+                  @treesitter.format_sexp(actual, 0),
+                )
               }
               // Only bail early before updating if `actual` does not match
               // `output`. Sometimes users want to test cases that are

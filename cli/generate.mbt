@@ -226,7 +226,10 @@ pub async fn generate_parser_in_directory(
       raise GenerateError(
         json=variant(
           "Render",
-          variant("ABI", Json::number(abi_version.to_double(), repr=abi_version.to_string())),
+          variant(
+            "ABI",
+            Json::number(abi_version.to_double(), repr=abi_version.to_string()),
+          ),
         ),
         message="This version of Tree-sitter can only generate parsers with ABI version \{@generate.abi_version_min} - \{@generate.abi_version_max}, not \{abi_version}",
       )
@@ -475,7 +478,9 @@ async fn load_js_grammar_file(
       @support.stdout_write_string("\n") catch {
         e => raise js_io_error(e, None)
       }
-      @support.stdout_flush() catch { e => raise js_io_error(e, None) }
+      @support.stdout_flush() catch {
+        e => raise js_io_error(e, None)
+      }
     }
     None => ()
   }

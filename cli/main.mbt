@@ -794,7 +794,7 @@ async fn fuzz_run(
   // `fuzz::corpus_test::get_parser` calls `util::log_graphs`.
   @cli_test.set_log_graphs((parser, path) => {
     let session = log_graphs(parser, path, false)
-    { close: () => session.close() }
+    { close: () => session.close(), }
   })
   @cli_test.fuzz_language_corpus(
     language,
@@ -1117,7 +1117,12 @@ async fn tags_run(
       let path = get_tmp_source_file(contents)
       let (language, language_config) = match language_and_config {
         Some(lc) => lc
-        None => first_language_in_current_path(loader, loader.languages_at_path(current_dir), None)
+        None =>
+          first_language_in_current_path(
+            loader,
+            loader.languages_at_path(current_dir),
+            None,
+          )
       }
       match language_config.tags_config(language) {
         Some(tags_config) =>

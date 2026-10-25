@@ -63,7 +63,7 @@ pub fn utf8_error(bytes : BytesView) -> String? {
         0
       }
       let incomplete = "incomplete utf-8 byte sequence from index \{old_offset}"
-      let invalid = (n : Int) => {
+      let invalid = (n : Int32) => {
         "invalid utf-8 sequence of \{n} bytes from index \{old_offset}"
       }
       // `next!()`: the next byte, or the end of the input.
@@ -75,7 +75,7 @@ pub fn utf8_error(bytes : BytesView) -> String? {
           Some(bytes[index].to_int())
         }
       }
-      let is_continuation = (b : Int) => (b & 0xC0) == 0x80
+      let is_continuation = (b : Int32) => (b & 0xC0) == 0x80
       match width {
         2 => {
           guard next() is Some(b) else { return Some(incomplete) }
@@ -86,10 +86,10 @@ pub fn utf8_error(bytes : BytesView) -> String? {
         3 => {
           guard next() is Some(b) else { return Some(incomplete) }
           let ok = match (first, b) {
-            (0xE0, 0xA0..=0xBF)
-            | (0xE1..=0xEC, 0x80..=0xBF)
-            | (0xED, 0x80..=0x9F)
-            | (0xEE..=0xEF, 0x80..=0xBF) => true
+            (0xE0, 0xA0..<=0xBF)
+            | (0xE1..<=0xEC, 0x80..<=0xBF)
+            | (0xED, 0x80..<=0x9F)
+            | (0xEE..<=0xEF, 0x80..<=0xBF) => true
             _ => false
           }
           if !ok {
@@ -103,8 +103,9 @@ pub fn utf8_error(bytes : BytesView) -> String? {
         4 => {
           guard next() is Some(b) else { return Some(incomplete) }
           let ok = match (first, b) {
-            (0xF0, 0x90..=0xBF) | (0xF1..=0xF3, 0x80..=0xBF) | (0xF4, 0x80..=0x8F) =>
-              true
+            (0xF0, 0x90..<=0xBF)
+            | (0xF1..<=0xF3, 0x80..<=0xBF)
+            | (0xF4, 0x80..<=0x8F) => true
             _ => false
           }
           if !ok {
