@@ -16,6 +16,8 @@ import diff_runtime as dr  # noqa: E402
 
 
 def query_files(name):
+    if (m := dr.meta(name)) is not None:
+        return sorted(Path(m['queries']).glob('*.scm')) if m['queries'] else []
     if not name.startswith('fixture_'):
         return []
     parts = name[len('fixture_'):].split('_', 1)

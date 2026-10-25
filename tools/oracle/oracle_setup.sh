@@ -28,6 +28,9 @@ if [ ! -d "$UPSTREAM/test/fixtures/grammars/json" ]; then
 fi
 
 UPSTREAM=$UPSTREAM sh tools/oracle/ref_generate.sh
+# The other grammar repositories of grammars/grammars.json.
+python3 tools/oracle/grammars.py fetch
+python3 tools/oracle/grammars.py ref
 
 mkdir -p _build/reflang
 for src in _build/ref/*/src; do
