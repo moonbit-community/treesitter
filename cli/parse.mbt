@@ -142,37 +142,129 @@ pub fn ParseTheme::default() -> ParseTheme {
 }
 
 ///|
-/// `Config::get::<parse::Config>()` + `From<ParseThemeRaw> for ParseTheme`:
-/// the `parse-theme` of `config.json` over the default theme.
-pub fn ParseTheme::from_config(config : Json) -> ParseTheme raise CliError {
-  let default = ParseTheme::default()
-  guard config is Object(obj) else { return default }
-  guard obj.get("parse-theme") is Some(raw) else { return default }
-  let raw = match raw {
-    Null => return default
-    Object(o) => o
-    _ => raise anyhow("invalid type: expected struct ParseThemeRaw")
+/// `Rgb(pub u8, pub u8, pub u8)`.
+priv struct ParseRgb(Int32, Int32, Int32)
+
+///|
+/// `#[derive(Deserialize)]` of the tuple struct `Rgb`.
+fn ParseRgb::deserialize(
+  de : @support.Deserializer,
+) -> ParseRgb raise @support.SerdeJsonError {
+  let expecting = "tuple struct Rgb with 3 elements"
+  de.deserialize_tuple_struct("tuple struct Rgb", seq => {
+    let u8 = @support.Deserializer::deserialize_u8
+    let red = seq.next_field(u8, 0, expecting)
+    let green = seq.next_field(u8, 1, expecting)
+    let blue = seq.next_field(u8, 2, expecting)
+    ParseRgb(red.to_int(), green.to_int(), blue.to_int())
+  })
+}
+
+///|
+fn deserialize_opt_rgb(
+  de : @support.Deserializer,
+) -> ParseRgb? raise @support.SerdeJsonError {
+  de.deserialize_option(ParseRgb::deserialize)
+}
+
+///|
+/// The fields of `ParseThemeRaw` (`rename_all = "kebab-case"`), in order.
+let parse_theme_raw_fields : FixedArray[String] = [
+  "node-kind", "node-text", "field", "row-color", "row-color-named", "extra", "error",
+  "missing", "line-feed", "backtick", "literal",
+]
+
+///|
+/// `#[derive(Deserialize)]` of `ParseThemeRaw`: its eleven `Option<Rgb>`
+/// fields, in declaration order.
+fn deserialize_parse_theme_raw(
+  de : @support.Deserializer,
+) -> Array[ParseRgb?] raise @support.SerdeJsonError {
+  let expecting = "struct ParseThemeRaw with 11 elements"
+  de.deserialize_struct(
+    "struct ParseThemeRaw",
+    seq => {
+      let values = []
+      for i in 0..<parse_theme_raw_fields.length() {
+        values.push(seq.next_field(deserialize_opt_rgb, i, expecting))
+      }
+      values
+    },
+    map => {
+      let fields : Array[@support.StructField[ParseRgb?]] = parse_theme_raw_fields
+        .iter()
+        .map(name => @support.StructField::new(name))
+        .collect()
+      while map.next_key() is Some(key) {
+        match parse_theme_raw_fields.search(key) {
+          Some(i) => fields[i].next_value(map, deserialize_opt_rgb)
+          None => map.next_value_ignored()
+        }
+      }
+      fields.map(field => field.optional())
+    },
+  )
+}
+
+///|
+/// `#[derive(Deserialize)]` of `parse::Config { parse_theme:
+/// Option<ParseThemeRaw> }`.
+fn deserialize_parse_config(
+  de : @support.Deserializer,
+) -> Array[ParseRgb?]? raise @support.SerdeJsonError {
+  let deserialize_parse_theme = (de : @support.Deserializer) => {
+    de.deserialize_option(deserialize_parse_theme_raw)
   }
-  let get = (key : String, d : Color?) => {
-    match raw.get(key) {
-      None | Some(Null) => d
-      Some([Number(r, ..), Number(g, ..), Number(b, ..)]) =>
-        Some(Rgb(r.to_int(), g.to_int(), b.to_int()))
-      Some(_) => raise anyhow("invalid type: expected a tuple struct Rgb")
+  de.deserialize_struct(
+    "struct Config",
+    seq => {
+      seq.next_field(deserialize_parse_theme, 0, "struct Config with 1 element")
+    },
+    map => {
+      let parse_theme : @support.StructField[Array[ParseRgb?]?] = @support.StructField::new(
+        "parse-theme",
+      )
+      while map.next_key() is Some(key) {
+        match key {
+          "parse-theme" => parse_theme.next_value(map, deserialize_parse_theme)
+          _ => map.next_value_ignored()
+        }
+      }
+      parse_theme.optional()
+    },
+  )
+}
+
+///|
+/// `Config::get::<parse::Config>()`, `.parse_theme.unwrap_or_default()`
+/// and `From<ParseThemeRaw> for ParseTheme`: the `parse-theme` of
+/// `config.json` over the default theme.
+pub fn ParseTheme::from_config(
+  config : @support.Value,
+) -> ParseTheme raise CliError {
+  let raw = @support.from_value(config, deserialize_parse_config) catch {
+    e => raise anyhow(e.to_string())
+  }
+  let raw = raw.unwrap_or(Array::make(11, None))
+  let default = ParseTheme::default()
+  fn val_or_default(val : ParseRgb?, default : Color?) -> Color? {
+    match val {
+      Some(ParseRgb(r, g, b)) => Some(Rgb(r, g, b))
+      None => default
     }
   }
   {
-    node_kind: get("node-kind", default.node_kind),
-    node_text: get("node-text", default.node_text),
-    field: get("field", default.field),
-    row_color: get("row-color", default.row_color),
-    row_color_named: get("row-color-named", default.row_color_named),
-    extra: get("extra", default.extra),
-    error: get("error", default.error),
-    missing: get("missing", default.missing),
-    line_feed: get("line-feed", default.line_feed),
-    backtick: get("backtick", default.backtick),
-    literal: get("literal", default.literal),
+    node_kind: val_or_default(raw[0], default.node_kind),
+    node_text: val_or_default(raw[1], default.node_text),
+    field: val_or_default(raw[2], default.field),
+    row_color: val_or_default(raw[3], default.row_color),
+    row_color_named: val_or_default(raw[4], default.row_color_named),
+    extra: val_or_default(raw[5], default.extra),
+    error: val_or_default(raw[6], default.error),
+    missing: val_or_default(raw[7], default.missing),
+    line_feed: val_or_default(raw[8], default.line_feed),
+    backtick: val_or_default(raw[9], default.backtick),
+    literal: val_or_default(raw[10], default.literal),
   }
 }
 

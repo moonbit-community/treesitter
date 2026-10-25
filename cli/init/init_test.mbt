@@ -231,7 +231,7 @@ async test "generate_grammar_files error" {
   defer (@fs.rmdir(dir, recursive=true) catch { _ => () })
   @fs.write_file(dir + "/tree-sitter.json", "{}", create_mode=CreateOrTruncate)
   try @init.generate_grammar_files(dir, "foo", false, None) catch {
-    e => inspect(e, content="missing field `grammars`")
+    e => inspect(e, content="missing field `grammars` at line 1 column 2")
   } noraise {
     _ => fail("expected an error")
   }
