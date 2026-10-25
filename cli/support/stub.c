@@ -389,6 +389,32 @@ moonbit_bytes_t ts_cli_getcwd(void) {
   return moonbit_make_bytes(0, 0);
 }
 
+// The fallback of `std::env::temp_dir` on Apple platforms when `TMPDIR` is
+// not set: `confstr(_CS_DARWIN_USER_TEMP_DIR)`, or `/tmp` when that fails.
+// Elsewhere `/tmp`.
+MOONBIT_FFI_EXPORT
+moonbit_bytes_t ts_cli_default_temp_dir(void) {
+#ifdef __APPLE__
+  size_t len = confstr(_CS_DARWIN_USER_TEMP_DIR, NULL, 0);
+  if (len > 1) {
+    char *buf = (char *)malloc(len);
+    if (buf != NULL) {
+      size_t got = confstr(_CS_DARWIN_USER_TEMP_DIR, buf, len);
+      if (got > 1 && got <= len) {
+        moonbit_bytes_t result = moonbit_make_bytes((int32_t)(got - 1), 0);
+        memcpy(result, buf, got - 1);
+        free(buf);
+        return result;
+      }
+      free(buf);
+    }
+  }
+#endif
+  moonbit_bytes_t result = moonbit_make_bytes(4, 0);
+  memcpy(result, "/tmp", 4);
+  return result;
+}
+
 // Write all bytes to a (possibly non-blocking) file descriptor, waiting
 // until it is writable. Errors are ignored, as tree-sitter ignores errors of
 // the stream its dot graphs are written to.

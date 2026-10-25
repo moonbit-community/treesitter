@@ -216,11 +216,17 @@ pub fn cache_dir() -> String? {
 }
 
 ///|
-/// `std::env::temp_dir`.
+extern "C" fn ts_cli_default_temp_dir() -> Bytes = "ts_cli_default_temp_dir"
+
+///|
+/// `std::env::temp_dir`: `TMPDIR` when it is set (also when it is empty,
+/// which makes temporary paths relative to the current directory), else the
+/// per-user temporary directory on macOS (`_CS_DARWIN_USER_TEMP_DIR`) or
+/// `/tmp`.
 pub fn temp_dir() -> String {
   match @env.get_env_var("TMPDIR") {
-    Some(dir) if !dir.is_empty() => dir
-    _ => "/tmp"
+    Some(dir) => dir
+    None => utf8_lossy(ts_cli_default_temp_dir())
   }
 }
 
