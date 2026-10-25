@@ -489,11 +489,19 @@ fn pick_test_language(
 }
 
 ///|
-/// The `u32` value of the `--test-number` argument (validated by clap's
-/// `u32` value parser).
+/// The `u32` value of the `--test-number` argument, which clap's `u32` value
+/// parser has validated with `i64::from_str` and a range check (so `-0` is
+/// 0).
 fn test_number(m : @clap.ArgMatches) -> UInt? {
   match m.get_one("test_number") {
-    Some(n) => parse_unsigned(n, 0xFFFFFFFFUL).map(n => n.to_uint())
+    Some(n) => {
+      let n = if n.has_prefix("-") {
+        n.unsafe_substring(start=1, end=n.length())
+      } else {
+        n
+      }
+      parse_unsigned(n, 0xFFFFFFFFUL).map(n => n.to_uint())
+    }
     None => None
   }
 }
