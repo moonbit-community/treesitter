@@ -233,7 +233,7 @@ async fn set_choice(opts : JsonConfigOpts, choice : String) -> Bool {
       )
     "funding" =>
       opts.funding = Some(
-        input("Funding URL", allow_empty=true).trim().to_owned(),
+        rust_trim(input("Funding URL", allow_empty=true)),
       )
     "scope" =>
       opts.scope = input("TextMate scope", default="source.\{opts.name}", validate=input => {
@@ -247,7 +247,7 @@ async fn set_choice(opts : JsonConfigOpts, choice : String) -> Bool {
       let ft = input("File types (space-separated)", default=opts.name)
       let set = []
       for ext in ft.split(" ") {
-        let ext = ext.trim().to_owned()
+        let ext = rust_trim(ext.to_owned())
         if !ext.is_empty() && !set.contains(ext) {
           set.push(ext)
         }
@@ -260,10 +260,10 @@ async fn set_choice(opts : JsonConfigOpts, choice : String) -> Bool {
     "author" => opts.author = input("Author name")
     "email" => {
       let e = input("Author email", allow_empty=true)
-      opts.email = if !e.trim().is_empty() { Some(e) } else { None }
+      opts.email = if !rust_trim(e).is_empty() { Some(e) } else { None }
     }
     "url" =>
-      opts.url = Some(input("Author URL", allow_empty=true).trim().to_owned())
+      opts.url = Some(rust_trim(input("Author URL", allow_empty=true)))
     "namespace" =>
       opts.namespace = Some(
         input(
@@ -350,7 +350,7 @@ pub async fn run_init(current_dir : String, update : Bool) -> Unit {
     // Write the re-serialized config back, as newly added optional boolean
     // fields will be included with explicit `false`s rather than implicit
     // `null`s
-    if update && old_config.trim() != new_config.trim() {
+    if update && rust_trim(old_config) != rust_trim(new_config) {
       @support.log_info("Updating tree-sitter.json")
       fs_write(tree_sitter_json_path, @support.to_string_pretty(json.to_json())) catch {
         IoError(e) => raise with_context(e, "Failed to write tree-sitter.json")

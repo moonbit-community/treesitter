@@ -127,6 +127,32 @@ fn indoc(s : String) -> String {
 }
 
 ///|
+/// `char::is_whitespace` (White_Space).
+fn char_is_whitespace(c : Char) -> Bool {
+  if c <= '\u{7F}' {
+    c == ' ' || (c >= '\t' && c <= '\r')
+  } else {
+    c.is_whitespace()
+  }
+}
+
+///|
+/// `str::trim`: without leading and trailing `char::is_whitespace`
+/// characters.
+fn rust_trim(s : String) -> String {
+  let chars = s.to_array()
+  let mut start = 0
+  while start < chars.length() && char_is_whitespace(chars[start]) {
+    start += 1
+  }
+  let mut end = chars.length()
+  while end > start && char_is_whitespace(chars[end - 1]) {
+    end -= 1
+  }
+  String::from_array(chars[start:end])
+}
+
+///|
 /// Whether `c` lies in one of the inclusive ranges of `table` (a flat array
 /// of `lo, hi` pairs in ascending order; see unicode_data.mbt).
 fn in_char_table(table : FixedArray[UInt], c : Char) -> Bool {
