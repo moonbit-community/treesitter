@@ -791,11 +791,6 @@ async fn fuzz_run(
     log_graphs: m.get_flag("log_graphs") || @cli_test.log_graph_enabled(),
     log: m.get_flag("log") || @cli_test.log_enabled(),
   }
-  // `fuzz::corpus_test::get_parser` calls `util::log_graphs`.
-  @cli_test.set_log_graphs((parser, path) => {
-    let session = log_graphs(parser, path, false)
-    { close: () => session.close(), }
-  })
   @cli_test.fuzz_language_corpus(
     language,
     language_name,

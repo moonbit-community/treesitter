@@ -387,6 +387,21 @@ void ts_cli_write_fd_blocking(int32_t fd, moonbit_bytes_t data, int32_t offset, 
 #endif
 }
 
+// Clear `O_NONBLOCK` on `fd` (the child's end of a pipe, which Rust's
+// `Stdio::piped()` leaves blocking). Returns 0 or the `errno` of `fcntl`.
+MOONBIT_FFI_EXPORT
+int32_t ts_cli_set_blocking(int32_t fd) {
+#ifndef _WIN32
+  int flags = fcntl(fd, F_GETFL);
+  if (flags < 0 || fcntl(fd, F_SETFL, flags & ~O_NONBLOCK) < 0) {
+    return errno;
+  }
+#else
+  (void)fd;
+#endif
+  return 0;
+}
+
 // The home directory of the current user in the account database
 // (`getpwuid_r(getuid())`, the fallback of `std::env::home_dir`). The first
 // byte of the result is 1 when the directory was found.

@@ -18,3 +18,18 @@ pub fn wait_exit_code(pid : Int32) -> Int32? raise {
     code => Some(code)
   }
 }
+
+///|
+extern "C" fn ts_cli_set_blocking(fd : Int32) -> Int32 = "ts_cli_set_blocking"
+
+///|
+/// Make the file descriptor `fd` blocking: the child's end of a pipe created
+/// with `@pipe.pipe()` (both of whose ends are non-blocking), as the ends
+/// that Rust's `Stdio::piped()` gives a child are. (Some programs take
+/// `EAGAIN` on a non-blocking standard input for its end, or fail with it.)
+pub fn set_blocking(fd : Int32) -> Unit raise {
+  let errno = ts_cli_set_blocking(fd)
+  if errno != 0 {
+    raise @os_error.OSError(errno, context="fcntl")
+  }
+}
