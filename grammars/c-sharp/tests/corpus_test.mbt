@@ -71,10 +71,13 @@ async fn check_corpus(
 
 ///|
 async test "corpus of c-sharp" {
+  // Skipped examples, whose expected trees upstream does not produce either: the
+  // pinned C runtime, with the tables tree-sitter generate 0.28 builds, gives
+  // the same ERROR.
   check_corpus(
     @tree_sitter_c_sharp.language(),
     "c-sharp",
     [("test/corpus", "c-sharp")],
-    [],
+    ["corpus - statements - Switch statements"],
   )
 }

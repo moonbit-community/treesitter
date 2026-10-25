@@ -52,7 +52,22 @@ SAMPLES = {
 # Corpus entries whose expected tree the grammar's own parser does not
 # produce (the trees are identical to the pinned C runtime's, which the
 # differential oracle checks): (language, entry name) -> reason.
-CORPUS_SKIPS = {}
+MARKDOWN_EXTENSIONS = ('the pinned src/grammar.json is generated without the EXTENSION_WIKI_LINK and '
+                       'EXTENSION_TAGS options of grammar.js that this example needs')
+CORPUS_SKIPS = {
+    ('c-sharp', 'corpus - statements - Switch statements'):
+        'the pinned C runtime, with the tables tree-sitter generate 0.28 builds, gives the same ERROR',
+    **{('markdown_inline', f'corpus - {name}'): MARKDOWN_EXTENSIONS for name in [
+        'extension_wikilink - Basic Wiki-link parsing.',
+        'extension_wikilink - Wiki-link to a file',
+        'extension_wikilink - Wiki-link to a heading in a note',
+        'extension_wikilink - Wiki-link with title',
+        'extension_wikilink - Wiki-link version of Example 556',
+        'spec - Example 324 - https://github.github.com/gfm/#example-324',
+        'spec - Example 638 - https://github.github.com/gfm/#example-638',
+        'tags - Tags are working',
+    ]},
+}
 
 HEADER = re.compile(r'^(={3,})([^=\r\n][^\r\n]*)?$')
 DIVIDER = re.compile(r'^(-{3,})([^-\r\n][^\r\n]*)?$')
@@ -315,8 +330,14 @@ def corpus_test_file(entry, languages):
         dirs = ', '.join(f'("{d}", "{default}")' for d, default in lang['corpus'])
         skips = sorted(name for (l, name) in CORPUS_SKIPS if l == lang['name'])
         skip_list = '[' + ', '.join(json.dumps(s) for s in skips) + ']'
+        reasons = sorted({reason for (l, _), reason in CORPUS_SKIPS.items() if l == lang['name']})
+        comment = ''.join(
+            ''.join(f'  // {line}\n' for line in textwrap.wrap(
+                f'Skipped examples, whose expected trees upstream does not produce either: {r}.', 76))
+            for r in reasons)
         tests.append(f'\n///|\n'
                      f'async test "corpus of {lang["name"]}" {{\n'
+                     f'{comment}'
                      f'  check_corpus(@{alias}.{lang["fn"]}(), "{lang["name"]}", [{dirs}], {skip_list})\n'
                      f'}}\n')
     if not tests:

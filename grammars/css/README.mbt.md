@@ -11,10 +11,6 @@ port of Tree-sitter. The parse tables are generated from the grammar's
 as `tree-sitter generate` 0.28.0. External scanners come from `@scanners.scanner_for` in
 `moonbit-community/treesitter/scanners`, the MoonBit ports of the C scanners.
 
-The external scanner of `css` is not ported to MoonBit yet: until
-`@scanners.scanner_for` provides it, the language cannot be used for
-parsing (`is_parseable()` is false) and the tests below skip.
-
 ## API
 
 The package mirrors the grammar's Rust binding (`bindings/rust/lib.rs`):
@@ -44,8 +40,6 @@ import {
 ///|
 test "parse css" {
   let language = @tree_sitter_css.language()
-  // The external scanner is not ported yet.
-  guard language.is_parseable() else { return }
   let parser = @treesitter.Parser::new()
   parser.set_language(language)
   let source =

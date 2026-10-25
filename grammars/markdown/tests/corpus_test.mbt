@@ -81,10 +81,19 @@ async test "corpus of markdown" {
 
 ///|
 async test "corpus of markdown_inline" {
+  // Skipped examples, whose expected trees upstream does not produce either: the
+  // pinned src/grammar.json is generated without the EXTENSION_WIKI_LINK and
+  // EXTENSION_TAGS options of grammar.js that this example needs.
   check_corpus(
     @tree_sitter_markdown.inline_language(),
     "markdown_inline",
     [("tree-sitter-markdown-inline/test/corpus", "markdown_inline")],
-    [],
+    [
+      "corpus - extension_wikilink - Basic Wiki-link parsing.", "corpus - extension_wikilink - Wiki-link to a file",
+      "corpus - extension_wikilink - Wiki-link to a heading in a note", "corpus - extension_wikilink - Wiki-link version of Example 556",
+      "corpus - extension_wikilink - Wiki-link with title", "corpus - spec - Example 324 - https://github.github.com/gfm/#example-324",
+      "corpus - spec - Example 638 - https://github.github.com/gfm/#example-638",
+      "corpus - tags - Tags are working",
+    ],
   )
 }
