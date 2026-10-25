@@ -135,10 +135,10 @@ async fn main {
     "modes" => {
       let language = load_language(args[2])
       let parser = new_parser(language)
-      let (encoding, unit) = match args[3] {
-        "utf16le" => (@runtime.InputEncoding::UTF16LE, 2)
-        "utf16be" => (@runtime.InputEncoding::UTF16BE, 2)
-        _ => (@runtime.InputEncoding::UTF8, 1)
+      let encoding = match args[3] {
+        "utf16le" => @runtime.InputEncoding::UTF16LE
+        "utf16be" => @runtime.InputEncoding::UTF16BE
+        _ => @runtime.InputEncoding::UTF8
       }
       for i in 5..<args.length() {
         let text = @fs.read_file(args[i]).binary()
@@ -159,8 +159,8 @@ async fn main {
             ranges.push({
               start_byte: a,
               end_byte: b,
-              start_point: point_at_unit(text, a, unit),
-              end_point: point_at_unit(text, b, unit),
+              start_point: point_at_encoding(text, a, encoding),
+              end_point: point_at_encoding(text, b, encoding),
             })
           }
         }
@@ -288,17 +288,24 @@ fn parse_uint(s : String) -> UInt {
 }
 
 ///|
-fn point_at_unit(text : Bytes, byte : UInt, unit : Int) -> @runtime.Point {
+/// The point of a byte offset: rows end at a '\n' code unit (in the input's
+/// encoding), columns count bytes.
+fn point_at_encoding(
+  text : Bytes,
+  byte : UInt,
+  encoding : @runtime.InputEncoding,
+) -> @runtime.Point {
+  let unit = if encoding is UTF8 { 1 } else { 2 }
   let mut row : UInt = 0
   let mut column : UInt = 0
   let mut i = 0
   while i < byte.reinterpret_as_int() {
-    let nl = if unit == 1 {
-      text[i] == b'\n'
-    } else {
-      let a = text[i]
-      let c = if i + 1 < text.length() { text[i + 1] } else { b'\x00' }
-      (a == b'\n' && c == b'\x00') || (a == b'\x00' && c == b'\n')
+    let next = if i + 1 < text.length() { text[i + 1] } else { b'\x00' }
+    let nl = match encoding {
+      UTF8 => text[i] == b'\n'
+      UTF16LE => text[i] == b'\n' && next == b'\x00'
+      UTF16BE => text[i] == b'\x00' && next == b'\n'
+      Custom => false
     }
     if nl {
       row += 1

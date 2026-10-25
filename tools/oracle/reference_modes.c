@@ -5,10 +5,15 @@
 #include <stdlib.h>
 #include <string.h>
 extern const TSLanguage *LANGUAGE(void);
-static TSPoint point_at(const char *text, uint32_t byte, int unit) {
+// The point of a byte offset: rows end at a '\n' code unit (in the input's
+// encoding), columns count bytes.
+static TSPoint point_at(const char *text, uint32_t byte, TSInputEncoding enc) {
   TSPoint p = {0, 0};
+  int unit = enc == TSInputEncodingUTF8 ? 1 : 2;
   for (uint32_t i = 0; i < byte; i += unit) {
-    int nl = unit == 1 ? text[i] == '\n' : (unit == 2 && ((text[i] == '\n' && text[i+1] == 0) || (text[i] == 0 && text[i+1] == '\n')));
+    int nl = enc == TSInputEncodingUTF8 ? text[i] == '\n'
+           : enc == TSInputEncodingUTF16LE ? text[i] == '\n' && text[i+1] == 0
+           : text[i] == 0 && text[i+1] == '\n';
     if (nl) { p.row++; p.column = 0; } else p.column += unit;
   }
   return p;
@@ -17,7 +22,6 @@ int main(int argc, char **argv) {
   TSParser *p = ts_parser_new();
   ts_parser_set_language(p, LANGUAGE());
   TSInputEncoding enc = !strcmp(argv[1], "utf16le") ? TSInputEncodingUTF16LE : !strcmp(argv[1], "utf16be") ? TSInputEncodingUTF16BE : TSInputEncodingUTF8;
-  int unit = enc == TSInputEncodingUTF8 ? 1 : 2;
   for (int i = 3; i < argc; i++) {
     FILE *f = fopen(argv[i], "rb");
     fseek(f, 0, SEEK_END); long size = ftell(f); rewind(f);
@@ -25,19 +29,21 @@ int main(int argc, char **argv) {
     fread(text, 1, size, f); fclose(f);
     text[size] = text[size+1] = 0;
     printf("== %s\n", argv[i]);
-    TSRange ranges[64]; uint32_t count = 0;
+    // At most one range per character of the specification.
+    TSRange *ranges = malloc((strlen(argv[2]) + 1) * sizeof(TSRange)); uint32_t count = 0;
     if (strcmp(argv[2], "-")) {
       char *s = strdup(argv[2]); char *tok = strtok(s, ",");
-      while (tok && count < 64) {
+      while (tok) {
         uint32_t a, b; sscanf(tok, "%u-%u", &a, &b);
         if (a > (uint32_t)size) a = size; if (b > (uint32_t)size) b = size;
         ranges[count].start_byte = a; ranges[count].end_byte = b;
-        ranges[count].start_point = point_at(text, a, unit); ranges[count].end_point = point_at(text, b, unit);
+        ranges[count].start_point = point_at(text, a, enc); ranges[count].end_point = point_at(text, b, enc);
         count++; tok = strtok(NULL, ",");
       }
       free(s);
     }
     printf("set %d\n", ts_parser_set_included_ranges(p, count ? ranges : NULL, count));
+    free(ranges);
     TSTree *t = ts_parser_parse_string_encoding(p, NULL, text, size, enc);
     if (!t) { printf("(no tree)\n"); free(text); continue; }
     char *str = ts_node_string(ts_tree_root_node(t));
