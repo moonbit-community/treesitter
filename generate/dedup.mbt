@@ -52,6 +52,86 @@ pub fn[S] split_state_id_groups(
   start_group_id : Int,
   criterion : SplitCriterion[S],
 ) -> Bool {
+  split_state_id_groups_tracked(
+    states, state_ids_by_group_id, group_ids_by_state_id, start_group_id, criterion,
+    None,
+  )
+}
+
+///|
+/// Which groups `split_state_id_groups` needs to look at again, for a criterion
+/// that only depends on the groups of each state's successors: once a group has
+/// been looked at without splitting, it can only split again after one of its
+/// states' successors has moved to another group.
+priv struct ChangedGroups {
+  /// Whether each group may split, by group id. Groups past the end may.
+  dirty : Array[Bool]
+  /// The states that have each state as a successor, by state id: state `i`'s
+  /// are `predecessors[predecessor_starts[i]..predecessor_starts[i + 1]]`.
+  predecessor_starts : FixedArray[Int]
+  predecessors : FixedArray[Int]
+}
+
+///|
+/// `successors(i)` lists the successors of state `i` (repeats are fine).
+fn ChangedGroups::new(
+  state_count : Int,
+  successors : (Int, (Int) -> Unit) -> Unit,
+) -> ChangedGroups {
+  let counts = FixedArray::make(state_count + 1, 0)
+  for i in 0..<state_count {
+    successors(i, s => counts[s + 1] += 1)
+  }
+  for i in 0..<state_count {
+    counts[i + 1] += counts[i]
+  }
+  let predecessors = FixedArray::make(counts[state_count], 0)
+  let next = FixedArray::makei(state_count, i => counts[i])
+  for i in 0..<state_count {
+    successors(i, s => {
+      predecessors[next[s]] = i
+      next[s] += 1
+    })
+  }
+  { dirty: [], predecessor_starts: counts, predecessors }
+}
+
+///|
+fn ChangedGroups::is_dirty(self : ChangedGroups, group_id : Int) -> Bool {
+  group_id >= self.dirty.length() || self.dirty[group_id]
+}
+
+///|
+fn ChangedGroups::set(self : ChangedGroups, group_id : Int, dirty : Bool) -> Unit {
+  while self.dirty.length() <= group_id {
+    self.dirty.push(true)
+  }
+  self.dirty[group_id] = dirty
+}
+
+///|
+/// Records that `state_id` moved to another group.
+fn ChangedGroups::moved(
+  self : ChangedGroups,
+  state_id : Int,
+  group_ids_by_state_id : Array[Int],
+) -> Unit {
+  for
+    i in self.predecessor_starts[state_id]..<self.predecessor_starts[state_id + 1] {
+    self.set(group_ids_by_state_id[self.predecessors[i]], true)
+  }
+}
+
+///|
+/// `split_state_id_groups`, skipping the groups that `changed` knows can't split.
+fn[S] split_state_id_groups_tracked(
+  states : Array[S],
+  state_ids_by_group_id : Array[Array[Int]],
+  group_ids_by_state_id : Array[Int],
+  start_group_id : Int,
+  criterion : SplitCriterion[S],
+  changed : ChangedGroups?,
+) -> Bool {
   let mut result = false
   let classes = GroupClasses::new()
   let kept : Array[Int] = []
@@ -64,6 +144,13 @@ pub fn[S] split_state_id_groups(
     if state_ids.length() < 2 {
       group_id += 1
       continue
+    }
+    if changed is Some(changed) {
+      if !changed.is_dirty(group_id) {
+        group_id += 1
+        continue
+      }
+      changed.set(group_id, false)
     }
     classes.classify(states, state_ids, group_ids_by_state_id, criterion)
     // A class follows its first state, so compare only those.
@@ -124,6 +211,11 @@ pub fn[S] split_state_id_groups(
         group_ids_by_state_id[m.1] = new_group_id
         m.1
       })
+      if changed is Some(changed) {
+        for state_id in new_group {
+          changed.moved(state_id, group_ids_by_state_id)
+        }
+      }
       state_ids_by_group_id.push(new_group)
     }
     group_id += 1

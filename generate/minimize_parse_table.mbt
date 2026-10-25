@@ -851,13 +851,31 @@ fn Minimizer::merge_compatible_states(self : Minimizer) -> Unit {
       conflict_pass.criterion(),
     ),
   )
-  let successor_pass = SuccessorPass::new(self, shift_maps).criterion()
-  while split_state_id_groups(
+  let successor_pass = SuccessorPass::new(self, shift_maps)
+  // The successor pass only looks at the groups of the states' successors, so a
+  // group needs another look only when one of its successors moves.
+  let changed = Some(
+    ChangedGroups::new(self.parse_table.states.length(), (state_id, f) => {
+      let shift_maps = successor_pass.shift_maps
+      for i in shift_maps.start(state_id)..<shift_maps.end(state_id) {
+        f(shift_maps.values[i])
+      }
+      let nonterminal_maps = successor_pass.nonterminal_maps
+      for i in nonterminal_maps.start(state_id)..<nonterminal_maps.end(state_id) {
+        if nonterminal_maps.values[i] >= 0 {
+          f(nonterminal_maps.values[i])
+        }
+      }
+    }),
+  )
+  let successor_criterion = successor_pass.criterion()
+  while split_state_id_groups_tracked(
           self.parse_table.states,
           state_ids_by_group_id,
           group_ids_by_state_id,
           0,
-          successor_pass,
+          successor_criterion,
+          changed,
         ) {
 
   }
