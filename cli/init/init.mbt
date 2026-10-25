@@ -324,7 +324,7 @@ fn join(base : String, rel : String) -> String {
 
 ///|
 /// `fs::read_to_string(path)?` inside an `anyhow::Result` function.
-async fn read_file(path : String) -> String raise InitError {
+fn read_file(path : String) -> String raise InitError {
   read_to_string(path) catch {
     IoError(e) => raise anyhow(e)
   }
@@ -1634,21 +1634,22 @@ pub async fn get_root_path(path : String) -> String {
         IoError(e) => raise with_context(e, "Failed to read \{filename}")
       }
       if is_package_json {
-        let value = @support.parse_json(contents) catch {
-          e =>
-            raise with_context(
-              @config.json_error_message(e),
-              "Failed to parse \{filename}",
-            )
+        // `serde_json::from_str::<Map<String, Value>>`.
+        let has_tree_sitter = @support.from_str_with(contents, de => {
+          de.deserialize_map("a map", map => {
+            let mut found = false
+            while map.next_key() is Some(key) {
+              ignore(map.next_value(@support.Deserializer::deserialize_value))
+              if key == "tree-sitter" {
+                found = true
+              }
+            }
+            found
+          })
+        }) catch {
+          e => raise with_context(e.to_string(), "Failed to parse \{filename}")
         }
-        match value {
-          Object(map) => Some(map.contains("tree-sitter"))
-          other =>
-            raise with_context(
-              "invalid type: \{json_type_name(other)}, expected a map",
-              "Failed to parse \{filename}",
-            )
-        }
+        Some(has_tree_sitter)
       } else {
         ignore(
           @loader.TreeSitterJSON::parse(contents) catch {
@@ -1672,25 +1673,6 @@ pub async fn get_root_path(path : String) -> String {
       )
     }
     pathbuf = @support.path_join(parent, filename)
-  }
-}
-
-///|
-/// The `Unexpected` description serde gives a JSON value in a type error.
-fn json_type_name(json : Json) -> String {
-  match json {
-    Null => "null"
-    True => "boolean `true`"
-    False => "boolean `false`"
-    Number(n, ..) =>
-      if n == n.floor() {
-        "integer `\{n.to_int64()}`"
-      } else {
-        "floating point `\{n}`"
-      }
-    String(s) => "string \"\{s}\""
-    Array(_) => "sequence"
-    Object(_) => "map"
   }
 }
 

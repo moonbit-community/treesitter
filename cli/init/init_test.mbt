@@ -290,11 +290,15 @@ async test "get_root_path" {
   }
   inspect(
     error_chain("tree-sitter.json"),
-    content="Failed to parse tree-sitter.json / missing field `grammars`",
+    content=(
+      #|Failed to parse tree-sitter.json / missing field `grammars` at line 1 column 2
+    ),
   )
   inspect(
     error_chain("package.json"),
-    content="Failed to parse package.json / invalid type: integer `1`, expected a map",
+    content=(
+      #|Failed to parse package.json / invalid type: integer `1`, expected a map at line 1 column 1
+    ),
   )
   // No file up to the root.
   try @init.get_root_path("x/y/none.json") catch {

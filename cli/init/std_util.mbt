@@ -12,7 +12,7 @@ priv suberror IoError {
 
 ///|
 /// `fs::read_to_string`.
-async fn read_to_string(path : String) -> String raise IoError {
+fn read_to_string(path : String) -> String raise IoError {
   @support.read_to_string(path) catch {
     e => raise IoError(@support.io_error_message(e))
   }
