@@ -331,7 +331,7 @@ async fn parse_run(
     raise wasm_unsupported()
   }
   let timeout = match m.get_one("timeout") {
-    Some(t) => @string.parse_uint64(t) catch { _ => 0UL }
+    Some(t) => parse_unsigned(t, 0xFFFFFFFFFFFFFFFFUL).unwrap_or(0UL)
     None => 0UL
   }
   let mut has_error = false
