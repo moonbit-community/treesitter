@@ -274,8 +274,8 @@ fn populate_used_symbols(
     false,
   )
   for state in parse_table.states {
-    for entry in state.terminal_entries.items() {
-      let symbol = entry.0
+    for k in 0..<state.terminal_entries.len() {
+      let symbol = state.terminal_entries.symbol_at(k)
       match symbol.kind {
         Terminal => terminal_usages[symbol.index] = true
         External => external_usages[symbol.index] = true
@@ -283,8 +283,8 @@ fn populate_used_symbols(
         NonTerminal => abort("unreachable")
       }
     }
-    for entry in state.nonterminal_entries.items() {
-      guard entry.0.non_terminal_index() is Some(index) else {
+    for k in 0..<state.nonterminal_entries.len() {
+      guard state.nonterminal_entries.symbol_at(k).non_terminal_index() is Some(index) else {
         abort("unreachable")
       }
       non_terminal_usages[index] = true
@@ -337,8 +337,8 @@ fn populate_external_lex_states(
   parse_table.external_lex_states.push(TokenSet::new())
   for state in parse_table.states {
     let external_tokens = TokenSet::new()
-    for entry in state.terminal_entries.items() {
-      let token = entry.0
+    for k in 0..<state.terminal_entries.len() {
+      let token = state.terminal_entries.symbol_at(k)
       match token.kind {
         External => external_tokens.insert(token)
         Terminal =>
@@ -456,17 +456,18 @@ fn mark_fragile_tokens(
   let valid_terminal_indices : Array[Int32] = []
   for state in parse_table.states {
     valid_terminal_indices.clear()
-    for entry in state.terminal_entries.items() {
-      if entry.0.terminal_index() is Some(index) {
+    for k in 0..<state.terminal_entries.len() {
+      if state.terminal_entries.symbol_at(k).terminal_index() is Some(index) {
         valid_terminal_indices.push(index)
       }
     }
     for k in 0..<state.terminal_entries.len() {
-      let (token, id) = state.terminal_entries.get_index(k)
+      let token = state.terminal_entries.symbol_at(k)
       if token.terminal_index() is Some(index) {
         for i in valid_terminal_indices {
           if token_conflict_map.does_overlap(i, index) {
-            state.terminal_entries.set_index(k, token, id.with_reusable(false))
+            let id = state.terminal_entries.value_at(k)
+            state.terminal_entries.set_value_at(k, id.with_reusable(false))
             break
           }
         }
