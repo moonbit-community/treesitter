@@ -25,6 +25,7 @@ under the MIT license:
 - tree-sitter-css v0.25.0, Copyright (c) 2018 Max Brunsfeld (css.mbt)
 - tree-sitter-julia v0.25.0, Copyright (c) 2018 Max Brunsfeld, GitHub (julia.mbt)
 - tree-sitter-lua v0.5.0, Copyright (c) 2021 Munif Tanjim (lua.mbt)
+- tree-sitter-ocaml v0.26.0, Copyright (c) 2020 Max Brunsfeld and Pieter Goetschalckx (ocaml*.mbt)
 - tree-sitter-toml v0.7.0, Copyright (c) Ika <ikatyang@gmail.com> (https://github.com/ikatyang) (toml.mbt)
 
 Ported Rust crates, each dual-licensed MIT OR Apache-2.0 upstream and used
