@@ -175,7 +175,9 @@ pub async fn build_scanner_driver(
   let checkout = module_checkout(current_dir)
   prepare_workspace(dir, checkout)
   let deps = StringBuilder()
-  deps.write_string("\"moonbit-community/treesitter@0.1.0\", \"moonbitlang/async@0.20.2\"")
+  deps.write_string(
+    "\"moonbit-community/treesitter@0.1.0\", \"moonbitlang/async@0.20.2\"",
+  )
   write_file(
     @support.path_join(script, "moon.mod"),
     "name = \"treesitter/local_scanners\"\nimport { \{deps.to_string()} }\n",
@@ -215,9 +217,13 @@ pub async fn build_scanner_driver(
   let (code, _, stderr) = @process.collect_output(
     "moon",
     [
-      "build", "--target", "native", "--release", "--target-dir", @support.path_join(
-        dir, "build",
-      ), "driver",
+      "build",
+      "--target",
+      "native",
+      "--release",
+      "--target-dir",
+      @support.path_join(dir, "build"),
+      "driver",
     ],
     cwd=script,
   )
@@ -246,7 +252,7 @@ pub async fn run_with_scanners(
   scanners : Array[(String, String)],
   args : Array[String],
   current_dir : String,
-) -> Int {
+) -> Int32 {
   let driver = build_scanner_driver(scanners, current_dir)
   @support.flush()
   @process.run(

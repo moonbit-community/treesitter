@@ -31,7 +31,7 @@ pub struct ArgMatches {
 
 ///|
 fn ArgMatches::new() -> ArgMatches {
-  { args: {}, subcommand: None }
+  { args: {}, subcommand: None, }
 }
 
 ///|
@@ -138,7 +138,7 @@ pub fn Command::try_get_matches_from(
 ) -> ArgMatches raise ClapError {
   self.build_self()
   self.build_bin_names_shallow()
-  let p = Parser::{ cmd: self, matcher: ArgMatches::new(), pending: None }
+  let p = Parser::{ cmd: self, matcher: ArgMatches::new(), pending: None, }
   p.get_matches_with(args, 1)
   p.matcher
 }
@@ -157,7 +157,7 @@ fn Command::build_bin_names_shallow(self : Command) -> Unit {
 fn Parser::get_matches_with(
   self : Parser,
   args : Array[String],
-  start : Int,
+  start : Int32,
 ) -> Unit raise ClapError {
   self.parse(args, start)
   self.resolve_pending()
@@ -232,7 +232,7 @@ fn Parser::find_short(self : Parser, c : Char) -> Arg? {
 }
 
 ///|
-fn Parser::find_position(self : Parser, index : Int) -> Arg? {
+fn Parser::find_position(self : Parser, index : Int32) -> Arg? {
   for a in self.cmd.args {
     if a.is_positional() && a.index == Some(index) {
       return Some(a)
@@ -250,7 +250,7 @@ fn Parser::usage(self : Parser) -> String {
 fn Parser::parse(
   self : Parser,
   args : Array[String],
-  start : Int,
+  start : Int32,
 ) -> Unit raise ClapError {
   let mut subcmd_name : String? = None
   let mut parse_state = ParseState::ValuesDone
@@ -419,7 +419,7 @@ fn Parser::parse(
     self.resolve_pending()
     sc.build_self()
     sc.build_bin_names_shallow()
-    let p = Parser::{ cmd: sc, matcher: ArgMatches::new(), pending: None }
+    let p = Parser::{ cmd: sc, matcher: ArgMatches::new(), pending: None, }
     p.get_matches_with(args, cursor)
     self.matcher.subcommand = Some((sc.name, p.matcher))
   }
@@ -489,7 +489,7 @@ fn Parser::parse_long_arg(
   self : Parser,
   long_arg : String,
   long_value : String?,
-  _pos_counter : Int,
+  _pos_counter : Int32,
 ) -> ParseResult raise ClapError {
   match self.find_long(long_arg) {
     Some(arg) =>
@@ -590,7 +590,7 @@ fn Parser::pending_values(
   match self.pending {
     Some(p) if p.id == id => p.raw_vals
     _ => {
-      let p = PendingArg::{ id, ident, raw_vals: [] }
+      let p = PendingArg::{ id, ident, raw_vals: [], }
       self.pending = Some(p)
       p.raw_vals
     }
@@ -613,7 +613,7 @@ fn Parser::start_custom_arg(
 ) -> Unit {
   match self.matcher.args.get(arg.id) {
     Some(m) => if m.source != source { m.source = source }
-    None => self.matcher.args[arg.id] = { source, vals: [] }
+    None => self.matcher.args[arg.id] = { source, vals: [], }
   }
   if source.is_explicit() {
     for group in self.cmd.groups_for_arg(arg.id) {
@@ -622,7 +622,7 @@ fn Parser::start_custom_arg(
           m.source = source
           m.vals.push(arg.id)
         }
-        None => self.matcher.args[group] = { source, vals: [arg.id] }
+        None => self.matcher.args[group] = { source, vals: [arg.id], }
       }
     }
   }
@@ -648,11 +648,9 @@ fn Parser::parse_value(
   value : String,
 ) -> String raise ClapError {
   ignore(self)
-  let validation = (msg : String) => error_value_validation(
-    arg.to_string(),
-    value,
-    msg,
-  )
+  let validation = (msg : String) => {
+    error_value_validation(arg.to_string(), value, msg)
+  }
   match arg.get_value_parser() {
     String | PathBuf => value
     Bool =>
@@ -778,7 +776,11 @@ fn Parser::react(
     }
     Count => {
       let existing = match self.matcher.args.get(arg.id) {
-        Some(m) => m.vals.get(0).map(v => @string.parse_int(v) catch { _ => 0 }).unwrap_or(0)
+        Some(m) =>
+          m.vals
+          .get(0)
+          .map(v => @string.parse_int(v) catch { _ => 0 })
+          .unwrap_or(0)
         None => 0
       }
       self.matcher.args.remove(arg.id)
@@ -879,7 +881,7 @@ fn Parser::did_you_mean_error(
     suggestions_did_you_mean(arg, longs).pop() {
     Some(candidate) => Some((candidate, None))
     None => {
-      let mut best : (Int, (String, String?))? = None
+      let mut best : (Int32, (String, String?))? = None
       for sc in self.cmd.subcommands {
         sc.build_self()
         let sc_longs = []
@@ -1052,11 +1054,13 @@ fn Parser::validate_conflicts(
     // `build_conflict_err_usage`.
     let used_filtered = self
       .explicit_ids()
-      .filter(n => (match self.cmd.find(n) {
+      .filter(n => {
+        (match self.cmd.find(n) {
           Some(a) => !a.hide
           None => false
         }) &&
-        !unrolled.contains(n))
+        !unrolled.contains(n)
+      })
     let req = []
     for key in used_filtered {
       match self.cmd.find(key) {
@@ -1140,9 +1144,11 @@ fn Parser::validate_required(
     )
     let used = self
       .explicit_ids()
-      .filter(n => match self.cmd.find(n) {
-        Some(a) => !a.hide
-        None => false
+      .filter(n => {
+        match self.cmd.find(n) {
+          Some(a) => !a.hide
+          None => false
+        }
       })
     used.append(missing_required)
     raise error_missing_required_argument(

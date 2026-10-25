@@ -9,11 +9,11 @@
 pub let build_version : String = "0.28.0"
 
 ///|
-pub let default_generate_abi_version : Int = 15
+pub let default_generate_abi_version : Int32 = 15
 
 ///|
 /// `tree_sitter::LANGUAGE_VERSION`.
-pub let language_version : Int = 15
+pub let language_version : Int32 = 15
 
 ///|
 let authors : String = "Max Brunsfeld <maxbrunsfeld@gmail.com>\nAmaan Qureshi <amaanq12@gmail.com>"
@@ -48,7 +48,7 @@ fn regex_opt(id : String) -> @clap.Arg {
 }
 
 ///|
-fn grammar_path_arg(help : String, short? : Bool = true) -> @clap.Arg {
+fn grammar_path_arg(help : String, short~ : Bool = true) -> @clap.Arg {
   let arg = path_opt("grammar_path").long("grammar-path").help(help)
   if short {
     arg.short('p')
@@ -77,9 +77,7 @@ fn init_command() -> @clap.Command {
   .alias("i")
   .about("Initialize a grammar repository")
   .arg(flag("update").long("update").short('u').help("Update outdated files"))
-  .arg(
-    grammar_path_arg("The path to the tree-sitter grammar directory"),
-  )
+  .arg(grammar_path_arg("The path to the tree-sitter grammar directory"))
 }
 
 ///|
@@ -209,7 +207,10 @@ fn build_command() -> @clap.Command {
     .help("Make the parser reuse the same allocator as the library"),
   )
   .arg(
-    flag("debug").long("debug").short('0').help("Compile a parser in debug mode"),
+    flag("debug")
+    .long("debug")
+    .short('0')
+    .help("Compile a parser in debug mode"),
   )
   .arg(
     flag("verbose")
@@ -220,7 +221,7 @@ fn build_command() -> @clap.Command {
 }
 
 ///|
-fn lib_path_arg(short? : Bool = true) -> @clap.Arg {
+fn lib_path_arg(short~ : Bool = true) -> @clap.Arg {
   let arg = path_opt("lib_path")
     .long("lib-path")
     .help("The path to the parser's dynamic library")
@@ -395,11 +396,7 @@ fn config_path_arg() -> @clap.Arg {
 
 ///|
 fn test_number_arg(help : String) -> @clap.Arg {
-  opt("test_number")
-  .long("test-number")
-  .short('n')
-  .value_parser(U32)
-  .help(help)
+  opt("test_number").long("test-number").short('n').value_parser(U32).help(help)
 }
 
 ///|
@@ -442,9 +439,7 @@ fn test_command() -> @clap.Command {
     flag("update")
     .long("update")
     .short('u')
-    .help(
-      "Update all syntax trees in corpus files with current parser output",
-    ),
+    .help("Update all syntax trees in corpus files with current parser output"),
   )
   .arg(flag("debug").long("debug").short('d').help("Show parsing debug log"))
   .arg(

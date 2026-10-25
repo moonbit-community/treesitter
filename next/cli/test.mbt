@@ -32,15 +32,19 @@ pub(all) enum TestOutcome {
   Updated
   Skipped
   Platform
-  AssertionPassed(assertion_count~ : Int)
+  AssertionPassed(assertion_count~ : Int32)
   AssertionFailed(error~ : String)
 }
 
 ///|
 pub(all) enum TestInfo {
   Group(children~ : Array[TestResult])
-  ParseTest(outcome~ : TestOutcome, parse_rate~ : (Double, Double)?, test_num~ : Int)
-  AssertionTest(outcome~ : TestOutcome, test_num~ : Int)
+  ParseTest(
+    outcome~ : TestOutcome,
+    parse_rate~ : (Double, Double)?,
+    test_num~ : Int32
+  )
+  AssertionTest(outcome~ : TestOutcome, test_num~ : Int32)
 }
 
 ///|
@@ -54,12 +58,12 @@ pub(all) struct TestResult {
 /// creation in DFS traversal order.
 pub struct TestResultHierarchy {
   root_group : Array[TestResult]
-  traversal_idxs : Array[Int]
+  traversal_idxs : Array[Int32]
 }
 
 ///|
 pub fn TestResultHierarchy::new() -> TestResultHierarchy {
-  { root_group: [], traversal_idxs: [] }
+  { root_group: [], traversal_idxs: [], }
 }
 
 ///|
@@ -90,7 +94,7 @@ pub fn TestResultHierarchy::add_group(
 ) -> Unit {
   let group = self.current_group()
   let new_group_idx = group.length()
-  group.push({ name: group_name, info: Group(children=[]) })
+  group.push({ name: group_name, info: Group(children=[]), })
   self.traversal_idxs.push(new_group_idx)
 }
 
@@ -107,9 +111,9 @@ pub fn TestResultHierarchy::add_case(
 /// DFS iteration with depths.
 pub fn TestResultHierarchy::iter(
   self : TestResultHierarchy,
-) -> Array[(Int, TestResult)] {
+) -> Array[(Int32, TestResult)] {
   let result = []
-  fn visit(depth : Int, r : TestResult) {
+  fn visit(depth : Int32, r : TestResult) {
     result.push((depth, r))
     if r.info is Group(children~) {
       for c in children {
@@ -143,7 +147,7 @@ pub struct TestSummary {
   highlight_results : TestResultHierarchy
   tag_results : TestResultHierarchy
   query_results : TestResultHierarchy
-  mut test_num : Int
+  mut test_num : Int32
   mut use_markers : Bool
   overview_only : Bool
   update : Bool
@@ -218,9 +222,9 @@ fn TestResult::to_json(self : TestResult) -> Json {
 
 ///|
 pub fn TestSummary::to_json(self : TestSummary) -> Json {
-  let results = (h : TestResultHierarchy) => Json::array(
-    h.root_group.map(r => r.to_json()),
-  )
+  let results = (h : TestResultHierarchy) => {
+    Json::array(h.root_group.map(r => r.to_json()))
+  }
   {
     "parse_results": results(self.parse_results),
     "parse_failures": Json::array(
@@ -261,7 +265,10 @@ fn format_fixed3(x : Double) -> String {
 }
 
 ///|
-fn TestSummary::fmt_parse_results(self : TestSummary, f : StringBuilder) -> Unit {
+fn TestSummary::fmt_parse_results(
+  self : TestSummary,
+  f : StringBuilder,
+) -> Unit {
   let mut count = 0
   let mut total_adj_parse_time = 0.0
   for entry in self.parse_results.iter() {
@@ -333,7 +340,7 @@ fn TestSummary::fmt_parse_results(self : TestSummary, f : StringBuilder) -> Unit
       f.write_string(diff_key())
     }
     for i, failure in self.parse_failures {
-      let { name, actual, expected, is_cst } = failure
+      let { name, actual, expected, is_cst, } = failure
       if expected == "NO ERROR" {
         f.write_string("\n  \{i + 1}. \{name}:\n\n")
         f.write_string("  Expected an ERROR node, but got:\n")
@@ -362,7 +369,7 @@ fn TestSummary::fmt_parse_results(self : TestSummary, f : StringBuilder) -> Unit
 
 ///|
 /// `Display for TestSummary`.
-pub impl Show for TestSummary with output(self, logger) {
+pub impl Show for TestSummary with fn output(self, logger) {
   let f = StringBuilder()
   self.fmt_parse_results(f)
   let render_assertion_results = (name : String, results : TestResultHierarchy) => {
@@ -487,8 +494,8 @@ priv struct TestCorrection {
   input : String
   output : String
   attributes_str : String
-  header_delim_len : Int
-  divider_delim_len : Int
+  header_delim_len : Int32
+  divider_delim_len : Int32
 }
 
 ///|
@@ -605,9 +612,7 @@ fn language_named(opts : TestOptions, name : String) -> @api.Language? {
 /// `adjusted_parse_rate`.
 fn adjusted_parse_rate(tree : @api.Tree, parse_time_ns : Int64) -> Double {
   let (start, end) = tree.root_node().byte_range()
-  @math.ln(
-    (end - start).to_double() / (parse_time_ns.to_double() / 1000000.0),
-  )
+  @math.ln((end - start).to_double() / (parse_time_ns.to_double() / 1000000.0))
 }
 
 ///|
@@ -868,7 +873,9 @@ async fn run_tests(
           test_summary.parse_results.add_group(name)
           ran_test_in_group = true
         }
-        if !run_tests(parser, child, opts, test_summary, corrected_entries, false) {
+        if !run_tests(
+            parser, child, opts, test_summary, corrected_entries, false,
+          ) {
           // fail fast
           return false
         }

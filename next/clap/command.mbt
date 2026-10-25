@@ -14,7 +14,14 @@ pub struct ArgGroup {
 
 ///|
 pub fn ArgGroup::new(id : String) -> ArgGroup {
-  { id, args: [], required: false, multiple: false, conflicts: [], requires: [] }
+  {
+    id,
+    args: [],
+    required: false,
+    multiple: false,
+    conflicts: [],
+    requires: [],
+  }
 }
 
 ///|
@@ -71,8 +78,8 @@ pub struct Command {
   priv mut disable_help_flag : Bool
   priv mut disable_version_flag : Bool
   priv mut hide : Bool
-  priv mut disp_ord : Int?
-  priv mut current_disp_ord : Int
+  priv mut disp_ord : Int32?
+  priv mut current_disp_ord : Int32
   priv mut subcommand_value_name : String?
   priv mut subcommand_help_heading : String?
   priv mut long_help_exists : Bool
@@ -357,7 +364,7 @@ pub fn Command::is_allow_external_subcommands_set(_self : Command) -> Bool {
 }
 
 ///|
-pub fn Command::get_display_order(self : Command) -> Int {
+pub fn Command::get_display_order(self : Command) -> Int32 {
   self.disp_ord.unwrap_or(999)
 }
 
@@ -429,7 +436,10 @@ fn Command::groups_for_arg(self : Command, id : String) -> Array[String] {
 }
 
 ///|
-fn Command::unroll_args_in_group(self : Command, group : String) -> Array[String] {
+fn Command::unroll_args_in_group(
+  self : Command,
+  group : String,
+) -> Array[String] {
   let result = []
   let pending = [group]
   let processed = []
@@ -459,7 +469,13 @@ fn Command::format_group(self : Command, g : String) -> String {
   let parts = []
   for id in self.unroll_args_in_group(g) {
     guard self.find(id) is Some(x) else { continue }
-    parts.push(if x.is_positional() { x.name_no_brackets() } else { x.to_string() })
+    parts.push(
+      if x.is_positional() {
+        x.name_no_brackets()
+      } else {
+        x.to_string()
+      },
+    )
   }
   "<\{parts.join("|")}>"
 }
@@ -509,7 +525,8 @@ fn Command::unroll_arg_requires(self : Command, arg : String) -> Array[String] {
 ///|
 /// `Command::long_help_exists_`.
 fn Command::long_help_exists_(self : Command) -> Bool {
-  let should_long = (v : Arg) => !v.hide &&
+  let should_long = (v : Arg) => {
+    !v.hide &&
     (
       v.long_help is Some(_) ||
       (
@@ -517,6 +534,7 @@ fn Command::long_help_exists_(self : Command) -> Bool {
         v.get_possible_values().iter().any(p => p.should_show_help())
       )
     )
+  }
   self.long_about is Some(_) || self.args.iter().any(should_long)
 }
 

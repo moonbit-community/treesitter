@@ -3,7 +3,6 @@
 ///|
 using @support {
   paint,
-  paint_style,
   color_enabled,
   log_info,
   log_warn,

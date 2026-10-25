@@ -20,7 +20,7 @@ pub(all) struct HlStyle {
 
 ///|
 pub fn HlStyle::default() -> HlStyle {
-  { ansi: Style::new(), css: None }
+  { ansi: Style::new(), css: None, }
 }
 
 ///|
@@ -44,12 +44,12 @@ pub fn Theme::from_json(json : Json) -> Theme {
       styles.push(style)
     }
   }
-  { styles, highlight_names }
+  { styles, highlight_names, }
 }
 
 ///|
 /// Rust's `Ord for str`.
-pub fn compare_bytes(a : String, b : String) -> Int {
+pub fn compare_bytes(a : String, b : String) -> Int32 {
   let x = @support.utf8(a)
   let y = @support.utf8(b)
   let n = if x.length() < y.length() { x.length() } else { y.length() }
@@ -120,7 +120,7 @@ pub fn Theme::to_json(self : Theme) -> Json {
 
 ///|
 pub fn Theme::default() -> Theme {
-  let n = (v : Int) => Json::number(v.to_double())
+  let n = (v : Int32) => Json::number(v.to_double())
   Theme::from_json({
     "attribute": { "color": n(124), "italic": true },
     "comment": { "color": n(245), "italic": true },
@@ -173,9 +173,9 @@ fn parse_style(json : Json) -> HlStyle {
     Object(entries) => {
       for property_name, value in entries {
         match property_name {
-          "bold" if value is True => ansi = { ..ansi, bold: true }
-          "italic" if value is True => ansi = { ..ansi, italic: true }
-          "underline" if value is True => ansi = { ..ansi, underline: true }
+          "bold" if value is True => ansi = { ..ansi, bold: true, }
+          "italic" if value is True => ansi = { ..ansi, italic: true, }
+          "underline" if value is True => ansi = { ..ansi, underline: true, }
           "color" =>
             if parse_color(value) is Some(color) {
               ansi = ansi.fg_color(Some(color))
@@ -197,7 +197,7 @@ fn parse_style(json : Json) -> HlStyle {
   if ansi.fg is Some(Rgb(r, g, b)) && !terminal_supports_truecolor() {
     ansi = ansi.fg_color(Some(Ansi256(ansi256_from_rgb(r, g, b))))
   }
-  { ansi, css }
+  { ansi, css, }
 }
 
 ///|
@@ -230,13 +230,15 @@ fn parse_color(json : Json) -> Color? {
 }
 
 ///|
-fn hex_string_to_rgb(s : String) -> (Int, Int, Int)? {
+fn hex_string_to_rgb(s : String) -> (Int32, Int32, Int32)? {
   if s.has_prefix("#") && @support.utf8_len(s) >= 7 {
-    let hex = (start : Int) => @string.parse_int(
+    let hex = (start : Int32) => {
+      @string.parse_int(
         s.view(start_offset=start, end_offset=start + 2),
         base=16,
       ) catch {
-      _ => -1
+        _ => -1
+      }
     }
     let (r, g, b) = (hex(1), hex(3), hex(5))
     if r >= 0 && g >= 0 && b >= 0 {
@@ -250,7 +252,7 @@ fn hex_string_to_rgb(s : String) -> (Int, Int, Int)? {
 }
 
 ///|
-fn hex2(n : Int) -> String {
+fn hex2(n : Int32) -> String {
   let s = n.to_string(radix=16)
   if s.length() < 2 {
     "0" + s
@@ -292,7 +294,8 @@ fn style_to_css(style : Style) -> String {
           "color: #\{hex2((rgb >> 16) & 0xFF)}\{hex2((rgb >> 8) & 0xFF)}\{hex2(rgb & 0xFF)}",
         )
       }
-      Rgb(r, g, b) => result.write_string("color: #\{hex2(r)}\{hex2(g)}\{hex2(b)}")
+      Rgb(r, g, b) =>
+        result.write_string("color: #\{hex2(r)}\{hex2(g)}\{hex2(b)}")
     }
   }
   result.to_string()
@@ -334,7 +337,7 @@ pub struct HighlightOptions {
 }
 
 ///|
-fn encoding_flag(e : InputEncoding) -> UInt {
+fn encoding_flag(e : InputEncoding) -> UInt32 {
   match e {
     Utf8 => @highlight.input_encoding_utf8
     Utf16LE => @highlight.input_encoding_utf16le
@@ -350,7 +353,7 @@ pub async fn highlight_events(
   highlighter : @highlight.Highlighter,
   config : @highlight.HighlightConfiguration,
   source : Bytes,
-  encoding : UInt?,
+  encoding : UInt32?,
 ) -> Array[Result[@highlight.HighlightEvent, @highlight.HighlightError]] {
   for ;; {
     let events = highlighter
@@ -377,7 +380,7 @@ pub async fn highlight(
     let names = match opts.captures_path {
       Some(path) => {
         let file = @fs.read_file(path).text()
-        let capture_names = @hashset.new()
+        let capture_names = @hashset.HashSet([])
         for line in rust_lines(file) {
           let trimmed = line.trim()
           if trimmed.is_empty() || trimmed.has_prefix(";") {
@@ -388,7 +391,7 @@ pub async fn highlight(
         }
         config.nonconformant_capture_names(capture_names)
       }
-      None => config.nonconformant_capture_names(@hashset.new())
+      None => config.nonconformant_capture_names(@hashset.HashSet([]))
     }
     if names.is_empty() {
       log_info("All highlight captures conform to standards.")
@@ -410,7 +413,7 @@ pub async fn highlight(
       }
     e => e
   }
-  let stdout = @buffer.new()
+  let stdout = @buffer.Buffer()
   let time = @support.now_ns()
   let highlighter = @highlight.Highlighter::new()
   let events = highlight_events(
@@ -515,10 +518,9 @@ pub async fn highlight(
   }
 }
 
-
 ///|
 /// `ansi_colours::ansi256_from_rgb`.
-fn ansi256_from_rgb(r : Int, g : Int, b : Int) -> Int {
+fn ansi256_from_rgb(r : Int32, g : Int32, b : Int32) -> Int32 {
   let luminance = (3567664 * r + 11998547 * g + 1211005 * b + (1 << 23)) >> 24
   let grey_index = ansi256_from_grey[luminance & 0xFF]
   let grey_distance = colour_distance(r, g, b, ansi_colours[grey_index])
@@ -536,13 +538,13 @@ fn ansi256_from_rgb(r : Int, g : Int, b : Int) -> Int {
 
 ///|
 fn cube_thresholds(
-  v : Int,
-  a : Int,
-  b : Int,
-  c : Int,
-  d : Int,
-  e : Int,
-) -> (Int, Int) {
+  v : Int32,
+  a : Int32,
+  b : Int32,
+  c : Int32,
+  d : Int32,
+  e : Int32,
+) -> (Int32, Int32) {
   if v < a {
     (0, 0)
   } else if v < b {
@@ -559,7 +561,7 @@ fn cube_thresholds(
 }
 
 ///|
-fn colour_distance(xr : Int, xg : Int, xb : Int, y : Int) -> UInt {
+fn colour_distance(xr : Int32, xg : Int32, xb : Int32, y : Int32) -> UInt32 {
   let (yr, yg, yb) = ((y >> 16) & 0xFF, (y >> 8) & 0xFF, y & 0xFF)
   let r_sum = xr + yr
   let r = xr - yr
@@ -569,17 +571,52 @@ fn colour_distance(xr : Int, xg : Int, xb : Int, y : Int) -> UInt {
 }
 
 ///|
-let ansi_colours : Array[Int] = [
-  0x000000, 0xcd0000, 0x00cd00, 0xcdcd00, 0x0000ee, 0xcd00cd, 0x00cdcd, 0xe5e5e5,
-  0x7f7f7f, 0xff0000, 0x00ff00, 0xffff00, 0x5c5cff, 0xff00ff, 0x00ffff, 0xffffff,
+let ansi_colours : Array[Int32] = [
+  0x000000,
+  0xcd0000,
+  0x00cd00,
+  0xcdcd00,
+  0x0000ee,
+  0xcd00cd,
+  0x00cdcd,
+  0xe5e5e5,
+  0x7f7f7f,
+  0xff0000,
+  0x00ff00,
+  0xffff00,
+  0x5c5cff,
+  0xff00ff,
+  0x00ffff,
+  0xffffff,
   ..ansi_cube(),
-  0x080808, 0x121212, 0x1c1c1c, 0x262626, 0x303030, 0x3a3a3a, 0x444444, 0x4e4e4e,
-  0x585858, 0x626262, 0x6c6c6c, 0x767676, 0x808080, 0x8a8a8a, 0x949494, 0x9e9e9e,
-  0xa8a8a8, 0xb2b2b2, 0xbcbcbc, 0xc6c6c6, 0xd0d0d0, 0xdadada, 0xe4e4e4, 0xeeeeee,
+  0x080808,
+  0x121212,
+  0x1c1c1c,
+  0x262626,
+  0x303030,
+  0x3a3a3a,
+  0x444444,
+  0x4e4e4e,
+  0x585858,
+  0x626262,
+  0x6c6c6c,
+  0x767676,
+  0x808080,
+  0x8a8a8a,
+  0x949494,
+  0x9e9e9e,
+  0xa8a8a8,
+  0xb2b2b2,
+  0xbcbcbc,
+  0xc6c6c6,
+  0xd0d0d0,
+  0xdadada,
+  0xe4e4e4,
+  0xeeeeee,
 ]
 
 ///|
-fn ansi_cube() -> Array[Int] {
+fn ansi_cube() -> Array[Int32] {
   let levels = [0, 0x5f, 0x87, 0xaf, 0xd7, 0xff]
   let result = []
   for r in levels {
@@ -593,7 +630,7 @@ fn ansi_cube() -> Array[Int] {
 }
 
 ///|
-let ansi256_from_grey : Array[Int] = [
+let ansi256_from_grey : Array[Int32] = [
   16, 16, 16, 16, 16, 232, 232, 232, 232, 232, 232, 232, 232, 232, 233, 233, 233,
   233, 233, 233, 233, 233, 233, 233, 234, 234, 234, 234, 234, 234, 234, 234, 234,
   234, 235, 235, 235, 235, 235, 235, 235, 235, 235, 235, 236, 236, 236, 236, 236,

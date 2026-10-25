@@ -9,7 +9,7 @@ pub struct TagsOptions {
 
 ///|
 /// Rust's `{:<width}`: left-align to `width` characters.
-fn left(s : String, width : Int) -> String {
+fn left(s : String, width : Int32) -> String {
   pad_right(s, width)
 }
 
@@ -43,9 +43,9 @@ pub async fn generate_tags(
       }
     }
     if !opts.quiet {
-      let text = (range : (Int, Int)) => @support.utf8_strict(
-          source[range.0:range.1],
-        ).unwrap_or("")
+      let text = (range : (Int32, Int32)) => {
+        @support.utf8_strict(source[range.0:range.1]).unwrap_or("")
+      }
       stdout.write_string(
         "\{indent_str}\{left(text(tag.name_range), 10)}\t | \{left(config.syntax_type_name(tag.syntax_type_id), 8)}\t\{if tag.is_definition { "def" } else { "ref" }} \{tag.span.0} - \{tag.span.1} `\{text(tag.line_range)}`",
       )
@@ -72,7 +72,7 @@ pub async fn generate_tags(
 ///|
 /// `str::get(0..n).unwrap_or("")`: the first `n` UTF-8 bytes, or `""` when
 /// `n` is not a character boundary.
-fn utf8_prefix(s : String, n : Int) -> String {
+fn utf8_prefix(s : String, n : Int32) -> String {
   let mut bytes = 0
   let sb = StringBuilder()
   for c in s {

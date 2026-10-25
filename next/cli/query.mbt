@@ -3,9 +3,9 @@
 ///|
 pub struct QueryFileOptions {
   ordered_captures : Bool
-  byte_range : (Int, Int)?
+  byte_range : (Int32, Int32)?
   point_range : (@api.Point, @api.Point)?
-  containing_byte_range : (Int, Int)?
+  containing_byte_range : (Int32, Int32)?
   containing_point_range : (@api.Point, @api.Point)?
   quiet : Bool
   print_time : Bool
@@ -174,7 +174,7 @@ pub async fn query_file_at_path(
       parser, language, source_code,
     )
     match
-      (@query_testing.assert_expected_captures(results, assertions) catch {
+      (try @query_testing.assert_expected_captures(results, assertions) catch {
         e => Err(e)
       } noraise {
         n => Ok(n)
@@ -201,9 +201,7 @@ pub async fn query_file_at_path(
     }
   }
   if opts.print_time {
-    stdout.write_string(
-      "\{format_duration_debug(@support.now_ns() - start)}\n",
-    )
+    stdout.write_string("\{format_duration_debug(@support.now_ns() - start)}\n")
   }
   @support.print_out(stdout.to_string())
 }

@@ -45,7 +45,7 @@ test "ranges and edits" {
   }
   inspect(err, content="Invalid range '3', expected 'start:end'")
   let source = @support.utf8("abc\ndef").to_array()
-  inspect(offset_for_position(source, { row: 1, column: 2 }), content="6")
+  inspect(offset_for_position(source, { row: 1, column: 2, }), content="6")
   let edit = parse_edit_flag(source, "1,1 2 x y")
   debug_inspect(
     edit,

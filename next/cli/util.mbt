@@ -32,7 +32,7 @@ pub struct LogSession {
 ///|
 async fn LogSession::new(path : String, open_log : Bool) -> LogSession {
   @fs.write_file(path, html_header, create_mode=CreateOrTruncate)
-  { path, graphs: StringBuilder(), open_log }
+  { path, graphs: StringBuilder(), open_log, }
 }
 
 ///|
@@ -54,12 +54,12 @@ pub async fn LogSession::close(self : LogSession) -> Unit {
   }
   ignore(@fs.remove(temp) catch { _ => () })
   if code == 0 {
-    let html = @buffer.new()
+    let html = @buffer.Buffer()
     html.write_bytes(@support.utf8(html_header))
     html.write_bytes(stdout.binary())
     @fs.write_file(self.path, html.to_bytes(), create_mode=CreateOrTruncate)
     if self.open_log {
-      let size = (@fs.read_file(self.path).binary()).length()
+      let size = @fs.read_file(self.path).binary().length()
       if size > @support.utf8_len(html_header) {
         open_in_browser(self.path)
       }

@@ -50,7 +50,7 @@ pub fn ClapError::use_stderr(self : ClapError) -> Bool {
 
 ///|
 /// `Error::exit_code`.
-pub fn ClapError::exit_code(self : ClapError) -> Int {
+pub fn ClapError::exit_code(self : ClapError) -> Int32 {
   if self.use_stderr() {
     2
   } else {
@@ -59,7 +59,7 @@ pub fn ClapError::exit_code(self : ClapError) -> Int {
 }
 
 ///|
-pub impl Show for ClapError with output(self, logger) {
+pub impl Show for ClapError with fn output(self, logger) {
   logger.write_string(self.message())
 }
 
@@ -78,9 +78,9 @@ priv struct Ctx {
   suggested_value : String?
   suggested : Array[String]?
   usage : String?
-  actual_num_values : Int?
-  min_values : Int?
-  expected_num_values : Int?
+  actual_num_values : Int32?
+  min_values : Int32?
+  expected_num_values : Int32?
   source : String?
 }
 
@@ -179,8 +179,10 @@ fn kind_as_str(kind : ErrorKind) -> String {
     TooManyValues => "unexpected value for an argument found"
     TooFewValues => "more values required for an argument"
     WrongNumberOfValues => "too many or too few values for an argument"
-    ArgumentConflict => "an argument cannot be used with one or more of the other specified arguments"
-    MissingRequiredArgument => "one or more required arguments were not provided"
+    ArgumentConflict =>
+      "an argument cannot be used with one or more of the other specified arguments"
+    MissingRequiredArgument =>
+      "one or more required arguments were not provided"
     MissingSubcommand => "a subcommand is required but one was not provided"
     InvalidUtf8 => "invalid UTF-8 was detected in one or more arguments"
     _ => ""
@@ -203,7 +205,9 @@ fn write_dynamic_context(
             "the argument '\{invalid_arg}' cannot be used multiple times",
           )
         } else {
-          styled.write_string("the argument '\{invalid_arg}' cannot be used with")
+          styled.write_string(
+            "the argument '\{invalid_arg}' cannot be used with",
+          )
         }
       } else if ctx.invalid_subcommand is Some(sub) {
         styled.write_string("the subcommand '\{sub}' cannot be used with")
@@ -357,7 +361,7 @@ fn write_values_list(
 }
 
 ///|
-fn singular_or_plural(n : Int) -> String {
+fn singular_or_plural(n : Int32) -> String {
   if n > 1 {
     " were provided"
   } else {
@@ -435,7 +439,9 @@ fn error_invalid_subcommand(
 ) -> ClapError {
   let suggestions = []
   if suggested_trailing_arg {
-    suggestions.push("to pass '\{subcmd}' as a value, use '\{name} -- \{subcmd}'")
+    suggestions.push(
+      "to pass '\{subcmd}' as a value, use '\{name} -- \{subcmd}'",
+    )
   }
   make_error(InvalidSubcommand, {
     ..Ctx::default(),
@@ -482,7 +488,11 @@ fn error_missing_subcommand(
 }
 
 ///|
-fn error_too_many_values(val : String, arg : String, usage : String) -> ClapError {
+fn error_too_many_values(
+  val : String,
+  arg : String,
+  usage : String,
+) -> ClapError {
   make_error(TooManyValues, {
     ..Ctx::default(),
     invalid_arg: Some(arg),
@@ -494,8 +504,8 @@ fn error_too_many_values(val : String, arg : String, usage : String) -> ClapErro
 ///|
 fn error_too_few_values(
   arg : String,
-  min_vals : Int,
-  curr_vals : Int,
+  min_vals : Int32,
+  curr_vals : Int32,
   usage : String,
 ) -> ClapError {
   make_error(TooFewValues, {
@@ -510,8 +520,8 @@ fn error_too_few_values(
 ///|
 fn error_wrong_number_of_values(
   arg : String,
-  num_vals : Int,
-  curr_vals : Int,
+  num_vals : Int32,
+  curr_vals : Int32,
   usage : String,
 ) -> ClapError {
   make_error(WrongNumberOfValues, {
@@ -568,7 +578,11 @@ fn error_unknown_argument(
     invalid_arg: Some(arg),
     usage: Some(usage),
     suggested_arg,
-    suggested: if suggestions.is_empty() { None } else { Some(suggestions) },
+    suggested: if suggestions.is_empty() {
+      None
+    } else {
+      Some(suggestions)
+    },
   })
 }
 
@@ -586,7 +600,10 @@ fn error_unnecessary_double_dash(arg : String, usage : String) -> ClapError {
 
 ///|
 /// `parser::features::suggestions::did_you_mean`.
-fn suggestions_did_you_mean(v : String, possible_values : Array[String]) -> Array[String] {
+fn suggestions_did_you_mean(
+  v : String,
+  possible_values : Array[String],
+) -> Array[String] {
   let candidates : Array[(Double, String)] = []
   for pv in possible_values {
     let confidence = jaro(v, pv)
@@ -635,7 +652,7 @@ fn jaro(a : String, b : String) -> Double {
     if min_bound > max_bound {
       continue
     }
-    for j in min_bound..=max_bound {
+    for j in min_bound..<=max_bound {
       if a_elem == b_chars[j] && !flags_memory[a_len + j] {
         flags_memory[i] = true
         flags_memory[a_len + j] = true

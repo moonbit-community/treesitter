@@ -6,22 +6,27 @@
 
 ///|
 #borrow(data)
-extern "C" fn ts_cli_write(fd : Int, data : Bytes, offset : Int, len : Int) = "ts_cli_write"
+extern "C" fn ts_cli_write(
+  fd : Int32,
+  data : Bytes,
+  offset : Int32,
+  len : Int32,
+) = "ts_cli_write"
 
 ///|
 extern "C" fn ts_cli_flush() = "ts_cli_flush"
 
 ///|
-extern "C" fn ts_cli_exit(code : Int) = "ts_cli_exit"
+extern "C" fn ts_cli_exit(code : Int32) = "ts_cli_exit"
 
 ///|
 extern "C" fn ts_cli_now_ns() -> Int64 = "ts_cli_now_ns"
 
 ///|
-extern "C" fn ts_cli_isatty(fd : Int) -> Int = "ts_cli_isatty"
+extern "C" fn ts_cli_isatty(fd : Int32) -> Int32 = "ts_cli_isatty"
 
 ///|
-extern "C" fn ts_cli_strerror(err : Int) -> Bytes = "ts_cli_strerror"
+extern "C" fn ts_cli_strerror(err : Int32) -> Bytes = "ts_cli_strerror"
 
 ///|
 /// Write raw bytes to standard output (buffered with `println`'s stream).
@@ -58,7 +63,7 @@ pub fn flush() -> Unit {
 
 ///|
 /// `std::process::exit`.
-pub fn exit(code : Int) -> Unit {
+pub fn exit(code : Int32) -> Unit {
   ts_cli_exit(code)
 }
 
@@ -69,7 +74,7 @@ pub fn now_ns() -> Int64 {
 }
 
 ///|
-pub fn is_terminal(fd : Int) -> Bool {
+pub fn is_terminal(fd : Int32) -> Bool {
   ts_cli_isatty(fd) != 0
 }
 
@@ -267,7 +272,7 @@ pub fn utf8_lossy(bytes : BytesView) -> String {
 ///|
 /// `str::from_utf8`.
 pub fn utf8_strict(bytes : BytesView) -> String? {
-  @utf8.decode(bytes) catch {
+  try @utf8.decode(bytes) catch {
     _ => None
   } noraise {
     s => Some(s)
@@ -282,7 +287,7 @@ pub fn utf8(s : String) -> Bytes {
 
 ///|
 /// The UTF-8 length of a string (Rust's `str::len`).
-pub fn utf8_len(s : String) -> Int {
+pub fn utf8_len(s : String) -> Int32 {
   let mut n = 0
   for c in s {
     let code = c.to_int()
@@ -301,7 +306,7 @@ pub fn utf8_len(s : String) -> Int {
 
 ///|
 /// The number of `char`s in a string (`str::chars().count()`).
-pub fn char_count(s : String) -> Int {
+pub fn char_count(s : String) -> Int32 {
   let mut n = 0
   for _ in s {
     n += 1
@@ -333,7 +338,9 @@ pub async fn create_dir_all(path : String) -> Unit {
   if path.is_empty() {
     return
   }
-  let kind = @fs.kind(path, follow_symlink=true) catch { _ => @fs.FileKind::Unknown }
+  let kind = @fs.kind(path, follow_symlink=true) catch {
+    _ => @fs.FileKind::Unknown
+  }
   if kind is Directory {
     return
   }

@@ -3,16 +3,16 @@
 ///|
 /// `Stats`.
 pub struct Stats {
-  mut successful_parses : Int
-  mut total_parses : Int
-  mut total_bytes : Int
+  mut successful_parses : Int32
+  mut total_parses : Int32
+  mut total_bytes : Int32
   /// Nanoseconds.
   mut total_duration : Int64
 }
 
 ///|
 pub fn Stats::default() -> Stats {
-  { successful_parses: 0, total_parses: 0, total_bytes: 0, total_duration: 0 }
+  { successful_parses: 0, total_parses: 0, total_bytes: 0, total_duration: 0, }
 }
 
 ///|
@@ -29,7 +29,7 @@ pub fn format_fixed2(x : Double) -> String {
 
 ///|
 /// Right-align `s` to `width` characters (`{:>width$}`).
-pub fn pad_left(s : String, width : Int) -> String {
+pub fn pad_left(s : String, width : Int32) -> String {
   let n = @support.char_count(s)
   if n >= width {
     s
@@ -40,7 +40,7 @@ pub fn pad_left(s : String, width : Int) -> String {
 
 ///|
 /// Left-align `s` to `width` characters (`{:width$}`).
-pub fn pad_right(s : String, width : Int) -> String {
+pub fn pad_right(s : String, width : Int32) -> String {
   let n = @support.char_count(s)
   if n >= width {
     s
@@ -51,7 +51,7 @@ pub fn pad_right(s : String, width : Int) -> String {
 
 ///|
 /// `Display for Stats`.
-pub impl Show for Stats with output(self, f) {
+pub impl Show for Stats with fn output(self, f) {
   let duration_us = self.total_duration / 1000L
   let success_rate = if self.total_parses > 0 {
     format_fixed2(
@@ -153,11 +153,13 @@ pub fn ParseTheme::from_config(config : Json) -> ParseTheme raise CliError {
     Object(o) => o
     _ => raise anyhow("invalid type: expected struct ParseThemeRaw")
   }
-  let get = (key : String, d : Color?) => match raw.get(key) {
-    None | Some(Null) => d
-    Some([Number(r, ..), Number(g, ..), Number(b, ..)]) =>
-      Some(Rgb(r.to_int(), g.to_int(), b.to_int()))
-    Some(_) => raise anyhow("invalid type: expected a tuple struct Rgb")
+  let get = (key : String, d : Color?) => {
+    match raw.get(key) {
+      None | Some(Null) => d
+      Some([Number(r, ..), Number(g, ..), Number(b, ..)]) =>
+        Some(Rgb(r.to_int(), g.to_int(), b.to_int()))
+      Some(_) => raise anyhow("invalid type: expected a tuple struct Rgb")
+    }
   }
   {
     node_kind: get("node-kind", default.node_kind),
@@ -190,7 +192,7 @@ pub struct ParseSummary {
   start : @api.Point?
   end : @api.Point?
   duration : Int64?
-  bytes : Int?
+  bytes : Int32?
 }
 
 ///|
@@ -227,12 +229,12 @@ fn ParseSummary::to_json(self : ParseSummary) -> Json {
 pub struct ParseStats {
   parse_summaries : Array[ParseSummary]
   cumulative_stats : Stats
-  mut source_count : Int
+  mut source_count : Int32
 }
 
 ///|
 pub fn ParseStats::default() -> ParseStats {
-  { parse_summaries: [], cumulative_stats: Stats::default(), source_count: 1 }
+  { parse_summaries: [], cumulative_stats: Stats::default(), source_count: 1, }
 }
 
 ///|
@@ -280,7 +282,9 @@ fn utf16_units(bytes : Bytes, big_endian : Bool) -> Array[UInt16] {
   let mut i = 0
   while i + 1 < bytes.length() {
     let (a, b) = (bytes[i].to_int(), bytes[i + 1].to_int())
-    units.push((if big_endian { (a << 8) | b } else { (b << 8) | a }).to_uint16())
+    units.push(
+      (if big_endian { (a << 8) | b } else { (b << 8) | a }).to_uint16(),
+    )
     i += 2
   }
   units
@@ -298,14 +302,14 @@ pub async fn parse_file_at_path(
   language : @api.Language,
   path : String,
   name : String,
-  max_path_length : Int,
+  max_path_length : Int32,
   opts : ParseFileOptions,
 ) -> Unit {
   let mut log_session = None
   parser.set_language(language)
   let source_code = (@fs.read_file(path).binary() catch {
-      e => raise with_context(e, "Error reading \{rust_debug_str(name)}")
-    }).to_array()
+    e => raise with_context(e, "Error reading \{rust_debug_str(name)}")
+  }).to_array()
   // Render an HTML graph if `--debug-graph` was passed
   if opts.debug_graph {
     log_session = Some(log_graphs(parser, "log.html", opts.open_log))
@@ -314,24 +318,26 @@ pub async fn parse_file_at_path(
     let curr_version = Ref(0)
     let debug = opts.debug
     parser.set_logger(
-      Some((log_type, message) => if debug == Normal {
-        if log_type is Lex {
-          @support.print_err("  ")
-        }
-        @support.print_err("\{message}\n")
-      } else {
-        if message.has_prefix("process version:") {
-          let comma_idx = message.find(",").unwrap()
-          curr_version.val = @string.parse_int(
+      Some((log_type, message) => {
+        if debug == Normal {
+          if log_type is Lex {
+            @support.print_err("  ")
+          }
+          @support.print_err("\{message}\n")
+        } else {
+          if message.has_prefix("process version:") {
+            let comma_idx = message.find(",").unwrap()
+            curr_version.val = @string.parse_int(
               message.view(start_offset=16, end_offset=comma_idx),
             ) catch {
-            _ => 0
+              _ => 0
+            }
           }
+          let color = pretty_debug_colors[curr_version.val %
+            pretty_debug_colors.length()]
+          let prefix = if log_type is Lex { "  " } else { "" }
+          @support.print_err("\{prefix}\{paint(Some(color), message)}\n")
         }
-        let color = pretty_debug_colors[curr_version.val %
-          pretty_debug_colors.length()]
-        let prefix = if log_type is Lex { "  " } else { "" }
-        @support.print_err("\{prefix}\{paint(Some(color), message)}\n")
       }),
     )
   }
@@ -351,11 +357,14 @@ pub async fn parse_file_at_path(
   // number of microseconds.
   let start_time = @support.now_ns()
   let timeout = opts.timeout
-  let progress_callback = (_ : @api.ParseState) => if timeout > 0UL &&
-    ((@support.now_ns() - start_time) / 1000L).reinterpret_as_uint64() > timeout {
-    @api.ControlFlow::Break
-  } else {
-    Continue
+  let progress_callback = (_ : @api.ParseState) => {
+    if timeout > 0UL &&
+      ((@support.now_ns() - start_time) / 1000L).reinterpret_as_uint64() >
+      timeout {
+      @api.ControlFlow::Break
+    } else {
+      Continue
+    }
   }
   let parse_opts = @api.ParseOptions::new(progress_callback~)
   let source_bytes = Bytes::from_array(source_code)
@@ -376,10 +385,12 @@ pub async fn parse_file_at_path(
     }
     _ =>
       parser.parse_with_options(
-        (i, _) => if i < source_bytes.length() {
-          source_bytes[i:]
-        } else {
-          b""[:]
+        (i, _) => {
+          if i < source_bytes.length() {
+            source_bytes[i:]
+          } else {
+            b""[:]
+          }
         },
         options=parse_opts,
       )
@@ -740,7 +751,7 @@ fn escape_delimiter(c : Char) -> String? {
 
 ///|
 /// `checked_ilog10(n).unwrap_or(0)`.
-fn ilog10_or_zero(n : Int) -> Int {
+fn ilog10_or_zero(n : Int32) -> Int32 {
   let mut n = n
   let mut result = 0
   while n >= 10 {
@@ -752,7 +763,7 @@ fn ilog10_or_zero(n : Int) -> Int {
 
 ///|
 /// `str::lines` over the lossy source, with each line's UTF-8 length.
-fn line_lengths(text : String) -> Array[Int] {
+fn line_lengths(text : String) -> Array[Int32] {
   rust_lines(text).map(@support.utf8_len)
 }
 
@@ -846,7 +857,7 @@ fn cst_node_range(
   has_field_name : Bool,
   is_named : Bool,
   is_multiline : Bool,
-  total_width : Int,
+  total_width : Int32,
   range : @api.Range,
 ) -> String {
   let start = range.start_point
@@ -856,7 +867,7 @@ fn cst_node_range(
   } else {
     opts.parse_theme.row_color
   }
-  let remaining_width = (row : Int, col : Int) => {
+  let remaining_width = (row : Int32, col : Int32) => {
     let w = total_width - ilog10_or_zero(row) - ilog10_or_zero(col)
     if w < 1 {
       1
@@ -872,7 +883,6 @@ fn cst_node_range(
   )
 }
 
-
 ///|
 fn write_node_text(
   opts : ParseFileOptions,
@@ -881,8 +891,8 @@ fn write_node_text(
   is_named : Bool,
   source : String,
   color : Color?,
-  total_width : Int,
-  indent_level : Int,
+  total_width : Int32,
+  indent_level : Int32,
 ) -> Unit {
   let (quote, quote_color) = if is_named {
     ("`", opts.parse_theme.backtick)
@@ -907,8 +917,8 @@ fn write_node_text(
         (if i == 0 { node_range.start_point.column } else { 0 })
       let node_range = {
         ..node_range,
-        start_point: { ..node_range.start_point, row: start_row },
-        end_point: { row: start_row, column: end_column },
+        start_point: { ..node_range.start_point, row: start_row, },
+        end_point: { row: start_row, column: end_column, },
       }
       if multiline {
         out.write_string("\n")
@@ -924,7 +934,7 @@ fn write_node_text(
             ),
           )
         }
-        for _ in 0..=indent_level {
+        for _ in 0..<=indent_level {
           out.write_string("  ")
         }
       } else {
@@ -943,8 +953,8 @@ fn cst_render_node(
   cursor : @api.TreeCursor,
   source_code : Bytes,
   out : StringBuilder,
-  total_width : Int,
-  indent_level : Int,
+  total_width : Int32,
+  indent_level : Int32,
   in_error : Bool,
 ) -> Unit {
   let node = cursor.node()
@@ -1018,9 +1028,11 @@ fn parse_edit_flag(
   source_code : Array[Byte],
   flag : String,
 ) -> @cli_test.Edit raise CliError {
-  let error = () => anyhow(
-    "Invalid edit string '\{flag}'. Edit strings must match the pattern '<START_BYTE_OR_POSITION> <REMOVED_LENGTH> <NEW_TEXT>'",
-  )
+  let error = () => {
+    anyhow(
+      "Invalid edit string '\{flag}'. Edit strings must match the pattern '<START_BYTE_OR_POSITION> <REMOVED_LENGTH> <NEW_TEXT>'",
+    )
+  }
   // Three whitespace-separated parts: edit position, deleted length,
   // inserted text.
   let parts = flag.split(" ").map(p => p.to_owned()).collect()
@@ -1034,20 +1046,20 @@ fn parse_edit_flag(
     source_code.length()
   } else if position.contains(",") {
     let ps = position.split(",").map(p => p.to_owned()).collect()
-    let row = parse_usize(ps[0]).unwrap_or_error(error())
+    let row = parse_usize(ps[0]).or_raise(error())
     guard ps.length() >= 2 else { raise error() }
-    let column = parse_usize(ps[1]).unwrap_or_error(error())
-    offset_for_position(source_code, { row, column })
+    let column = parse_usize(ps[1]).or_raise(error())
+    offset_for_position(source_code, { row, column, })
   } else {
-    parse_usize(position).unwrap_or_error(error())
+    parse_usize(position).or_raise(error())
   }
   // Deleted length must be a byte count.
-  let deleted_length = parse_usize(deleted_length).unwrap_or_error(error())
-  { position, deleted_length, inserted_text }
+  let deleted_length = parse_usize(deleted_length).or_raise(error())
+  { position, deleted_length, inserted_text, }
 }
 
 ///|
-fn[T] Option::unwrap_or_error(self : T?, err : CliError) -> T raise CliError {
+fn[T] Option::or_raise(self : T?, err : CliError) -> T raise CliError {
   match self {
     Some(v) => v
     None => raise err
@@ -1056,7 +1068,7 @@ fn[T] Option::unwrap_or_error(self : T?, err : CliError) -> T raise CliError {
 
 ///|
 /// `str::parse::<usize>`.
-pub fn parse_usize(s : String) -> Int? {
+pub fn parse_usize(s : String) -> Int32? {
   if s.is_empty() {
     return None
   }
@@ -1084,7 +1096,7 @@ pub fn parse_usize(s : String) -> Int? {
 pub fn offset_for_position(
   input : Array[Byte],
   position : @api.Point,
-) -> Int raise CliError {
+) -> Int32 raise CliError {
   let mut row = 0
   let mut line_start = 0
   for line_end, b in input {

@@ -11,7 +11,7 @@ pub(all) enum CliInput {
 pub async fn get_input(
   paths_file : String?,
   paths : Array[String]?,
-  test_number : Int?,
+  test_number : Int32?,
   current_dir : String,
 ) -> CliInput {
   if paths_file is Some(paths_file) {
@@ -38,15 +38,18 @@ pub async fn get_input(
   }
   if paths is Some(paths) {
     let result : Array[String] = []
-    let incorporate_path = (path : String, positive : Bool) => if positive {
-      result.push(path)
-    } else if result.search(path) is Some(index) {
-      result.remove(index) |> ignore
+    let incorporate_path = (path : String, positive : Bool) => {
+      if positive {
+        result.push(path)
+      } else if result.search(path) is Some(index) {
+        result.remove(index) |> ignore
+      }
     }
     for path in paths {
       let mut path = path
       let mut positive = true
-      if path.has_prefix("!") && (@support.strip_path_prefix(path, "!") is Some(_)) {
+      if path.has_prefix("!") &&
+        @support.strip_path_prefix(path, "!") is Some(_) {
         positive = false
         path = @support.strip_path_prefix(path, "!").unwrap()
       }
@@ -71,7 +74,7 @@ pub async fn get_input(
 
 ///|
 async fn read_all_stdin() -> Bytes {
-  let buffer = @buffer.new()
+  let buffer = @buffer.Buffer()
   let chunk = FixedArray::make(1024, b'\x00')
   for ;; {
     let n = @stdio.stdin.read(chunk) catch { _ => 0 }
@@ -108,8 +111,8 @@ pub fn rust_lines(text : String) -> Array[String] {
 ///|
 pub fn get_test_info(
   test_entry : @cli_test.TestEntry,
-  target_test : Int,
-  test_num : Ref[Int],
+  target_test : Int32,
+  test_num : Ref[Int32],
 ) -> (String, Bytes, Array[String])? {
   match test_entry {
     Example(name~, input~, attributes~, ..) => {
@@ -143,13 +146,13 @@ pub async fn get_tmp_source_file(contents : Bytes) -> String {
 fn glob_match_component(pattern : String, name : String) -> Bool {
   let p = pattern.iter().collect()
   let n = name.iter().collect()
-  fn go(pi : Int, ni : Int) -> Bool {
+  fn go(pi : Int32, ni : Int32) -> Bool {
     if pi == p.length() {
       return ni == n.length()
     }
     match p[pi] {
       '*' => {
-        for k in ni..=n.length() {
+        for k in ni..<=n.length() {
           if go(pi + 1, k) {
             return true
           }
@@ -209,20 +212,26 @@ fn has_glob_chars(s : String) -> Bool {
 /// Paths matching a glob pattern.
 pub async fn glob(pattern : String) -> Array[String] {
   let absolute = pattern.has_prefix("/")
-  let parts = pattern.split("/").map(p => p.to_owned()).filter(p => !p.is_empty()).collect()
+  let parts = pattern
+    .split("/")
+    .map(p => p.to_owned())
+    .filter(p => !p.is_empty())
+    .collect()
   let results = []
-  async fn walk(base : String, prefix : String, i : Int) -> Unit {
+  async fn walk(base : String, prefix : String, i : Int32) -> Unit {
     if i == parts.length() {
       results.push(prefix)
       return
     }
     let part = parts[i]
-    let join = (name : String) => if prefix.is_empty() {
-      name
-    } else if prefix == "/" {
-      "/" + name
-    } else {
-      prefix + "/" + name
+    let join = (name : String) => {
+      if prefix.is_empty() {
+        name
+      } else if prefix == "/" {
+        "/" + name
+      } else {
+        prefix + "/" + name
+      }
     }
     let dir = if base.is_empty() { "." } else { base }
     if part == "**" {

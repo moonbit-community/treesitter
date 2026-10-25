@@ -10,7 +10,7 @@ pub(all) suberror JsonError {
 }
 
 ///|
-pub impl Show for JsonError with output(self, logger) {
+pub impl Show for JsonError with fn output(self, logger) {
   let JsonError(message) = self
   logger.write_string(message)
 }
@@ -50,8 +50,9 @@ pub fn LoaderConfig::from_json(json : Json) -> LoaderConfig raise JsonError {
       )
   }
   match @support.home_dir() {
-    Some(home) => { parser_directories: dirs.map(p => standardize_path(p, home)) }
-    None => { parser_directories: dirs }
+    Some(home) =>
+      { parser_directories: dirs.map(p => standardize_path(p, home)), }
+    None => { parser_directories: dirs, }
   }
 }
 
@@ -85,7 +86,9 @@ pub fn LoaderConfig::initial() -> LoaderConfig {
 
 ///|
 pub fn LoaderConfig::to_json(self : LoaderConfig) -> Json {
-  { "parser-directories": Json::array(self.parser_directories.map(Json::string)) }
+  {
+    "parser-directories": Json::array(self.parser_directories.map(Json::string)),
+  }
 }
 
 ///|
@@ -131,7 +134,10 @@ pub fn PathsJSON::is_empty(self : PathsJSON) -> Bool {
 ///|
 /// Represent this set of paths as a string that can be included in
 /// templates.
-pub fn PathsJSON::to_variable_value(self : PathsJSON, default : String) -> String {
+pub fn PathsJSON::to_variable_value(
+  self : PathsJSON,
+  default : String,
+) -> String {
   match self {
     Empty => default
     Single(p) => p
@@ -146,16 +152,20 @@ fn PathsJSON::from_json(json : Json?) -> PathsJSON raise JsonError {
     Some(String(s)) => Single(s)
     Some(Array(items)) =>
       Multiple(
-        items.map(item => match item {
-          String(s) => s
-          _ =>
-            raise JsonError(
-              "data did not match any variant of untagged enum PathsJSON",
-            )
+        items.map(item => {
+          match item {
+            String(s) => s
+            _ =>
+              raise JsonError(
+                "data did not match any variant of untagged enum PathsJSON",
+              )
+          }
         }),
       )
     Some(_) =>
-      raise JsonError("data did not match any variant of untagged enum PathsJSON")
+      raise JsonError(
+        "data did not match any variant of untagged enum PathsJSON",
+      )
   }
 }
 
@@ -252,14 +262,14 @@ pub fn Bindings::with_enabled_languages(
   }
   for v in languages {
     match v {
-      "c" => out = { ..out, c: true }
-      "go" => out = { ..out, go: true }
-      "java" => out = { ..out, java: true }
-      "node" => out = { ..out, node: true }
-      "python" => out = { ..out, python: true }
-      "rust" => out = { ..out, rust: true }
-      "swift" => out = { ..out, swift: true }
-      "zig" => out = { ..out, zig: true }
+      "c" => out = { ..out, c: true, }
+      "go" => out = { ..out, go: true, }
+      "java" => out = { ..out, java: true, }
+      "node" => out = { ..out, node: true, }
+      "python" => out = { ..out, python: true, }
+      "rust" => out = { ..out, rust: true, }
+      "swift" => out = { ..out, swift: true, }
+      "zig" => out = { ..out, zig: true, }
       unsupported => return Err(unsupported)
     }
   }
@@ -318,7 +328,11 @@ fn req_string(obj : Map[String, Json], key : String) -> String raise JsonError {
 }
 
 ///|
-fn opt_bool(obj : Map[String, Json], key : String, default : Bool) -> Bool raise JsonError {
+fn opt_bool(
+  obj : Map[String, Json],
+  key : String,
+  default : Bool,
+) -> Bool raise JsonError {
   match obj.get(key) {
     None => default
     Some(True) => true
@@ -335,7 +349,9 @@ fn as_object(json : Json, what : String) -> Map[String, Json] raise JsonError {
   match json {
     Object(obj) => obj
     other =>
-      raise JsonError("invalid type: \{json_type_name(other)}, expected \{what}")
+      raise JsonError(
+        "invalid type: \{json_type_name(other)}, expected \{what}",
+      )
   }
 }
 
@@ -346,12 +362,14 @@ fn Grammar::from_json(json : Json) -> Grammar raise JsonError {
     None | Some(Null) => None
     Some(Array(items)) =>
       Some(
-        items.map(i => match i {
-          String(s) => s
-          other =>
-            raise JsonError(
-              "invalid type: \{json_type_name(other)}, expected a string",
-            )
+        items.map(i => {
+          match i {
+            String(s) => s
+            other =>
+              raise JsonError(
+                "invalid type: \{json_type_name(other)}, expected a string",
+              )
+          }
         }),
       )
     Some(other) =>

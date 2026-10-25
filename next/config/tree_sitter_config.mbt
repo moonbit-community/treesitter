@@ -10,9 +10,10 @@ pub(all) suberror ConfigError {
 }
 
 ///|
-pub impl Show for ConfigError with output(self, logger) {
+pub impl Show for ConfigError with fn output(self, logger) {
   match self {
-    ConfigRead(path, err) => logger.write_string("Bad JSON config \{path} -- \{err}")
+    ConfigRead(path, err) =>
+      logger.write_string("Bad JSON config \{path} -- \{err}")
     HomeDir => logger.write_string("could not find home directory")
     IO(message) | Serialization(message) => logger.write_string(message)
   }
@@ -115,7 +116,7 @@ pub async fn Config::load(path : String?) -> Config {
   let config = @support.parse_json(content) catch {
     e => raise ConfigRead(location, json_error_message(e))
   }
-  { location, config }
+  { location, config, }
 }
 
 ///|
@@ -147,7 +148,7 @@ pub fn Config::initial() -> Config raise ConfigError {
     Some(dir) => @support.path_join(dir, "config.json")
     None => Config::xdg_config_file()
   }
-  { location, config: Json::object(Map([])) }
+  { location, config: Json::object(Map([])), }
 }
 
 ///|

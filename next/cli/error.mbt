@@ -8,7 +8,7 @@ pub(all) suberror CliError {
 }
 
 ///|
-pub impl Show for CliError with output(self, logger) {
+pub impl Show for CliError with fn output(self, logger) {
   let CliError(chain) = self
   logger.write_string(chain.get(0).unwrap_or(""))
 }

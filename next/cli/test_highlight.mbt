@@ -5,16 +5,15 @@
 ///|
 /// `fs::read_dir` order (the order the file system returns entries).
 async fn read_dir_paths(directory : String) -> Array[(String, String)] {
-  @fs.readdir(directory, include_hidden=true).map(name => (
-    @support.path_join(directory, name),
-    name,
-  ))
+  @fs.readdir(directory, include_hidden=true).map(name => {
+    (@support.path_join(directory, name), name)
+  })
 }
 
 ///|
 async fn is_nonempty_dir(path : String) -> Bool {
   let kind = @fs.kind(path, follow_symlink=true) catch { _ => return false }
-  kind is Directory && !(@fs.readdir(path, include_hidden=true).is_empty())
+  kind is Directory && !@fs.readdir(path, include_hidden=true).is_empty()
 }
 
 ///|
@@ -24,15 +23,17 @@ async fn test_highlight_loading(
   highlighter : @highlight.Highlighter,
   config : @highlight.HighlightConfiguration,
   source : Bytes,
-) -> Int {
+) -> Int32 {
   for ;; {
-    let result = @query_testing.test_highlight(
-      highlighter,
-      config,
-      loader.highlight_names(),
-      loader.injection_callback(),
-      source,
-    ) catch {
+    let result = try
+      @query_testing.test_highlight(
+        highlighter,
+        config,
+        loader.highlight_names(),
+        loader.injection_callback(),
+        source,
+      )
+    catch {
       e => if loader.has_pending_injections() { None } else { raise e }
     } noraise {
       count => Some(count)
@@ -69,13 +70,14 @@ pub async fn test_highlights(
         is Some((language, language_config)) else {
         raise anyhow(lang_not_found_for_path(test_file_path, loader_config))
       }
-      guard language_config.highlight_config(language, None) is Some(highlight_config) else {
+      guard language_config.highlight_config(language, None)
+        is Some(highlight_config) else {
         raise anyhow("No highlighting config found for \{test_file_path}")
       }
       let source = @fs.read_file(test_file_path).binary()
-      let outcome = test_highlight_loading(
-        loader, highlighter, highlight_config, source,
-      ) catch {
+      let outcome = try
+        test_highlight_loading(loader, highlighter, highlight_config, source)
+      catch {
         e => {
           failed = true
           AssertionFailed(error=error_message(e))
@@ -108,7 +110,9 @@ pub async fn test_tags(
     let (test_file_path, test_file_name) = entry
     if is_nonempty_dir(test_file_path) {
       test_summary.tag_results.add_group(test_file_name)
-      test_tags(loader, loader_config, tags_context, test_file_path, test_summary) catch {
+      test_tags(
+        loader, loader_config, tags_context, test_file_path, test_summary,
+      ) catch {
         _ => failed = true
       }
       test_summary.tag_results.pop_traversal()
@@ -121,7 +125,9 @@ pub async fn test_tags(
         raise anyhow("No tags config found for \{test_file_path}")
       }
       let source = @fs.read_file(test_file_path).binary()
-      let outcome = @query_testing.test_tag(tags_context, tags_config, source) catch {
+      let outcome = try
+        @query_testing.test_tag(tags_context, tags_config, source)
+      catch {
         e => {
           failed = true
           AssertionFailed(error=error_message(e))

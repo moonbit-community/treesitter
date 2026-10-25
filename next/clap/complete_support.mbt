@@ -108,7 +108,10 @@ pub fn Command::get_arg_conflicts_with(self : Command, arg : Arg) -> Array[Arg] 
 
 ///|
 /// `Command::get_global_arg_conflicts_with`.
-fn Command::get_global_arg_conflicts_with(self : Command, arg : Arg) -> Array[Arg] {
+fn Command::get_global_arg_conflicts_with(
+  self : Command,
+  arg : Arg,
+) -> Array[Arg] {
   let candidates = [..self.args]
   for sc in self.get_subcommands_containing(arg) {
     candidates.push_iter(sc.args.iter())
@@ -127,7 +130,10 @@ fn Command::get_global_arg_conflicts_with(self : Command, arg : Arg) -> Array[Ar
 
 ///|
 /// `Command::get_subcommands_containing`.
-fn Command::get_subcommands_containing(self : Command, arg : Arg) -> Array[Command] {
+fn Command::get_subcommands_containing(
+  self : Command,
+  arg : Arg,
+) -> Array[Command] {
   let result = []
   for sc in self.subcommands {
     if sc.args.iter().any(a => a.id == arg.id) {

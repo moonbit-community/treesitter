@@ -44,7 +44,12 @@ fn write_json_number(sb : StringBuilder, n : Double, repr : String?) -> Unit {
 }
 
 ///|
-fn write_json(sb : StringBuilder, value : Json, pretty : Bool, indent : Int) -> Unit {
+fn write_json(
+  sb : StringBuilder,
+  value : Json,
+  pretty : Bool,
+  indent : Int32,
+) -> Unit {
   match value {
     Null => sb.write_string("null")
     True => sb.write_string("true")

@@ -16,11 +16,11 @@ pub fn SemverVersion::new(
   minor : UInt64,
   patch : UInt64,
 ) -> SemverVersion {
-  { major, minor, patch, pre: "", build: "" }
+  { major, minor, patch, pre: "", build: "", }
 }
 
 ///|
-pub impl Show for SemverVersion with output(self, logger) {
+pub impl Show for SemverVersion with fn output(self, logger) {
   logger.write_string("\{self.major}.\{self.minor}.\{self.patch}")
   if !self.pre.is_empty() {
     logger.write_string("-\{self.pre}")
@@ -37,7 +37,7 @@ pub(all) suberror SemverError {
 }
 
 ///|
-pub impl Show for SemverError with output(self, logger) {
+pub impl Show for SemverError with fn output(self, logger) {
   let SemverError(message) = self
   logger.write_string(message)
 }
@@ -50,7 +50,7 @@ fn char_desc(c : Char) -> String {
 ///|
 fn parse_number(
   chars : Array[Char],
-  pos : Ref[Int],
+  pos : Ref[Int32],
   what : String,
 ) -> UInt64 raise SemverError {
   let start = pos.val
@@ -63,7 +63,9 @@ fn parse_number(
     )
   }
   let mut value : UInt64 = 0
-  while pos.val < chars.length() && chars[pos.val] >= '0' && chars[pos.val] <= '9' {
+  while pos.val < chars.length() &&
+        chars[pos.val] >= '0' &&
+        chars[pos.val] <= '9' {
     if pos.val > start && chars[start] == '0' {
       raise SemverError("invalid leading zero in \{what}")
     }
@@ -80,7 +82,7 @@ fn parse_number(
 ///|
 fn parse_identifier(
   chars : Array[Char],
-  pos : Ref[Int],
+  pos : Ref[Int32],
   what : String,
 ) -> String raise SemverError {
   let start = pos.val
@@ -119,7 +121,9 @@ pub fn SemverVersion::parse(text : String) -> SemverVersion raise SemverError {
   let pos = Ref(0)
   let major = parse_number(chars, pos, "major version number")
   if pos.val >= chars.length() {
-    raise SemverError("unexpected end of input while parsing major version number")
+    raise SemverError(
+      "unexpected end of input while parsing major version number",
+    )
   }
   if chars[pos.val] != '.' {
     raise SemverError(
@@ -129,7 +133,9 @@ pub fn SemverVersion::parse(text : String) -> SemverVersion raise SemverError {
   pos.val += 1
   let minor = parse_number(chars, pos, "minor version number")
   if pos.val >= chars.length() {
-    raise SemverError("unexpected end of input while parsing minor version number")
+    raise SemverError(
+      "unexpected end of input while parsing minor version number",
+    )
   }
   if chars[pos.val] != '.' {
     raise SemverError(
@@ -160,5 +166,5 @@ pub fn SemverVersion::parse(text : String) -> SemverVersion raise SemverError {
       "unexpected character \{char_desc(chars[pos.val])} after \{after}",
     )
   }
-  { major, minor, patch, pre, build }
+  { major, minor, patch, pre, build, }
 }

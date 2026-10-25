@@ -57,23 +57,29 @@ pub(all) suberror LoaderError {
 }
 
 ///|
-pub impl Show for LoaderError with output(self, logger) {
+pub impl Show for LoaderError with fn output(self, logger) {
   match self {
     IO(message) | Serialization(message) | Scanner(message) | Script(message) =>
       logger.write_string(message)
     CurrentDirectoryLoad(e) =>
       logger.write_string("Failed to load language in current directory:\n\{e}")
     ExternalFile(a, b) =>
-      logger.write_string("External file path \{a} is outside of parser directory \{b}")
+      logger.write_string(
+        "External file path \{a} is outside of parser directory \{b}",
+      )
     FileNameLoad(name, e) =>
-      logger.write_string("Failed to load language for file name \{name}:\n\{e}")
+      logger.write_string(
+        "Failed to load language for file name \{name}:\n\{e}",
+      )
     GrammarJSON(path) =>
       logger.write_string(
         "Failed to parse the language name from grammar.json at \{path}",
       )
     HomeDir => logger.write_string("could not find home directory")
     ModifiedTime(e) =>
-      logger.write_string("Failed to compare binary and source timestamps:\n\{e}")
+      logger.write_string(
+        "Failed to compare binary and source timestamps:\n\{e}",
+      )
     NoLanguage => logger.write_string("No language found")
     Query(error, file) => {
       if file is Some(path) {
@@ -114,7 +120,7 @@ pub fn LoaderRegex::debug(self : LoaderRegex) -> String {
 }
 
 ///|
-pub fn LoaderRegex::find(self : LoaderRegex, text : String) -> (Int, Int)? {
+pub fn LoaderRegex::find(self : LoaderRegex, text : String) -> (Int32, Int32)? {
   self.regex.find(@support.utf8(text))
 }
 
@@ -168,7 +174,7 @@ pub struct LanguageConfiguration {
   locals_filenames : Array[String]?
   tags_filenames : Array[String]?
   language_name : String
-  priv language_id : Int
+  priv language_id : Int32
   priv mut highlight_config : @highlight.HighlightConfiguration??
   priv mut tags_config : @tags.TagsConfiguration??
   priv highlight_names : Ref[Array[String]]
@@ -188,9 +194,12 @@ pub struct Loader {
   parser_lib_path : String
   priv languages_by_id : Array[LanguageEntry]
   priv language_configurations : Array[LanguageConfiguration]
-  priv language_configuration_ids_by_file_type : Map[String, Array[Int]]
-  priv mut language_configuration_in_current_path : Int?
-  priv language_configuration_ids_by_first_line_regex : Map[String, Array[Int]]
+  priv language_configuration_ids_by_file_type : Map[String, Array[Int32]]
+  priv mut language_configuration_in_current_path : Int32?
+  priv language_configuration_ids_by_first_line_regex : Map[
+    String,
+    Array[Int32],
+  ]
   priv highlight_names : Ref[Array[String]]
   priv mut use_all_highlight_names : Bool
   priv mut debug_build : Bool
@@ -257,7 +266,10 @@ pub fn Loader::set_scanners(self : Loader, scanners : ScannerRegistry) -> Unit {
 }
 
 ///|
-pub fn Loader::configure_highlights(self : Loader, names : Array[String]) -> Unit {
+pub fn Loader::configure_highlights(
+  self : Loader,
+  names : Array[String],
+) -> Unit {
   self.use_all_highlight_names = false
   self.highlight_names.val.clear()
   self.highlight_names.val.append(names)
@@ -313,7 +325,7 @@ pub async fn Loader::languages_at_path(
       a.1.compare(b.1)
     }
   })
-  let deduped : Array[(Int, String)] = []
+  let deduped : Array[(Int32, String)] = []
   for entry in language_ids {
     match deduped.last() {
       Some(last) if last.0 == entry.0 && last.1 == entry.1 => ()
@@ -331,10 +343,9 @@ pub async fn Loader::languages_at_path(
 pub fn Loader::get_all_language_configurations(
   self : Loader,
 ) -> Array[(LanguageConfiguration, String)] {
-  self.language_configurations.map(c => (
-    c,
-    self.languages_by_id[c.language_id].path,
-  ))
+  self.language_configurations.map(c => {
+    (c, self.languages_by_id[c.language_id].path)
+  })
 }
 
 ///|
@@ -413,7 +424,8 @@ pub async fn Loader::language_configuration_for_file_name(
   // Find all the language configurations that match this file name or a
   // suffix of the file name.
   let mut configuration_ids = match @support.file_name(path) {
-    Some(file_name) => self.language_configuration_ids_by_file_type.get(file_name)
+    Some(file_name) =>
+      self.language_configuration_ids_by_file_type.get(file_name)
     None => None
   }
   if configuration_ids is None {
@@ -500,7 +512,7 @@ pub async fn Loader::language_for_configuration(
 }
 
 ///|
-async fn Loader::language_for_id(self : Loader, id : Int) -> @api.Language {
+async fn Loader::language_for_id(self : Loader, id : Int32) -> @api.Language {
   let entry = self.languages_by_id[id]
   match entry.language {
     Some(language) => language
@@ -537,11 +549,16 @@ async fn mtime(path : String) -> Int64 {
 
 ///|
 /// `needs_recompile`.
-async fn needs_recompile(lib_path : String, paths_to_check : Array[String]) -> Bool {
+async fn needs_recompile(
+  lib_path : String,
+  paths_to_check : Array[String],
+) -> Bool {
   if !@fs.exists(lib_path) {
     return true
   }
-  let lib_mtime = mtime(lib_path) catch { e => raise ModifiedTime(to_loader_error(e)) }
+  let lib_mtime = mtime(lib_path) catch {
+    e => raise ModifiedTime(to_loader_error(e))
+  }
   for path in paths_to_check {
     let m = mtime(path) catch { e => raise ModifiedTime(to_loader_error(e)) }
     if m > lib_mtime {
@@ -581,7 +598,10 @@ async fn read_language_json(path : String) -> @language.Language {
     e => raise IO(@support.io_error_with_path(e, Some(path)))
   }
   (@json.from_json(@json.parse(text)) : @language.Language) catch {
-    e => raise Serialization("Failed to read the language tables at \{path} -- \{e}")
+    e =>
+      raise Serialization(
+        "Failed to read the language tables at \{path} -- \{e}",
+      )
   }
 }
 
@@ -637,7 +657,11 @@ async fn Loader::load_language_tables(
   // Write through a temporary file so that concurrent loaders never see a
   // partial file.
   let temp = output_path + ".tmp"
-  @fs.write_file(temp, language.to_json().stringify(), create_mode=CreateOrTruncate) catch {
+  @fs.write_file(
+    temp,
+    language.to_json().stringify(),
+    create_mode=CreateOrTruncate,
+  ) catch {
     e => raise IO(@support.io_error_with_path(e, Some(temp)))
   }
   @fs.rename(temp, output_path) catch {
@@ -690,7 +714,7 @@ async fn Loader::scanner_for(
 ///|
 /// `read_grammar_version` of the generate crate: the `metadata.version` of
 /// the nearest `tree-sitter.json` in `repo_path` or its ancestors.
-pub async fn read_grammar_version(repo_path : String) -> (Int, Int, Int)? {
+pub async fn read_grammar_version(repo_path : String) -> (Int32, Int32, Int32)? {
   let filename = "tree-sitter.json"
   let mut dir : String? = Some(repo_path)
   while dir is Some(d) {
@@ -706,7 +730,9 @@ pub async fn read_grammar_version(repo_path : String) -> (Int, Int, Int)? {
           )
       }
       guard json is { "metadata": { "version": String(version), .. }, .. } else {
-        raise Serialization("Failed to parse `\{path}` -- missing field `version`")
+        raise Serialization(
+          "Failed to parse `\{path}` -- missing field `version`",
+        )
       }
       let v = SemverVersion::parse(version) catch {
         e =>
@@ -723,7 +749,12 @@ pub async fn read_grammar_version(repo_path : String) -> (Int, Int, Int)? {
       )
     }
     dir = match @support.parent(d) {
-      Some("") => if d == "." || @support.is_absolute(d) { None } else { Some(".") }
+      Some("") =>
+        if d == "." || @support.is_absolute(d) {
+          None
+        } else {
+          Some(".")
+        }
       p => p
     }
     if d == "." {
@@ -737,7 +768,9 @@ pub async fn read_grammar_version(repo_path : String) -> (Int, Int, Int)? {
 pub fn Loader::get_language_configuration_in_current_path(
   self : Loader,
 ) -> LanguageConfiguration? {
-  self.language_configuration_in_current_path.map(i => self.language_configurations[i])
+  self.language_configuration_in_current_path.map(i => {
+    self.language_configurations[i]
+  })
 }
 
 ///|
@@ -747,7 +780,7 @@ pub async fn Loader::find_language_configurations_at_path(
   set_current_path_config : Bool,
 ) -> Array[LanguageConfiguration] {
   let initial_language_configuration_count = self.language_configurations.length()
-  let config = TreeSitterJSON::from_file(parser_path) catch {
+  let config = try TreeSitterJSON::from_file(parser_path) catch {
     Serialization(e) => {
       warn(
         "Failed to parse \{@support.path_join(parser_path, "tree-sitter.json")} -- \{e}",
@@ -892,7 +925,7 @@ fn make_regex(pattern : String?) -> LoaderRegex? {
   let regex = @regex.Regex::new("(?m)" + pattern, utf8=true) catch {
     _ => return None
   }
-  Some({ pattern, regex })
+  Some({ pattern, regex, })
 }
 
 ///|
@@ -916,10 +949,12 @@ pub async fn Loader::grammar_json_name(grammar_path : String) -> String {
   let lines = text.split("\n").take(3).map(l => l.to_owned()).collect()
   // `BufRead::lines` strips a trailing `\r`.
   let first_three_lines = lines
-    .map(l => if l.has_suffix("\r") {
-      l.unsafe_substring(start=0, end=l.length() - 1)
-    } else {
-      l
+    .map(l => {
+      if l.has_suffix("\r") {
+        l.unsafe_substring(start=0, end=l.length() - 1)
+      } else {
+        l
+      }
     })
     .join("\n")
   match grammar_name(first_three_lines) {
@@ -1024,13 +1059,16 @@ pub async fn LanguageConfiguration::highlight_config(
   if self.highlight_config is Some(config) {
     return config
   }
-  let ends_with = (p : String, name : String) => @support.file_name(p) ==
-    Some(name)
+  let ends_with = (p : String, name : String) => {
+    @support.file_name(p) == Some(name)
+  }
   let (highlights_filenames, injections_filenames, locals_filenames) = match
     paths {
     Some(paths) =>
       (
-        Some(paths.filter(p => ends_with(p, default_highlights_query_file_name))),
+        Some(
+          paths.filter(p => ends_with(p, default_highlights_query_file_name)),
+        ),
         Some(paths.filter(p => ends_with(p, default_tags_query_file_name))),
         Some(paths.filter(p => ends_with(p, default_locals_query_file_name))),
       )
@@ -1152,7 +1190,7 @@ pub async fn LanguageConfiguration::tags_config(
 }
 
 ///|
-fn utf8_len(s : String) -> Int {
+fn utf8_len(s : String) -> Int32 {
   @support.utf8_len(s)
 }
 
@@ -1161,14 +1199,15 @@ fn utf8_len(s : String) -> Int {
 /// concatenated query text.
 fn include_path_in_query_error(
   error : @api.QueryError,
-  ranges : Array[(String, Int, Int)],
+  ranges : Array[(String, Int32, Int32)],
   source : String,
-  start_offset : Int,
+  start_offset : Int32,
 ) -> LoaderError {
   let offset_within_section = error.offset() - start_offset
   let (path, range_start, _) = match
-    ranges.search_by(r => r.1 <= offset_within_section &&
-      offset_within_section < r.2) {
+    ranges.search_by(r => {
+      r.1 <= offset_within_section && offset_within_section < r.2
+    }) {
     Some(i) => ranges[i]
     None => ranges[ranges.length() - 1]
   }
@@ -1196,7 +1235,7 @@ async fn LanguageConfiguration::read_queries(
   self : LanguageConfiguration,
   paths : Array[String]?,
   default_path : String,
-) -> (String, Array[(String, Int, Int)]) {
+) -> (String, Array[(String, Int32, Int32)]) {
   let query = StringBuilder()
   let mut query_len = 0
   let path_ranges = []
@@ -1246,13 +1285,15 @@ async fn LanguageConfiguration::read_queries(
 pub fn Loader::injection_callback(
   self : Loader,
 ) -> (String) -> @highlight.HighlightConfiguration? {
-  string => match self.injection_cache.get(string) {
-    Some(config) => config
-    None => {
-      if !self.pending_injections.contains(string) {
-        self.pending_injections.push(string)
+  string => {
+    match self.injection_cache.get(string) {
+      Some(config) => config
+      None => {
+        if !self.pending_injections.contains(string) {
+          self.pending_injections.push(string)
+        }
+        None
       }
-      None
     }
   }
 }

@@ -1,6 +1,6 @@
 ///|
 fn semver(text : String) -> String {
-  try @loader.SemverVersion::parse(text).to_string() catch {
+  @loader.SemverVersion::parse(text).to_string() catch {
     e => "error: \{e}"
   }
 }
@@ -13,8 +13,14 @@ test "semver" {
     semver("1.x"),
     content="error: unexpected character 'x' while parsing minor version number",
   )
-  inspect(semver("01.2.3"), content="error: invalid leading zero in major version number")
-  inspect(semver("1.2"), content="error: unexpected end of input while parsing minor version number")
+  inspect(
+    semver("01.2.3"),
+    content="error: invalid leading zero in major version number",
+  )
+  inspect(
+    semver("1.2"),
+    content="error: unexpected end of input while parsing minor version number",
+  )
 }
 
 ///|

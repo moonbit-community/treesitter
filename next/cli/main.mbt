@@ -49,7 +49,7 @@ async fn select_language(
 
 ///|
 /// Parse a range string of the form "start:end".
-fn parse_range(range_str : String?) -> (Int, Int)? raise CliError {
+fn parse_range(range_str : String?) -> (Int32, Int32)? raise CliError {
   guard range_str is Some(range) else { return None }
   let err_msg = "Invalid range '\{range}', expected 'start:end'"
   let parts = range.split(":").map(p => p.to_owned()).collect()
@@ -80,7 +80,9 @@ fn parse_encoding(value : String?) -> InputEncoding? {
 }
 
 ///|
-async fn load_loader_config(config : @config.Config) -> @loader.LoaderConfig {
+fn load_loader_config(
+  config : @config.Config,
+) -> @loader.LoaderConfig raise @loader.JsonError {
   @loader.LoaderConfig::from_json(config.get())
 }
 
@@ -97,10 +99,7 @@ async fn init_config_run() -> Unit {
 }
 
 ///|
-async fn generate_run(
-  m : @clap.ArgMatches,
-  current_dir : String,
-) -> Unit {
+async fn generate_run(m : @clap.ArgMatches, current_dir : String) -> Unit {
   if m.get_flag("log") {
     @support.enable_debug()
   }
@@ -128,21 +127,23 @@ async fn generate_run(
     )
   }
   let diagnostics = []
-  let result = generate_parser_in_directory(
-    current_dir,
-    m.get_one("output"),
-    m.get_one("grammar_path"),
-    abi_version,
-    m.get_one("report_states_for_rule"),
-    js_runtime,
-    !m.get_flag("no_parser"),
-    if m.get_flag("disable_optimizations") {
-      { merge_states: false }
-    } else {
-      @generate.default_opt_level
-    },
-    diagnostics,
-  ) catch {
+  let result = try
+    generate_parser_in_directory(
+      current_dir,
+      m.get_one("output"),
+      m.get_one("grammar_path"),
+      abi_version,
+      m.get_one("report_states_for_rule"),
+      js_runtime,
+      !m.get_flag("no_parser"),
+      if m.get_flag("disable_optimizations") {
+        { merge_states: false, }
+      } else {
+        @generate.default_opt_level
+      },
+      diagnostics,
+    )
+  catch {
     e => Err(e)
   } noraise {
     _ => Ok(())
@@ -170,7 +171,10 @@ async fn generate_run(
     }
     if result is Err(err) {
       // Removes extra context associated with the error
-      raise with_context(anyhow(error_message(err)), "Error when generating parser")
+      raise with_context(
+        anyhow(error_message(err)),
+        "Error when generating parser",
+      )
     }
   }
   if m.get_flag("build") {
@@ -187,9 +191,11 @@ async fn generate_run(
 ///|
 /// `Serialize for Diagnostic` (externally tagged).
 fn diagnostic_json(d : @generate.Diagnostic) -> Json {
-  let opt = (s : String?) => match s {
-    Some(s) => Json::string(s)
-    None => Json::null()
+  let opt = (s : String?) => {
+    match s {
+      Some(s) => Json::string(s)
+      None => Json::null()
+    }
   }
   match d {
     UnnecessaryConflicts(conflicts) =>
@@ -240,7 +246,13 @@ async fn build_run(
       guard @support.parent(full_path) is Some(parent_path) else {
         raise anyhow("Output path must have a parent")
       }
-      @support.create_dir_all(if parent_path.is_empty() { "." } else { parent_path }) catch {
+      @support.create_dir_all(
+        if parent_path.is_empty() {
+          "."
+        } else {
+          parent_path
+        },
+      ) catch {
         e => raise with_context(e, "Failed to create output path")
       }
       full_path
@@ -399,7 +411,9 @@ async fn parse_run(
               "Failed to load language for path \"\{path}\"",
             )
         }
-        parse_file_at_path(parser, language, path, path, max_path_length, options)
+        parse_file_at_path(
+          parser, language, path, path, max_path_length, options,
+        )
         update_stats(options.stats)
       }
     }
@@ -474,7 +488,7 @@ fn pick_test_language(
 }
 
 ///|
-fn test_number(m : @clap.ArgMatches) -> Int? {
+fn test_number(m : @clap.ArgMatches) -> Int32? {
   match m.get_one("test_number") {
     Some(n) => parse_usize(n)
     None => None
@@ -538,7 +552,10 @@ async fn test_run(
       )
       select_language(loader, None, current_dir, None, lib_info) catch {
         e =>
-          raise with_context(e, "Failed to load language for path \"\{lib_path}\"")
+          raise with_context(
+            e,
+            "Failed to load language for path \"\{lib_path}\"",
+          )
       }
     }
     None =>
@@ -574,9 +591,9 @@ async fn test_run(
       show_fields: m.get_flag("show_fields"),
       overview_only: m.get_flag("overview_only"),
     }
-    check_test(test_summary, json_summary, () => run_tests_at_path(
-      parser, opts, test_summary,
-    ))
+    check_test(test_summary, json_summary, () => {
+      run_tests_at_path(parser, opts, test_summary)
+    })
     test_summary.test_num = 1
   } else {
     @support.log_warn("Test corpus not found at \{test_corpus_dir}")
@@ -584,9 +601,9 @@ async fn test_run(
   // Check that all of the queries are valid.
   let query_dir = @support.path_join(current_dir, "queries")
   if is_dir(query_dir) {
-    check_test(test_summary, json_summary, () => check_queries_at_path(
-      language, query_dir,
-    ))
+    check_test(test_summary, json_summary, () => {
+      check_queries_at_path(language, query_dir)
+    })
     test_summary.test_num = 1
   }
   // Run the syntax highlighting tests.
@@ -594,18 +611,20 @@ async fn test_run(
   if is_dir(test_highlight_dir) {
     let highlighter = @highlight.Highlighter::new()
     let loader_config = load_loader_config(config)
-    check_test(test_summary, json_summary, () => test_highlights(
-      loader, loader_config, highlighter, test_highlight_dir, test_summary,
-    ))
+    check_test(test_summary, json_summary, () => {
+      test_highlights(
+        loader, loader_config, highlighter, test_highlight_dir, test_summary,
+      )
+    })
     test_summary.test_num = 1
   }
   let test_tag_dir = @support.path_join(test_dir, "tags")
   if is_dir(test_tag_dir) {
     let tags_context = @tags.TagsContext::new()
     let loader_config = load_loader_config(config)
-    check_test(test_summary, json_summary, () => test_tags(
-      loader, loader_config, tags_context, test_tag_dir, test_summary,
-    ))
+    check_test(test_summary, json_summary, () => {
+      test_tags(loader, loader_config, tags_context, test_tag_dir, test_summary)
+    })
     test_summary.test_num = 1
   }
   // For the rest of the queries, find their tests and run them
@@ -619,14 +638,16 @@ async fn test_run(
       test_summary.test_num = 1
       let opts = QueryFileOptions::default()
       for path in entries {
-        check_test(test_summary, json_summary, () => query_file_at_path(
-          language,
-          path,
-          path,
-          path,
-          opts,
-          Some(test_summary),
-        ))
+        check_test(test_summary, json_summary, () => {
+          query_file_at_path(
+            language,
+            path,
+            path,
+            path,
+            opts,
+            Some(test_summary),
+          )
+        })
       }
       if !entries.is_empty() {
         test_summary.query_results.pop_traversal()
@@ -724,15 +745,14 @@ async fn query_run(
   loader.force_rebuild(m.get_flag("rebuild") || m.contains_id("grammar_path"))
   let query_path = m.get_one("query_path").unwrap()
   let byte_range = parse_range(m.get_one("byte_range"))
-  let point_range = parse_range(m.get_one("row_range")).map(r => (
-    @api.Point::new(r.0, 0),
-    @api.Point::new(r.1, 0),
-  ))
+  let point_range = parse_range(m.get_one("row_range")).map(r => {
+    (@api.Point::new(r.0, 0), @api.Point::new(r.1, 0))
+  })
   let containing_byte_range = parse_range(m.get_one("containing_byte_range"))
-  let containing_point_range = parse_range(m.get_one("containing_row_range")).map(r => (
-    @api.Point::new(r.0, 0),
-    @api.Point::new(r.1, 0),
-  ))
+  let containing_point_range = parse_range(m.get_one("containing_row_range")).map(r => {
+      (@api.Point::new(r.0, 0), @api.Point::new(r.1, 0))
+    },
+  )
   let input = get_input(
     m.get_one("paths_file"),
     m.get_many("paths"),
@@ -848,7 +868,9 @@ async fn highlight_run(
   }
   let encoding = parse_encoding(m.get_one("encoding"))
   let style = if m.get_flag("css_classes") {
-    @support.log_warn("--css-classes is deprecated, use --style classes instead")
+    @support.log_warn(
+      "--css-classes is deprecated, use --style classes instead",
+    )
     HtmlStyling::Classes
   } else {
     match m.get_one("style") {
@@ -866,7 +888,11 @@ async fn highlight_run(
     theme,
     check: m.get_flag("check"),
     captures_path: m.get_one("captures_path"),
-    html: if m.get_flag("html") { Some((layout, style)) } else { None },
+    html: if m.get_flag("html") {
+      Some((layout, style))
+    } else {
+      None
+    },
     quiet: m.get_flag("quiet"),
     print_time: m.get_flag("time"),
     encoding,
@@ -914,7 +940,9 @@ async fn highlight_run(
         Some(highlight_config) =>
           highlight(loader, path, name, highlight_config, false, options)
         None =>
-          @support.log_warn("No syntax highlighting config found for test \{name}")
+          @support.log_warn(
+            "No syntax highlighting config found for test \{name}",
+          )
       }
       @fs.remove(path)
     }
@@ -998,7 +1026,8 @@ async fn tags_run(
         Some(language_names),
       )
       match language_config.tags_config(language) {
-        Some(tags_config) => generate_tags(path, name, tags_config, false, options)
+        Some(tags_config) =>
+          generate_tags(path, name, tags_config, false, options)
         None => @support.log_warn("No tags config found for test \{name}")
       }
       @fs.remove(path)
@@ -1030,13 +1059,17 @@ async fn dump_languages_run(
   let config = @config.Config::load(m.get_one("config_path"))
   let loader_config = load_loader_config(config)
   loader.find_all_languages(loader_config)
-  let debug_paths = (paths : Array[String]?) => match paths {
-    Some(p) => "Some(\{@loader.rust_debug_strs(p)})"
-    None => "None"
+  let debug_paths = (paths : Array[String]?) => {
+    match paths {
+      Some(p) => "Some(\{@loader.rust_debug_strs(p)})"
+      None => "None"
+    }
   }
-  let debug_regex = (r : @loader.LoaderRegex?) => match r {
-    Some(r) => "Some(\{r.debug()})"
-    None => "None"
+  let debug_regex = (r : @loader.LoaderRegex?) => {
+    match r {
+      Some(r) => "Some(\{r.debug()})"
+      None => "None"
+    }
   }
   for entry in loader.get_all_language_configurations() {
     let (configuration, language_path) = entry
@@ -1063,15 +1096,17 @@ fn complete_run(m : @clap.ArgMatches) -> Unit {
 
 ///|
 fn make_cli() -> @clap.Command {
-  @commands.regex_validator.val = pattern => match
-    (try Ok(@regex.Regex::new(pattern, utf8=true)) catch { e => Err(e) }) {
-    Ok(_) => None
-    Err(e) => Some(e.to_string())
+  @commands.regex_validator.val = pattern => {
+    match (Ok(@regex.Regex::new(pattern, utf8=true)) catch { e => Err(e) }) {
+      Ok(_) => None
+      Err(e) => Some(e.to_string())
+    }
   }
-  @commands.semver_validator.val = v => match
-    (try Ok(@loader.SemverVersion::parse(v)) catch { e => Err(e) }) {
-    Ok(_) => None
-    Err(e) => Some(e.to_string())
+  @commands.semver_validator.val = v => {
+    match (Ok(@loader.SemverVersion::parse(v)) catch { e => Err(e) }) {
+      Ok(_) => None
+      Err(e) => Some(e.to_string())
+    }
   }
   @commands.build_cli()
 }
@@ -1083,7 +1118,7 @@ pub async fn run(
   args : Array[String],
   scanners? : @loader.ScannerRegistry,
   current_dir? : String,
-) -> Int {
+) -> Int32 {
   let process_dir = match current_dir {
     Some(d) => d
     None => @env.current_dir().unwrap_or(".")
@@ -1101,7 +1136,14 @@ pub async fn run(
   }
   guard matches.subcommand() is Some((command, m)) else { return 2 }
   let current_dir = match command {
-    "init" | "parse" | "test" | "version" | "fuzz" | "query" | "highlight" | "tags"
+    "init"
+    | "parse"
+    | "test"
+    | "version"
+    | "fuzz"
+    | "query"
+    | "highlight"
+    | "tags"
     | "playground" =>
       match m.get_one("grammar_path") {
         Some(p) => p
@@ -1109,11 +1151,9 @@ pub async fn run(
       }
     _ => process_dir
   }
-  let result = try
-    Ok(
-      run_command(command, m, current_dir, args, scanners.unwrap_or(_ => None)),
-    )
-  catch {
+  let result = Ok(
+    run_command(command, m, current_dir, args, scanners.unwrap_or(_ => None)),
+  ) catch {
     e => Err(e)
   }
   match result {
@@ -1131,7 +1171,9 @@ pub async fn run(
       } else {
         @loader.run_with_scanners(required, args, process_dir) catch {
           e => {
-            @support.log_error(with_context(e, "Failed to load the MoonBit external scanners").debug())
+            @support.log_error(
+              with_context(e, "Failed to load the MoonBit external scanners").debug(),
+            )
             1
           }
         }
@@ -1154,7 +1196,7 @@ async fn run_command(
   current_dir : String,
   args : Array[String],
   scanners : @loader.ScannerRegistry,
-) -> Int {
+) -> Int32 {
   ignore(args)
   let loader = @loader.Loader::new()
   loader.set_scanners(scanners)
@@ -1195,7 +1237,10 @@ async fn run_command(
 
 ///|
 /// `fn main()`: run the CLI and exit with its status.
-pub async fn cli_main(args : Array[String], scanners? : @loader.ScannerRegistry) -> Unit {
+pub async fn cli_main(
+  args : Array[String],
+  scanners? : @loader.ScannerRegistry,
+) -> Unit {
   let code = run(args, scanners?)
   @support.flush()
   @support.exit(code)

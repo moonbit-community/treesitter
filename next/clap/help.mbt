@@ -6,16 +6,16 @@
 let tab : String = "  "
 
 ///|
-let tab_width : Int = 2
+let tab_width : Int32 = 2
 
 ///|
-let short_size : Int = 4
+let short_size : Int32 = 4
 
 ///|
 let next_line_indent : String = "        "
 
 ///|
-let term_w : Int = 100
+let term_w : Int32 = 100
 
 ///|
 let default_template : String = "{before-help}{about-with-newline}\n{usage-heading} {usage}\n\n{all-args}{after-help}"
@@ -28,11 +28,14 @@ let default_no_args_template : String = "{before-help}{about-with-newline}\n{usa
 pub fn Command::render_help(self : Command, use_long : Bool) -> String {
   let use_long = use_long && self.long_help_exists
   let writer = StringBuilder()
-  let template = HelpTemplate::{ writer, cmd: self, use_long }
+  let template = HelpTemplate::{ writer, cmd: self, use_long, }
   match self.help_template {
     Some(tmpl) => template.write_templated_help(tmpl)
     None => {
-      let pos = self.get_positionals().iter().any(a => should_show_arg(use_long, a))
+      let pos = self
+        .get_positionals()
+        .iter()
+        .any(a => should_show_arg(use_long, a))
       let non_pos = self
         .get_non_positionals()
         .iter()
@@ -205,8 +208,9 @@ fn HelpTemplate::write_all_args(self : HelpTemplate) -> Unit {
     self.write_args(non_pos, option_sort_key)
   }
   for heading in custom_headings {
-    let args = self.cmd.args.filter(a => a.help_heading == Some(heading) &&
-      should_show_arg(self.use_long, a))
+    let args = self.cmd.args.filter(a => {
+      a.help_heading == Some(heading) && should_show_arg(self.use_long, a)
+    })
     if !args.is_empty() {
       if !first {
         self.writer.write_string("\n\n")
@@ -219,16 +223,16 @@ fn HelpTemplate::write_all_args(self : HelpTemplate) -> Unit {
 }
 
 ///|
-fn positional_sort_key(arg : Arg) -> (Int, String) {
+fn positional_sort_key(arg : Arg) -> (Int32, String) {
   (arg.index.unwrap_or(0), "")
 }
 
 ///|
-fn option_sort_key(arg : Arg) -> (Int, String) {
+fn option_sort_key(arg : Arg) -> (Int32, String) {
   let key = match arg.short {
     Some(x) => {
       let lower = if x >= 'A' && x <= 'Z' {
-        Int::unsafe_to_char(x.to_int() + 32)
+        Int32::unsafe_to_char(x.to_int() + 32)
       } else {
         x
       }
@@ -245,7 +249,7 @@ fn option_sort_key(arg : Arg) -> (Int, String) {
 }
 
 ///|
-fn compare_keys(a : (Int, String), b : (Int, String)) -> Int {
+fn compare_keys(a : (Int32, String), b : (Int32, String)) -> Int32 {
   let c = a.0.compare(b.0)
   if c != 0 {
     c
@@ -256,7 +260,7 @@ fn compare_keys(a : (Int, String), b : (Int, String)) -> Int {
 
 ///|
 /// Byte-wise string comparison (Rust's `Ord for str`).
-fn String::compare_bytes(self : String, other : String) -> Int {
+fn String::compare_bytes(self : String, other : String) -> Int32 {
   let n = if self.length() < other.length() {
     self.length()
   } else {
@@ -275,11 +279,11 @@ fn String::compare_bytes(self : String, other : String) -> Int {
 fn HelpTemplate::write_args(
   self : HelpTemplate,
   args : Array[Arg],
-  sort_key : (Arg) -> (Int, String),
+  sort_key : (Arg) -> (Int32, String),
 ) -> Unit {
   let mut longest = 2
   // `BTreeMap<key, &Arg>`: sorted by key; a duplicate key replaces the value.
-  let ord_v : Array[((Int, String), Arg)] = []
+  let ord_v : Array[((Int32, String), Arg)] = []
   for arg in args {
     if !should_show_arg(self.use_long, arg) {
       continue
@@ -315,7 +319,7 @@ fn HelpTemplate::write_arg(
   self : HelpTemplate,
   arg : Arg,
   next_line_help : Bool,
-  longest : Int,
+  longest : Int32,
 ) -> Unit {
   let spec_vals = self.spec_vals(arg)
   self.writer.write_string(tab)
@@ -346,7 +350,7 @@ fn HelpTemplate::align_to_about(
   self : HelpTemplate,
   arg : Arg,
   next_line_help : Bool,
-  longest : Int,
+  longest : Int32,
 ) -> Unit {
   let padding = if self.use_long || next_line_help {
     0
@@ -373,7 +377,7 @@ fn HelpTemplate::help(
   about : String,
   spec_vals : String,
   next_line_help : Bool,
-  longest : Int,
+  longest : Int32,
 ) -> Unit {
   if next_line_help {
     self.writer.write_string("\n")
@@ -446,7 +450,7 @@ fn HelpTemplate::help(
 fn HelpTemplate::will_args_wrap(
   self : HelpTemplate,
   args : Array[Arg],
-  longest : Int,
+  longest : Int32,
 ) -> Bool {
   args
   .iter()
@@ -459,7 +463,7 @@ fn HelpTemplate::arg_next_line_help(
   self : HelpTemplate,
   arg : Arg,
   spec_vals : String,
-  longest : Int,
+  longest : Int32,
 ) -> Bool {
   if arg.next_line_help || self.use_long {
     true
@@ -521,7 +525,7 @@ fn HelpTemplate::use_long_pv(self : HelpTemplate, arg : Arg) -> Bool {
 ///|
 fn HelpTemplate::write_subcommands(self : HelpTemplate, cmd : Command) -> Unit {
   let mut longest = 2
-  let ord_v : Array[((Int, String), Command)] = []
+  let ord_v : Array[((Int32, String), Command)] = []
   for subcommand in cmd.subcommands {
     if !should_show_subcommand(subcommand) {
       continue
@@ -577,7 +581,7 @@ fn HelpTemplate::subcommand_next_line_help(
   _self : HelpTemplate,
   cmd : Command,
   spec_vals : String,
-  longest : Int,
+  longest : Int32,
 ) -> Bool {
   let h = first_some(cmd.about, cmd.long_about).unwrap_or("")
   let h_w = display_width(h) + display_width(spec_vals)
@@ -602,7 +606,7 @@ fn should_show_subcommand(subcommand : Command) -> Bool {
 ///|
 /// `output::display_width` (the `unicode` feature is off: one column per
 /// `char`).
-fn display_width(s : String) -> Int {
+fn display_width(s : String) -> Int32 {
   let mut width = 0
   let mut control_sequence = false
   for ch in s {

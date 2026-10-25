@@ -17,11 +17,6 @@ pub(all) enum ArgAction {
 } derive(Eq, Debug)
 
 ///|
-fn ArgAction::takes_values(self : ArgAction) -> Bool {
-  self is (Set | Append)
-}
-
-///|
 fn ArgAction::default_num_args(self : ArgAction) -> ValueRange {
   match self {
     Set | Append => ValueRange::single()
@@ -33,41 +28,41 @@ fn ArgAction::default_num_args(self : ArgAction) -> ValueRange {
 /// `clap::builder::ValueRange`; `max == value_range_unbounded` means no
 /// upper bound.
 pub(all) struct ValueRange {
-  min : Int
-  max : Int
+  min : Int32
+  max : Int32
 } derive(Eq, Debug)
 
 ///|
-pub let value_range_unbounded : Int = 2147483647
+pub let value_range_unbounded : Int32 = 2147483647
 
 ///|
-pub fn ValueRange::new(min : Int, max : Int) -> ValueRange {
-  { min, max }
+pub fn ValueRange::new(min : Int32, max : Int32) -> ValueRange {
+  { min, max, }
 }
 
 ///|
 pub fn ValueRange::empty() -> ValueRange {
-  { min: 0, max: 0 }
+  { min: 0, max: 0, }
 }
 
 ///|
 pub fn ValueRange::single() -> ValueRange {
-  { min: 1, max: 1 }
+  { min: 1, max: 1, }
 }
 
 ///|
 /// `n..`
-pub fn ValueRange::at_least(n : Int) -> ValueRange {
-  { min: n, max: value_range_unbounded }
+pub fn ValueRange::at_least(n : Int32) -> ValueRange {
+  { min: n, max: value_range_unbounded, }
 }
 
 ///|
-pub fn ValueRange::min_values(self : ValueRange) -> Int {
+pub fn ValueRange::min_values(self : ValueRange) -> Int32 {
   self.min
 }
 
 ///|
-pub fn ValueRange::max_values(self : ValueRange) -> Int {
+pub fn ValueRange::max_values(self : ValueRange) -> Int32 {
   self.max
 }
 
@@ -92,7 +87,7 @@ pub fn ValueRange::is_multiple(self : ValueRange) -> Bool {
 }
 
 ///|
-pub fn ValueRange::num_values(self : ValueRange) -> Int? {
+pub fn ValueRange::num_values(self : ValueRange) -> Int32? {
   if self.min == self.max {
     Some(self.min)
   } else {
@@ -101,7 +96,7 @@ pub fn ValueRange::num_values(self : ValueRange) -> Int? {
 }
 
 ///|
-pub fn ValueRange::accepts_more(self : ValueRange, current : Int) -> Bool {
+pub fn ValueRange::accepts_more(self : ValueRange, current : Int32) -> Bool {
   current < self.max
 }
 
@@ -126,7 +121,7 @@ pub(all) struct PossibleValue {
 
 ///|
 pub fn PossibleValue::new(name : String, help? : String) -> PossibleValue {
-  { name, help, aliases: [], hide: false }
+  { name, help, aliases: [], hide: false, }
 }
 
 ///|
@@ -162,7 +157,9 @@ pub fn PossibleValue::get_visible_quoted_name(self : PossibleValue) -> String? {
 }
 
 ///|
-pub fn PossibleValue::get_name_and_aliases(self : PossibleValue) -> Array[String] {
+pub fn PossibleValue::get_name_and_aliases(
+  self : PossibleValue,
+) -> Array[String] {
   [self.name, ..self.aliases]
 }
 
@@ -175,10 +172,12 @@ pub fn PossibleValue::matches(
   self
   .get_name_and_aliases()
   .iter()
-  .any(name => if ignore_case {
-    name.to_lower() == value.to_lower()
-  } else {
-    name == value
+  .any(name => {
+    if ignore_case {
+      name.to_lower() == value.to_lower()
+    } else {
+      name == value
+    }
   })
 }
 
@@ -237,7 +236,7 @@ pub struct Arg {
   priv mut val_names : Array[String]
   priv mut value_parser : ValueParser?
   priv mut value_hint : ValueHint?
-  priv mut index : Int?
+  priv mut index : Int32?
   priv mut required : Bool
   priv mut hide : Bool
   priv mut last : Bool
@@ -256,7 +255,7 @@ pub struct Arg {
   priv mut groups : Array[String]
   priv mut short_aliases : Array[(Char, Bool)]
   priv mut aliases : Array[(String, Bool)]
-  priv mut disp_ord : Int?
+  priv mut disp_ord : Int32?
   priv mut help_heading : String?
   priv mut value_terminator : String?
   priv mut value_delimiter : Char?
@@ -356,7 +355,7 @@ pub fn Arg::value_hint(self : Arg, h : ValueHint) -> Arg {
 }
 
 ///|
-pub fn Arg::index(self : Arg, i : Int) -> Arg {
+pub fn Arg::index(self : Arg, i : Int32) -> Arg {
   self.index = Some(i)
   self
 }
@@ -446,7 +445,7 @@ pub fn Arg::help_heading(self : Arg, h : String) -> Arg {
 }
 
 ///|
-pub fn Arg::display_order(self : Arg, o : Int) -> Arg {
+pub fn Arg::display_order(self : Arg, o : Int32) -> Arg {
   self.disp_ord = Some(o)
   self
 }
@@ -489,7 +488,7 @@ pub fn Arg::get_num_args(self : Arg) -> ValueRange? {
 }
 
 ///|
-pub fn Arg::get_min_vals(self : Arg) -> Int {
+pub fn Arg::get_min_vals(self : Arg) -> Int32 {
   self.num_vals.unwrap_or(ValueRange::single()).min
 }
 
@@ -532,7 +531,7 @@ pub fn Arg::get_possible_values(self : Arg) -> Array[PossibleValue] {
 }
 
 ///|
-pub fn Arg::get_index(self : Arg) -> Int? {
+pub fn Arg::get_index(self : Arg) -> Int32? {
   self.index
 }
 
@@ -547,7 +546,7 @@ pub fn Arg::get_env(self : Arg) -> (String, String?)? {
 }
 
 ///|
-pub fn Arg::get_display_order(self : Arg) -> Int {
+pub fn Arg::get_display_order(self : Arg) -> Int32 {
   self.disp_ord.unwrap_or(999)
 }
 
@@ -710,7 +709,10 @@ pub fn Arg::is_next_line_help_set(self : Arg) -> Bool {
 
 ///|
 pub fn Arg::is_takes_value_set(self : Arg) -> Bool {
-  self.get_num_args().unwrap_or(self.get_action().default_num_args()).takes_values()
+  self
+  .get_num_args()
+  .unwrap_or(self.get_action().default_num_args())
+  .takes_values()
 }
 
 ///|
@@ -871,7 +873,7 @@ fn Arg::render_arg_val(self : Arg, required : Bool) -> String {
 
 ///|
 /// `Display for Arg`.
-pub impl Show for Arg with output(self, logger) {
+pub impl Show for Arg with fn output(self, logger) {
   logger.write_string(self.stylized())
 }
 

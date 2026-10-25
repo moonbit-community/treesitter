@@ -4,9 +4,9 @@
 ///|
 /// An `anstyle::Color`.
 pub(all) enum Color {
-  Ansi(Int)
-  Ansi256(Int)
-  Rgb(Int, Int, Int)
+  Ansi(Int32)
+  Ansi256(Int32)
+  Rgb(Int32, Int32, Int32)
 } derive(Eq, Debug)
 
 ///|
@@ -80,12 +80,19 @@ pub(all) struct Style {
 
 ///|
 pub fn Style::new() -> Style {
-  { fg: None, bg: None, bold: false, italic: false, underline: false, dimmed: false }
+  {
+    fg: None,
+    bg: None,
+    bold: false,
+    italic: false,
+    underline: false,
+    dimmed: false,
+  }
 }
 
 ///|
 pub fn Style::fg_color(self : Style, color : Color?) -> Style {
-  { ..self, fg: color }
+  { ..self, fg: color, }
 }
 
 ///|

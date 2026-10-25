@@ -11,12 +11,12 @@ priv struct Usage {
 
 ///|
 fn Usage::new(cmd : Command) -> Usage {
-  { cmd, required: None }
+  { cmd, required: None, }
 }
 
 ///|
 fn Usage::with_required(self : Usage, required : Array[String]) -> Usage {
-  { ..self, required: Some(required) }
+  { ..self, required: Some(required), }
 }
 
 ///|
@@ -234,9 +234,11 @@ fn Usage::get_required_usage_from(
     }
     unrolled_reqs.push(a)
   }
-  let is_present = (id : String) => match matcher {
-    Some(m) => m.check_explicit(id)
-    None => false
+  let is_present = (id : String) => {
+    match matcher {
+      Some(m) => m.check_explicit(id)
+      None => false
+    }
   }
   let required_groups_members = []
   let required_groups = []

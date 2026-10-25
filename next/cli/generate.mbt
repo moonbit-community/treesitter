@@ -13,7 +13,7 @@ pub(all) suberror GenerateError {
 }
 
 ///|
-pub impl Show for GenerateError with output(self, logger) {
+pub impl Show for GenerateError with fn output(self, logger) {
   let GenerateError(message~, ..) = self
   logger.write_string(message)
 }
@@ -28,8 +28,7 @@ fn gen_error(variant : String, message : String) -> GenerateError {
 /// `--json-summary` envelope.
 fn generate_error_variant(e : Error) -> String {
   let message = error_message(e)
-  if message.has_prefix("Unresolved conflict") ||
-    message.contains("conflict") {
+  if message.has_prefix("Unresolved conflict") || message.contains("conflict") {
     "BuildTables"
   } else if message.has_prefix("Failed to parse grammar") {
     "ParseGrammar"
@@ -44,7 +43,7 @@ pub async fn generate_parser_in_directory(
   repo_path : String,
   out_path : String?,
   grammar_path : String?,
-  abi_version : Int,
+  abi_version : Int32,
   report_symbol_name : String?,
   js_runtime : String?,
   generate_parser : Bool,
@@ -133,7 +132,8 @@ pub async fn generate_parser_in_directory(
   if !generate_parser {
     ignore(input_grammar)
     let node_types_json = @generate.generate_node_types_for_grammar(
-      grammar_json, [],
+      grammar_json,
+      [],
     ) catch {
       e => raise gen_error(generate_error_variant(e), error_message(e))
     }
@@ -185,8 +185,7 @@ pub async fn load_grammar_file(
 ) -> String {
   if (@fs.kind(grammar_path) catch { _ => @fs.FileKind::Unknown }) is Directory {
     raise gen_error(
-      "LoadGrammarFile",
-      "Path to a grammar file with `.js` or `.json` extension is required",
+      "LoadGrammarFile", "Path to a grammar file with `.js` or `.json` extension is required",
     )
   }
   match @support.extension(grammar_path) {
@@ -270,9 +269,7 @@ async fn load_js_grammar_file(
   if code != 0 {
     raise anyhow("`\{js_runtime}` process exited with status \{code}")
   }
-  let stdout = @support.utf8_strict(stdout.binary()) catch {
-    _ => None
-  }
+  let stdout = @support.utf8_strict(stdout.binary())
   guard stdout is Some(stdout) else {
     raise anyhow("Got invalid UTF8 from `\{js_runtime}` -- invalid utf-8")
   }

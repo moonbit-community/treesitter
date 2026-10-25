@@ -9,7 +9,13 @@ fn demo() -> @clap.Command {
     @clap.Command::new("run")
     .alias("r")
     .about("Run things")
-    .arg(@clap.Arg::new("quiet").long("quiet").short('q').action(SetTrue).help("Be quiet"))
+    .arg(
+      @clap.Arg::new("quiet")
+      .long("quiet")
+      .short('q')
+      .action(SetTrue)
+      .help("Be quiet"),
+    )
     .arg(
       @clap.Arg::new("level")
       .long("level")
@@ -19,7 +25,11 @@ fn demo() -> @clap.Command {
       )
       .help("The level"),
     )
-    .arg(@clap.Arg::new("files").num_args(@clap.ValueRange::at_least(1)).help("Files")),
+    .arg(
+      @clap.Arg::new("files")
+      .num_args(@clap.ValueRange::at_least(1))
+      .help("Files"),
+    ),
   )
 }
 
