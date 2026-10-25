@@ -29,7 +29,10 @@ pub(all) struct Lexer {
   priv mut token_start_position : Length
   priv mut token_end_position : Length
   priv mut included_ranges : Array[Range]
-  priv mut chunk : BytesView?
+  /// The current chunk, meaningful only when `has_chunk` (C: `chunk` is
+  /// non-NULL).
+  priv mut chunk : BytesView
+  priv mut has_chunk : Bool
   priv mut input : Input
   priv mut logger : Logger?
   priv mut current_included_range_index : Int32
@@ -104,7 +107,8 @@ pub fn Lexer::eof(self : Lexer) -> Bool {
 /// Clear the currently stored chunk of source code, because the lexer's
 /// position has changed.
 fn Lexer::clear_chunk(self : Lexer) -> Unit {
-  self.chunk = None
+  self.chunk = b""[:]
+  self.has_chunk = false
   self.chunk_size = 0
   self.chunk_start = 0
 }
@@ -118,11 +122,13 @@ fn Lexer::get_chunk(self : Lexer) -> Unit {
     self.current_position.bytes,
     self.current_position.extent,
   )
-  self.chunk = Some(chunk)
+  self.chunk = chunk
+  self.has_chunk = true
   self.chunk_size = chunk.length().reinterpret_as_uint()
   if self.chunk_size == 0 {
     self.current_included_range_index = self.included_ranges.length()
-    self.chunk = None
+    self.chunk = b""[:]
+    self.has_chunk = false
   }
 }
 
@@ -152,9 +158,12 @@ fn Lexer::get_lookahead(self : Lexer) -> Unit {
     self.lookahead = 0
     return
   }
-  let data = self.chunk.unwrap()
+  if !self.has_chunk {
+    abort("no chunk")
+  }
+  let data = self.chunk
   let chunk = data[position_in_chunk.reinterpret_as_int():self.chunk_size.reinterpret_as_int()]
-  if self.input.encoding == UTF8 && chunk[0] < 0x80 {
+  if self.input.encoding is UTF8 && chunk[0] < 0x80 {
     self.lookahead = chunk[0].to_int()
     self.lookahead_size = 1
     return
@@ -166,10 +175,7 @@ fn Lexer::get_lookahead(self : Lexer) -> Unit {
   // with a fresh chunk.
   if self.lookahead == ts_decode_error && size < 4 {
     self.get_chunk()
-    let chunk = match self.chunk {
-      Some(chunk) => chunk[:]
-      None => b""[:]
-    }
+    let chunk = if self.has_chunk { self.chunk } else { b""[:] }
     // Upstream decodes even an empty chunk here; the decoders read at least
     // one byte, so an empty chunk is treated as an invalid character.
     let (lookahead_size, lookahead) = if chunk.length() == 0 {
@@ -210,7 +216,7 @@ fn Lexer::goto(self : Lexer, position : Length) -> Unit {
   if found_included_range {
     // If the current position is outside of the current chunk of text, then
     // clear out the current chunk of text.
-    if self.chunk is Some(_) &&
+    if self.has_chunk &&
       (
         self.current_position.bytes < self.chunk_start ||
         self.current_position.bytes >= self.chunk_start + self.chunk_size
@@ -308,7 +314,8 @@ fn Lexer::do_advance(self : Lexer, skip : Bool) -> Unit {
 /// `TSLexer.advance`: advance to the next character in the source code,
 /// retrieving a new chunk of source code if needed.
 pub fn Lexer::advance(self : Lexer, skip : Bool) -> Unit {
-  guard self.chunk is Some(chunk) else { return }
+  guard self.has_chunk else { return }
+  let chunk = self.chunk
   if self.logger is Some(_) {
     if skip {
       self.log_char("skip", self.lookahead)
@@ -318,7 +325,7 @@ pub fn Lexer::advance(self : Lexer, skip : Bool) -> Unit {
   }
   let next_position = self.current_position.bytes + 1
   let current_range_end = self.included_ranges[self.current_included_range_index].end_byte
-  if self.input.encoding == UTF8 &&
+  if self.input.encoding is UTF8 &&
     self.lookahead_size == 1 &&
     self.lookahead != '\n' &&
     next_position < current_range_end &&
@@ -386,7 +393,7 @@ pub fn Lexer::get_column(self : Lexer) -> UInt32 {
       // Advance to the recorded position
       while self.current_position.bytes < goal_byte &&
             !self.eof() &&
-            self.chunk is Some(_) {
+            self.has_chunk {
         self.do_advance(false)
         if self.eof() {
           break
@@ -435,7 +442,8 @@ pub fn Lexer::new() -> Lexer {
     token_start_position: length_zero(),
     token_end_position: length_zero(),
     included_ranges: [],
-    chunk: None,
+    chunk: b""[:],
+    has_chunk: false,
     input: { read: (_, _) => b"", encoding: UTF8, decode: None, },
     logger: None,
     current_included_range_index: 0,
