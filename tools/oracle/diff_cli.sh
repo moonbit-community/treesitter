@@ -15,7 +15,7 @@ ROOT=$(pwd)
 UPSTREAM=${UPSTREAM:-$(cd ../../.. 2>/dev/null && pwd)/.repos/ts-pinned}
 [ -d "$UPSTREAM/test" ] || UPSTREAM=$(git rev-parse --path-format=absolute --git-common-dir)/../.repos/ts-pinned
 UP="$UPSTREAM/target/release/tree-sitter"
-MBT="$ROOT/_build/native/release/build/cmd/treesitter/treesitter.exe"
+MBT="$ROOT/_build/native/release/build/moonbit-community/treesitter/cmd/treesitter/treesitter.exe"
 WORK="$ROOT/_build/cli_diff"
 SECTIONS=${*:-"help errors completions generate parse query highlight tags test langs misc"}
 

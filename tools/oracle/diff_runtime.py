@@ -23,7 +23,7 @@ LANG = Path(os.environ['NEXT_LANG_DIR']) if os.environ.get('NEXT_LANG_DIR') else
 BIN = ROOT / '_build/refbin'
 TMP = ROOT / '_build/difftmp'
 UPSTREAM = Path(subprocess.check_output(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], cwd=ROOT, text=True).strip()).parent / '.repos/ts-pinned'
-PROBE = ROOT / '_build/native/release/build/tools/probe/probe.exe'
+PROBE = ROOT / '_build/native/release/build/moonbit-community/treesitter/tools/probe/probe.exe'
 
 # Inputs for test grammars whose corpus is empty or does not reach the
 # scanner's interesting paths, taken from upstream's crates/cli/src/tests.

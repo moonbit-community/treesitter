@@ -28,4 +28,4 @@ for g in tools/oracle/build_tables_extra/*.json; do
   "$DUMP" "$g" "$OUT/$name" > "$OUT/$name/time_us" || echo "$name harness FAILED"
 done
 moon build --target native --release generate/tools/build_tables_diff || exit 1
-_build/native/release/build/generate/tools/build_tables_diff/build_tables_diff.exe "$OUT" "$@"
+_build/native/release/build/moonbit-community/treesitter/generate/tools/build_tables_diff/build_tables_diff.exe "$OUT" "$@"

@@ -36,7 +36,7 @@ python3 tools/oracle/oracle/extra_node_types_grammars.py "$OUT/extra_grammars"
 "$WS/target/debug/examples/nt_dump" "$OUT/extra_grammars" "$OUT/node_types_extra" > /dev/null
 
 moon build --target native generate/oracle
-ORACLE=$REPO/_build/native/debug/build/generate/oracle/oracle.exe
+ORACLE=$REPO/_build/native/debug/build/moonbit-community/treesitter/generate/oracle/oracle.exe
 status=0
 echo "== fixture and test grammars (_build/ref)"
 "$ORACLE" "$OUT/node_types" "$REPO/_build/ref" || status=1

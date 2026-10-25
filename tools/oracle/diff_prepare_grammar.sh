@@ -15,7 +15,7 @@ set -u
 cd "$(dirname "$0")/../.."
 : "${UPSTREAM_DUMP:?set UPSTREAM_DUMP to the upstream dump_prepared binary}"
 moon build --target native generate/cmd/dump_prepared >/dev/null || exit 1
-MB=_build/native/debug/build/generate/cmd/dump_prepared/dump_prepared.exe
+MB=_build/native/debug/build/moonbit-community/treesitter/generate/cmd/dump_prepared/dump_prepared.exe
 OUT=_build/diff_prepare
 rm -rf "$OUT"
 mkdir -p "$OUT"

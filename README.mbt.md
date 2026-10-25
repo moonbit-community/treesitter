@@ -72,7 +72,7 @@ JavaScript and Wasm GC. The CLI, loader and config are native only.
 
 ```sh
 moon build --target native --release cmd/treesitter
-_build/native/release/build/cmd/treesitter/treesitter.exe --help
+_build/native/release/build/moonbit-community/treesitter/cmd/treesitter/treesitter.exe --help
 ```
 
 The executable is `tree-sitter` 0.28.0: same subcommands, flags, help text and

@@ -9,7 +9,7 @@ moon test --target native
 moon test --target js
 moon test --target wasm-gc
 moon build --target native --release cmd/treesitter
-ts=$PWD/_build/native/release/build/cmd/treesitter/treesitter.exe
+ts=$PWD/_build/native/release/build/moonbit-community/treesitter/cmd/treesitter/treesitter.exe
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/treesitter-check.XXXXXX")
 trap 'rm -rf "$work"' EXIT HUP INT TERM
