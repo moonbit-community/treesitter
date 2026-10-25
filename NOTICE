@@ -35,6 +35,8 @@ under the MIT license:
 - tree-sitter-markdown v0.5.4, Copyright (c) 2021 Matthias Deiml
   (markdown.mbt from tree-sitter-markdown/src/scanner.c, markdown_inline.mbt
   from tree-sitter-markdown-inline/src/scanner.c)
+- tree-sitter-haskell v0.24.1, Copyright (c) 2014 Max Brunsfeld (haskell.mbt,
+  haskell_unicode.mbt from src/scanner.c and src/unicode.h)
 
 Ported Rust crates, each dual-licensed MIT OR Apache-2.0 upstream and used
 here under the MIT license:
