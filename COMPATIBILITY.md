@@ -48,6 +48,7 @@ packages' own tests.
 | CLI: Ctrl-C cancellation, generator debug traces under `generate --log`, dialoguer's terminal UI in `init` (line prompts instead), colored clap output, `RUST_BACKTRACE` backtraces | Not ported. |
 | Optional query debug output (`DEBUG_QUERY_STEPS`, `DEBUG_ANALYZE_QUERY`, `DEBUG_EXECUTE_QUERY` in `query.c`) | Off in the default upstream build; not ported. |
 | Optional scanner debug traces (tree-sitter-scala's `scanner.c` compiled with `-DDEBUG`) | Off in the default upstream build; not ported. |
+| tree-sitter-markdown's optional Rust `parser` feature (`MarkdownParser`, `MarkdownTree`, `MarkdownCursor`, `MarkdownParseOptions`) | Not ported. `moonbit-community/tree-sitter-markdown` exports what the binding exports without the feature: the block and inline languages, their queries and node types. Combined parsing works as `parser.rs` does it: parse the block tree, then parse each `inline` node's ranges with `inline_language()` using included ranges. |
 | `fuzz` allocation tracking | Not applicable (memory is garbage collected); a failed consistency assertion during a trial is reported as an error and counts as a failed test. |
 
 ## Representation differences
