@@ -30,6 +30,37 @@ Packages:
   `tree-sitter-tags` crates, for differential checks.
 - `next/fixtures`: test helpers (upstream's `helpers/fixtures.rs`) for the
   native-only test packages of the three packages above.
+- `next/cli` (+ `next/cli/commands`, `next/cli/support`, `next/cli/init`),
+  `next/loader`, `next/config`, `next/cmd/treesitter`: port of
+  `crates/cli`, `crates/loader` and `crates/config`. The command line is
+  parsed by `next/clap` (the subset of clap_builder 4.6.7 the CLI uses, with
+  identical help, usage and error texts) and shell completions come from
+  `next/clap_complete` (clap_complete 4.6.11 + clap_complete_nushell 4.6.2).
+  Differential oracle: `bash tools/next/diff_cli.sh [sections]` runs both
+  CLIs on copies of the fixture and test grammars and compares stdout,
+  stderr, exit codes and written files (report in `_build/cli_diff`).
+  MoonBit-specific behaviour (documented in next/cli/main.mbt and
+  next/loader/loader.mbt):
+  - there are no compiled parser libraries: `generate` also writes the
+    portable tables to `src/language.json`; the loader uses that file, or
+    generates the tables from `src/grammar.json` and caches them as
+    `<TREE_SITTER_LIBDIR or ~/.cache/tree-sitter/lib>/<name>.language.json`;
+    `--lib-path` names such a language file;
+  - `build` writes a MoonBit module (`pub fn language() -> @language.Language
+    raise`) with the tables instead of a dynamic library (`--wasm` is
+    rejected);
+  - grammars may be `grammar.mbtx` MoonBit programs (run with `moon run`;
+    used by `generate` when there is no `grammar.js`); `grammar.js` runs
+    with node/bun/deno as upstream (QuickJS `--js-runtime native` is not
+    available);
+  - external scanners: C scanners of the fixture grammars use their ports in
+    `next/scanners`; a grammar's `src/scanner.mbtx` (defining
+    `pub fn scanner() -> @runtime.ExternalScanner`) is compiled into a cached
+    driver binary (`~/.cache/tree-sitter/moonbit-drivers/`) and the command
+    is re-run through it, because MoonBit cannot load code dynamically;
+  - `playground` (needs a Wasm parser), Ctrl-C cancellation and dialoguer's
+    terminal UI in `init` (replaced by line prompts) are not available;
+    clap output is never colored.
 - `next/api`: port of the Rust binding `lib/binding_rust/lib.rs`, the public
   API (it will become the module's root package). Tests that need fixture
   languages live in the native-only `next/api/tests`; expected outputs of the

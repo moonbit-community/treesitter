@@ -1,0 +1,272 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-community/treesitter/next/clap"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub let value_range_unbounded : Int32
+
+// Errors
+pub suberror ClapError {
+  ClapError(kind~ : ErrorKind, message~ : String)
+}
+pub fn ClapError::exit_code(Self) -> Int32
+pub fn ClapError::kind(Self) -> ErrorKind
+pub fn ClapError::message(Self) -> String
+pub fn ClapError::use_stderr(Self) -> Bool
+pub impl Show for ClapError
+
+// Types and methods
+pub struct Arg {
+  id : String
+  // private fields
+}
+pub fn Arg::action(Self, ArgAction) -> Self
+pub fn Arg::alias(Self, String) -> Self
+pub fn Arg::conflicts_with(Self, String) -> Self
+pub fn Arg::default_value(Self, String) -> Self
+pub fn Arg::display_order(Self, Int32) -> Self
+pub fn Arg::env(Self, String, String?) -> Self
+pub fn Arg::get_action(Self) -> ArgAction
+pub fn Arg::get_all_aliases(Self) -> Array[String]?
+pub fn Arg::get_all_short_aliases(Self) -> Array[Char]?
+pub fn Arg::get_conflicts(Self) -> Array[String]
+pub fn Arg::get_default_values(Self) -> Array[String]
+pub fn Arg::get_display_order(Self) -> Int32
+pub fn Arg::get_env(Self) -> (String, String?)?
+pub fn Arg::get_groups(Self) -> Array[String]
+pub fn Arg::get_help(Self) -> String?
+pub fn Arg::get_help_heading(Self) -> String?
+pub fn Arg::get_id(Self) -> String
+pub fn Arg::get_index(Self) -> Int32?
+pub fn Arg::get_long(Self) -> String?
+pub fn Arg::get_long_and_visible_aliases(Self) -> Array[String]?
+pub fn Arg::get_long_help(Self) -> String?
+pub fn Arg::get_min_vals(Self) -> Int32
+pub fn Arg::get_num_args(Self) -> ValueRange?
+pub fn Arg::get_possible_values(Self) -> Array[PossibleValue]
+pub fn Arg::get_requires(Self) -> Array[String]
+pub fn Arg::get_short(Self) -> Char?
+pub fn Arg::get_short_and_visible_aliases(Self) -> Array[Char]?
+pub fn Arg::get_value_delimiter(Self) -> Char?
+pub fn Arg::get_value_hint(Self) -> ValueHint
+pub fn Arg::get_value_names(Self) -> Array[String]?
+pub fn Arg::get_value_parser(Self) -> ValueParser
+pub fn Arg::get_value_terminator(Self) -> String?
+pub fn Arg::get_visible_aliases(Self) -> Array[String]?
+pub fn Arg::get_visible_short_aliases(Self) -> Array[Char]?
+pub fn Arg::global(Self, Bool) -> Self
+pub fn Arg::group(Self, String) -> Self
+pub fn Arg::help(Self, String) -> Self
+pub fn Arg::help_heading(Self, String) -> Self
+pub fn Arg::hide(Self, Bool) -> Self
+pub fn Arg::index(Self, Int32) -> Self
+pub fn Arg::is_allow_hyphen_values_set(Self) -> Bool
+pub fn Arg::is_exclusive_set(Self) -> Bool
+pub fn Arg::is_global_set(Self) -> Bool
+pub fn Arg::is_hide_default_value_set(Self) -> Bool
+pub fn Arg::is_hide_possible_values_set(Self) -> Bool
+pub fn Arg::is_hide_set(Self) -> Bool
+pub fn Arg::is_last_set(Self) -> Bool
+pub fn Arg::is_multiple(Self) -> Bool
+pub fn Arg::is_next_line_help_set(Self) -> Bool
+pub fn Arg::is_positional(Self) -> Bool
+pub fn Arg::is_require_equals_set(Self) -> Bool
+pub fn Arg::is_required_set(Self) -> Bool
+pub fn Arg::is_takes_value_set(Self) -> Bool
+pub fn Arg::last(Self, Bool) -> Self
+pub fn Arg::long(Self, String) -> Self
+pub fn Arg::long_help(Self, String) -> Self
+pub fn Arg::new(String) -> Self
+pub fn Arg::num_args(Self, ValueRange) -> Self
+pub fn Arg::required(Self, Bool) -> Self
+pub fn Arg::requires(Self, String) -> Self
+pub fn Arg::short(Self, Char) -> Self
+pub fn Arg::short_alias(Self, Char) -> Self
+pub fn Arg::stylize_arg_suffix(Self, required? : Bool) -> String
+pub fn Arg::stylized(Self, required? : Bool) -> String
+pub fn Arg::to_string(Self) -> String
+pub fn Arg::value_hint(Self, ValueHint) -> Self
+pub fn Arg::value_name(Self, String) -> Self
+pub fn Arg::value_parser(Self, ValueParser) -> Self
+pub fn Arg::visible_alias(Self, String) -> Self
+pub fn Arg::visible_short_alias(Self, Char) -> Self
+pub impl Show for Arg
+
+pub(all) enum ArgAction {
+  Set
+  Append
+  SetTrue
+  Count
+  Help
+  HelpShort
+  HelpLong
+  Version
+} derive(Eq, @debug.Debug)
+
+pub struct ArgGroup {
+  id : String
+  // private fields
+}
+pub fn ArgGroup::arg(Self, String) -> Self
+pub fn ArgGroup::get_args(Self) -> Array[String]
+pub fn ArgGroup::get_id(Self) -> String
+pub fn ArgGroup::multiple(Self, Bool) -> Self
+pub fn ArgGroup::new(String) -> Self
+pub fn ArgGroup::required(Self, Bool) -> Self
+
+pub struct ArgMatches {
+  // private fields
+}
+pub fn ArgMatches::contains_id(Self, String) -> Bool
+pub fn ArgMatches::get_flag(Self, String) -> Bool
+pub fn ArgMatches::get_many(Self, String) -> Array[String]?
+pub fn ArgMatches::get_one(Self, String) -> String?
+pub fn ArgMatches::subcommand(Self) -> (String, Self)?
+pub fn ArgMatches::value_source(Self, String) -> ValueSource?
+
+pub struct Command {
+  // private fields
+}
+pub fn Command::about(Self, String) -> Self
+pub fn Command::alias(Self, String) -> Self
+pub fn Command::arg(Self, Arg) -> Self
+pub fn Command::arg_required_else_help(Self, Bool) -> Self
+pub fn Command::author(Self, String) -> Self
+pub fn Command::bin_name(Self, String) -> Self
+pub fn Command::build(Self) -> Unit
+pub fn Command::build_with_help_tree(Self) -> Unit
+pub fn Command::disable_help_subcommand(Self, Bool) -> Self
+pub fn Command::find(Self, String) -> Arg?
+pub fn Command::find_subcommand(Self, String) -> Self?
+pub fn Command::get_about(Self) -> String?
+pub fn Command::get_after_help(Self) -> String?
+pub fn Command::get_all_aliases(Self) -> Array[String]
+pub fn Command::get_arg_conflicts_with(Self, Arg) -> Array[Arg]
+pub fn Command::get_arguments(Self) -> Array[Arg]
+pub fn Command::get_author(Self) -> String?
+pub fn Command::get_before_help(Self) -> String?
+pub fn Command::get_bin_name(Self) -> String?
+pub fn Command::get_display_name(Self) -> String?
+pub fn Command::get_display_order(Self) -> Int32
+pub fn Command::get_groups(Self) -> Array[ArgGroup]
+pub fn Command::get_long_about(Self) -> String?
+pub fn Command::get_long_flag(Self) -> String?
+pub fn Command::get_name(Self) -> String
+pub fn Command::get_name_and_visible_aliases(Self) -> Array[String]
+pub fn Command::get_non_positionals(Self) -> Array[Arg]
+pub fn Command::get_opts(Self) -> Array[Arg]
+pub fn Command::get_positionals(Self) -> Array[Arg]
+pub fn Command::get_short_flag(Self) -> Char?
+pub fn Command::get_subcommands(Self) -> Array[Self]
+pub fn Command::get_version(Self) -> String?
+pub fn Command::get_visible_aliases(Self) -> Array[String]
+pub fn Command::group(Self, ArgGroup) -> Self
+pub fn Command::has_subcommands(Self) -> Bool
+pub fn Command::has_visible_subcommands(Self) -> Bool
+pub fn Command::help_template(Self, String) -> Self
+pub fn Command::hide(Self, Bool) -> Self
+pub fn Command::is_allow_external_subcommands_set(Self) -> Bool
+pub fn Command::is_arg_required_else_help_set(Self) -> Bool
+pub fn Command::is_hide_set(Self) -> Bool
+pub fn Command::is_subcommand_required_set(Self) -> Bool
+pub fn Command::long_about(Self, String) -> Self
+pub fn Command::long_help_exists(Self) -> Bool
+pub fn Command::new(String) -> Self
+pub fn Command::render_help(Self, Bool) -> String
+pub fn Command::set_bin_name(Self, String) -> Unit
+pub fn Command::subcommand(Self, Self) -> Self
+pub fn Command::subcommand_required(Self, Bool) -> Self
+pub fn Command::try_get_matches_from(Self, Array[String]) -> ArgMatches raise ClapError
+pub fn Command::version(Self, String) -> Self
+pub fn Command::visible_alias(Self, String) -> Self
+
+pub(all) enum ErrorKind {
+  InvalidValue
+  UnknownArgument
+  InvalidSubcommand
+  NoEquals
+  ValueValidation
+  TooManyValues
+  TooFewValues
+  WrongNumberOfValues
+  ArgumentConflict
+  MissingRequiredArgument
+  MissingSubcommand
+  InvalidUtf8
+  DisplayHelp
+  DisplayHelpOnMissingArgumentOrSubcommand
+  DisplayVersion
+} derive(Eq, @debug.Debug)
+
+pub(all) struct PossibleValue {
+  name : String
+  help : String?
+  aliases : Array[String]
+  hide : Bool
+} derive(@debug.Debug)
+pub fn PossibleValue::get_help(Self) -> String?
+pub fn PossibleValue::get_name(Self) -> String
+pub fn PossibleValue::get_name_and_aliases(Self) -> Array[String]
+pub fn PossibleValue::get_visible_quoted_name(Self) -> String?
+pub fn PossibleValue::is_hide_set(Self) -> Bool
+pub fn PossibleValue::matches(Self, String, Bool) -> Bool
+pub fn PossibleValue::new(String, help? : String) -> Self
+pub fn PossibleValue::should_show_help(Self) -> Bool
+
+pub(all) enum ValueHint {
+  Unknown
+  Other
+  AnyPath
+  FilePath
+  DirPath
+  ExecutablePath
+  CommandName
+  CommandString
+  CommandWithArguments
+  Username
+  Hostname
+  Url
+  EmailAddress
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ValueParser {
+  String
+  PathBuf
+  Bool
+  U32
+  U64
+  Usize
+  Enum(Array[PossibleValue])
+  Custom((String) -> String?)
+}
+
+pub(all) struct ValueRange {
+  min : Int32
+  max : Int32
+} derive(Eq, @debug.Debug)
+pub fn ValueRange::accepts_more(Self, Int32) -> Bool
+pub fn ValueRange::at_least(Int32) -> Self
+pub fn ValueRange::empty() -> Self
+pub fn ValueRange::is_fixed(Self) -> Bool
+pub fn ValueRange::is_multiple(Self) -> Bool
+pub fn ValueRange::is_unbounded(Self) -> Bool
+pub fn ValueRange::max_values(Self) -> Int32
+pub fn ValueRange::min_values(Self) -> Int32
+pub fn ValueRange::new(Int32, Int32) -> Self
+pub fn ValueRange::num_values(Self) -> Int32?
+pub fn ValueRange::single() -> Self
+pub fn ValueRange::takes_values(Self) -> Bool
+pub fn ValueRange::to_string(Self) -> String
+
+pub(all) enum ValueSource {
+  DefaultValue
+  EnvVariable
+  CommandLine
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits

@@ -1,0 +1,16 @@
+import {
+  "moonbit-community/treesitter/next/cli/support",
+  "moonbit-community/treesitter/next/loader",
+  "moonbitlang/async/fs",
+  "moonbitlang/async/process",
+  "moonbitlang/async/stdio",
+  "moonbitlang/core/random",
+}
+
+import {
+  "moonbitlang/async",
+} for "test"
+
+supported_targets = "+native"
+
+warnings = "-implicit_impl_as_method-reserved_keyword"

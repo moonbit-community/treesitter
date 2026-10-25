@@ -1,0 +1,10 @@
+import {
+  "moonbit-community/treesitter/next/cli/support",
+  "moonbitlang/async/fs",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+}
+
+supported_targets = "+native"
+
+warnings = "-implicit_impl_as_method-reserved_keyword"

@@ -19,7 +19,7 @@ git checkout HEAD -- examples/json/grammar.mbtx examples/json/highlights.scm exa
 git mv next/api/tests tests
 for f in next/api/*; do git mv "$f" .; done
 move() { if [ -e "next/$1" ]; then mkdir -p "$(dirname "$2")"; git mv "next/$1" "$2"; fi; }
-for pkg in runtime language generate query regex regex_syntax scanners highlight tags query_testing cli_test cli loader config; do
+for pkg in runtime language generate query regex regex_syntax scanners highlight tags query_testing cli_test cli loader config clap clap_complete fixtures; do
   move "$pkg" "$pkg"
 done
 move cmd/treesitter cmd/treesitter
@@ -34,7 +34,7 @@ for f in $files; do
                s#moonbit-community/treesitter/next/probe#moonbit-community/treesitter/tools/probe#g;
                s#moonbit-community/treesitter/next/#moonbit-community/treesitter/#g;
                s#next/probe/probe\.exe#tools/probe/probe.exe#g;
-               s#\bnext/(api|runtime|language|generate|query|regex|regex_syntax|scanners|highlight|tags|query_testing|cli_test|cli|loader|config)\b#$1#g' "$f"
+               s#\bnext/(api|runtime|language|generate|query|regex|regex_syntax|scanners|highlight|tags|query_testing|cli_test|cli|loader|config|clap|clap_complete|fixtures)\b#$1#g' "$f"
 done
 rmdir next 2>/dev/null || true
 echo "switch-over done; now run moon check / moon info and fix the remaining references"

@@ -1,0 +1,29 @@
+import {
+  "moonbit-community/treesitter/next/api",
+  "moonbit-community/treesitter/next/clap",
+  "moonbit-community/treesitter/next/clap_complete",
+  "moonbit-community/treesitter/next/cli/commands",
+  "moonbit-community/treesitter/next/cli/init",
+  "moonbit-community/treesitter/next/cli/support",
+  "moonbit-community/treesitter/next/cli_test",
+  "moonbit-community/treesitter/next/config",
+  "moonbit-community/treesitter/next/generate",
+  "moonbit-community/treesitter/next/highlight",
+  "moonbit-community/treesitter/next/loader",
+  "moonbit-community/treesitter/next/query_testing",
+  "moonbit-community/treesitter/next/regex",
+  "moonbit-community/treesitter/next/tags",
+  "moonbitlang/async/fs",
+  "moonbitlang/async/os_error",
+  "moonbitlang/async/process",
+  "moonbitlang/async/stdio",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/env",
+  "moonbitlang/core/hashset",
+  "moonbitlang/core/math",
+  "moonbitlang/core/string",
+}
+
+supported_targets = "+native"
+
+warnings = "-implicit_impl_as_method-reserved_keyword"
