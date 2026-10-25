@@ -38,6 +38,7 @@ jobs:
       - name: Test the grammar modules
         run: moon test --target native
       - name: Publish
+        id: publish
         env:
           MOONCAKES_CREDENTIALS: ${{ secrets.MOONCAKES_MOONBIT_COMMUNITY_TOKEN || secrets.MOONCAKES_TOKEN }}
           MODULES: ${{ inputs.modules }}
@@ -50,6 +51,8 @@ jobs:
           trap 'rm -f "$HOME/.moon/credentials.json"' EXIT
           printf '%s' "$MOONCAKES_CREDENTIALS" > "$HOME/.moon/credentials.json"
           if [ -z "$MODULES" ]; then MODULES=$(cd grammars && ls -d */ | tr -d /); fi
+          # The selection, for the registry verification below.
+          echo "modules=$(echo $MODULES)" >> "$GITHUB_OUTPUT"
           failed=""
           for m in $MODULES; do
             echo "::group::$m"
@@ -64,10 +67,16 @@ jobs:
           done
           if [ -n "$failed" ]; then echo "failed:$failed"; exit 1; fi
       - name: Verify registry installation
+        # The selected modules, also when some of them failed to publish
+        # (e.g. already on the registry): each must install from the registry
+        # and parse with every language constructor it exports.
+        if: ${{ !cancelled() && steps.publish.outputs.modules != '' }}
+        env:
+          MODULES: ${{ steps.publish.outputs.modules }}
         run: |
           core=$(sed -n 's/^version = "\(.*\)"/\1/p' moon.mod)
           mods=""
-          for m in json python typescript; do
+          for m in $MODULES; do
             v=$(sed -n 's/^version = "\(.*\)"/\1/p' grammars/$m/moon.mod)
             mods="$mods moonbit-community/tree-sitter-$m@$v"
           done
