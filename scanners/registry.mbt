@@ -19,6 +19,8 @@ pub fn scanner_for(name : String) -> @runtime.ExternalScannerFactory? {
     "ocaml_interface" => Some(ocaml_interface_scanner)
     "ocaml_type" => Some(ocaml_type_scanner)
     "toml" => Some(toml_scanner)
+    "markdown" => Some(markdown_scanner)
+    "markdown_inline" => Some(markdown_inline_scanner)
     "python" => Some(python_scanner)
     "ruby" => Some(ruby_scanner)
     "rust" => Some(rust_scanner)
@@ -26,6 +28,7 @@ pub fn scanner_for(name : String) -> @runtime.ExternalScannerFactory? {
     "php" => Some(php_scanner)
     "php_only" => Some(php_only_scanner)
     "typescript" => Some(typescript_scanner)
+    "yaml" => Some(yaml_scanner)
     "tsx" => Some(tsx_scanner)
     _ => test_grammar_scanner(name)
   }

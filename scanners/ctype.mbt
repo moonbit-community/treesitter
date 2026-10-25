@@ -84,3 +84,13 @@ fn towupper(c : Int32) -> Int32 {
     c
   }
 }
+
+///|
+/// `towlower` in the "C" locale maps only 'A'-'Z', like `towupper`.
+fn towlower(c : Int32) -> Int32 {
+  if iswupper(c) {
+    c - 'A' + 'a'
+  } else {
+    c
+  }
+}

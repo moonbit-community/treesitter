@@ -28,6 +28,13 @@ under the MIT license:
 - tree-sitter-scala v0.26.3, Copyright (c) 2018 Max Brunsfeld and GitHub (scala.mbt)
 - tree-sitter-ocaml v0.26.0, Copyright (c) 2020 Max Brunsfeld and Pieter Goetschalckx (ocaml*.mbt)
 - tree-sitter-toml v0.7.0, Copyright (c) Ika <ikatyang@gmail.com> (https://github.com/ikatyang) (toml.mbt)
+- tree-sitter-yaml v0.7.2, Copyright (c) 2024 tree-sitter-grammars
+  contributors, Copyright (c) 2019-2021 Ika (yaml.mbt from src/scanner.c,
+  yaml_schema_core.mbt, yaml_schema_json.mbt, yaml_schema_legacy.mbt from
+  src/schema.core.c, src/schema.json.c, src/schema.legacy.c)
+- tree-sitter-markdown v0.5.4, Copyright (c) 2021 Matthias Deiml
+  (markdown.mbt from tree-sitter-markdown/src/scanner.c, markdown_inline.mbt
+  from tree-sitter-markdown-inline/src/scanner.c)
 
 Ported Rust crates, each dual-licensed MIT OR Apache-2.0 upstream and used
 here under the MIT license:
