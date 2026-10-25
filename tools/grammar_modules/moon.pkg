@@ -1,0 +1,17 @@
+import {
+  "moonbit-community/treesitter/language",
+  "moonbit-community/treesitter/generate",
+  "moonbit-community/treesitter/scanners",
+  "moonbitlang/async/fs",
+  "moonbitlang/async",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/string",
+  "moonbitlang/core/encoding/utf8",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "+native"
+
+warnings = "-implicit_impl_as_method"

@@ -46,6 +46,16 @@ def languages(entry):
     return [(name, base)]
 
 
+def unique_languages(entry):
+    """`languages`, keeping only the first language of each directory (the
+    others share its grammar: tree-sitter-embedded-template lists its grammar
+    three times, tree-sitter-typescript's `flow` is the tsx grammar)."""
+    result = {}
+    for language, lang_dir in languages(entry):
+        result.setdefault(lang_dir, language)
+    return [(language, lang_dir) for lang_dir, language in result.items()]
+
+
 def ref_name(language):
     return 'extra_' + language.replace('-', '_')
 
