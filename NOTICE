@@ -21,6 +21,7 @@ test/fixtures/fixtures.json, all distributed under the MIT license:
 Other grammar scanners (scanners): faithful MoonBit ports of the C external
 scanners of the grammars pinned in grammars/grammars.json, all distributed
 under the MIT license:
+- tree-sitter-c-sharp v0.23.5, Copyright (c) 2014-2023 Max Brunsfeld, Damien Guard, Amaan Qureshi, and contributors. (c_sharp.mbt)
 - tree-sitter-css v0.25.0, Copyright (c) 2018 Max Brunsfeld (css.mbt)
 - tree-sitter-julia v0.25.0, Copyright (c) 2018 Max Brunsfeld, GitHub (julia.mbt)
 - tree-sitter-lua v0.5.0, Copyright (c) 2021 Munif Tanjim (lua.mbt)
