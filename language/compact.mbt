@@ -342,6 +342,11 @@ fn write_raw(language : Language) -> Bytes raise {
   w.uint(l.field_map_entries.length())
   for e in l.field_map_entries {
     w.uint(e.field_id)
+    // Packed with `inherited` into one unsigned `Int`, so the index must be
+    // in 0..=0x3FFFFFFF (upstream's is a `uint8_t`).
+    if e.child_index < 0 || e.child_index > 0x3FFFFFFF {
+      raise CompactError("child index \{e.child_index} out of range")
+    }
     w.uint(e.child_index * 2 + (if e.inherited { 1 } else { 0 }))
   }
   w.uint(l.symbol_metadata.length())
@@ -451,11 +456,13 @@ fn CompactReader::uint(self : CompactReader) -> Int raise CompactError {
 
 ///|
 fn CompactReader::sint(self : CompactReader) -> Int raise CompactError {
+  // The zigzag encoding of an `Int` has at most 32 bits; anything longer
+  // (whose high bits would otherwise be dropped) is rejected.
   let mut z = 0UL
   let mut shift = 0
   for ;; {
     let b = self.byte()
-    if shift > 63 {
+    if shift > 28 || (shift == 28 && (b & 0x7f) > 15) {
       raise CompactError("varint out of range")
     }
     z = z | ((b & 0x7f).to_uint64() << shift)
@@ -515,10 +522,12 @@ fn CompactReader::sparse(
   let result = Array::make(n, 0)
   let mut index = -1
   for _ in 0..<nonzero {
-    index = index + self.uint() + 1
-    if index >= n {
+    // `index + gap + 1 < n`, compared before adding (which could overflow).
+    let gap = self.uint()
+    if gap >= n - 1 - index {
       raise CompactError("sparse index out of range")
     }
+    index = index + gap + 1
     result[index] = self.uint()
   }
   result
