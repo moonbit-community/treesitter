@@ -80,7 +80,7 @@ fn FirstStepKey::new(item : ParseItem) -> FirstStepKey {
   guard item.step_index == 0 && !item.has_preceding_inherited_fields else {
     abort("only items at their first step are ranked")
   }
-  { variable_index: item.variable_index, cmp: item.keys[0].cmp, }
+  { variable_index: item.variable_index, cmp: item.dot_cmp, }
 }
 
 ///|
@@ -674,7 +674,7 @@ fn ParseItemSetBuilder::add_item(
 ) -> Unit {
   if entry.item.step(self.syntax_grammar) is Some(step) &&
     step.non_terminal_index() is Some(index) {
-    // `entry.item.successor().step()`, without building the successor.
+    // `entry.item.successor(..).step()`, without building the successor.
     let next_step = entry.item.step_at(
       self.syntax_grammar,
       entry.item.step_index + 1,

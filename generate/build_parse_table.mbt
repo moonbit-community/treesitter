@@ -236,10 +236,9 @@ priv struct SuccessorSets {
   indexer : SymbolIndexer
   /// Each symbol's successor item set, by `SymbolIndexer::index`.
   sets : Array[ParseItemSet?]
-  /// The symbol of each set in `sets`, by `SymbolIndexer::index`.
-  set_symbols : Array[Symbol?]
-  /// The positions of the symbols that have a set in `sets`, in the order their sets were
-  /// added.
+  /// The positions of the symbols that have a set in `sets`, as bits.
+  occupied : FixedArray[UInt64]
+  /// The positions of the symbols that have a set in `sets`, once sorted.
   symbols : Array[Int32]
   /// Empty item sets to build successors in, so that most successors don't allocate.
   pool : Array[ParseItemSet]
@@ -252,7 +251,7 @@ fn SuccessorSets::new(indexer : SymbolIndexer) -> SuccessorSets {
   {
     indexer,
     sets: Array::make(indexer.symbol_count(), None),
-    set_symbols: Array::make(indexer.symbol_count(), None),
+    occupied: FixedArray::make((indexer.symbol_count() + 63) / 64, 0),
     symbols: [],
     pool: [],
     spare_entries: [],
@@ -269,8 +268,8 @@ fn SuccessorSets::item_set(
   match self.sets[index] {
     Some(set) => set
     None => {
-      self.symbols.push(index)
-      self.set_symbols[index] = Some(symbol)
+      self.occupied[index / 64] = self.occupied[index / 64] |
+        (1UL << (index % 64))
       let set = match self.pool.pop() {
         Some(set) => set
         None => ParseItemSet::new()
@@ -286,20 +285,25 @@ fn SuccessorSets::item_set(
 /// `Self::take`. Symbols are distinct, so the order is total. Positions follow
 /// symbol order.
 fn SuccessorSets::sorted_positions(self : SuccessorSets) -> Array[Int32] {
-  self.symbols.sort()
+  self.symbols.clear()
+  for w in 0..<self.occupied.length() {
+    let mut word = self.occupied[w]
+    while word != 0 {
+      self.symbols.push(w * 64 + word.ctz())
+      word = word & (word - 1)
+    }
+    self.occupied[w] = 0
+  }
   self.symbols
 }
 
 ///|
-/// Takes out the set and symbol at a position from `Self::sorted_positions`.
-fn SuccessorSets::take(
-  self : SuccessorSets,
-  index : Int32,
-) -> (Symbol, ParseItemSet) {
+/// Takes out the set at a position from `Self::sorted_positions`.
+fn SuccessorSets::take(self : SuccessorSets, index : Int32) -> ParseItemSet {
   // INVARIANT: every symbol in `symbols` has a set
   let set = self.sets[index].unwrap()
   self.sets[index] = None
-  (self.set_symbols[index].unwrap(), set)
+  set
 }
 
 ///|
@@ -1011,7 +1015,7 @@ fn ParseTableBuilder::add_actions(
     // next symbol. Advance the item to its next step and insert the resulting
     // item into the successor item set.
     if item.symbol(self.syntax_grammar) is Some(next_symbol) {
-      let mut successor = item.successor()
+      let mut successor = item.successor(self.item_set_builder.key_map)
       if next_symbol.non_terminal_index() is Some(non_terminal_index) {
         let index = non_terminal_index
         let variable = self.syntax_grammar.variables[index]
@@ -1142,7 +1146,8 @@ fn ParseTableBuilder::add_actions(
   // come last in symbol order, so a single pass in symbol order does the same.
   let positions = self.successor_sets.sorted_positions()
   for position in positions {
-    let (symbol, next_item_set) = self.successor_sets.take(position)
+    let symbol = self.successor_sets.indexer.symbol(position)
+    let next_item_set = self.successor_sets.take(position)
     preceding_symbols.push(symbol)
     let next_state_id = self.add_parse_state(
       preceding_symbols, auxiliary_context, next_item_set,
@@ -1276,6 +1281,7 @@ fn ParseTableBuilder::add_actions(
 
   // Every state stays in the table until minimization, so store its terminal entries as
   // interned action lists.
+  state.terminal_entries.reserve(self.terminal_entries.keys.length())
   for position, symbol in self.terminal_entries.keys {
     let entry = self.terminal_entries.values[position]
     let index = self.intern_action_list(entry.actions)

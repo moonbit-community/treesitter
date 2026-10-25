@@ -44,9 +44,10 @@ fn start_production() -> ProdRef {
 priv struct DotKeys {
   mut cmp : Int32
   mut eq_with_syms : Int32
-  /// The production's step at the dot, if the dot isn't at the end. (Not a key:
-  /// cached here so that items find their steps without the grammar.)
-  step : ProductionStep?
+  /// Where the production's steps start in the grammar's `steps` (or in
+  /// `start_steps`, for the augmented start production). (Not a key: cached here
+  /// so that items can find their steps.)
+  steps_start : Int32
 }
 
 ///|
@@ -82,11 +83,15 @@ fn ItemKeyMap::new(grammar : SyntaxGrammar, str_pool : StrPool) -> ItemKeyMap {
   // their order decides how `eq_with_syms` numbers their symbol classes below.
   rust_sort_unstable_by(contents, (a, b) => content(a).cmp(content(b)) < 0)
   let slot_keys : Array[FixedArray[DotKeys]] = Array::makei(slot_count, pi => {
-    let steps = prod(pi).steps
-    FixedArray::makei(steps.length() + 1, dot => {
+    let steps_start = if pi == 0 {
+      0
+    } else {
+      grammar.productions[pi - 1].steps_start
+    }
+    FixedArray::makei(prod(pi).steps.length() + 1, _ => {
       cmp: 0,
       eq_with_syms: 0,
-      step: steps.get(dot),
+      steps_start,
     })
   })
   // Dense ids in sorted order: equal content shares an id, distinct content gets the next up
@@ -337,6 +342,8 @@ fn ItemContent::cmp(self : ItemContent, other : ItemContent) -> Int32 {
 
 ///|
 /// A `ParseItem` represents an in-progress match of a single production in a grammar.
+/// Stored by value, like upstream's `Copy` item.
+#valtype
 priv struct ParseItem {
   /// The index of the parent rule within the grammar.
   variable_index : Int32
@@ -344,8 +351,11 @@ priv struct ParseItem {
   step_index : Int32
   /// The id of the production being matched.
   prod_id : Int32
-  /// The `production`'s identity keys, indexed by `step_index`.
-  keys : FixedArray[DotKeys]
+  /// Where the production's steps start in the grammar's `steps` (or in
+  /// `start_steps`, for the augmented start production).
+  steps_start : Int32
+  /// The number of steps in the production.
+  steps_len : Int32
   /// A boolean indicating whether any of the already-matched children were
   /// hidden nodes and had fields. Ordinarily, a parse item's behavior is not
   /// affected by the symbols of its preceding children; it only needs to
@@ -360,16 +370,11 @@ priv struct ParseItem {
   /// true, then the item's set of inherited fields may depend on the specific
   /// symbols of its preceding children.
   has_preceding_inherited_fields : Bool
-  /// `keys[step_index]`'s keys, copied here so that comparing items doesn't
-  /// have to look them up.
+  /// The production's identity keys at `step_index`, copied here so that
+  /// comparing items doesn't have to look them up.
   dot_cmp : Int32
   /// See `dot_cmp`.
   dot_eq_with_syms : Int32
-  /// `Self::successor`, once built. Items are immutable, so each one builds
-  /// its successor at most once.
-  mut successor_cache : ParseItem?
-  /// `Self::with_preceding_inherited_fields`, once built.
-  mut inherited_cache : ParseItem?
 }
 
 ///|
@@ -383,13 +388,12 @@ fn ParseItem::new(
   {
     variable_index,
     prod_id,
-    keys,
+    steps_start: keys[0].steps_start,
+    steps_len: keys.length() - 1,
     step_index,
     has_preceding_inherited_fields,
     dot_cmp: keys[step_index].cmp,
     dot_eq_with_syms: keys[step_index].eq_with_syms,
-    successor_cache: None,
-    inherited_cache: None,
   }
 }
 
@@ -617,12 +621,15 @@ fn ParseItem::step(
 /// `production(grammar).steps.get(index)` without building a `ProdRef`.
 fn ParseItem::step_at(
   self : ParseItem,
-  _grammar : SyntaxGrammar,
+  grammar : SyntaxGrammar,
   index : Int32,
 ) -> ProductionStep? {
-  // `keys` has an entry for every dot, and each holds the step at its dot.
-  if index >= 0 && index < self.keys.length() {
-    self.keys[index].step
+  if index >= 0 && index < self.steps_len {
+    if self.prod_id == start_production_id {
+      Some(start_steps[index])
+    } else {
+      Some(grammar.steps[self.steps_start + index])
+    }
   } else {
     None
   }
@@ -672,7 +679,7 @@ fn ParseItem::prev_step(
 
 ///|
 fn ParseItem::is_done(self : ParseItem) -> Bool {
-  self.step_index + 1 == self.keys.length()
+  self.step_index == self.steps_len
 }
 
 ///|
@@ -682,20 +689,14 @@ fn ParseItem::is_augmented(self : ParseItem) -> Bool {
 
 ///|
 /// Create an item like this one, but advanced by one step.
-fn ParseItem::successor(self : ParseItem) -> ParseItem {
-  match self.successor_cache {
-    Some(successor) => successor
-    None => {
-      let successor = ParseItem::new(
-        variable_index=self.variable_index,
-        prod_id=self.prod_id,
-        keys=self.keys,
-        step_index=self.step_index + 1,
-        has_preceding_inherited_fields=self.has_preceding_inherited_fields,
-      )
-      self.successor_cache = Some(successor)
-      successor
-    }
+fn ParseItem::successor(self : ParseItem, key_map : ItemKeyMap) -> ParseItem {
+  let step_index = self.step_index + 1
+  let keys = key_map.keys_for(self.prod_id)[step_index]
+  {
+    ..self,
+    step_index,
+    dot_cmp: keys.cmp,
+    dot_eq_with_syms: keys.eq_with_syms,
   }
 }
 
@@ -705,20 +706,7 @@ fn ParseItem::with_preceding_inherited_fields(self : ParseItem) -> ParseItem {
   if self.has_preceding_inherited_fields {
     return self
   }
-  match self.inherited_cache {
-    Some(item) => item
-    None => {
-      let item = ParseItem::new(
-        variable_index=self.variable_index,
-        prod_id=self.prod_id,
-        keys=self.keys,
-        step_index=self.step_index,
-        has_preceding_inherited_fields=true,
-      )
-      self.inherited_cache = Some(item)
-      item
-    }
-  }
+  { ..self, has_preceding_inherited_fields: true }
 }
 
 ///|

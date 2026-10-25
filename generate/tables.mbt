@@ -140,6 +140,16 @@ pub fn[V] ParseStateEntries::new() -> ParseStateEntries[V] {
 }
 
 ///|
+/// Makes room for `additional` more entries.
+fn[V] ParseStateEntries::reserve(
+  self : ParseStateEntries[V],
+  additional : Int,
+) -> Unit {
+  self.syms.reserve_capacity(self.syms.length() + additional)
+  self.vals.reserve_capacity(self.vals.length() + additional)
+}
+
+///|
 pub fn[V] ParseStateEntries::len(self : ParseStateEntries[V]) -> Int {
   self.syms.length()
 }
