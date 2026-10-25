@@ -9,6 +9,12 @@
 let cancellation_check_interval : Int32 = 100
 
 ///|
+let buffer_html_reserve_capacity : Int32 = 10 * 1024
+
+///|
+let buffer_lines_reserve_capacity : Int32 = 1000
+
+///|
 let standard_capture_names : Array[String] = [
   "attribute", "boolean", "carriage-return", "comment", "comment.documentation",
   "constant", "constant.builtin", "constructor", "constructor.builtin", "embedded",
@@ -1083,12 +1089,14 @@ pub fn HighlightIter::iter(
 
 ///|
 pub fn HtmlRenderer::new() -> HtmlRenderer {
-  {
-    html: [],
-    line_offsets: [0],
+  let result = {
+    html: Array(capacity=buffer_html_reserve_capacity),
+    line_offsets: Array(capacity=buffer_lines_reserve_capacity),
     carriage_return_highlight: None,
     last_carriage_return: None,
   }
+  result.line_offsets.push(0)
+  result
 }
 
 ///|
@@ -1101,8 +1109,8 @@ pub fn HtmlRenderer::set_carriage_return_highlight(
 
 ///|
 pub fn HtmlRenderer::reset(self : HtmlRenderer) -> Unit {
-  self.html.clear()
-  self.line_offsets.clear()
+  shrink_and_clear(self.html, buffer_html_reserve_capacity)
+  shrink_and_clear(self.line_offsets, buffer_lines_reserve_capacity)
   self.line_offsets.push(0)
 }
 
@@ -1160,8 +1168,38 @@ pub fn HtmlRenderer::lines(self : HtmlRenderer) -> Iter[String] {
       line_offsets[i + 1].reinterpret_as_int()
     }
     i += 1
-    Some(@utf8.decode_lossy(html[line_start:line_end]))
+    Some(utf8_unwrap(html[line_start:line_end]))
   })
+}
+
+///|
+fn[T] shrink_and_clear(vec : Array[T], capacity : Int32) -> Unit {
+  if vec.length() > capacity {
+    vec.resize(capacity, vec[0]) // `truncate`
+    vec.shrink_to_fit()
+  }
+  vec.clear()
+}
+
+///|
+/// `str::from_utf8(bytes).unwrap()`, which panics on invalid UTF-8.
+fn utf8_unwrap(bytes : BytesView) -> String {
+  @utf8.decode(bytes) catch {
+    _ => {
+      let (valid_up_to, error_len) = try @hir.from_utf8(bytes) catch {
+        Utf8Error(valid_up_to~, error_len~) => (valid_up_to, error_len)
+      } noraise {
+        _ => (bytes.length(), None)
+      }
+      let error_len = match error_len {
+        Some(n) => "Some(\{n})"
+        None => "None"
+      }
+      abort(
+        "called `Result::unwrap()` on an `Err` value: Utf8Error { valid_up_to: \{valid_up_to}, error_len: \{error_len} }",
+      )
+    }
+  }
 }
 
 ///|
