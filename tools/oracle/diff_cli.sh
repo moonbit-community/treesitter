@@ -269,7 +269,9 @@ for section in $SECTIONS; do
         if [ $which = up ]; then cli=$UP; else cli=$MBT; fi
         (cd "$d" && env NO_COLOR=1 TREE_SITTER_DIR="$WORK/config" TREE_SITTER_LIBDIR="$WORK/lib-$which" "$cli" parse $mode "$WORK/small.json" --edits "2 1 x" > out.txt 2> err.txt; echo $? > code.txt
          # Upstream names graph nodes by their addresses.
-         sed -E 's/node_(0x[0-9a-f]+|[0-9]+)/node_ID/g; s/tree_(0x[0-9a-f]+|[0-9]+)/tree_ID/g' log.html > log.html.m)
+         sed -E 's/node_(0x[0-9a-f]+|[0-9]+)/node_ID/g; s/tree_(0x[0-9a-f]+|[0-9]+)/tree_ID/g' log.html > log.html.m
+         # Without graphviz both panic; mask the thread id.
+         mask < err.txt > err.txt.m && mv err.txt.m err.txt)
       done
       compare_trees "parse$mode" "$WORK/graph-up" "$WORK/graph-mbt" log.html.m out.txt err.txt code.txt
     done
