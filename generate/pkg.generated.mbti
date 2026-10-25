@@ -4,6 +4,7 @@ package "moonbit-community/treesitter/generate"
 import {
   "moonbit-community/treesitter/language",
   "moonbit-community/treesitter/regex_syntax/hir",
+  "moonbit-community/treesitter/serde_json",
   "moonbitlang/core/debug",
   "moonbitlang/core/sorted_map",
 }
@@ -78,6 +79,8 @@ pub fn[T] swap_remove(Array[T], Int32) -> T
 pub let symbol_end : Symbol
 
 pub let symbol_end_of_nonterminal_extra : Symbol
+
+pub fn tree_sitter_json_version(String) -> String raise @serde_json.JsonError
 
 // Errors
 pub(all) suberror EmptyStringExtraError {
