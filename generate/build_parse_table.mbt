@@ -460,6 +460,10 @@ priv struct ParseTableBuilder {
   reduce_symbols : Array[Symbol]
   /// Scratch for `build`: the preceding symbols of the state being built.
   preceding_symbols : Array[Symbol]
+  /// Scratch for `handle_conflict`: the items in the conflict.
+  conflicting_items : Array[ParseItem]
+  /// Scratch for `add_actions`: the entries that can take part in a conflict.
+  conflict_candidates : Array[ParseItemSetEntry]
   str_pool : StrPool
   /// Scratch for `add_actions`: The terminal entries of the state it's working on. They are
   /// interned into the table once the state is complete.
@@ -714,6 +718,8 @@ fn ParseTableBuilder::new(
     lookaheads_with_conflicts: TokenSet::new(),
     reduce_symbols: [symbol_end],
     preceding_symbols: [],
+    conflicting_items: [],
+    conflict_candidates: [],
     str_pool,
     terminal_entries: TerminalEntryMap::new(symbol_indexer),
     successor_sets: SuccessorSets::new(symbol_indexer),
@@ -1223,7 +1229,8 @@ fn ParseTableBuilder::add_actions(
   if !lookaheads_with_conflicts.is_empty() {
     // Only fnished items and items past their first step can take part in a
     // conflict. Most of a closure is neither, so find those items once per state.
-    let candidates : Array[ParseItemSetEntry] = []
+    let candidates = self.conflict_candidates
+    candidates.clear()
     for i in 0..<item_set.len() {
       let item = item_set.items[i]
       if item.step_index > 0 || item.is_done() {
@@ -1480,12 +1487,8 @@ fn ParseTableBuilder::handle_conflict(
   let mut considered_associativity = false
   let shift_precedence : Array[(Precedence, Symbol)] = []
   // Upstream's `BTreeSet<&ParseItem>`: sorted, without duplicates.
-  let conflicting_items : Array[ParseItem] = []
-  let insert_item = (item : ParseItem) => {
-    if conflicting_items.binary_search(item) is Err(i) {
-      conflicting_items.insert(i, item)
-    }
-  }
+  let conflicting_items = self.conflicting_items
+  conflicting_items.clear()
   for candidate in candidates {
     let item = candidate.item
     if item.step(self.syntax_grammar) is Some(step) {
@@ -1493,8 +1496,9 @@ fn ParseTableBuilder::handle_conflict(
         self.item_set_builder
         .first_set(step.symbol)
         .contains(conflicting_lookahead) {
-        if item.variable_index != augmented_variable_index {
-          insert_item(item)
+        if item.variable_index != augmented_variable_index &&
+          conflicting_items.binary_search(item) is Err(i) {
+          conflicting_items.insert(i, item)
         }
         let p = (
           item.precedence(self.syntax_grammar),
@@ -1507,8 +1511,9 @@ fn ParseTableBuilder::handle_conflict(
     } else if self.item_set_builder.lookaheads
       .get(candidate.lookaheads)
       .contains(conflicting_lookahead) &&
-      item.variable_index != augmented_variable_index {
-      insert_item(item)
+      item.variable_index != augmented_variable_index &&
+      conflicting_items.binary_search(item) is Err(i) {
+      conflicting_items.insert(i, item)
     }
   }
   if entry.actions.last() is Some(Shift(state~, ..)) {
