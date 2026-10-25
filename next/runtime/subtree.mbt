@@ -93,6 +93,12 @@ fn fresh_address() -> Int32 {
 }
 
 ///|
+/// The children of every leaf. Leaves never gain children in place (a node
+/// is always created with its own array), so one empty array is shared
+/// instead of allocating one per leaf.
+let empty_children : Array[Subtree] = []
+
+///|
 fn SubtreeHeapData::empty() -> SubtreeHeapData {
   {
     ref_count: 1,
@@ -100,7 +106,7 @@ fn SubtreeHeapData::empty() -> SubtreeHeapData {
     size: length_zero(),
     lookahead_bytes: 0,
     error_cost: 0,
-    children: [],
+    children: empty_children,
     symbol: 0,
     parse_state: 0,
     visible: false,
@@ -255,7 +261,7 @@ pub fn Subtree::lookahead_bytes(self : Subtree) -> UInt32 {
 pub fn Subtree::children(self : Subtree) -> Array[Subtree] {
   match self {
     Heap(d) => d.children
-    _ => []
+    _ => empty_children
   }
 }
 
