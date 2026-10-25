@@ -160,6 +160,26 @@ priv struct CaptureList {
 }
 
 ///|
+/// Overwrites a capture list's elements before clearing it. Upstream's
+/// captures hold non-owning node pointers, but a MoonBit `Node` keeps its
+/// `Tree` alive, so lists that are cleared for reuse or no longer in use must
+/// not keep referring to their previous nodes (capacity is retained).
+fn clear_capture_list(items : Array[QueryCapture]) -> Unit {
+  if items.length() > 0 {
+    for i in 0..<items.length() {
+      items[i] = null_capture
+    }
+    items.clear()
+  }
+}
+
+///|
+let null_capture : QueryCapture = {
+  node: @runtime.Node::new(None, None, @runtime.length_zero(), 0),
+  index: 0,
+}
+
+///|
 /// CaptureListPool - A collection of *lists* of captures. Each query state
 /// needs to maintain its own list of captures. To avoid repeated allocations,
 /// this struct maintains a fixed set of capture lists, and keeps track of
@@ -192,6 +212,7 @@ fn CaptureListPool::reset(self : CaptureListPool) -> Unit {
   for i, list in self.list {
     // This invalid size means that the list is not in use.
     list.in_use = false
+    clear_capture_list(list.items)
     self.free_id_stack.push(i)
   }
 }
@@ -216,7 +237,7 @@ fn CaptureListPool::is_empty(self : CaptureListPool) -> Bool {
 fn CaptureListPool::acquire(self : CaptureListPool) -> UInt {
   // First see if any already allocated capture list is currently unused.
   if self.free_id_stack.pop() is Some(id) {
-    self.list[id].items.clear()
+    clear_capture_list(self.list[id].items)
     self.list[id].in_use = true
     return id.reinterpret_as_uint()
   }
@@ -240,6 +261,7 @@ fn CaptureListPool::release(self : CaptureListPool, id : UInt) -> Unit {
     return // Guard against releasing a list twice
   }
   list.in_use = false
+  clear_capture_list(list.items)
   self.free_id_stack.push(id.reinterpret_as_int())
 }
 
@@ -490,6 +512,7 @@ fn capture_quantifiers_replace(
 
 ///|
 fn capture_quantifier_for_id(qs : Array[Quantifier], id : Int) -> Quantifier {
+  let id = id & 0xFFFF // `uint16_t id`
   if qs.length() <= id {
     Zero
   } else {
@@ -503,6 +526,7 @@ fn capture_quantifiers_add_for_id(
   id : Int,
   quantifier : Quantifier,
 ) -> Unit {
+  let id = id & 0xFFFF // `uint16_t id`
   while qs.length() <= id {
     qs.push(Zero)
   }
@@ -590,7 +614,7 @@ fn SymbolTable::id_for_name(self : SymbolTable, name : BytesView) -> Int {
 
 ///|
 fn SymbolTable::name_for_id(self : SymbolTable, id : Int) -> Bytes {
-  self.names[id]
+  self.names[id & 0xFFFF] // `uint16_t id`
 }
 
 ///|
@@ -659,6 +683,7 @@ fn QueryStep::copy(self : QueryStep) -> QueryStep {
 
 ///|
 fn QueryStep::add_capture(self : QueryStep, capture_id : Int) -> Unit {
+  let capture_id = capture_id & 0xFFFF // `uint16_t capture_id`
   for i in 0..<max_step_capture_count {
     if self.capture_ids[i] == none {
       self.capture_ids[i] = capture_id
@@ -669,6 +694,7 @@ fn QueryStep::add_capture(self : QueryStep, capture_id : Int) -> Unit {
 
 ///|
 fn QueryStep::remove_capture(self : QueryStep, capture_id : Int) -> Unit {
+  let capture_id = capture_id & 0xFFFF // `uint16_t capture_id`
   for i in 0..<max_step_capture_count {
     if self.capture_ids[i] == capture_id {
       self.capture_ids[i] = none

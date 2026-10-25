@@ -509,7 +509,7 @@ fn QueryCursor::prepare_to_capture(
         other_state.capture_list_id = capture_list_none
         other_state.dead = true
         let list = self.capture_list_pool.get(state.capture_list_id)
-        list.clear()
+        clear_capture_list(list)
         return Some(list)
       } else {
         return None
@@ -937,8 +937,9 @@ fn QueryCursor::advance(self : QueryCursor, stop_on_definite_step : Bool) -> Boo
             j += 1 + copy_count
             continue
           }
-          // Advance this state to the next step of its pattern.
-          state.step_index += 1
+          // Advance this state to the next step of its pattern
+          // (`step_index` is a `uint16_t`).
+          state.step_index = (state.step_index + 1) & 0xFFFF
           let next_step = query.steps[state.step_index]
           // For a given step, if the current symbol is the wildcard symbol,
           // `_`, and it is **not** named, meaning it should capture anonymous
@@ -982,7 +983,7 @@ fn QueryCursor::advance(self : QueryCursor, stop_on_definite_step : Bool) -> Boo
               // alternative step, and then it advances to the next step.
               let mut revisit = false
               if child_step.is_pass_through {
-                child_state.step_index += 1
+                child_state.step_index = (child_state.step_index + 1) & 0xFFFF
                 revisit = true
               }
               // A `?`/`*` zero-skip past a step that carries a trailing
@@ -1157,6 +1158,18 @@ fn QueryCursor::index_of_state(self : QueryCursor, state : QueryState) -> Int {
 }
 
 ///|
+/// The captures of a `TSQueryMatch`: its `capture_count` is a `uint16_t`, so
+/// only the first `size & 0xFFFF` captures of the list are exposed.
+fn match_captures(captures : Array[QueryCapture]) -> Array[QueryCapture] {
+  let count = captures.length() & 0xFFFF
+  if count == captures.length() {
+    captures.copy()
+  } else {
+    captures[:count].to_owned()
+  }
+}
+
+///|
 /// `ts_query_cursor_next_match`.
 pub fn QueryCursor::next_match(self : QueryCursor) -> QueryMatch? {
   if self.finished_states.length() == 0 {
@@ -1182,7 +1195,7 @@ pub fn QueryCursor::next_match(self : QueryCursor) -> QueryMatch? {
     state.id = self.next_state_id
     self.next_state_id += 1
   }
-  let captures = self.capture_list_pool.get(state.capture_list_id).copy()
+  let captures = match_captures(self.capture_list_pool.get(state.capture_list_id))
   let result : QueryMatch = {
     id: state.id,
     pattern_index: state.pattern_index,
@@ -1300,7 +1313,7 @@ pub fn QueryCursor::next_capture(self : QueryCursor) -> (QueryMatch, Int)? {
         state.id = self.next_state_id
         self.next_state_id += 1
       }
-      let captures = self.capture_list_pool.get(state.capture_list_id).copy()
+      let captures = match_captures(self.capture_list_pool.get(state.capture_list_id))
       let capture_index = state.consumed_capture_count
       state.set_consumed_capture_count(state.consumed_capture_count + 1)
       // If this state is in the finished_states heap, its sort key has

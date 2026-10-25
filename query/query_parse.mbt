@@ -39,8 +39,9 @@ fn c_name_equals(name : Bytes, string : BytesView) -> Bool {
     if a != b {
       return false
     }
+    // `strncmp` stops at the first NUL; `!name[length]` is still checked.
     if a == 0 {
-      return true
+      break
     }
   }
   name.length() <= length || name[length] == 0
@@ -110,7 +111,8 @@ fn Query::add_negated_fields(
   step_index : Int,
   field_ids : Array[Int],
 ) -> Unit {
-  let step = self.steps[step_index]
+  // `step_index` is a `uint16_t` parameter upstream.
+  let step = self.steps[step_index & 0xFFFF]
   let field_count = field_ids.length()
   // The negated field array stores a list of field lists, separated by
   // zeros. Try to find the start index of an existing list that matches this
@@ -976,6 +978,7 @@ pub fn Query::new(
     Some(error_offset) => raise QueryError(kind=Structure, offset=error_offset)
     None => ()
   }
-  self.string_buffer.clear()
+  // `array_delete(&self->string_buffer)`: release the scratch buffer.
+  self.string_buffer = []
   self
 }
