@@ -54,7 +54,10 @@ jobs:
           mkdir -p "$HOME/.moon"
           trap 'rm -f "$HOME/.moon/credentials.json"' EXIT
           printf '%s' "$MOONCAKES_CREDENTIALS" > "$HOME/.moon/credentials.json"
-          moon publish --dry-run
+          # This moon version exits non-zero even when the server accepts the
+          # dry run (202 "Dry run completed successfully").
+          moon publish --dry-run 2>&1 | tee "$RUNNER_TEMP/dry-run.log" || true
+          grep -q 'Dry run completed successfully' "$RUNNER_TEMP/dry-run.log"
           moon publish
       - name: Verify registry installation and mbtx execution
         env:
