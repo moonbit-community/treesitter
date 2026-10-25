@@ -2,6 +2,13 @@
 
 ///|
 /// A growable bit vector backed by 64-bit words.
+///
+/// `words` stands for upstream's arena region: only the first
+/// `words_in_use()` words (`ceil(len / 64)`) are part of the vector, and the
+/// words after them are always zero (upstream's invariant
+/// `data[words_in_use..capacity] == 0`). Bits of the last word in use beyond
+/// `len` are not necessarily zero: upstream's `resize` does not clear them when
+/// shrinking within a word, and `insert_all` ORs them in.
 pub struct BitVec {
   priv words : Array[UInt64]
   priv mut len : Int
@@ -18,6 +25,7 @@ pub fn BitVec::with_capacity(_n_bits : Int) -> BitVec {
 }
 
 ///|
+/// The backing words: the words in use followed by zero words.
 pub fn BitVec::words(self : BitVec) -> Array[UInt64] {
   self.words
 }
@@ -25,6 +33,11 @@ pub fn BitVec::words(self : BitVec) -> Array[UInt64] {
 ///|
 pub fn BitVec::len(self : BitVec) -> Int {
   self.len
+}
+
+///|
+fn BitVec::words_in_use(self : BitVec) -> Int {
+  (self.len + 63) / 64
 }
 
 ///|
@@ -59,16 +72,28 @@ fn BitVec::ensure_words(self : BitVec, n_words : Int) -> Unit {
 }
 
 ///|
+/// Upstream fills whole words: growing within the last word in use leaves
+/// the newly exposed bits as they are, and shrinking within it does not clear
+/// the truncated bits.
 pub fn BitVec::resize(self : BitVec, new_len : Int, val : Bool) -> Unit {
-  let n_words = (new_len + 63) / 64
-  if new_len > self.len {
-    self.ensure_words(n_words)
-    for i in self.len..<new_len {
-      self.set(i, val)
+  let new_words = (new_len + 63) / 64
+  let old_words = self.words_in_use()
+  self.ensure_words(new_words)
+  if new_words > old_words {
+    let fill : UInt64 = if val { 0UL.lnot() } else { 0 }
+    for i in old_words..<new_words {
+      self.words[i] = fill
     }
-  } else {
-    for i in new_len..<self.len {
-      self.set(i, false)
+    // When setting bits to true, clear any bits in the last word that fall
+    // beyond new_len.
+    if val && new_len % 64 != 0 {
+      let mask = (1UL << (new_len % 64)) - 1
+      self.words[new_words - 1] = self.words[new_words - 1] & mask
+    }
+  } else if new_words < old_words {
+    // Zero out truncated words so stale data is never visible.
+    for i in new_words..<old_words {
+      self.words[i] = 0
     }
   }
   self.len = new_len
@@ -79,51 +104,68 @@ pub fn BitVec::last(self : BitVec) -> Bool? {
   if self.len == 0 {
     None
   } else {
-    Some(self.at(self.len - 1))
+    self.get(self.len - 1)
   }
 }
 
 ///|
 pub fn BitVec::pop(self : BitVec) -> Bool? {
   if self.len == 0 {
-    None
-  } else {
-    let value = self.at(self.len - 1)
-    self.set(self.len - 1, false)
-    self.len -= 1
-    Some(value)
+    return None
   }
+  self.len -= 1
+  let word_idx = self.len / 64
+  let bit_idx = self.len % 64
+  let new_words_in_use = self.words_in_use()
+  let val = ((self.words[word_idx] >> bit_idx) & 1) != 0
+  if val {
+    self.words[word_idx] = self.words[word_idx] & (1UL << bit_idx).lnot()
+  }
+  // Zero out the word if it's no longer in use.
+  if word_idx >= new_words_in_use {
+    self.words[word_idx] = 0
+  }
+  Some(val)
 }
 
 ///|
+/// Unsets every bit, keeping the length.
 pub fn BitVec::unset_all(self : BitVec) -> Unit {
-  for i in 0..<self.words.length() {
+  for i in 0..<self.words_in_use() {
     self.words[i] = 0
   }
 }
 
 ///|
-/// Union `other` into `self`, growing as needed. Returns whether any bit changed.
+/// Word-level OR: self |= other. Returns true if any new bits were set.
 pub fn BitVec::insert_all(self : BitVec, other : BitVec) -> Bool {
+  let other_words = other.words_in_use()
+  if other_words == 0 {
+    return false
+  }
+  // The words after `self.words_in_use()` are zero already.
+  self.ensure_words(other_words)
   if other.len > self.len {
-    self.ensure_words((other.len + 63) / 64)
     self.len = other.len
   }
-  let mut changed = false
-  for i, w in other.words {
-    let old = self.words[i]
-    let new = old | w
-    if new != old {
-      self.words[i] = new
-      changed = true
-    }
+  let mut any_new = 0UL
+  for i in 0..<other_words {
+    let sw = self.words[i]
+    let ow = other.words[i]
+    any_new = any_new | (ow & sw.lnot())
+    self.words[i] = sw | ow
   }
-  changed
+  any_new != 0
 }
 
 ///|
 pub fn BitVec::copy(self : BitVec) -> BitVec {
-  { words: self.words.copy(), len: self.len }
+  let n = self.words_in_use()
+  let words = Array::make(n, 0UL)
+  for i in 0..<n {
+    words[i] = self.words[i]
+  }
+  { words, len: self.len }
 }
 
 ///|

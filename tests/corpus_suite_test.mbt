@@ -299,8 +299,8 @@ async test "feature_corpus_files" {
   }
   let mut failure_count = 0
   for language_name in @fs.readdir(test_grammars_dir, sort=true) {
-    // (`_build/ref` also holds the fixture grammars.)
-    if language_name.has_prefix("fixture_") {
+    // (`_build/ref` also holds the fixture and extra grammars.)
+    if language_name.has_prefix("fixture_") || language_name.has_prefix("extra_") {
       continue
     }
     let test_path = "\{test_grammars_dir}/\{language_name}"

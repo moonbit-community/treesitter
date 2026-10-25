@@ -1,7 +1,8 @@
 // Port of the character predicates of regex-syntax 0.8.11 src/lib.rs that
 // the parser uses, plus the Rust `char` methods it relies on
-// (`is_whitespace`, `is_alphabetic`, `is_alphanumeric`), answered from the
-// crate's own Unicode 16.0.0 tables.
+// (`is_whitespace`, `is_alphabetic`, `is_alphanumeric`). The latter come
+// from the Rust standard library of the pinned toolchain (1.97.1, Unicode
+// 17.0.0, `rust_char_tables.mbt`), not from the crate's Unicode 16.0.0 tables.
 
 ///|
 /// Returns true if the given character has significance in a regex.
@@ -80,23 +81,8 @@ pub fn is_word_byte(c : Byte) -> Bool {
 }
 
 ///|
-/// Inclusive ranges of a Unicode table, decoded on first use.
-priv struct LazyRanges {
-  table : Array[(String, String)]
-  name : String
-  mut ranges : Array[(Int32, Int32)]?
-}
-
-///|
-fn LazyRanges::contains(self : LazyRanges, c : Char) -> Bool {
-  let ranges = match self.ranges {
-    Some(ranges) => ranges
-    None => {
-      let ranges = @unicode_tables.lookup_by_name(self.table, self.name).unwrap()
-      self.ranges = Some(ranges)
-      ranges
-    }
-  }
+/// Whether `c` is in one of the sorted, disjoint inclusive `ranges`.
+fn ranges_contain(ranges : FixedArray[(Int, Int)], c : Char) -> Bool {
   let cp = c.to_int()
   let mut lo = 0
   let mut hi = ranges.length()
@@ -115,43 +101,22 @@ fn LazyRanges::contains(self : LazyRanges, c : Char) -> Bool {
 }
 
 ///|
-let white_space : LazyRanges = {
-  table: @unicode_tables.property_bool_by_name,
-  name: "White_Space",
-  ranges: None,
-}
-
-///|
-let alphabetic : LazyRanges = {
-  table: @unicode_tables.property_bool_by_name,
-  name: "Alphabetic",
-  ranges: None,
-}
-
-///|
-let number : LazyRanges = {
-  table: @unicode_tables.general_category_by_name,
-  name: "Number",
-  ranges: None,
-}
-
-///|
-/// Rust `char::is_whitespace`: the `White_Space` property.
+/// Rust `char::is_whitespace`.
 fn is_whitespace(c : Char) -> Bool {
-  white_space.contains(c)
+  ranges_contain(rust_whitespace_ranges, c)
 }
 
 ///|
-/// Rust `char::is_alphabetic`: the `Alphabetic` property.
+/// Rust `char::is_alphabetic`.
 fn is_alphabetic(c : Char) -> Bool {
-  alphabetic.contains(c)
+  ranges_contain(rust_alphabetic_ranges, c)
 }
 
 ///|
-/// Rust `char::is_alphanumeric`: `Alphabetic` or a numeric general category
-/// (`Nd`, `Nl`, `No`).
+/// Rust `char::is_alphanumeric`: `is_alphabetic` or `is_numeric`.
 fn is_alphanumeric(c : Char) -> Bool {
-  alphabetic.contains(c) || number.contains(c)
+  ranges_contain(rust_alphabetic_ranges, c) ||
+  ranges_contain(rust_numeric_ranges, c)
 }
 
 ///|

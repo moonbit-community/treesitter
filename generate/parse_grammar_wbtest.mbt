@@ -160,7 +160,9 @@ test "parse_grammar errors" {
         #|{"rules": {}}
       ),
     ),
-    content="missing field `name`",
+    content=(
+      #|missing field `name` at line 1 column 13
+    ),
   )
   inspect(
     parse_error(
@@ -168,7 +170,9 @@ test "parse_grammar errors" {
         #|{"name": null, "rules": {}}
       ),
     ),
-    content="invalid type: null, expected a string",
+    content=(
+      #|invalid type: null, expected a string at line 1 column 13
+    ),
   )
 }
 

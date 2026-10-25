@@ -92,6 +92,18 @@ pub fn generate_node_types_for_grammar(
 }
 
 ///|
+/// `generate_node_types_from_grammar(input_grammar, diagnostics)?
+/// .node_types_json`: the `generate --no-parser` path of
+/// `generate_parser_in_directory`, for an already parsed grammar. Preparation
+/// diagnostics go to `diagnostics`.
+pub fn generate_node_types_for_input_grammar(
+  input_grammar : InputGrammar,
+  diagnostics : Array[Diagnostic],
+) -> String raise {
+  generate_node_types_from_grammar(input_grammar, diagnostics).node_types_json
+}
+
+///|
 /// `generate_parser_for_grammar_with_opts`, also producing the portable
 /// `Language` from the same tables as the C code.
 pub fn generate_parser_for_grammar_with_opts(

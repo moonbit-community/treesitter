@@ -1,0 +1,205 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-community/treesitter/serde_json"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub let bool_visitor : Visitor[Bool]
+
+pub fn duplicate_field(String) -> JsonError
+
+pub fn expected_in_map(Int32) -> String
+
+pub fn expected_in_seq(Int32) -> String
+
+pub fn[T] from_str(String, (Deserializer) -> T raise JsonError) -> T raise JsonError
+
+pub let i32_visitor : Visitor[Int32]
+
+pub fn invalid_length(Int32, String) -> JsonError
+
+pub fn invalid_type(Unexpected, String) -> JsonError
+
+pub fn invalid_value(Unexpected, String) -> JsonError
+
+pub fn missing_field(String) -> JsonError
+
+pub fn rust_debug_str(String) -> String
+
+pub let string_visitor : Visitor[String]
+
+pub let u64_visitor : Visitor[UInt64]
+
+pub fn unknown_field(String, Array[String]) -> JsonError
+
+pub fn unknown_variant(String, Array[String]) -> JsonError
+
+pub fn untagged_mismatch(String) -> JsonError
+
+pub fn zmij_format(Double) -> String
+
+// Errors
+pub suberror JsonError {
+  JsonError(code~ : ErrorCode, line~ : Int32, column~ : Int32)
+} derive(Eq, @debug.Debug)
+pub fn JsonError::code(Self) -> ErrorCode
+pub fn JsonError::column(Self) -> Int32
+pub fn JsonError::custom(String) -> Self
+pub fn JsonError::fix_position(Self, (ErrorCode) -> Self) -> Self
+pub fn JsonError::line(Self) -> Int32
+pub fn JsonError::syntax(ErrorCode, Int32, Int32) -> Self
+pub impl Show for JsonError
+
+// Types and methods
+pub(all) enum Content {
+  Bool(Bool)
+  U64(UInt64)
+  I64(Int64)
+  F64(Double)
+  String(String)
+  Unit
+  Seq(Array[Content])
+  Map(Array[(Content, Content)])
+} derive(Eq, @debug.Debug)
+pub fn Content::deserialize_bool(Self) -> Bool raise JsonError
+pub fn Content::deserialize_i32(Self) -> Int32 raise JsonError
+pub fn Content::deserialize_internally_tagged(Self, String, String, Array[String]) -> (Int32, Self) raise JsonError
+pub fn Content::deserialize_internally_tagged_unit(Self, String, String) -> Unit raise JsonError
+pub fn[T] Content::deserialize_option(Self, (Self) -> T raise JsonError) -> T? raise JsonError
+pub fn Content::deserialize_string(Self) -> String raise JsonError
+pub fn[T] Content::deserialize_struct(Self, String, Array[String], (Int32, Self) -> Unit raise JsonError, (Array[Bool]) -> T raise JsonError) -> T raise JsonError
+pub fn[T] Content::deserialize_vec(Self, (Self) -> T raise JsonError) -> Array[T] raise JsonError
+pub fn Content::unexpected(Self) -> Unexpected
+
+pub struct Deserializer {
+  // private fields
+}
+pub fn[T] Deserializer::deserialize_any(Self, Visitor[T]) -> T raise JsonError
+pub fn[T] Deserializer::deserialize_bool(Self, Visitor[T]) -> T raise JsonError
+pub fn Deserializer::deserialize_content(Self) -> Content raise JsonError
+pub fn Deserializer::deserialize_ignored_any(Self) -> Unit raise JsonError
+pub fn Deserializer::deserialize_internally_tagged(Self, String, String, Array[String]) -> (Int32, Content) raise JsonError
+pub fn[T] Deserializer::deserialize_map(Self, Visitor[T]) -> T raise JsonError
+pub fn[T] Deserializer::deserialize_number(Self, Visitor[T]) -> T raise JsonError
+pub fn[T] Deserializer::deserialize_option(Self, Visitor[T]) -> T raise JsonError
+pub fn[T] Deserializer::deserialize_option_with(Self, (Self) -> T raise JsonError) -> T? raise JsonError
+pub fn[T] Deserializer::deserialize_seq(Self, Visitor[T]) -> T raise JsonError
+pub fn[T] Deserializer::deserialize_str(Self, Visitor[T]) -> T raise JsonError
+pub fn Deserializer::deserialize_string(Self) -> String raise JsonError
+pub fn[T] Deserializer::deserialize_struct(Self, Visitor[T]) -> T raise JsonError
+pub fn[T] Deserializer::deserialize_unit(Self, Visitor[T]) -> T raise JsonError
+pub fn Deserializer::deserialize_value(Self) -> Value raise JsonError
+pub fn Deserializer::deserialize_value_map(Self) -> Map[String, Value] raise JsonError
+pub fn[T] Deserializer::deserialize_vec(Self, (Self) -> T raise JsonError) -> Array[T] raise JsonError
+pub fn Deserializer::end(Self) -> Unit raise JsonError
+pub fn Deserializer::error(Self, ErrorCode) -> JsonError
+pub fn Deserializer::fix_position(Self, JsonError) -> JsonError
+pub fn Deserializer::from_str(String) -> Self
+pub fn Deserializer::peek_error(Self, ErrorCode) -> JsonError
+
+pub(all) enum ErrorCode {
+  Message(String)
+  EofWhileParsingList
+  EofWhileParsingObject
+  EofWhileParsingString
+  EofWhileParsingValue
+  ExpectedColon
+  ExpectedListCommaOrEnd
+  ExpectedObjectCommaOrEnd
+  ExpectedSomeIdent
+  ExpectedSomeValue
+  ExpectedDoubleQuote
+  InvalidEscape
+  InvalidNumber
+  NumberOutOfRange
+  InvalidUnicodeCodePoint
+  ControlCharacterWhileParsingString
+  KeyMustBeAString
+  ExpectedNumericKey
+  FloatKeyMustBeFinite
+  LoneLeadingSurrogateInHexEscape
+  TrailingComma
+  TrailingCharacters
+  UnexpectedEndOfHexEscape
+  RecursionLimitExceeded
+} derive(Eq, @debug.Debug)
+pub impl Show for ErrorCode
+
+pub struct MapAccess {
+  // private fields
+}
+pub fn[T] MapAccess::next_key(Self, (String) -> T raise JsonError) -> T? raise JsonError
+pub fn[T] MapAccess::next_value(Self, (Deserializer) -> T raise JsonError) -> T raise JsonError
+
+pub(all) enum Number {
+  PosInt(UInt64)
+  NegInt(Int64)
+  Float(Double)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ParserNumber {
+  F64(Double)
+  U64(UInt64)
+  I64(Int64)
+} derive(Eq, @debug.Debug)
+
+pub struct SeqAccess {
+  // private fields
+}
+pub fn[T] SeqAccess::next_element(Self, (Deserializer) -> T raise JsonError) -> T? raise JsonError
+
+pub(all) enum Unexpected {
+  Bool(Bool)
+  Unsigned(UInt64)
+  Signed(Int64)
+  Float(Double)
+  Char(Char)
+  Str(String)
+  Bytes
+  Unit
+  Option
+  NewtypeStruct
+  Seq
+  Map
+  Enum
+  UnitVariant
+  NewtypeVariant
+  TupleVariant
+  StructVariant
+  Other(String)
+} derive(Eq, @debug.Debug)
+pub fn Unexpected::json_display(Self) -> String
+pub impl Show for Unexpected
+
+pub(all) enum Value {
+  Null
+  Bool(Bool)
+  Number(Number)
+  String(String)
+  Array(Array[Value])
+  Object(Map[String, Value])
+} derive(Eq, @debug.Debug)
+pub fn Value::deserialize_internally_tagged(Self, String, String, Array[String]) -> (Int32, Content) raise JsonError
+pub fn Value::to_content(Self) -> Content
+pub fn Value::unexpected(Self) -> Unexpected
+
+pub struct Visitor[T] {
+  expecting : String
+  visit_bool : ((Bool) -> T raise JsonError)?
+  visit_i64 : ((Int64) -> T raise JsonError)?
+  visit_u64 : ((UInt64) -> T raise JsonError)?
+  visit_f64 : ((Double) -> T raise JsonError)?
+  visit_str : ((String) -> T raise JsonError)?
+  visit_unit : (() -> T raise JsonError)?
+  visit_none : (() -> T raise JsonError)?
+  visit_some : ((Deserializer) -> T raise JsonError)?
+  visit_seq : ((SeqAccess) -> T raise JsonError)?
+  visit_map : ((MapAccess) -> T raise JsonError)?
+}
+pub fn[T] Visitor::new(String, visit_bool? : (Bool) -> T raise JsonError, visit_i64? : (Int64) -> T raise JsonError, visit_u64? : (UInt64) -> T raise JsonError, visit_f64? : (Double) -> T raise JsonError, visit_str? : (String) -> T raise JsonError, visit_unit? : () -> T raise JsonError, visit_none? : () -> T raise JsonError, visit_some? : (Deserializer) -> T raise JsonError, visit_seq? : (SeqAccess) -> T raise JsonError, visit_map? : (MapAccess) -> T raise JsonError) -> Self[T]
+
+// Type aliases
+
+// Traits

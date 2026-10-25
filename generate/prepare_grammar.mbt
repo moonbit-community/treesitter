@@ -367,8 +367,10 @@ fn validate_precedences(
   let pairs : Map[(PrecedenceEntry, PrecedenceEntry), Int32] = Map([])
   for list in grammar.precedence_orderings {
     for i, e1 in list {
+      // Upstream binds `mut entry1` once per outer iteration, so a swap in
+      // one inner iteration carries over to the following ones.
+      let mut entry1 = e1
       for e2 in list[i + 1:] {
-        let mut entry1 = e1
         let mut entry2 = e2
         if entry1 == entry2 {
           continue

@@ -15,6 +15,7 @@ import random
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,7 +24,7 @@ LANG = Path(os.environ['NEXT_LANG_DIR']) if os.environ.get('NEXT_LANG_DIR') else
 BIN = ROOT / '_build/refbin'
 TMP = ROOT / '_build/difftmp'
 UPSTREAM = Path(subprocess.check_output(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], cwd=ROOT, text=True).strip()).parent / '.repos/ts-pinned'
-PROBE = ROOT / '_build/native/debug/build/tools/probe/probe.exe'
+PROBE = ROOT / '_build/native/release/build/tools/probe/probe.exe'
 
 # Inputs for test grammars whose corpus is empty or does not reach the
 # scanner's interesting paths, taken from upstream's crates/cli/src/tests.
@@ -55,13 +56,22 @@ EXTRA_INPUTS = {
 # counts as identical ("hang").
 # A batch may take BATCH_TIMEOUT seconds plus one per input.
 BATCH_TIMEOUT = 30
-SINGLE_TIMEOUT = 2
+SINGLE_TIMEOUT = 10
 
 HEADER = re.compile(r'^(={3,})[^\n]*\n(.*?)\n\1[^\n]*\n(.*?)\n-{3,}[^\n]*\n', re.S | re.M)
 
 
+def meta(name):
+    """meta.json of an extra grammar (tools/oracle/grammars.py ref), if any."""
+    path = REF / name / 'meta.json'
+    return json.loads(path.read_text()) if path.exists() else None
+
+
 def corpus_inputs(name):
     files = []
+    if (m := meta(name)) is not None:
+        for d in m['corpus']:
+            files += sorted(Path(d).rglob('*.txt'))
     test_dir = UPSTREAM / 'test/fixtures/test_grammars' / name
     if (test_dir / 'corpus.txt').exists():
         files.append(test_dir / 'corpus.txt')
@@ -88,6 +98,8 @@ def build_ref(name, main='reference_parse.c', suffix=''):
     language = re.search(r'const TSLanguage \*tree_sitter_(\w+)\(void\)', (src / 'parser.c').read_text()).group(1)
     sources = [str(src / 'parser.c')]
     candidates = [REF / name / 'scanner.c', src / 'scanner.c']
+    if (m := meta(name)) is not None and m['scanner']:
+        candidates.append(Path(m['scanner']))
     if name.startswith('fixture_'):
         parts = name[len('fixture_'):].split('_', 1)
         fixture = UPSTREAM / 'test/fixtures/grammars' / parts[0]
@@ -124,16 +136,17 @@ def run(cmds, timeout):
     """Run the commands concurrently; returns [(stdout or None on timeout,
     exit code or 'timeout')]."""
     procs = [subprocess.Popen(c, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) for c in cmds]
+    # All commands share one deadline (they run concurrently).
+    deadline = time.monotonic() + timeout
     results = []
     for p in procs:
         try:
-            out, _ = p.communicate(timeout=timeout)
+            out, _ = p.communicate(timeout=max(0.1, deadline - time.monotonic()))
             results.append((out.decode(errors='replace'), p.returncode))
         except subprocess.TimeoutExpired:
             p.kill()
             p.communicate()
             results.append((None, 'timeout'))
-        timeout = 1  # the others ran concurrently
     return results
 
 

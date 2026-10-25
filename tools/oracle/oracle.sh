@@ -15,13 +15,15 @@ step() {
 # malformed inputs (undefined behaviour), so it is compared on the unmodified
 # corpus only.
 UB="--exclude uses_current_column"
+# Grammars whose external scanner is not ported yet.
+PENDING=$(sed 's/^/--exclude /' tools/oracle/pending_scanners.txt | tr '\n' ' ')
 step sh tools/oracle/diff_generate.sh
 step python3 tools/oracle/diff_runtime.py --externals uses_current_column
-step python3 tools/oracle/diff_runtime.py --externals $UB --mutate 2
-step python3 tools/oracle/diff_runtime.py --externals $UB --edits 3
-step python3 tools/oracle/diff_runtime.py --externals $UB --log --mutate 1
-step python3 tools/oracle/diff_runtime.py --externals --encoding utf16le
-step python3 tools/oracle/diff_runtime.py --externals --encoding utf16be
-step python3 tools/oracle/diff_runtime.py --externals --ranges 2
-step python3 tools/oracle/diff_query.py --externals
+step python3 tools/oracle/diff_runtime.py --externals $UB $PENDING --mutate 2
+step python3 tools/oracle/diff_runtime.py --externals $UB $PENDING --edits 3
+step python3 tools/oracle/diff_runtime.py --externals $UB $PENDING --log --mutate 1
+step python3 tools/oracle/diff_runtime.py --externals $PENDING --encoding utf16le
+step python3 tools/oracle/diff_runtime.py --externals $PENDING --encoding utf16be
+step python3 tools/oracle/diff_runtime.py --externals $PENDING --ranges 2
+step python3 tools/oracle/diff_query.py --externals $PENDING
 exit $status
