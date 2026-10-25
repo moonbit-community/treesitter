@@ -11,6 +11,8 @@ pub fn scanner_for(name : String) -> @runtime.ExternalScannerFactory? {
     "html" => Some(html_scanner)
     "javascript" => Some(javascript_scanner)
     "jsdoc" => Some(jsdoc_scanner)
+    "markdown" => Some(markdown_scanner)
+    "markdown_inline" => Some(markdown_inline_scanner)
     "python" => Some(python_scanner)
     "ruby" => Some(ruby_scanner)
     "rust" => Some(rust_scanner)

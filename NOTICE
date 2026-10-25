@@ -25,6 +25,9 @@ license:
   contributors, Copyright (c) 2019-2021 Ika (yaml.mbt from src/scanner.c,
   yaml_schema_core.mbt, yaml_schema_json.mbt, yaml_schema_legacy.mbt from
   src/schema.core.c, src/schema.json.c, src/schema.legacy.c)
+- tree-sitter-markdown v0.5.4, Copyright (c) 2021 Matthias Deiml
+  (markdown.mbt from tree-sitter-markdown/src/scanner.c, markdown_inline.mbt
+  from tree-sitter-markdown-inline/src/scanner.c)
 
 Ported Rust crates, each dual-licensed MIT OR Apache-2.0 upstream and used
 here under the MIT license:
