@@ -257,8 +257,10 @@ pub async fn fuzz_language_corpus(
     for k in unmatched {
       @support.log_info("  \{k}")
     }
-    @support.flush()
-    abort("Non matchable skip definitions need to be removed")
+    @support.rust_panic(
+      "Non matchable skip definitions need to be removed",
+      "crates/cli/src/fuzz.rs:294:9",
+    )
   }
 }
 
@@ -310,7 +312,7 @@ async fn fuzz_trial(
   }
   if dump_edits {
     @support.create_dir_all("fuzz") catch {
-      e => unwrap_failed(e)
+      e => unwrap_failed(e, "crates/cli/src/fuzz.rs:218:48")
     }
     @fs.write_file(
       @support.path_join(
@@ -319,8 +321,9 @@ async fn fuzz_trial(
       ),
       Bytes::from_array(input),
       create_mode=CreateOrTruncate,
+      permission=0o666,
     ) catch {
-      e => unwrap_failed(e)
+      e => unwrap_failed(e, "crates/cli/src/fuzz.rs:224:22")
     }
   }
   if options.log_graphs {
@@ -383,10 +386,10 @@ async fn fuzz_trial(
 
 ///|
 /// `.unwrap()` of a failed I/O result: a panic.
-fn unwrap_failed(e : Error) -> Unit {
-  @support.flush()
-  abort(
-    "called `Result::unwrap()` on an `Err` value: \{@support.io_error_message(e)}",
+fn unwrap_failed(e : Error, location : String) -> Unit {
+  @support.rust_panic(
+    "called `Result::unwrap()` on an `Err` value: \{@support.io_error_debug(e)}",
+    location,
   )
 }
 

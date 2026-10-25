@@ -131,6 +131,9 @@ section_fuzz() {
   fi
   fuzz_case fuzz-json-skip json env TREE_SITTER_SEED=4 -- --iterations 1 \
     --skip 'json - corpus - main - Arrays' --skip 'json - corpus - main - String content'
+  # One skip definition that matches nothing: a panic (thread id masked).
+  fuzz_case fuzz-json-skip-unmatched json env TREE_SITTER_SEED=4 -- --iterations 1 \
+    --include 'Top-level null' --skip 'no such test'
   fuzz_case fuzz-headers headers env TREE_SITTER_SEED=6 TREE_SITTER_DUMP_EDITS=1 -- \
     --iterations 1
   fuzz_case fuzz-no-corpus nocorpus env TREE_SITTER_SEED=1 --
