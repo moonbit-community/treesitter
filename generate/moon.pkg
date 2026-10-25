@@ -1,6 +1,7 @@
 import {
   "moonbitlang/core/cmp",
   "moonbitlang/core/debug",
+  "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/hashset",
   "moonbitlang/core/json",
   "moonbitlang/core/sorted_map",
