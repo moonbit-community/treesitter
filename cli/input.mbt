@@ -11,7 +11,7 @@ pub(all) enum CliInput {
 pub async fn get_input(
   paths_file : String?,
   paths : Array[String]?,
-  test_number : Int32?,
+  test_number : UInt32?,
   current_dir : String,
 ) -> CliInput {
   if paths_file is Some(paths_file) {
@@ -28,8 +28,8 @@ pub async fn get_input(
       )
     }
     let test_entry = @cli_test.parse_tests(test_dir)
-    let test_num = Ref(0)
-    let target = if test_number > 1 { test_number - 1 } else { 0 }
+    let test_num : Ref[UInt32] = Ref(0)
+    let target = (if test_number > 1U { test_number } else { 1U }) - 1U
     match get_test_info(test_entry, target, test_num) {
       Some((name, contents, languages)) =>
         return Test(name~, contents~, languages~)
@@ -117,8 +117,8 @@ pub fn rust_lines(text : String) -> Array[String] {
 ///|
 pub fn get_test_info(
   test_entry : @cli_test.TestEntry,
-  target_test : Int32,
-  test_num : Ref[Int32],
+  target_test : UInt32,
+  test_num : Ref[UInt32],
 ) -> (String, Bytes, Array[String])? {
   match test_entry {
     Example(name~, input~, attributes~, ..) => {

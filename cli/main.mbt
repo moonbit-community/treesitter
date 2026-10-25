@@ -104,10 +104,11 @@ async fn generate_run(m : @clap.ArgMatches, current_dir : String) -> Unit {
     @support.enable_debug()
   }
   let abi_version = match m.get_one("abi_version") {
-    None => @commands.default_generate_abi_version
-    Some("latest") => @commands.language_version
+    None => @commands.default_generate_abi_version.to_uint64()
+    Some("latest") => @commands.language_version.to_uint64()
+    // `version.parse::<usize>().expect("invalid abi version flag")`
     Some(version) =>
-      match parse_usize(version) {
+      match parse_unsigned(version, 0xFFFFFFFFFFFFFFFFUL) {
         Some(v) => v
         None => abort("invalid abi version flag")
       }
@@ -330,7 +331,7 @@ async fn parse_run(
     raise wasm_unsupported()
   }
   let timeout = match m.get_one("timeout") {
-    Some(t) => @string.parse_uint64(t) catch { _ => 0UL }
+    Some(t) => parse_unsigned(t, 0xFFFFFFFFFFFFFFFFUL).unwrap_or(0UL)
     None => 0UL
   }
   let mut has_error = false
@@ -368,7 +369,7 @@ async fn parse_run(
       }
       if parse_result.duration is Some(duration) &&
         parse_result.bytes is Some(bytes) {
-        stats.cumulative_stats.total_bytes += bytes
+        stats.cumulative_stats.total_bytes += bytes.to_uint64()
         stats.cumulative_stats.total_duration += duration
       }
     }
@@ -488,11 +489,46 @@ fn pick_test_language(
 }
 
 ///|
-fn test_number(m : @clap.ArgMatches) -> Int32? {
+/// The `u32` value of the `--test-number` argument, which clap's `u32` value
+/// parser has validated with `i64::from_str` and a range check (so `-0` is
+/// 0).
+fn test_number(m : @clap.ArgMatches) -> UInt32? {
   match m.get_one("test_number") {
-    Some(n) => parse_usize(n)
+    Some(n) => {
+      let n = if n.has_prefix("-") {
+        n.unsafe_substring(start=1, end=n.length())
+      } else {
+        n
+      }
+      parse_unsigned(n, 0xFFFFFFFFUL).map(n => n.to_uint())
+    }
     None => None
   }
+}
+
+///|
+/// Rust's `FromStr` for an unsigned integer type whose maximum is `max`
+/// (`u32`, `u64`, `usize`): an optional `+` followed by decimal digits.
+/// `None` stands for a `ParseIntError`.
+fn parse_unsigned(s : String, max : UInt64) -> UInt64? {
+  let digits = if s.has_prefix("+") && s.length() > 1 {
+    s.unsafe_substring(start=1, end=s.length())
+  } else {
+    s
+  }
+  if digits.is_empty() {
+    return None
+  }
+  let mut n = 0UL
+  for c in digits {
+    guard c >= '0' && c <= '9' else { return None }
+    let digit = (c.to_int() - '0'.to_int()).to_uint64()
+    if n > (max - digit) / 10UL {
+      return None
+    }
+    n = n * 10UL + digit
+  }
+  Some(n)
 }
 
 ///|
@@ -538,7 +574,7 @@ async fn test_run(
   }
   loader.debug_build(m.get_flag("debug_build"))
   loader.force_rebuild(m.get_flag("rebuild") || m.contains_id("grammar_path"))
-  let parser = @treesitter.Parser::new()
+  let mut parser = @treesitter.Parser::new()
   if m.get_flag("wasm") {
     raise wasm_unsupported()
   }
@@ -587,7 +623,7 @@ async fn test_run(
       file_name: m.get_one("file_name"),
       update,
       open_log: m.get_flag("open_log"),
-      languages: languages.map(entry => (entry.1, entry.0)),
+      languages: languages_by_name(languages),
       show_fields: m.get_flag("show_fields"),
       overview_only: m.get_flag("overview_only"),
     }
@@ -610,17 +646,20 @@ async fn test_run(
   let test_highlight_dir = @support.path_join(test_dir, "highlight")
   if is_dir(test_highlight_dir) {
     let highlighter = @highlight.Highlighter::new()
+    move_parser(parser, highlighter.parser)
     let loader_config = load_loader_config(config)
     check_test(test_summary, json_summary, () => {
       test_highlights(
         loader, loader_config, highlighter, test_highlight_dir, test_summary,
       )
     })
+    parser = highlighter.parser
     test_summary.test_num = 1
   }
   let test_tag_dir = @support.path_join(test_dir, "tags")
   if is_dir(test_tag_dir) {
     let tags_context = @tags.TagsContext::new()
+    move_parser(parser, tags_context.parser)
     let loader_config = load_loader_config(config)
     check_test(test_summary, json_summary, () => {
       test_tags(loader, loader_config, tags_context, test_tag_dir, test_summary)
@@ -660,6 +699,24 @@ async fn test_run(
   } else {
     @support.print_out("\{test_summary}\n")
   }
+}
+
+///|
+/// `highlighter.parser = parser` / `tags_context.parser = parser`: upstream
+/// hands the corpus tests' parser on to the highlight tests and then to the
+/// tag tests, so the `test --debug` logger keeps logging and the tag tests
+/// start from the highlighter's language and included ranges. The
+/// highlighter and tags context own their parsers here, so the parser's
+/// configuration is copied into them instead.
+fn move_parser(
+  from : @treesitter.Parser,
+  to : @treesitter.Parser,
+) -> Unit raise {
+  if from.language() is Some(language) {
+    to.set_language(language)
+  }
+  to.set_included_ranges(from.included_ranges())
+  to.set_logger(from.logger())
 }
 
 ///|

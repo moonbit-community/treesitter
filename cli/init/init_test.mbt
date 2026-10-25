@@ -236,3 +236,74 @@ async test "generate_grammar_files error" {
     _ => fail("expected an error")
   }
 }
+
+///|
+async test "get_root_path" {
+  let dir = @fs.tmpdir(prefix="ts-init-root")
+  defer (@fs.rmdir(dir, recursive=true) catch { _ => () })
+  @fs.mkdir(dir + "/a")
+  @fs.mkdir(dir + "/a/b")
+  @fs.mkdir(dir + "/a/b/c")
+  @fs.write_file(
+    dir + "/a/tree-sitter.json",
+    "{\"grammars\": [], \"metadata\": {\"version\": \"1.0.0\"}}",
+    create_mode=CreateOrTruncate,
+  )
+  @fs.write_file(
+    dir + "/a/package.json",
+    "{\"tree-sitter\": []}",
+    create_mode=CreateOrTruncate,
+  )
+  // A `package.json` without a `tree-sitter` key is skipped.
+  @fs.write_file(
+    dir + "/a/b/package.json",
+    "{\"name\": \"x\"}",
+    create_mode=CreateOrTruncate,
+  )
+  let rel = (p : String) => p.replace(old=dir, new="DIR")
+  inspect(
+    rel(@init.get_root_path(dir + "/a/b/c/tree-sitter.json")),
+    content="DIR/a",
+  )
+  inspect(
+    rel(@init.get_root_path(dir + "/a/b/c/package.json")),
+    content="DIR/a",
+  )
+  inspect(
+    rel(@init.get_root_path(dir + "/a/tree-sitter.json")),
+    content="DIR/a",
+  )
+  // An invalid file stops the search.
+  @fs.write_file(
+    dir + "/a/b/tree-sitter.json",
+    "{}",
+    create_mode=CreateOrTruncate,
+  )
+  @fs.write_file(dir + "/a/b/c/package.json", "1", create_mode=CreateOrTruncate)
+  async fn error_chain(name : String) -> String {
+    try @init.get_root_path(dir + "/a/b/c/" + name) catch {
+      @init.InitError(chain) => chain.join(" / ")
+      e => "unexpected error \{e}"
+    } noraise {
+      _ => "no error"
+    }
+  }
+  inspect(
+    error_chain("tree-sitter.json"),
+    content="Failed to parse tree-sitter.json / missing field `grammars`",
+  )
+  inspect(
+    error_chain("package.json"),
+    content="Failed to parse package.json / invalid type: integer `1`, expected a map",
+  )
+  // No file up to the root.
+  try @init.get_root_path("x/y/none.json") catch {
+    e =>
+      inspect(
+        e,
+        content="Failed to locate a none.json file, please ensure you have one, and if you don't then consult the docs",
+      )
+  } noraise {
+    _ => fail("expected an error")
+  }
+}

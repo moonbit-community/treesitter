@@ -1,5 +1,6 @@
 import {
   "moonbit-community/treesitter/cli/support",
+  "moonbit-community/treesitter/config",
   "moonbit-community/treesitter/loader",
   "moonbitlang/async/fs",
   "moonbitlang/async/process",
