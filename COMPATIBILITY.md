@@ -66,6 +66,10 @@ packages' own tests.
   Parsers are not destroyed automatically either: call `Parser::delete`
   (the equivalent of dropping the Rust `Parser`) to run the external
   scanner's `destroy` for a parse that was cancelled and not reset.
+- A query cursor drops its tree once its execution is exhausted. A cursor
+  whose matches or captures are abandoned before exhaustion keeps the tree
+  alive until its next `exec` (this includes the cursors `Highlighter` and
+  `TagsContext` reuse); upstream's cursor does not own the tree.
 - `Tree::print_dot_graph` and `Parser::print_dot_graphs_to` write upstream's
   exact bytes to a `Buffer`; String destinations (`StringBuilder`,
   `Parser::print_dot_graphs`) receive them decoded as UTF-8 with invalid
