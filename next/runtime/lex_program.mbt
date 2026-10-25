@@ -374,7 +374,10 @@ fn CompiledLexProgram::advance_outcome(
 
 ///|
 /// Fill the `ascii` row of `state`.
-fn CompiledLexProgram::fill_ascii(self : CompiledLexProgram, state : Int) -> Unit {
+fn CompiledLexProgram::fill_ascii(
+  self : CompiledLexProgram,
+  state : Int,
+) -> Unit {
   for c in 0..<128 {
     self.ascii[state * 128 + c] = self.advance_outcome(state, c, false)
   }

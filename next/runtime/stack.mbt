@@ -373,6 +373,13 @@ fn Stack::recycle_head(self : Stack, head : StackHead) -> Unit {
 }
 
 ///|
+fn Stack::recycle_iterator(self : Stack, iterator : StackIterator) -> Unit {
+  if self.iterator_pool.length() < max_iterator_count {
+    self.iterator_pool.push(iterator)
+  }
+}
+
+///|
 fn Stack::new_iterator(
   self : Stack,
   node : StackNode,
@@ -444,7 +451,7 @@ fn[P] Stack::iter(
   // Like upstream, the result is `self.slices`, valid until the next pop.
   self.slices.clear()
   for iterator in self.iterators {
-    self.iterator_pool.push(iterator)
+    self.recycle_iterator(iterator)
   }
   self.iterators.clear()
   let head = self.heads[version]
@@ -482,7 +489,7 @@ fn[P] Stack::iter(
         if !should_pop {
           subtree_array_delete(iterator.subtrees)
         }
-        self.iterator_pool.push(self.iterators.remove(i))
+        self.recycle_iterator(self.iterators.remove(i))
         size -= 1
         continue
       }
@@ -644,7 +651,10 @@ pub fn Stack::push(
 }
 
 ///|
-fn pop_count_callback(goal_subtree_count : Int32, iterator : StackIterator) -> Int32 {
+fn pop_count_callback(
+  goal_subtree_count : Int32,
+  iterator : StackIterator,
+) -> Int32 {
   if iterator.subtree_count == goal_subtree_count {
     stack_action_pop | stack_action_stop
   } else {
@@ -685,7 +695,10 @@ pub fn Stack::pop_pending(self : Stack, version : Int32) -> Array[StackSlice] {
 }
 
 ///|
-fn pop_error_callback(found_error : Ref[Bool], iterator : StackIterator) -> Int32 {
+fn pop_error_callback(
+  found_error : Ref[Bool],
+  iterator : StackIterator,
+) -> Int32 {
   if iterator.subtrees.length() > 0 {
     if !found_error.val && iterator.subtrees[0].is_error() {
       found_error.val = true
