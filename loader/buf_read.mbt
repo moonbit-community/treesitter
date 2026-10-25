@@ -28,7 +28,7 @@ priv struct LineReader {
 ///|
 /// `fs::File::open(path)` wrapped in a `BufReader`.
 async fn LineReader::open(path : String) -> LineReader {
-  { file: @fs.open(path, mode=ReadOnly), buf: [], eof: false }
+  { file: @fs.open(path, mode=ReadOnly), buf: [], eof: false, }
 }
 
 ///|

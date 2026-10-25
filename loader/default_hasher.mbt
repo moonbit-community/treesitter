@@ -12,7 +12,7 @@ priv struct DefaultHasher {
 
 ///|
 fn DefaultHasher::new() -> DefaultHasher {
-  { bytes: [] }
+  { bytes: [], }
 }
 
 ///|
@@ -32,7 +32,7 @@ fn DefaultHasher::write_usize(self : DefaultHasher, n : UInt64) -> Unit {
 }
 
 ///|
-fn rotl(x : UInt64, b : Int) -> UInt64 {
+fn rotl(x : UInt64, b : Int32) -> UInt64 {
   (x << b) | (x >> (64 - b))
 }
 
@@ -61,7 +61,7 @@ fn DefaultHasher::finish(self : DefaultHasher) -> UInt64 {
     0x736f6d6570736575UL, 0x646f72616e646f6dUL, 0x6c7967656e657261UL, 0x7465646279746573UL,
   ]
   let length = self.bytes.length()
-  let word = (start : Int, count : Int) => {
+  let word = (start : Int32, count : Int32) => {
     let mut m = 0UL
     for i in 0..<count {
       m = m | (self.bytes[start + i].to_uint64() << (8 * i))

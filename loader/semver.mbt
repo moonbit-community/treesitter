@@ -17,7 +17,7 @@ pub fn SemverVersion::new(
   minor : UInt64,
   patch : UInt64,
 ) -> SemverVersion {
-  { major, minor, patch, pre: "", build: "" }
+  { major, minor, patch, pre: "", build: "", }
 }
 
 ///|
@@ -160,15 +160,15 @@ pub fn SemverVersion::parse(text : String) -> SemverVersion raise SemverError {
   if input.get(text) is Some(unexpected) {
     raise semver_error(UnexpectedCharAfter(pos, unexpected))
   }
-  { major, minor, patch, pre, build }
+  { major, minor, patch, pre, build, }
 }
 
 ///|
 fn numeric_identifier(
   input : Array[Char],
-  start : Int,
+  start : Int32,
   pos : Position,
-) -> (UInt64, Int) raise SemverError {
+) -> (UInt64, Int32) raise SemverError {
   let mut len = 0
   let mut value = 0UL
   while input.get(start + len) is Some(digit) {
@@ -196,7 +196,11 @@ fn numeric_identifier(
 }
 
 ///|
-fn dot(input : Array[Char], start : Int, pos : Position) -> Int raise SemverError {
+fn dot(
+  input : Array[Char],
+  start : Int32,
+  pos : Position,
+) -> Int32 raise SemverError {
   match input.get(start) {
     Some('.') => start + 1
     Some(unexpected) => raise semver_error(UnexpectedCharAfter(pos, unexpected))
@@ -207,35 +211,35 @@ fn dot(input : Array[Char], start : Int, pos : Position) -> Int raise SemverErro
 ///|
 fn prerelease_identifier(
   input : Array[Char],
-  start : Int,
-) -> (String, Int) raise SemverError {
+  start : Int32,
+) -> (String, Int32) raise SemverError {
   identifier(input, start, Pre)
 }
 
 ///|
 fn build_identifier(
   input : Array[Char],
-  start : Int,
-) -> (String, Int) raise SemverError {
+  start : Int32,
+) -> (String, Int32) raise SemverError {
   identifier(input, start, Build)
 }
 
 ///|
 fn identifier(
   input : Array[Char],
-  start : Int,
+  start : Int32,
   pos : Position,
-) -> (String, Int) raise SemverError {
+) -> (String, Int32) raise SemverError {
   let mut accumulated_len = 0
   let mut segment_len = 0
   let mut segment_has_nondigit = false
   for ;; {
     match input.get(start + accumulated_len + segment_len) {
-      Some('A'..='Z' | 'a'..='z' | '-') => {
+      Some('A'..<='Z' | 'a'..<='z' | '-') => {
         segment_len += 1
         segment_has_nondigit = true
       }
-      Some('0'..='9') => segment_len += 1
+      Some('0'..<='9') => segment_len += 1
       boundary => {
         if segment_len == 0 {
           if accumulated_len == 0 && boundary != Some('.') {

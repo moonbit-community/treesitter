@@ -1,6 +1,13 @@
 ///|
 test "language aliases sort in Rust string order" {
-  let ids : Array[(Int32, String)] = [(0, "b"), (0, "aa"), (1, "é"), (1, "z"), (1, "😀"), (1, "\u{ffff}")]
+  let ids : Array[(Int32, String)] = [
+    (0, "b"),
+    (0, "aa"),
+    (1, "é"),
+    (1, "z"),
+    (1, "😀"),
+    (1, "\u{ffff}"),
+  ]
   ids.sort_by((a, b) => {
     let c = a.0.compare(b.0)
     if c != 0 {
@@ -13,7 +20,6 @@ test "language aliases sort in Rust string order" {
     ids.map(i => i.1),
     content=(
       #|["aa", "b", "z", "é", "￿", "😀"]
-
     ),
   )
 }

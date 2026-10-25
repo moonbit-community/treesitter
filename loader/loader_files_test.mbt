@@ -107,7 +107,6 @@ async test "grammar paths are compared as Rust paths" {
       #|  "c: /tree-sitter-g/g",
       #|  "d: /tree-sitter-g/../tree-sitter-g/g",
       #|]
-
     ),
   )
 }

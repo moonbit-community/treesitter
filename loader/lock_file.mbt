@@ -43,7 +43,7 @@ async fn LockFile::create(path : String) -> LockFile? {
 ///|
 /// Wait for an existing lock file to be removed by whoever created it.
 /// If the lock file persists beyond `timeout_ms`, raise `LockFileTimeout`.
-async fn LockFile::wait_for_removal(path : String, timeout_ms : Int) -> Unit {
+async fn LockFile::wait_for_removal(path : String, timeout_ms : Int32) -> Unit {
   let mut sleep_ms = 100
   let deadline = @support.now_ns() + timeout_ms.to_int64() * 1000000L
   while @fs.exists(path) {

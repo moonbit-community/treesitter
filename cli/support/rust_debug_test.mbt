@@ -2,7 +2,9 @@
 test "rust debug str and char" {
   inspect(@support.rust_debug_str("a\"b\\\n'"), content="\"a\\\"b\\\\\\n'\"")
   inspect(
-    @support.rust_debug_str("\u{0}\t\r\u{7}\u{7f}\u{85}\u{a0}\u{ad}é\u{301}\u{200b}"),
+    @support.rust_debug_str(
+      "\u{0}\t\r\u{7}\u{7f}\u{85}\u{a0}\u{ad}é\u{301}\u{200b}",
+    ),
     content="\"\\0\\t\\r\\u{7}\\u{7f}\\u{85}\\u{a0}\\u{ad}é\\u{301}\\u{200b}\"",
   )
   inspect(@support.rust_debug_char('\n'), content="'\\n'")
@@ -25,14 +27,14 @@ test "rust debug escaping of every char" {
       h = (h ^ b.to_uint64()) * 0x100000001b3UL
     }
   }
-  for u in 0..=0x10FFFF {
+  for u in 0..<=0x10FFFF {
     if u >= 0xD800 && u <= 0xDFFF {
       continue
     }
     feed(@support.rust_debug_char(u.unsafe_to_char()))
   }
   let block = StringBuilder()
-  for u in 0..=0x10FFFF {
+  for u in 0..<=0x10FFFF {
     if !(u >= 0xD800 && u <= 0xDFFF) {
       block.write_char(u.unsafe_to_char())
     }

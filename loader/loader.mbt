@@ -232,9 +232,7 @@ pub async fn Loader::new() -> Loader {
         if @fs.exists(legacy_apple_path) && @support.is_dir(legacy_apple_path) {
           @support.remove_dir_all(legacy_apple_path) catch {
             e =>
-              raise IO(
-                @support.io_error_with_path(e, Some(legacy_apple_path)),
-              )
+              raise IO(@support.io_error_with_path(e, Some(legacy_apple_path)))
           }
         }
       }
@@ -357,10 +355,7 @@ fn rust_str_cmp(a : String, b : String) -> Int32 {
   let b = b.iter()
   for ;; {
     match (a.next(), b.next()) {
-      (Some(x), Some(y)) =>
-        if x != y {
-          return x.to_int().compare(y.to_int())
-        }
+      (Some(x), Some(y)) => if x != y { return x.to_int().compare(y.to_int()) }
       (Some(_), None) => return 1
       (None, Some(_)) => return -1
       (None, None) => return 0
@@ -539,7 +534,10 @@ pub async fn Loader::language_for_configuration(
 }
 
 ///|
-async fn Loader::language_for_id(self : Loader, id : Int32) -> @treesitter.Language {
+async fn Loader::language_for_id(
+  self : Loader,
+  id : Int32,
+) -> @treesitter.Language {
   let entry = self.languages_by_id[id]
   match entry.language {
     Some(language) => language
@@ -674,7 +672,8 @@ async fn Loader::load_language_tables(
   // to different output locations
   let lock_hash = path_hash_hex(output_path)
   let lock_path = match @support.cache_dir() {
-    Some(dir) => @support.path_join(dir, "tree-sitter/lock/\{name}-\{lock_hash}.lock")
+    Some(dir) =>
+      @support.path_join(dir, "tree-sitter/lock/\{name}-\{lock_hash}.lock")
     None => raise HomeDir
   }
   // Synchronize generation across processes using an atomic lock file.

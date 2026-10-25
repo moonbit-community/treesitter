@@ -73,12 +73,7 @@ pub fn rust_debug_str(s : StringView) -> String {
 pub fn rust_debug_char(c : Char) -> String {
   let sb = StringBuilder()
   sb.write_char('\'')
-  write_escape_debug(
-    sb,
-    c,
-    escape_single_quote=true,
-    escape_double_quote=false,
-  )
+  write_escape_debug(sb, c, escape_single_quote=true, escape_double_quote=false)
   sb.write_char('\'')
   sb.to_string()
 }
