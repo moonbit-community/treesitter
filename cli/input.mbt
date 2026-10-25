@@ -15,7 +15,7 @@ pub async fn get_input(
   current_dir : String,
 ) -> CliInput {
   if paths_file is Some(paths_file) {
-    let text = @fs.read_file(paths_file).text() catch {
+    let text = @support.read_to_string(paths_file) catch {
       e => raise with_context(e, "Failed to read paths file \{paths_file}")
     }
     return Paths(rust_lines(text.trim().to_owned()))

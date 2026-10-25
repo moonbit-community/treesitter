@@ -200,15 +200,15 @@ pub async fn fuzz_language_corpus(
   if log_seed {
     @support.log_info("  start seed: \{start_seed}")
   }
-  println("")
+  @support.print_out("\n")
   for test_index, flat in tests {
     let test_name = get_test_name(flat)
     if skipped.get(test_name) is Some(counter) {
-      println("  \{test_index}. \{test_name} - SKIPPED")
+      @support.print_out("  \{test_index}. \{test_name} - SKIPPED\n")
       skipped[test_name] = counter + 1
       continue
     }
-    println("  \{test_index}. \{test_name}")
+    @support.print_out("  \{test_index}. \{test_name}\n")
     let check_output = !flat.error()
     let passed = flat.check_initial_parse(language, test_name, check_output) catch {
       e => {
@@ -360,10 +360,10 @@ async fn fuzz_trial(
     flat.has_fields,
   )
   if actual_output != flat.output && !flat.error() {
-    println("Incorrect parse for \{test_name} - seed \{seed}")
+    @support.print_out("Incorrect parse for \{test_name} - seed \{seed}\n")
     DiffKey::print()
-    println(TestDiff::new(actual_output, flat.output).to_string())
-    println("")
+    @support.print_out(TestDiff::new(actual_output, flat.output).to_string() + "\n")
+    @support.print_out("\n")
     return false
   }
 
@@ -462,10 +462,10 @@ async fn FlattenedTest::check_initial_parse_with(
   if actual_output == self.output {
     true
   } else {
-    println("Incorrect initial parse for \{display_name}")
+    @support.print_out("Incorrect initial parse for \{display_name}\n")
     DiffKey::print()
-    println(TestDiff::new(actual_output, self.output).to_string())
-    println("")
+    @support.print_out(TestDiff::new(actual_output, self.output).to_string() + "\n")
+    @support.print_out("\n")
     false
   }
 }

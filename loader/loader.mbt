@@ -467,7 +467,7 @@ pub async fn Loader::language_configuration_for_file_name(
   } else {
     // If multiple language configurations match, then determine which one
     // to use by applying the configurations' content regexes.
-    let contents = @fs.read_file(path).binary() catch {
+    let contents = @support.read_file(path) catch {
       e => raise IO(@support.io_error_with_path(e, Some(path)))
     }
     let file_contents = @support.utf8_lossy(contents)
@@ -1342,7 +1342,7 @@ async fn LanguageConfiguration::read_queries(
       for path in paths {
         let abs_path = @support.path_join(self.root_path, path)
         let prev_query_len = query_len
-        let text = @fs.read_file(abs_path).text() catch {
+        let text = @support.read_to_string(abs_path) catch {
           e => raise IO(@support.io_error_with_path(e, Some(abs_path)))
         }
         query.write_string(text)
@@ -1361,7 +1361,7 @@ async fn LanguageConfiguration::read_queries(
       let queries_path = @support.path_join(self.root_path, "queries")
       let path = @support.path_join(queries_path, default_path)
       if @fs.exists(path) {
-        let text = @fs.read_file(path).text() catch {
+        let text = @support.read_to_string(path) catch {
           e => raise IO(@support.io_error_with_path(e, Some(path)))
         }
         query.write_string(text)

@@ -276,21 +276,9 @@ pub fn char_count(s : String) -> Int32 {
 }
 
 ///|
-/// `std::env::consts::OS`.
-#cfg(platform="macos")
-pub let current_os : String = "macos"
-
-///|
-#cfg(platform="linux")
-pub let current_os : String = "linux"
-
-///|
-#cfg(platform="windows")
-pub let current_os : String = "windows"
-
-///|
-#cfg(not(any(platform="macos", platform="linux", platform="windows")))
-pub let current_os : String = "unknown"
+/// `std::env::consts::OS`. (Taken from the C compiler's target macros:
+/// `#cfg(platform=...)` conditions are not set by every build of moon.)
+pub let current_os : String = target_os()
 
 ///|
 /// `fs::create_dir_all`: create a directory and its parents; existing

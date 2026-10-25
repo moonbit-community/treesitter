@@ -4,20 +4,7 @@
 
 ///|
 /// `std::env::consts::OS`.
-#cfg(platform="macos")
-let current_os : String = "macos"
-
-///|
-#cfg(platform="linux")
-let current_os : String = "linux"
-
-///|
-#cfg(platform="windows")
-let current_os : String = "windows"
-
-///|
-#cfg(not(any(platform="macos", platform="linux", platform="windows")))
-let current_os : String = "unknown"
+let current_os : String = @support.current_os
 
 ///|
 /// `log::warn!` (the CLI's logger: `Warning: ...` on standard error).

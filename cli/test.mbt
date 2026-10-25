@@ -496,6 +496,13 @@ pub async fn run_tests_at_path(
   } else {
     None
   }
+  // `Drop for LogSession` at the end of the function, also when an error
+  // is returned.
+  defer {
+    if log_session is Some(session) {
+      session.close()
+    }
+  }
   if opts.debug {
     parser.set_logger(
       Some((log_type, message) => {
@@ -511,9 +518,6 @@ pub async fn run_tests_at_path(
     run_tests(parser, test_entry, opts, test_summary, corrected_entries, true),
   )
   parser.stop_printing_dot_graphs()
-  if log_session is Some(session) {
-    session.close()
-  }
   if test_summary.parse_failures.is_empty() ||
     (opts.update && !test_summary.has_parse_errors) {
     ()
@@ -537,7 +541,7 @@ pub async fn check_queries_at_path(
       continue
     }
     let filepath = @support.file_name(entry).unwrap_or("")
-    let content = @fs.read_file(entry).text() catch {
+    let content = @support.read_to_string(entry) catch {
       e =>
         raise with_context(
           e,
