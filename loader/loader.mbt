@@ -736,6 +736,7 @@ async fn generate_language_tables(
     temp_output,
     language.to_json().stringify(),
     create_mode=CreateOrTruncate,
+    permission=0o666,
   ) catch {
     e => {
       @fs.remove(temp_output) catch {

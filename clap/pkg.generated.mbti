@@ -181,7 +181,7 @@ pub fn Command::render_help(Self, Bool) -> String
 pub fn Command::set_bin_name(Self, String) -> Unit
 pub fn Command::subcommand(Self, Self) -> Self
 pub fn Command::subcommand_required(Self, Bool) -> Self
-pub fn Command::try_get_matches_from(Self, Array[String]) -> ArgMatches raise ClapError
+pub fn Command::try_get_matches_from(Self, Array[String], invalid_utf8? : Array[Bool]) -> ArgMatches raise ClapError
 pub fn Command::version(Self, String) -> Self
 pub fn Command::visible_alias(Self, String) -> Self
 

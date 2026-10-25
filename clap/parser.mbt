@@ -182,15 +182,27 @@ priv struct Parser {
   cmd : Command
   matcher : ArgMatches
   mut pending : PendingArg?
+  // Whether each argument (indexed like `args`) was not valid UTF-8 (its
+  // string is the lossy decoding of its bytes).
+  invalid_utf8 : Array[Bool]
+  // The raw values taken from such arguments that hold replaced bytes
+  // (compared by identity): `OsStr` values that are not `str`s.
+  invalid_values : Array[String]
 }
 
 ///|
 /// `Command::try_get_matches_from` (`try_get_matches_from_mut`): `args[0]`
 /// is the program path; its file name becomes the binary name unless one was
 /// set.
+///
+/// `invalid_utf8[i]` tells that `args[i]` was not valid UTF-8 (and is its
+/// lossy decoding): value parsers other than paths', booleans' and possible
+/// values' then fail with an `InvalidUtf8` error, as clap's do for an
+/// `OsStr` that is not a `str`.
 pub fn Command::try_get_matches_from(
   self : Command,
   args : Array[String],
+  invalid_utf8~ : Array[Bool] = [],
 ) -> ArgMatches raise ClapError {
   // Get the name of the program (argument 1 of env::args()) and determine
   // the actual file that was used to execute the program.
@@ -199,7 +211,7 @@ pub fn Command::try_get_matches_from(
       self.bin_name = Some(s)
     }
   }
-  self.do_parse(args)
+  self.do_parse(args, invalid_utf8)
 }
 
 ///|
@@ -224,11 +236,18 @@ fn path_file_name(path : String) -> String? {
 fn Command::do_parse(
   self : Command,
   args : Array[String],
+  invalid_utf8 : Array[Bool],
 ) -> ArgMatches raise ClapError {
   // If there are global arguments, or settings we need to propagate them
   // down to subcommands before parsing in case we run into a subcommand
   self.build_self()
-  let p = Parser::{ cmd: self, matcher: ArgMatches::new(), pending: None, }
+  let p = Parser::{
+    cmd: self,
+    matcher: ArgMatches::new(),
+    pending: None,
+    invalid_utf8,
+    invalid_values: [],
+  }
   p.get_matches_with(args, 1)
   let global_arg_vec = []
   self.get_used_global_args(p.matcher, global_arg_vec)
@@ -364,7 +383,11 @@ fn Parser::parse(
   let mut cursor = start
   while cursor < args.length() {
     let arg_os = args[cursor]
+    let arg_is_invalid = self.invalid_utf8.get(cursor).unwrap_or(false)
     cursor += 1
+    if arg_is_invalid {
+      self.invalid_values.push(arg_os)
+    }
     if !trailing_values {
       if !(parse_state is (Opt(_) | Pos(_))) {
         if self.possible_subcommand(arg_os, valid_arg_found) is Some(sc_name) {
@@ -376,6 +399,9 @@ fn Parser::parse(
         trailing_values = true
         continue
       } else if to_long(arg_os) is Some((long_arg, long_value)) {
+        if arg_is_invalid && long_value is Some(value) {
+          self.mark_if_replaced(value)
+        }
         match self.parse_long_arg(long_arg, long_value, pos_counter) {
           NoArg => ()
           ValuesDone => {
@@ -421,7 +447,7 @@ fn Parser::parse(
           AttachedValueNotConsumed => ()
         }
       } else if to_short(arg_os) is Some(short_arg) {
-        match self.parse_short_arg(short_arg) {
+        match self.parse_short_arg(short_arg, arg_is_invalid) {
           NoArg => ()
           ValuesDone => {
             valid_arg_found = true
@@ -520,7 +546,13 @@ fn Parser::parse(
   if subcmd_name is Some(name) {
     self.resolve_pending()
     let sc = self.cmd.build_subcommand(name).unwrap()
-    let p = Parser::{ cmd: sc, matcher: ArgMatches::new(), pending: None, }
+    let p = Parser::{
+      cmd: sc,
+      matcher: ArgMatches::new(),
+      pending: None,
+      invalid_utf8: self.invalid_utf8,
+      invalid_values: [],
+    }
     p.get_matches_with(args, cursor)
     self.matcher.subcommand = Some((sc.name, p.matcher))
   }
@@ -622,6 +654,7 @@ fn Parser::parse_long_arg(
 fn Parser::parse_short_arg(
   self : Parser,
   short_arg : Array[Char],
+  arg_is_invalid : Bool,
 ) -> ParseResult raise ClapError {
   let mut ret = ParseResult::NoArg
   let mut i = 0
@@ -640,6 +673,9 @@ fn Parser::parse_short_arg(
           Some(v) if v.has_prefix("=") =>
             (Some(v.unsafe_substring(start=1, end=v.length())), true)
           v => (v, false)
+        }
+        if arg_is_invalid && val is Some(value) {
+          self.mark_if_replaced(value)
         }
         match self.parse_opt_value(Short, val, arg, has_eq) {
           AttachedValueNotConsumed => continue
@@ -742,13 +778,28 @@ fn Parser::push_arg_values(
 }
 
 ///|
+/// Record `value`, a part of an argument that was not valid UTF-8, as not
+/// valid UTF-8 when it holds a replacement character.
+fn Parser::mark_if_replaced(self : Parser, value : String) -> Unit {
+  if value.contains_char('\u{FFFD}') {
+    self.invalid_values.push(value)
+  }
+}
+
+///|
 /// `ValueParser::parse_ref`.
 fn Parser::parse_value(
   self : Parser,
   arg : Arg,
   value : String,
 ) -> String raise ClapError {
-  ignore(self)
+  // Every parser but `OsStringValueParser`/`PathBufValueParser`,
+  // `BoolValueParser` and the possible-values parsers (which report the
+  // lossy value as invalid) requires a `str`.
+  if !(arg.get_value_parser() is (PathBuf | Bool | Enum(_))) &&
+    self.invalid_values.iter().any(v => physical_equal(v, value)) {
+    raise error_invalid_utf8(self.usage())
+  }
   let validation = (msg : String) => {
     error_value_validation(arg.to_string(), value, msg)
   }

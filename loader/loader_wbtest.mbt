@@ -23,3 +23,15 @@ test "language aliases sort in Rust string order" {
     ),
   )
 }
+
+///|
+test "standardize_path keeps the spelling of the rest of the path" {
+  // `home.join(path.strip_prefix("~"))`: only the prefix is replaced.
+  inspect(
+    standardize_path("~/git//treesitter/./x", "/home/u"),
+    content="/home/u/git//treesitter/./x",
+  )
+  inspect(standardize_path("$HOME/a", "/home/u"), content="/home/u/a")
+  inspect(standardize_path("~", "/home/u"), content="/home/u/")
+  inspect(standardize_path("~x/a", "/home/u"), content="~x/a")
+}

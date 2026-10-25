@@ -21,10 +21,21 @@ pub fn perform_edit(
   edit : Edit,
 ) -> @treesitter.InputEdit raise ParseError {
   let start_byte = edit.position
+  // The endpoints as `usize` arithmetic computes them: checked before the
+  // input or the tree changes (an `Int32` sum could wrap).
+  let wide_old_end = edit.position.to_int64() + edit.deleted_length.to_int64()
+  if wide_old_end > input.length().to_int64() && start_byte <= input.length() {
+    raise ParseError("Failed to address an offset: \{wide_old_end}")
+  }
   let old_end_byte = edit.position + edit.deleted_length
   let new_end_byte = edit.position + edit.inserted_text.length()
   let start_position = position_for_offset(input, start_byte)
   let old_end_position = position_for_offset(input, old_end_byte)
+  if old_end_byte < start_byte {
+    raise ParseError(
+      "slice index starts at \{start_byte} but ends at \{old_end_byte}",
+    )
+  }
   // `input.splice(start_byte..old_end_byte, inserted_text)`
   let tail = input[old_end_byte:].to_owned()
   input.truncate(start_byte)

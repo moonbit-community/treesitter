@@ -548,6 +548,11 @@ fn error_value_validation(
 }
 
 ///|
+fn error_invalid_utf8(usage : String) -> ClapError {
+  make_error(InvalidUtf8, { ..Ctx::default(), usage: Some(usage), })
+}
+
+///|
 fn error_no_equals(arg : String, usage : String) -> ClapError {
   make_error(NoEquals, {
     ..Ctx::default(),

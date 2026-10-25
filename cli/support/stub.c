@@ -25,11 +25,13 @@
 #include <pthread.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <spawn.h>
 #ifdef __linux__
 #include <sys/syscall.h>
 #endif
 #endif
 #ifdef __APPLE__
+#include <Availability.h>
 #include <dlfcn.h>
 #endif
 
@@ -355,6 +357,196 @@ int32_t ts_cli_read_error(void) {
   return ts_cli_read_errno;
 }
 
+// `std::env::current_dir`: `getcwd` with a growing buffer. On failure the
+// result is empty and `ts_cli_read_error` returns the `errno`.
+MOONBIT_FFI_EXPORT
+moonbit_bytes_t ts_cli_getcwd(void) {
+  ts_cli_read_errno = 0;
+#ifndef _WIN32
+  size_t cap = 512;
+  for (;;) {
+    char *buf = (char *)malloc(cap);
+    if (buf == NULL) {
+      ts_cli_read_errno = ENOMEM;
+      break;
+    }
+    if (getcwd(buf, cap) != NULL) {
+      size_t len = strlen(buf);
+      moonbit_bytes_t result = moonbit_make_bytes((int32_t)len, 0);
+      memcpy(result, buf, len);
+      free(buf);
+      return result;
+    }
+    int err = errno;
+    free(buf);
+    if (err != ERANGE) {
+      ts_cli_read_errno = err;
+      break;
+    }
+    cap *= 2;
+  }
+#else
+  ts_cli_read_errno = ENOSYS;
+#endif
+  return moonbit_make_bytes(0, 0);
+}
+
+// `Command::spawn` with `posix_spawn(p)` as Rust's standard library does it:
+// the child gets an empty signal mask and the default `SIGPIPE` action, and
+// the environment of this process with the `KEY=VALUE` entries of `env_in`
+// added or replacing. `argv_in`, `env_in` and `cwd` hold NUL-terminated
+// strings (`cwd` is empty for the current directory). Each of `in_fd`,
+// `out_fd` and `err_fd` is a file descriptor to give the child as that
+// stream, -1 to inherit it or -2 for `/dev/null` (`Stdio::null()`). Returns
+// the child's pid, or the negated `errno`.
+#ifndef _WIN32
+extern char **environ;
+#if defined(__APPLE__) && defined(__MAC_OS_X_VERSION_MIN_REQUIRED)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 260000
+#define posix_spawn_file_actions_addchdir_np posix_spawn_file_actions_addchdir
+#endif
+#endif
+#endif
+
+MOONBIT_FFI_EXPORT
+int32_t ts_cli_spawn(
+  moonbit_bytes_t *argv_in,
+  moonbit_bytes_t *env_in,
+  moonbit_bytes_t cwd,
+  int32_t in_fd,
+  int32_t out_fd,
+  int32_t err_fd
+) {
+#ifndef _WIN32
+  int32_t argc = Moonbit_array_length(argv_in);
+  int32_t extra = Moonbit_array_length(env_in);
+  size_t inherited = 0;
+  while (environ[inherited] != NULL) {
+    inherited++;
+  }
+  char **argv = (char **)malloc(sizeof(char *) * ((size_t)argc + 1));
+  char **envp = (char **)malloc(sizeof(char *) * (inherited + (size_t)extra + 1));
+  if (argv == NULL || envp == NULL || argc == 0) {
+    free(argv);
+    free(envp);
+    return argc == 0 ? -EINVAL : -ENOMEM;
+  }
+  for (int32_t i = 0; i < argc; i++) {
+    argv[i] = (char *)argv_in[i];
+  }
+  argv[argc] = NULL;
+  size_t k = 0;
+  for (size_t i = 0; i < inherited; i++) {
+    const char *entry = environ[i];
+    const char *eq = strchr(entry, '=');
+    size_t key_len = eq == NULL ? strlen(entry) : (size_t)(eq - entry);
+    int replaced = 0;
+    for (int32_t j = 0; j < extra; j++) {
+      const char *added = (const char *)env_in[j];
+      if (strncmp(added, entry, key_len) == 0 && added[key_len] == '=') {
+        replaced = 1;
+        break;
+      }
+    }
+    if (!replaced) {
+      envp[k++] = (char *)entry;
+    }
+  }
+  for (int32_t j = 0; j < extra; j++) {
+    envp[k++] = (char *)env_in[j];
+  }
+  envp[k] = NULL;
+
+  posix_spawn_file_actions_t actions;
+  posix_spawnattr_t attr;
+  int err = posix_spawn_file_actions_init(&actions);
+  if (err != 0) {
+    free(argv);
+    free(envp);
+    return -err;
+  }
+  err = posix_spawnattr_init(&attr);
+  if (err != 0) {
+    posix_spawn_file_actions_destroy(&actions);
+    free(argv);
+    free(envp);
+    return -err;
+  }
+  int32_t fds[3] = {in_fd, out_fd, err_fd};
+  for (int i = 0; i < 3 && err == 0; i++) {
+    if (fds[i] == -2) {
+      err = posix_spawn_file_actions_addopen(
+        &actions, i, "/dev/null", i == 0 ? O_RDONLY : O_WRONLY, 0);
+    } else if (fds[i] >= 0) {
+      err = posix_spawn_file_actions_adddup2(&actions, fds[i], i);
+    }
+  }
+  if (err == 0 && Moonbit_array_length(cwd) > 1) {
+    err = posix_spawn_file_actions_addchdir_np(&actions, (const char *)cwd);
+  }
+  sigset_t set;
+  sigemptyset(&set);
+  if (err == 0) {
+    err = posix_spawnattr_setsigmask(&attr, &set);
+  }
+  sigaddset(&set, SIGPIPE);
+  if (err == 0) {
+    err = posix_spawnattr_setsigdefault(&attr, &set);
+  }
+  if (err == 0) {
+    err = posix_spawnattr_setflags(
+      &attr, POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF);
+  }
+  pid_t pid = 0;
+  if (err == 0) {
+    if (strchr(argv[0], '/') != NULL) {
+      err = posix_spawn(&pid, argv[0], &actions, &attr, argv, envp);
+    } else {
+      err = posix_spawnp(&pid, argv[0], &actions, &attr, argv, envp);
+    }
+  }
+  posix_spawnattr_destroy(&attr);
+  posix_spawn_file_actions_destroy(&actions);
+  free(argv);
+  free(envp);
+  return err != 0 ? -err : (int32_t)pid;
+#else
+  (void)argv_in;
+  (void)env_in;
+  (void)cwd;
+  (void)in_fd;
+  (void)out_fd;
+  (void)err_fd;
+  return -ENOSYS;
+#endif
+}
+
+// The fallback of `std::env::temp_dir` on Apple platforms when `TMPDIR` is
+// not set: `confstr(_CS_DARWIN_USER_TEMP_DIR)`, or `/tmp` when that fails.
+// Elsewhere `/tmp`.
+MOONBIT_FFI_EXPORT
+moonbit_bytes_t ts_cli_default_temp_dir(void) {
+#ifdef __APPLE__
+  size_t len = confstr(_CS_DARWIN_USER_TEMP_DIR, NULL, 0);
+  if (len > 1) {
+    char *buf = (char *)malloc(len);
+    if (buf != NULL) {
+      size_t got = confstr(_CS_DARWIN_USER_TEMP_DIR, buf, len);
+      if (got > 1 && got <= len) {
+        moonbit_bytes_t result = moonbit_make_bytes((int32_t)(got - 1), 0);
+        memcpy(result, buf, got - 1);
+        free(buf);
+        return result;
+      }
+      free(buf);
+    }
+  }
+#endif
+  moonbit_bytes_t result = moonbit_make_bytes(4, 0);
+  memcpy(result, "/tmp", 4);
+  return result;
+}
+
 // Write all bytes to a (possibly non-blocking) file descriptor, waiting
 // until it is writable. Errors are ignored, as tree-sitter ignores errors of
 // the stream its dot graphs are written to.
@@ -385,6 +577,21 @@ void ts_cli_write_fd_blocking(int32_t fd, moonbit_bytes_t data, int32_t offset, 
   (void)offset;
   (void)len;
 #endif
+}
+
+// Clear `O_NONBLOCK` on `fd` (the child's end of a pipe, which Rust's
+// `Stdio::piped()` leaves blocking). Returns 0 or the `errno` of `fcntl`.
+MOONBIT_FFI_EXPORT
+int32_t ts_cli_set_blocking(int32_t fd) {
+#ifndef _WIN32
+  int flags = fcntl(fd, F_GETFL);
+  if (flags < 0 || fcntl(fd, F_SETFL, flags & ~O_NONBLOCK) < 0) {
+    return errno;
+  }
+#else
+  (void)fd;
+#endif
+  return 0;
 }
 
 // The home directory of the current user in the account database
@@ -595,6 +802,7 @@ moonbit_bytes_t ts_cli_macos_open_message(void) {
 // process ended by a signal (no code), or -2 with `errno` set when waiting
 // fails (`ts_cli_wait_error`).
 static int ts_cli_last_wait_error = 0;
+static int ts_cli_last_wait_signal = 0;
 
 MOONBIT_FFI_EXPORT
 int32_t ts_cli_wait_exit_code(int32_t pid) {
@@ -612,6 +820,7 @@ int32_t ts_cli_wait_exit_code(int32_t pid) {
     return -2;
   }
   if (WIFEXITED(status)) return WEXITSTATUS(status);
+  ts_cli_last_wait_signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
   return -1;
 #endif
 }
@@ -619,6 +828,13 @@ int32_t ts_cli_wait_exit_code(int32_t pid) {
 MOONBIT_FFI_EXPORT
 int32_t ts_cli_wait_error(void) {
   return ts_cli_last_wait_error;
+}
+
+// The signal that ended the process of the last `ts_cli_wait_exit_code`
+// that returned -1.
+MOONBIT_FFI_EXPORT
+int32_t ts_cli_wait_signal(void) {
+  return ts_cli_last_wait_signal;
 }
 
 MOONBIT_FFI_EXPORT

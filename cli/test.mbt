@@ -943,5 +943,10 @@ async fn write_tests(
       "\{header}\n\{entry.name}\n\{attributes}\{header}\n\{entry.input}\n\{"-".repeat(entry.divider_delim_len)}\n\n\{entry.output.trim()}\n",
     )
   }
-  @fs.write_file(file_path, buffer.to_string(), create_mode=CreateOrTruncate)
+  @fs.write_file(
+    file_path,
+    buffer.to_string(),
+    create_mode=CreateOrTruncate,
+    permission=0o666,
+  )
 }

@@ -12,7 +12,6 @@ pub async fn get_input(
   paths_file : String?,
   paths : Array[String]?,
   test_number : UInt32?,
-  current_dir : String,
 ) -> CliInput {
   if paths_file is Some(paths_file) {
     let text = @support.read_to_string(paths_file) catch {
@@ -21,6 +20,9 @@ pub async fn get_input(
     return Paths(rust_lines(text.trim().to_owned()))
   }
   if test_number is Some(test_number) {
+    let current_dir = @support.current_dir_or_panic(
+      "crates/cli/src/input.rs:45:51",
+    )
     let test_dir = @support.path_join(current_dir, "test/corpus")
     if !@fs.exists(test_dir) {
       raise anyhow(
@@ -95,16 +97,17 @@ async fn read_all_stdin() -> Bytes {
 }
 
 ///|
-/// `str::lines`.
+/// `str::lines`: a `\r` is removed only before a `\n`.
 pub fn rust_lines(text : String) -> Array[String] {
   let result = []
   let parts = text.split("\n").map(p => p.to_owned()).collect()
   for i, part in parts {
-    if i == parts.length() - 1 && part.is_empty() {
+    let is_last = i == parts.length() - 1
+    if is_last && part.is_empty() {
       break
     }
     result.push(
-      if part.has_suffix("\r") {
+      if !is_last && part.has_suffix("\r") {
         part.unsafe_substring(start=0, end=part.length() - 1)
       } else {
         part
@@ -141,7 +144,12 @@ pub fn get_test_info(
 /// Writes `contents` to a temporary file and returns the path to that file.
 pub async fn get_tmp_source_file(contents : Bytes) -> String {
   let parse_path = @support.path_join(@support.temp_dir(), ".tree-sitter-temp")
-  @fs.write_file(parse_path, contents, create_mode=CreateOrTruncate)
+  @fs.write_file(
+    parse_path,
+    contents,
+    create_mode=CreateOrTruncate,
+    permission=0o666,
+  )
   parse_path
 }
 

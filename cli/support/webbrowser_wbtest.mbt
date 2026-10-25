@@ -49,3 +49,15 @@ test "webbrowser: desktop entry lines" {
     ),
   )
 }
+
+///|
+test "webbrowser: desktop file lines" {
+  // `BufRead::lines` removes a `\r` only before a `\n`: `Hidden=true\r` on
+  // the last line is not `Hidden=true`.
+  debug_inspect(
+    rust_lines(b"a\r\nHidden=true\r"),
+    content=(
+      #|[Some("a"), Some("Hidden=true\r")]
+    ),
+  )
+}

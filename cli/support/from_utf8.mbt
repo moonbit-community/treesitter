@@ -47,6 +47,35 @@ pub fn from_utf8(bytes : BytesView) -> String? {
 /// sequence, and `error_len` the number of bytes found invalid there (`None`
 /// when the input ends inside a sequence that was valid so far).
 pub fn utf8_error(bytes : BytesView) -> String? {
+  match utf8_validation(bytes) {
+    None => None
+    Some((valid_up_to, Some(n))) =>
+      Some("invalid utf-8 sequence of \{n} bytes from index \{valid_up_to}")
+    Some((valid_up_to, None)) =>
+      Some("incomplete utf-8 byte sequence from index \{valid_up_to}")
+  }
+}
+
+///|
+/// The `Debug` of the `Utf8Error` of `str::from_utf8(bytes)`
+/// (`Utf8Error { valid_up_to: 0, error_len: Some(1) }`), or `None` when
+/// `bytes` is well-formed UTF-8.
+pub fn utf8_error_debug(bytes : BytesView) -> String? {
+  match utf8_validation(bytes) {
+    None => None
+    Some((valid_up_to, error_len)) => {
+      let error_len = match error_len {
+        Some(n) => "Some(\{n})"
+        None => "None"
+      }
+      Some("Utf8Error { valid_up_to: \{valid_up_to}, error_len: \{error_len} }")
+    }
+  }
+}
+
+///|
+/// `run_utf8_validation`: `(valid_up_to, error_len)` of the first error.
+fn utf8_validation(bytes : BytesView) -> (Int32, Int32?)? {
   let len = bytes.length()
   let mut index = 0
   while index < len {
@@ -62,10 +91,8 @@ pub fn utf8_error(bytes : BytesView) -> String? {
       } else {
         0
       }
-      let incomplete = "incomplete utf-8 byte sequence from index \{old_offset}"
-      let invalid = (n : Int32) => {
-        "invalid utf-8 sequence of \{n} bytes from index \{old_offset}"
-      }
+      let incomplete = (old_offset, None)
+      let invalid = (n : Int32) => (old_offset, Some(n))
       // `next!()`: the next byte, or the end of the input.
       let next = () => {
         index += 1
