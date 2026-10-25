@@ -33,6 +33,7 @@ pub(all) struct StackSummaryEntry {
 pub type StackSummary = Array[StackSummaryEntry]
 
 ///|
+#valtype
 priv struct StackLink {
   node : StackNode
   subtree : Subtree
@@ -85,19 +86,19 @@ priv struct StackHead {
 }
 
 ///|
-fn StackHead::copy(self : StackHead) -> StackHead {
-  { ..self, }
-}
-
-///|
 pub struct Stack {
   priv heads : Array[StackHead]
-  priv mut slices : Array[StackSlice]
+  priv slices : Array[StackSlice]
   priv iterators : Array[StackIterator]
   priv base_node : StackNode
   /// Released nodes kept for reuse (`node_pool`), at most
   /// `max_node_pool_size`.
   priv node_pool : Array[StackNode]
+  /// Head and iterator records no longer in `heads`/`iterators`, kept for
+  /// reuse. Upstream stores both by value in its arrays; reusing the records
+  /// avoids allocating one per version and per pop.
+  priv head_pool : Array[StackHead]
+  priv iterator_pool : Array[StackIterator]
   priv mut next_node_id : Int32
 }
 
@@ -329,19 +330,83 @@ fn stack_head_delete(head : StackHead, pool : Array[StackNode]) -> Unit {
 }
 
 ///|
+let max_record_pool_size : Int32 = 16
+
+///|
+fn Stack::new_head(
+  self : Stack,
+  node : StackNode,
+  summary : StackSummary?,
+  node_count_at_last_error : UInt32,
+  last_external_token : Subtree,
+  lookahead_when_paused : Subtree,
+  status : StackStatus,
+) -> StackHead {
+  match self.head_pool.pop() {
+    Some(head) => {
+      head.node = node
+      head.summary = summary
+      head.node_count_at_last_error = node_count_at_last_error
+      head.last_external_token = last_external_token
+      head.lookahead_when_paused = lookahead_when_paused
+      head.status = status
+      head
+    }
+    None =>
+      {
+        node,
+        summary,
+        node_count_at_last_error,
+        last_external_token,
+        lookahead_when_paused,
+        status,
+      }
+  }
+}
+
+///|
+fn Stack::recycle_head(self : Stack, head : StackHead) -> Unit {
+  if self.head_pool.length() < max_record_pool_size {
+    head.summary = None
+    self.head_pool.push(head)
+  }
+}
+
+///|
+fn Stack::new_iterator(
+  self : Stack,
+  node : StackNode,
+  subtrees : Array[Subtree],
+  subtree_count : Int32,
+  is_pending : Bool,
+) -> StackIterator {
+  match self.iterator_pool.pop() {
+    Some(iterator) => {
+      iterator.node = node
+      iterator.subtrees = subtrees
+      iterator.subtree_count = subtree_count
+      iterator.is_pending = is_pending
+      iterator
+    }
+    None => { node, subtrees, subtree_count, is_pending }
+  }
+}
+
+///|
 fn Stack::add_version(
   self : Stack,
   original_version : Int32,
   node : StackNode,
 ) -> Int32 {
-  let head : StackHead = {
+  let original = self.heads[original_version]
+  let head = self.new_head(
     node,
-    summary: None,
-    node_count_at_last_error: self.heads[original_version].node_count_at_last_error,
-    last_external_token: self.heads[original_version].last_external_token,
-    status: Active,
-    lookahead_when_paused: Null,
-  }
+    None,
+    original.node_count_at_last_error,
+    original.last_external_token,
+    Null,
+    Active,
+  )
   self.heads.push(head)
   stack_node_retain(Some(node))
   if !head.last_external_token.is_null() {
@@ -376,20 +441,24 @@ fn[P] Stack::iter(
   payload : P,
   goal_subtree_count : Int32,
 ) -> Array[StackSlice] {
-  self.slices = []
+  // Like upstream, the result is `self.slices`, valid until the next pop.
+  self.slices.clear()
+  for iterator in self.iterators {
+    self.iterator_pool.push(iterator)
+  }
   self.iterators.clear()
   let head = self.heads[version]
   let include_subtrees = goal_subtree_count >= 0
-  let new_iterator : StackIterator = {
-    node: head.node,
-    subtrees: if include_subtrees {
+  let new_iterator = self.new_iterator(
+    head.node,
+    if include_subtrees {
       Array(capacity=goal_subtree_count)
     } else {
       []
     },
-    subtree_count: 0,
-    is_pending: true,
-  }
+    0,
+    true,
+  )
   self.iterators.push(new_iterator)
   while self.iterators.length() > 0 {
     let mut i = 0
@@ -413,7 +482,7 @@ fn[P] Stack::iter(
         if !should_pop {
           subtree_array_delete(iterator.subtrees)
         }
-        ignore(self.iterators.remove(i))
+        self.iterator_pool.push(self.iterators.remove(i))
         size -= 1
         continue
       }
@@ -428,7 +497,13 @@ fn[P] Stack::iter(
             continue
           }
           link = node.links[j]
-          let current_iterator = self.iterators[i].copy()
+          let iterator_i = self.iterators[i]
+          let current_iterator = self.new_iterator(
+            iterator_i.node,
+            iterator_i.subtrees,
+            iterator_i.subtree_count,
+            iterator_i.is_pending,
+          )
           self.iterators.push(current_iterator)
           next_iterator = current_iterator
           next_iterator.subtrees = subtree_array_copy(next_iterator.subtrees)
@@ -464,6 +539,8 @@ pub fn Stack::new() -> Stack {
     slices: [],
     iterators: [],
     node_pool: [],
+    head_pool: [],
+    iterator_pool: [],
     base_node: {
       state: 1,
       position: length_zero(),
@@ -725,7 +802,7 @@ pub fn Stack::has_advanced_since_error(self : Stack, version : Int32) -> Bool {
 ///|
 pub fn Stack::remove_version(self : Stack, version : Int32) -> Unit {
   stack_head_delete(self.heads[version], self.node_pool)
-  ignore(self.heads.remove(version))
+  self.recycle_head(self.heads.remove(version))
 }
 
 ///|
@@ -744,6 +821,7 @@ pub fn Stack::renumber_version(self : Stack, v1 : Int32, v2 : Int32) -> Unit {
   // record is moved rather than copied, since nothing else refers to it.
   self.heads[v2] = source_head
   ignore(self.heads.remove(v1))
+  self.recycle_head(target_head)
 }
 
 ///|
@@ -755,7 +833,15 @@ pub fn Stack::swap_versions(self : Stack, v1 : Int32, v2 : Int32) -> Unit {
 
 ///|
 pub fn Stack::copy_version(self : Stack, version : Int32) -> Int32 {
-  let head = self.heads[version].copy()
+  let original = self.heads[version]
+  let head = self.new_head(
+    original.node,
+    original.summary,
+    original.node_count_at_last_error,
+    original.last_external_token,
+    original.lookahead_when_paused,
+    original.status,
+  )
   self.heads.push(head)
   stack_node_retain(Some(head.node))
   if !head.last_external_token.is_null() {
@@ -840,16 +926,10 @@ pub fn Stack::clear(self : Stack) -> Unit {
   stack_node_retain(Some(self.base_node))
   for head in self.heads {
     stack_head_delete(head, self.node_pool)
+    self.recycle_head(head)
   }
   self.heads.clear()
-  self.heads.push({
-    node: self.base_node,
-    summary: None,
-    node_count_at_last_error: 0,
-    status: Active,
-    last_external_token: Null,
-    lookahead_when_paused: Null,
-  })
+  self.heads.push(self.new_head(self.base_node, None, 0, Null, Null, Active))
 }
 
 ///|

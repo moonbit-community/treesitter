@@ -1217,7 +1217,9 @@ fn Parser::recover_to_state(
   depth : Int32,
   goal_state : Int32,
 ) -> Bool {
-  let pop = self.stack.pop_count(version, depth)
+  // `pop` aliases the stack's slice array, which `pop_error` below reuses;
+  // upstream keeps its own copy of the array header, so copy it here.
+  let pop = self.stack.pop_count(version, depth).copy()
   let mut previous_version = stack_version_none
   let mut i = 0
   while i < pop.length() {
