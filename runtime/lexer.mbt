@@ -303,33 +303,33 @@ fn Lexer::do_advance(self : Lexer, skip : Bool) -> Unit {
     }
   }
   let count = self.included_ranges.length()
-  let mut current_range : Range? = Some(
-    self.included_ranges[self.current_included_range_index],
-  )
-  while current_range is Some(range) &&
+  // `current_range` is NULL once `has_current_range` is false.
+  let mut current_range = self.included_ranges[self.current_included_range_index]
+  let mut has_current_range = true
+  while has_current_range &&
         (
-          self.current_position.bytes >= range.end_byte ||
-          range.end_byte == range.start_byte
+          self.current_position.bytes >= current_range.end_byte ||
+          current_range.end_byte == current_range.start_byte
         ) {
     if self.current_included_range_index < count {
       self.current_included_range_index += 1
     }
     if self.current_included_range_index < count {
       let next = self.included_ranges[self.current_included_range_index]
-      current_range = Some(next)
+      current_range = next
       self.current_position = {
         bytes: next.start_byte,
         extent: next.start_point,
       }
     } else {
-      current_range = None
+      has_current_range = false
       break
     }
   }
   if skip {
     self.token_start_position = self.current_position
   }
-  if current_range is Some(_) {
+  if has_current_range {
     if self.current_position.bytes < self.chunk_start ||
       self.current_position.bytes >= self.chunk_start + self.chunk_size {
       self.get_chunk()
