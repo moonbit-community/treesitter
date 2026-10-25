@@ -34,6 +34,7 @@ git mv next/PORTING.md PORTING.md
 # 3. Rewrite import paths.
 files=$(git ls-files '*.mbt' '*.mbt.md' '*.mbtx' 'moon.pkg' '*/moon.pkg' '*.py' '*.sh' '*.md')
 for f in $files; do
+  [ -L "$f" ] && continue
   perl -pi -e 's#moonbit-community/treesitter/next/api/tests#moonbit-community/treesitter/tests#g;
                s#moonbit-community/treesitter/next/api"#moonbit-community/treesitter"#g;
                s#moonbit-community/treesitter/next/probe#moonbit-community/treesitter/tools/probe#g;
@@ -43,6 +44,7 @@ for f in $files; do
 done
 # The root package (formerly next/api) is imported as @treesitter.
 for f in $(git ls-files '*.mbt' '*.mbt.md'); do
+  [ -L "$f" ] && continue
   perl -pi -e 's#\@api\.#\@treesitter.#g' "$f"
 done
 find next -type d -empty -delete 2>/dev/null || true
