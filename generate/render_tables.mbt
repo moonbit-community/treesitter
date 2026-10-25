@@ -521,32 +521,31 @@ fn Generator::parse_tables(
     }
     // Ensure the entries are in a deterministic order, since they are
     // internally represented as a hash map.
-    let terminal_entries = state.terminal_entries.items().copy()
-    let nonterminal_entries = state.nonterminal_entries.items().copy()
-    stable_sort_by(terminal_entries, (a, b) => {
-      Generator::compare_options(
-        self.symbol_order.get(a.0),
-        self.symbol_order.get(b.0),
-      )
+    let terminal_entries = state.terminal_entries
+    let nonterminal_entries = state.nonterminal_entries
+    let nonterminal_order = Array::makei(nonterminal_entries.len(), k => k)
+    stable_sort_by(nonterminal_order, (a, b) => {
+      nonterminal_entries.symbol_at(a).compare(nonterminal_entries.symbol_at(b))
     })
-    stable_sort_by(nonterminal_entries, (a, b) => a.0.compare(b.0))
-    let nonterminals = nonterminal_entries.map(entry => {
-      let (symbol, action) = entry
+    let nonterminals = nonterminal_order.map(k => {
       (
-        self.symbol_value(symbol),
-        match action {
+        self.symbol_value(nonterminal_entries.symbol_at(k)),
+        match nonterminal_entries.value_at(k) {
           Goto(state) => state
           ShiftExtra => i
         },
       )
     })
-    let terminals = terminal_entries.map(entry => {
-      let (symbol, id) = entry
-      let entry_id = self.get_parse_action_list_id(
-        id, parse_table_entries, next_parse_action_list_index,
-      )
-      (self.symbol_value(symbol), entry_id)
-    })
+    let terminals = self
+      .terminal_entry_order(terminal_entries)
+      .map(k => {
+        let entry_id = self.get_parse_action_list_id(
+          terminal_entries.value_at(k),
+          parse_table_entries,
+          next_parse_action_list_index,
+        )
+        (self.symbol_value(terminal_entries.symbol_at(k)), entry_id)
+      })
     large_states.push({ nonterminals, terminals, })
   }
   let small_states = []
@@ -557,52 +556,52 @@ fn Generator::parse_tables(
       let state = self.parse_table.states[state_index]
       small_state_indices.push(next_table_index)
       // Upstream `FxHashMap<(u32, SymbolType), Vec<Symbol>>`, sorted below.
-      let symbols_by_value : Map[(Int32, SymbolType), Array[Symbol]] = Map([])
-      let terminal_entries = state.terminal_entries.items().copy()
-      stable_sort_by(terminal_entries, (a, b) => {
-        Generator::compare_options(
-          self.symbol_order.get(a.0),
-          self.symbol_order.get(b.0),
-        )
-      })
+      // Keys are `grouped_key`s.
+      let symbols_by_value : Map[Int32, Array[Symbol]] = Map([])
+      let terminal_entries = state.terminal_entries
 
       // In a given parse state, many lookahead symbols have the same actions.
       // So in the "small state" representation, group symbols by their action
       // in order to avoid repeating the action.
-      for entry in terminal_entries {
-        let (symbol, id) = entry
+      for k in self.terminal_entry_order(terminal_entries) {
         let entry_id = self.get_parse_action_list_id(
-          id, parse_table_entries, next_parse_action_list_index,
+          terminal_entries.value_at(k),
+          parse_table_entries,
+          next_parse_action_list_index,
         )
-        Generator::push_grouped(symbols_by_value, (entry_id, Terminal), symbol)
+        Generator::push_grouped(
+          symbols_by_value,
+          grouped_key(entry_id, Terminal),
+          terminal_entries.symbol_at(k),
+        )
       }
-      for entry in state.nonterminal_entries.items() {
-        let (symbol, action) = entry
-        let state_id = match action {
+      let nonterminal_entries = state.nonterminal_entries
+      for k in 0..<nonterminal_entries.len() {
+        let state_id = match nonterminal_entries.value_at(k) {
           Goto(i) => i
           ShiftExtra =>
             self.large_state_count + small_state_indices.length() - 1
         }
         Generator::push_grouped(
           symbols_by_value,
-          (state_id, NonTerminal),
-          symbol,
+          grouped_key(state_id, NonTerminal),
+          nonterminal_entries.symbol_at(k),
         )
       }
       let values_with_symbols = symbols_by_value.to_array()
       // Upstream `sort_unstable_by_key` on distinct `(value, kind)` keys.
       stable_sort_by(values_with_symbols, (a, b) => {
-        let ((a_value, a_kind), a_symbols) = a
-        let ((b_value, b_kind), b_symbols) = b
+        let (a_key, a_symbols) = a
+        let (b_key, b_symbols) = b
         let c = a_symbols.length().compare(b_symbols.length())
         if c != 0 {
           return c
         }
-        let c = a_kind.compare(b_kind)
+        let c = (a_key & 1).compare(b_key & 1)
         if c != 0 {
           return c
         }
-        let c = a_value.compare(b_value)
+        let c = (a_key >> 1).compare(b_key >> 1)
         if c != 0 {
           return c
         }
@@ -611,7 +610,9 @@ fn Generator::parse_tables(
       next_table_index += 1
       let groups = []
       for entry in values_with_symbols {
-        let ((value, kind), symbols) = entry
+        let (key, symbols) = entry
+        let value = key >> 1
+        let kind : SymbolType = if (key & 1) != 0 { NonTerminal } else { Terminal }
         next_table_index += 2 + symbols.length()
         // Upstream `sort_unstable` on distinct symbols.
         symbols.mut_view().stable_sort()
@@ -643,9 +644,41 @@ fn Generator::parse_tables(
 }
 
 ///|
+/// A `(value, kind)` group key of `Generator::parse_tables`, packed so that keys
+/// order like the pairs: the value, then a bit for the kind (`Terminal` or
+/// `NonTerminal`).
+fn grouped_key(value : Int32, kind : SymbolType) -> Int32 {
+  match kind {
+    Terminal => value << 1
+    NonTerminal => (value << 1) | 1
+    _ => abort("only terminal and non-terminal groups")
+  }
+}
+
+///|
+/// The positions of `entries`, ordered by their symbols' `symbol_order` (symbols
+/// without one first), stably.
+fn Generator::terminal_entry_order(
+  self : Generator,
+  entries : TerminalEntries,
+) -> Array[Int32] {
+  // Order keys in the upper half and positions in the lower half, so that
+  // sorting is stable.
+  let packed = Array::makei(entries.len(), k => {
+    let key = match self.symbol_order.get(entries.symbol_at(k)) {
+      Some(order) => order + 1
+      None => 0
+    }
+    (key.to_int64() << 32) | k.to_int64()
+  })
+  packed.sort()
+  packed.map(p => (p & 0xFFFFFFFFL).to_int())
+}
+
+///|
 fn Generator::push_grouped(
-  groups : Map[(Int32, SymbolType), Array[Symbol]],
-  key : (Int32, SymbolType),
+  groups : Map[Int32, Array[Symbol]],
+  key : Int32,
   symbol : Symbol,
 ) -> Unit {
   match groups.get(key) {
@@ -691,16 +724,5 @@ fn Generator::get_parse_action_list_id(
         self.parse_table.action_lists.get(id).length()
       result
     }
-  }
-}
-
-///|
-/// Rust's `Option<usize>` ordering: `None` first.
-fn Generator::compare_options(a : Int32?, b : Int32?) -> Int32 {
-  match (a, b) {
-    (None, None) => 0
-    (None, Some(_)) => -1
-    (Some(_), None) => 1
-    (Some(x), Some(y)) => x.compare(y)
   }
 }
