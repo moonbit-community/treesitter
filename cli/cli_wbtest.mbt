@@ -109,3 +109,19 @@ test "theme" {
   )
   inspect(ansi256_from_rgb(38, 166, 154), content="72")
 }
+
+///|
+test "str::lines keeps the \\r of an unterminated last line" {
+  debug_inspect(
+    rust_lines("a\r\nb\r"),
+    content=(
+      #|["a", "b\r"]
+    ),
+  )
+  debug_inspect(
+    rust_lines("a\r\n"),
+    content=(
+      #|["a"]
+    ),
+  )
+}

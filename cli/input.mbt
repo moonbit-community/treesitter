@@ -97,16 +97,17 @@ async fn read_all_stdin() -> Bytes {
 }
 
 ///|
-/// `str::lines`.
+/// `str::lines`: a `\r` is removed only before a `\n`.
 pub fn rust_lines(text : String) -> Array[String] {
   let result = []
   let parts = text.split("\n").map(p => p.to_owned()).collect()
   for i, part in parts {
-    if i == parts.length() - 1 && part.is_empty() {
+    let is_last = i == parts.length() - 1
+    if is_last && part.is_empty() {
       break
     }
     result.push(
-      if part.has_suffix("\r") {
+      if !is_last && part.has_suffix("\r") {
         part.unsafe_substring(start=0, end=part.length() - 1)
       } else {
         part

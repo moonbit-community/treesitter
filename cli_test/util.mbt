@@ -62,13 +62,9 @@ fn rust_lines(s : StringView) -> Array[StringView] {
       start = i + 1
     }
   }
+  // An unterminated last line keeps a final `\r`.
   if start < s.length() {
-    let end = if s[s.length() - 1] == '\r' {
-      s.length() - 1
-    } else {
-      s.length()
-    }
-    result.push(s[start:end])
+    result.push(s[start:])
   }
   result
 }

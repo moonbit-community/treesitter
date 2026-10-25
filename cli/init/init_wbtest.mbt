@@ -117,3 +117,25 @@ test "semver_cmp" {
     content="0 -1 1 1 1 -1 1",
   )
 }
+
+///|
+test "str::lines keeps the \\r of an unterminated last line" {
+  debug_inspect(
+    rust_lines("a\r\nb\r"),
+    content=(
+      #|["a", "b\r"]
+    ),
+  )
+  debug_inspect(
+    rust_lines("\n"),
+    content=(
+      #|[""]
+    ),
+  )
+  debug_inspect(
+    rust_lines("a\n\r"),
+    content=(
+      #|["a", "\r"]
+    ),
+  )
+}

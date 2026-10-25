@@ -506,7 +506,8 @@ fn rust_lines(contents : Bytes) -> Array[String?] {
       end += 1
     }
     let mut line_end = end
-    if line_end > start && contents[line_end - 1] == b'\r' {
+    // `\r` is removed only before a `\n`.
+    if end < n && line_end > start && contents[line_end - 1] == b'\r' {
       line_end -= 1
     }
     result.push(utf8_strict(contents[start:line_end]))
