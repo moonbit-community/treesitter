@@ -142,11 +142,39 @@ fn stack_node_release(node : StackNode, pool : Array[StackNode]) -> Unit {
       first_predecessor = Some(current.links[0].node)
     }
     if pool.length() < max_node_pool_size {
+      // A pooled node keeps its links array for reuse, but its links must
+      // not keep the released predecessors and subtrees alive (upstream
+      // frees them).
+      stack_node_clear_links(current)
       pool.push(current)
     }
     match first_predecessor {
       Some(predecessor) => current = predecessor
       None => return
+    }
+  }
+}
+
+///|
+/// The target of the links of pooled nodes; never mutated.
+let stack_node_detached : StackNode = {
+  state: 0,
+  position: length_zero(),
+  links: [],
+  ref_count: 0,
+  error_cost: 0,
+  node_count: 0,
+  dynamic_precedence: 0,
+  id: 0,
+}
+
+///|
+fn stack_node_clear_links(node : StackNode) -> Unit {
+  for i in 0..<node.links.length() {
+    node.links[i] = {
+      node: stack_node_detached,
+      subtree: Null,
+      is_pending: false,
     }
   }
 }
@@ -185,9 +213,9 @@ fn Stack::node_new(
       match previous_node {
         Some(previous) =>
           if node.links.length() == 1 {
-            node.links[0] = { node: previous, subtree, is_pending }
+            node.links[0] = { node: previous, subtree, is_pending, }
           } else {
-            node.links = [{ node: previous, subtree, is_pending }]
+            node.links = [{ node: previous, subtree, is_pending, }]
           }
         None => node.links = []
       }
@@ -198,19 +226,20 @@ fn Stack::node_new(
       node.id = id
       node
     }
-    None => {
-      state,
-      position: length_zero(),
-      links: match previous_node {
-        Some(previous) => [{ node: previous, subtree, is_pending }]
-        None => []
-      },
-      ref_count: 1,
-      error_cost: 0,
-      node_count: 0,
-      dynamic_precedence: 0,
-      id,
-    }
+    None =>
+      {
+        state,
+        position: length_zero(),
+        links: match previous_node {
+          Some(previous) => [{ node: previous, subtree, is_pending, }]
+          None => []
+        },
+        ref_count: 1,
+        error_cost: 0,
+        node_count: 0,
+        dynamic_precedence: 0,
+        id,
+      }
   }
   if previous_node is Some(previous) {
     node.position = previous.position
@@ -366,18 +395,31 @@ fn Stack::new_head(
 
 ///|
 fn Stack::recycle_head(self : Stack, head : StackHead) -> Unit {
+  // Drop the references of the released head (see stack_node_release); the
+  // record may also stay reachable from spare capacity of `heads`.
+  head.node = self.base_node
+  head.summary = None
+  head.last_external_token = Null
+  head.lookahead_when_paused = Null
   if self.head_pool.length() < max_record_pool_size {
-    head.summary = None
     self.head_pool.push(head)
   }
 }
 
 ///|
 fn Stack::recycle_iterator(self : Stack, iterator : StackIterator) -> Unit {
+  // The subtree array may now belong to a slice, so it is replaced rather
+  // than cleared.
+  iterator.node = self.base_node
+  iterator.subtrees = no_subtrees
   if self.iterator_pool.length() < max_iterator_count {
     self.iterator_pool.push(iterator)
   }
 }
+
+///|
+/// The subtree array of pooled iterators; never mutated.
+let no_subtrees : Array[Subtree] = []
 
 ///|
 fn Stack::new_iterator(
@@ -395,7 +437,7 @@ fn Stack::new_iterator(
       iterator.is_pending = is_pending
       iterator
     }
-    None => { node, subtrees, subtree_count, is_pending }
+    None => { node, subtrees, subtree_count, is_pending, }
   }
 }
 
