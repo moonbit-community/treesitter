@@ -87,6 +87,19 @@ test "validate_precedences_with_conflicting_order" {
 }
 
 ///|
+test "validate_precedences keeps the swapped entry across inner iterations" {
+  // Upstream's `for (i, mut entry1) in ...` swaps `entry1` in place, so the
+  // pair recorded for (c, b) below is (a, b): the grammar is accepted.
+  let pool = RulePool::new()
+  let precedence_orderings = [
+    [name_entry(pool, "c"), name_entry(pool, "a"), name_entry(pool, "b")],
+    [name_entry(pool, "b"), name_entry(pool, "c")],
+  ]
+  let grammar = { ..pool_grammar(pool, []), precedence_orderings, }
+  validate_precedences(grammar)
+}
+
+///|
 test "prepare_grammar error texts" {
   inspect(
     IndirectRecursionError(["a", "b", "a"]),
