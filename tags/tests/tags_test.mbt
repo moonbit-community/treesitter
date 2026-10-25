@@ -341,3 +341,23 @@ async test "tags_with_parse_error" {
     [("Fine", "class")],
   )
 }
+
+///|
+/// Not upstream: documentation is accumulated in one growable string, as
+/// upstream does, instead of copying the documentation gathered so far for
+/// each comment (quadratic in the number of comments).
+async test "tags_long_documentation" {
+  guard @fixtures.get_language("javascript") is Some(language) else { return }
+  let tags_config = @tags.TagsConfiguration::new(language, js_tag_query, "")
+  let line = "x".repeat(509)
+  let source = @utf8.encode("// \{line}\n".repeat(4096) + "function f() {}\n")
+  let tag_context = @tags.TagsContext::new()
+  let tags = collect(tag_context.generate_tags(tags_config, source).0)
+  inspect(tags.length(), content="1")
+  let expected = [ for _ in 0..<4096 => line ].join("\n")
+  assert_true(tags[0].docs == Some(expected))
+  // Documentation that strips to nothing is still documentation.
+  let source = @utf8.encode("//\n//\nfunction g() {}\n")
+  let tags = collect(tag_context.generate_tags(tags_config, source).0)
+  debug_inspect(tags[0].docs, content="Some(\"\\n\")")
+}
