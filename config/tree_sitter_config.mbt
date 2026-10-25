@@ -171,10 +171,20 @@ pub fn Config::get(self : Config) -> @support.Value {
 
 ///|
 /// Adds a component-specific configuration (the output of its `Serialize`,
-/// a JSON object) to the configuration file (`Config::add`).
+/// a JSON object) to the configuration file (`Config::add`). Panics, as
+/// upstream's `unwrap`s do, when the configuration or `config` is not an
+/// object.
 pub fn Config::add(self : Config, config : Json) -> Unit {
-  guard self.config is Object(target) else { return }
-  guard @support.Value::from_json(config) is Object(source) else { return }
+  guard self.config is Object(target) else {
+    @support.rust_panic(
+      "called `Option::unwrap()` on a `None` value", "crates/config/src/tree_sitter_config.rs:209:14",
+    )
+  }
+  guard @support.Value::from_json(config) is Object(source) else {
+    @support.rust_panic(
+      "called `Option::unwrap()` on a `None` value", "crates/config/src/tree_sitter_config.rs:210:44",
+    )
+  }
   for k, v in source {
     target[k] = v
   }
