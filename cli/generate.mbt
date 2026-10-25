@@ -375,11 +375,14 @@ async fn load_js_grammar_file(
       "Failed to run `\{js_runtime}` -- \{error}",
     )
   }
-  // `Stdio::piped()` for stdin and stdout; stderr is inherited.
-  let (stdin_read, js_stdin) = @pipe.pipe() catch { e => raise spawn_error(e) }
-  let (js_stdout, stdout_write) = @pipe.pipe() catch {
+  // `Stdio::piped()` for stdin and stdout; stderr is inherited. The child's
+  // ends are blocking, as Rust's pipes are (a non-blocking stdin makes some
+  // runtimes fail with EAGAIN on Linux).
+  let (stdin_read, js_stdin) = @process.write_to_process() catch {
+    e => raise spawn_error(e)
+  }
+  let (js_stdout, stdout_write) = @process.read_from_process() catch {
     e => {
-      stdin_read.close()
       js_stdin.close()
       raise spawn_error(e)
     }
@@ -392,15 +395,11 @@ async fn load_js_grammar_file(
     stdout=stdout_write,
   ) catch {
     e => {
-      stdin_read.close()
       js_stdin.close()
       js_stdout.close()
-      stdout_write.close()
       raise spawn_error(e)
     }
   }
-  stdin_read.close()
-  stdout_write.close()
   defer js_stdout.close()
   let write_error = (item : String, e : Error) => {
     let error = @support.io_error_message(e)
