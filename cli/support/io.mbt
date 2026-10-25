@@ -190,6 +190,12 @@ fn BufWriter::flush_buf(self : BufWriter) -> Unit raise {
       // may only partly accept.
       let data = Bytes::from_array(self.buf.exact_view(end=len))
       let mut written = 0
+      // `BufGuard`: on error, only the data that was not written stays
+      // buffered.
+      errdefer {
+        self.buf.blit_from_bytesview(0, data[written:])
+        self.len = len - written
+      }
       while written < len {
         let n = line_writer_write(data[written:])
         if n == 0 {
