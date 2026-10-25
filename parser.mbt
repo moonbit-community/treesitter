@@ -255,9 +255,10 @@ fn utf16_input(
     read: (byte, position) => {
       let point : Point = {
         row: from_u32(position.row),
-        column: from_u32(position.column) / 2,
+        // lib.rs divides the `u32` values, so halve before converting.
+        column: from_u32(position.column / 2),
       }
-      utf16_memory_bytes(callback(from_u32(byte) / 2, point))
+      utf16_memory_bytes(callback(from_u32(byte / 2), point))
     },
     encoding,
     decode: None,
