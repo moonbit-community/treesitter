@@ -300,30 +300,42 @@ fn merge_token_set(
   token_conflict_map : TokenConflictMap,
   coincident_token_index : CoincidentTokenIndex,
 ) -> Bool {
-  if tokens
-    .terminals()
-    .iter()
-    .filter(index => !other.contains_terminal(index))
-    .any(index => {
-      check_token_conflicts(
-        index, other, token_conflict_map, coincident_token_index,
-      )
-    }) {
-    return false
-  }
-  if other
-    .terminals()
-    .iter()
-    .filter(index => !tokens.contains_terminal(index))
-    .any(index => {
-      check_token_conflicts(
-        index, tokens, token_conflict_map, coincident_token_index,
-      )
-    }) {
+  if any_new_terminal_conflicts(
+      tokens, other, token_conflict_map, coincident_token_index,
+    ) ||
+    any_new_terminal_conflicts(
+      other, tokens, token_conflict_map, coincident_token_index,
+    ) {
     return false
   }
   ignore(tokens.insert_all(other))
   true
+}
+
+///|
+/// `tokens.terminals().iter().filter(i => !other.contains_terminal(i)).any(i =>
+/// check_token_conflicts(i, other, ..))`, reading the bits in place.
+fn any_new_terminal_conflicts(
+  tokens : TokenSet,
+  other : TokenSet,
+  token_conflict_map : TokenConflictMap,
+  coincident_token_index : CoincidentTokenIndex,
+) -> Bool {
+  let words = tokens.terminal_bits_words()
+  for wi in 0..<words.length() {
+    let mut word = words[wi]
+    while word != 0 {
+      let index = wi * 64 + word.ctz()
+      word = word & (word - 1)
+      if !other.contains_terminal(index) &&
+        check_token_conflicts(
+          index, other, token_conflict_map, coincident_token_index,
+        ) {
+        return true
+      }
+    }
+  }
+  false
 }
 
 ///|
