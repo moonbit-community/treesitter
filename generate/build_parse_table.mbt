@@ -426,10 +426,14 @@ priv struct ParseTableBuilder {
   syntax_grammar : SyntaxGrammar
   lexical_grammar : LexicalGrammar
   variable_info : Array[VariableInfo]
-  core_ids_by_core : Map[ParseItemSetCore, Int32]
-  /// Upstream's `IndexMap<ParseItemSet, ParseStateId>`: the map for lookups,
-  /// and `item_sets_by_id` for access by insertion index.
-  state_ids_by_item_set : Map[ParseItemSet, Int32]
+  /// Upstream's `core_ids_by_core`: finds core ids by the cores of the states in
+  /// `states_by_core_id`.
+  core_ids_by_core : HashIndex
+  /// The first state with each core, by core id.
+  states_by_core_id : Array[Int32]
+  /// Upstream's `IndexMap<ParseItemSet, ParseStateId>`: an index for lookups, of the
+  /// item sets in `item_sets_by_id`, which are by insertion index.
+  state_ids_by_item_set : HashIndex
   item_sets_by_id : Array[ParseItemSet]
   preceding_symbols_by_id : Array[Array[Symbol]]
   production_info_ids_by_prod_id : Array[Int32?]
@@ -689,9 +693,10 @@ fn ParseTableBuilder::new(
     item_set_builder,
     variable_info,
     non_terminal_extra_states: [],
-    state_ids_by_item_set: {},
+    state_ids_by_item_set: HashIndex::new(),
     item_sets_by_id: [],
-    core_ids_by_core: {},
+    core_ids_by_core: HashIndex::new(),
+    states_by_core_id: [],
     preceding_symbols_by_id: [],
     production_info_ids_by_prod_id: Array::make(
       syntax_grammar.productions.length(),
@@ -952,17 +957,16 @@ fn ParseTableBuilder::add_parse_state(
   preceding_auxiliary_context : Int32?,
   item_set : ParseItemSet,
 ) -> Int32 {
-  match self.state_ids_by_item_set.get(item_set) {
+  let hash = Hash::hash(item_set)
+  match self.find_state(item_set, hash) {
     // If an equivalent item set has already been processed, then return
     // the existing parse state index.
     Some(id) => id
     // Otherwise, insert a new parse state and add it to the queue of
     // parse states to populate.
     None => {
-      let core = item_set.core()
-      let core_count = self.core_ids_by_core.length()
-      let core_id = self.core_ids_by_core.get_or_init(core, () => core_count)
       let state_id = self.parse_table.states.length()
+      let core_id = self.core_id(item_set, state_id)
       self.preceding_symbols_by_id.push(preceding_symbols.copy())
       let state = ParseState::new()
       state.id = state_id
@@ -971,11 +975,56 @@ fn ParseTableBuilder::add_parse_state(
       self.parse_state_queue.push({ state_id, preceding_auxiliary_context, })
       // The successor sets that reach here are never touched again, so the
       // map can keep them without the clone upstream makes.
-      self.state_ids_by_item_set[item_set] = state_id
+      self.state_ids_by_item_set.insert_new(hash, state_id)
       self.item_sets_by_id.push(item_set)
       state_id
     }
   }
+}
+
+///|
+/// The id of the state whose item set is `item_set`, which hashes to `hash`, if any.
+fn ParseTableBuilder::find_state(
+  self : ParseTableBuilder,
+  item_set : ParseItemSet,
+  hash : Int32,
+) -> Int32? {
+  let index = self.state_ids_by_item_set
+  let mut slot = index.first_slot(hash)
+  while index.ids[slot] >= 0 {
+    let id = index.ids[slot]
+    if index.hashes[slot] == hash && self.item_sets_by_id[id] == item_set {
+      return Some(id)
+    }
+    slot = index.next_slot(slot)
+  }
+  None
+}
+
+///|
+/// The core id of `item_set`'s core, which is new unless an earlier state has it:
+/// `core_ids_by_core.entry(core).or_insert(core_count)`. `state_id` is the id of the
+/// new state with this item set.
+fn ParseTableBuilder::core_id(
+  self : ParseTableBuilder,
+  item_set : ParseItemSet,
+  state_id : Int32,
+) -> Int32 {
+  let index = self.core_ids_by_core
+  let hash = item_set.core_hash()
+  let mut slot = index.first_slot(hash)
+  while index.ids[slot] >= 0 {
+    let id = index.ids[slot]
+    if index.hashes[slot] == hash &&
+      self.item_sets_by_id[self.states_by_core_id[id]].same_core(item_set) {
+      return id
+    }
+    slot = index.next_slot(slot)
+  }
+  let id = self.states_by_core_id.length()
+  self.states_by_core_id.push(state_id)
+  index.insert_new(hash, id)
+  id
 }
 
 ///|

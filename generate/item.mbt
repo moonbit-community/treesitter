@@ -408,7 +408,7 @@ priv struct LookaheadSetPool {
   sets : Array[TokenSet]
   ids : Map[TokenSet, Int32]
   /// Keyed by both ids, packed (smaller first).
-  union_memo : Map[Int64, Int32]
+  union_memo : Int64Map
   /// Keyed by `insert_memo_key`: the id and the complete symbol, packed.
   insert_memo : Map[Int64, Int32]
   /// `insert_memo` for the (in practice unreachable) ids that do not fit
@@ -423,7 +423,7 @@ fn LookaheadSetPool::new() -> LookaheadSetPool {
   let pool = {
     sets: [],
     ids: {},
-    union_memo: {},
+    union_memo: Int64Map::new(),
     insert_memo: {},
     insert_memo_wide: {},
     symbol_lists: [],
@@ -548,13 +548,14 @@ fn LookaheadSetPool::union(
   }
   let (low, high) = if left < right { (left, right) } else { (right, left) }
   let key = (low.to_int64() << 32) | high.to_int64()
-  if self.union_memo.get(key) is Some(result) {
-    return result
+  let memo = self.union_memo.get(key)
+  if memo >= 0 {
+    return memo
   }
   let set = self.get(low).copy()
   ignore(set.insert_all(self.get(high)))
   let result = self.intern(set)
-  self.union_memo[key] = result
+  self.union_memo.insert_new(key, result)
   result
 }
 
@@ -581,13 +582,6 @@ priv struct ParseItemSetEntry {
   item : ParseItem
   lookaheads : Int32
   following_reserved_word_set : Int32
-}
-
-///|
-/// A `ParseItemSetCore` is like a `ParseItemSet`, but without the lookahead
-/// information. Parse states with the same core are candidates for merging.
-priv struct ParseItemSetCore {
-  entries : Array[ParseItem]
 }
 
 ///|
@@ -812,8 +806,21 @@ fn ParseItemSet::insert(self : ParseItemSet, item : ParseItem) -> Int32 {
 }
 
 ///|
-fn ParseItemSet::core(self : ParseItemSet) -> ParseItemSetCore {
-  { entries: self.items.copy(), }
+/// Upstream's `ParseItemSetCore` is like a `ParseItemSet`, but without the lookahead
+/// information. Parse states with the same core are candidates for merging. Here a
+/// set's core is its `items`, compared by `Self::same_core` and hashed by
+/// `Self::core_hash`.
+fn ParseItemSet::same_core(self : ParseItemSet, other : ParseItemSet) -> Bool {
+  self.items == other.items
+}
+
+///|
+fn ParseItemSet::core_hash(self : ParseItemSet) -> Int32 {
+  let mut acc = hash_mix(HASH_SEED, self.items.length())
+  for item in self.items {
+    acc = item.hash_acc(acc)
+  }
+  hash_finish(acc)
 }
 
 ///|
@@ -1129,32 +1136,4 @@ impl Hash for ParseItemSet with fn hash(self) {
   hash_finish(acc)
 }
 
-///|
-impl Eq for ParseItemSetCore with fn equal(self, other) {
-  if self.entries.length() != other.entries.length() {
-    return false
-  }
-  for i, item in self.entries {
-    if item != other.entries[i] {
-      return false
-    }
-  }
-  true
-}
 
-///|
-impl Hash for ParseItemSetCore with fn hash_combine(self, hasher) {
-  hasher.combine_int(self.entries.length())
-  for item in self.entries {
-    hasher.combine(item)
-  }
-}
-
-///|
-impl Hash for ParseItemSetCore with fn hash(self) {
-  let mut acc = hash_mix(HASH_SEED, self.entries.length())
-  for item in self.entries {
-    acc = item.hash_acc(acc)
-  }
-  hash_finish(acc)
-}
