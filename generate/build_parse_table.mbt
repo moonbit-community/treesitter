@@ -1023,12 +1023,16 @@ fn ParseTableBuilder::add_actions(
       let action : ParseAction = if item.is_augmented() {
         Accept
       } else {
+        // These values are narrowed to u16 to reduce the size of
+        // ParseAction. No real-world grammar approaches these limits.
+        // (Upstream's `debug_assert!`s of the bounds are not reproduced: like
+        // its release builds, `as u16` truncates.)
         let production_id = self.get_production_id(item)
         Reduce(
           symbol~,
-          child_count=item.step_index,
+          child_count=item.step_index & 0xFFFF,
           dynamic_precedence=item.production(self.syntax_grammar).dynamic_precedence,
-          production_id~,
+          production_id=production_id & 0xFFFF,
         )
       }
       let precedence = item.precedence(self.syntax_grammar)

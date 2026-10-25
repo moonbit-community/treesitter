@@ -318,6 +318,9 @@ for section in $SECTIONS; do
     for cmd in parse highlight tags; do
       run_case "example-json-$cmd" "$WORK/example-json" env TREE_SITTER_DIR="$WORK/noconfig" TREE_SITTER_LIBDIR="$WORK/example-lib" -- $cmd sample.json
     done
+    # Both CLIs cache languages by name; drop the example's `json` so that
+    # later runs do not reuse it for the fixture grammar of the same name.
+    rm -f "$WORK"/lib-up/json.* "$WORK"/lib-mbt/json.*
     ;;
   tags)
     for g in javascript python rust ruby c go; do

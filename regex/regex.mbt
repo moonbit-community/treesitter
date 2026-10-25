@@ -76,7 +76,7 @@ pub fn Regex::new(
   let hir = translator.translate(pattern, ast) catch {
     err => raise Syntax(format_hir_error(err))
   }
-  if estimate_size(hir) > nfa_size_limit {
+  if exceeds_size_limit(hir) {
     raise CompiledTooBig(nfa_size_limit)
   }
   { pattern, program: compile(hir), hir, utf8, find_program: None, }

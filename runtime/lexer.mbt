@@ -49,7 +49,12 @@ pub(all) struct Lexer {
 ///|
 /// The effect of `snprintf(self->debug_buffer, 1024, ...)` producing
 /// `message`: its UTF-8 bytes, truncated to 1023, followed by a NUL.
-fn Lexer::write_debug_buffer(self : Lexer, message : String) -> Unit {
+///
+/// Returns the message as the Rust binding's logger callback receives it:
+/// the C string in the buffer (up to its first NUL), or `None` when that is
+/// not valid UTF-8 (a multi-byte character cut by the truncation), in which
+/// case `CStr::to_str` fails and the binding drops the message.
+fn Lexer::write_debug_buffer(self : Lexer, message : String) -> String? {
   let bytes = @utf8.encode(message)
   let n = if bytes.length() < self.debug_buffer.length() {
     bytes.length()
@@ -60,6 +65,32 @@ fn Lexer::write_debug_buffer(self : Lexer, message : String) -> Unit {
     self.debug_buffer[i] = bytes[i]
   }
   self.debug_buffer[n] = 0
+  if self.debug_message_length() == bytes.length() {
+    return Some(message)
+  }
+  try @utf8.decode(self.debug_message()) catch {
+    _ => None
+  } noraise {
+    message => Some(message)
+  }
+}
+
+///|
+/// The length of the C string in the debug buffer.
+fn Lexer::debug_message_length(self : Lexer) -> Int32 {
+  for i in 0..<self.debug_buffer.length() {
+    if self.debug_buffer[i] == 0 {
+      return i
+    }
+  }
+  self.debug_buffer.length()
+}
+
+///|
+/// The C string in the debug buffer, without its NUL.
+fn Lexer::debug_message(self : Lexer) -> Bytes {
+  let buffer = self.debug_buffer
+  Bytes::makei(self.debug_message_length(), i => buffer[i])
 }
 
 ///|
@@ -70,8 +101,9 @@ fn Lexer::log_char(self : Lexer, message : String, character : Int32) -> Unit {
     } else {
       "\{message} character:\{character}"
     }
-    self.write_debug_buffer(text)
-    log(Lex, text)
+    if self.write_debug_buffer(text) is Some(text) {
+      log(Lex, text)
+    }
   }
 }
 
@@ -420,15 +452,10 @@ pub fn Lexer::is_at_included_range_start(self : Lexer) -> Bool {
 /// `TSLexer.log`.
 pub fn Lexer::log(self : Lexer, message : String) -> Unit {
   if self.logger is Some(log) {
-    self.write_debug_buffer(message)
-    // Upstream formats into a 1024-byte buffer.
-    let bytes = @utf8.encode(message)
-    let message = if bytes.length() <= 1023 {
-      message
-    } else {
-      @utf8.decode_lossy(bytes[0:1023])
+    // Upstream formats into the 1024-byte debug buffer.
+    if self.write_debug_buffer(message) is Some(message) {
+      log(Lex, message)
     }
-    log(Lex, message)
   }
 }
 

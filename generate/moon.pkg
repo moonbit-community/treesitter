@@ -1,6 +1,7 @@
 import {
   "moonbitlang/core/cmp",
   "moonbitlang/core/debug",
+  "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/hashset",
   "moonbitlang/core/json",
   "moonbitlang/core/sorted_map",
@@ -10,6 +11,7 @@ import {
   "moonbit-community/treesitter/regex_syntax",
   "moonbit-community/treesitter/regex_syntax/ast",
   "moonbit-community/treesitter/regex_syntax/hir",
+  "moonbit-community/treesitter/serde_json",
 }
 
 warnings = "-implicit_impl_as_method-reserved_keyword"

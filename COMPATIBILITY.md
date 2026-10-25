@@ -18,7 +18,9 @@ intended to behave identically, and a difference is a bug.
 | Queries | matches and captures of every upstream query file and test query | 4,964/4,964 |
 | Highlight, tags | event streams, HTML, tags of 10 fixture grammars | byte-identical |
 | Regex | matching, `find_iter` and error messages vs the `regex` crate | 446,822 pairs identical |
-| CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,148/1,148 command lines |
+| Regex | compilation size limit at 316 boundary patterns | identical |
+| `grammar.json` reading | error messages for 3,001 malformed grammars (serde_json behaviour) | identical |
+| CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,151/1,151 command lines |
 
 All runtime comparisons include the external scanners of the html,
 javascript, typescript, tsx, rust, php, bash, ruby, python, cpp and jsdoc
@@ -43,15 +45,40 @@ packages' own tests.
 ## Representation differences
 
 - Numeric node ids (`Node::id`) are unique within a tree but are not memory
-  addresses; `usize::MAX` sentinels are `0x7FFFFFFF`.
+  addresses.
+- Offsets, rows and columns are `Int`. `Int::max_value()` stands for
+  upstream's `usize::MAX`/`u32::MAX` sentinels; values above `0x7FFFFFFE`
+  (only possible for documents over 2 GiB or offsets given to
+  `root_node_with_offset`) are reported as `0x7FFFFFFF`.
+- MoonBit has no destructors. A discarded `Tree` keeps its share of the
+  reference counts of its subtrees, so a subtree once shared with a
+  discarded tree is copied rather than mutated in place by later edits of
+  the remaining tree; the resulting trees are identical, only the
+  `Node::id`s along the edited path and the cost of the copy differ.
+  Parsers are not destroyed automatically either: call `Parser::delete`
+  (the equivalent of dropping the Rust `Parser`) to run the external
+  scanner's `destroy` for a parse that was cancelled and not reset.
+- `Tree::print_dot_graph` and `Parser::print_dot_graphs_to` write upstream's
+  exact bytes to a `Buffer`; String destinations (`StringBuilder`,
+  `Parser::print_dot_graphs`) receive them decoded as UTF-8 with invalid
+  bytes replaced by U+FFFD.
 - `Range<usize>` values are `(Int, Int)` pairs; cancellation flags are
   `Ref[Int]`.
 - Upstream sorts query-testing assertions with an unstable sort; the port uses
   a stable one. With more than 20 assertions at one position their order
   could differ.
 - The CLI's test diffs use an LCS diff instead of the `similar` crate's Myers
-  diff, so ambiguous diffs may be drawn differently; serde_json data errors
-  lack the `at line L column C` suffix.
+  diff, so ambiguous diffs may be drawn differently.
+- Portable symbol, field and language names are the values of the C string
+  literals in `parser.c`. Where C leaves a literal implementation-defined
+  (an out-of-range hexadecimal escape keeps its low 8 bits, as with GCC;
+  `\u` escapes below U+00A0 follow C23), the port picks that behaviour, and
+  bytes that are not UTF-8 decode to U+FFFD (the Rust binding would panic).
+- Upstream's debug-build assertions (for example the `u16` bounds of reduce
+  actions) are not reproduced; the port behaves like release builds.
+- The regex size limit reproduces regex-automata's NFA accounting; the meta
+  engine's exact-prefix literal bypass is not modelled, as it only applies
+  to regexes far below the limit.
 
 ## Undefined behaviour in upstream code
 
@@ -78,4 +105,7 @@ upstream:
 
 - Generator: 3.1–3.4× the CPU time of `tree-sitter generate` (cpp, c,
   rust, ruby, typescript); table construction is 2.8–3.1×.
-- Runtime: RUNTIME_PLACEHOLDER
+- Runtime: 1.4–2.0× the time of the C runtime (`-O2`) to parse a file
+  from scratch (C 1.36×, JSON 2.0×, Go 1.85×, Python 1.65×, JavaScript 1.84×,
+  Rust 1.82× on upstream example files). Most of the
+  remaining cost is reference counting and allocating subtrees.

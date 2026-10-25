@@ -486,10 +486,19 @@ pub fn Node::to_sexp(self : Node) -> String {
 }
 
 ///|
-/// The text of this node in `source`, decoded as UTF-8. Raises when the
-/// bytes are not valid UTF-8.
-pub fn Node::utf8_text(self : Node, source : BytesView) -> String raise {
-  @utf8.decode(source[self.start_byte():self.end_byte()])
+/// Rust's `core::str::Utf8Error`, raised by [`Node::utf8_text`].
+pub using @hir {type Utf8Error}
+
+///|
+/// The text of this node in `source`, decoded as UTF-8. Raises Rust's
+/// `Utf8Error` when the bytes are not valid UTF-8; aborts, as Rust's slice
+/// indexing panics, when the node's range is not within `source`.
+pub fn Node::utf8_text(
+  self : Node,
+  source : BytesView,
+) -> String raise @hir.Utf8Error {
+  let text = source.exact_view(start=self.start_byte(), end=self.end_byte())
+  String::from_array(@hir.from_utf8(text))
 }
 
 ///|
@@ -499,7 +508,7 @@ pub fn Node::utf16_text(
   self : Node,
   source : ArrayView[UInt16],
 ) -> ArrayView[UInt16] {
-  source[self.start_byte() / 2:self.end_byte() / 2]
+  source.exact_view(start=self.start_byte() / 2, end=self.end_byte() / 2)
 }
 
 ///|

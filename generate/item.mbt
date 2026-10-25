@@ -405,8 +405,11 @@ priv struct LookaheadSetPool {
   ids : Map[TokenSet, Int32]
   /// Keyed by both ids, packed (smaller first).
   union_memo : Map[Int64, Int32]
-  /// Keyed by the id and `Symbol::code`, packed.
+  /// Keyed by `insert_memo_key`: the id and the complete symbol, packed.
   insert_memo : Map[Int64, Int32]
+  /// `insert_memo` for the (in practice unreachable) ids that do not fit
+  /// in `insert_memo_key`.
+  insert_memo_wide : Map[(Int32, Int32, Int32), Int32]
   /// Each set's `TokenSet::iter`, by id, once asked for.
   symbol_lists : Array[Array[Symbol]?]
 }
@@ -418,6 +421,7 @@ fn LookaheadSetPool::new() -> LookaheadSetPool {
     ids: {},
     union_memo: {},
     insert_memo: {},
+    insert_memo_wide: {},
     symbol_lists: [],
   }
   ignore(pool.intern(TokenSet::new()))
@@ -489,7 +493,20 @@ fn LookaheadSetPool::insert(
   if self.get(id).contains(symbol) {
     return id
   }
-  let key = (id.to_int64() << 32) | symbol.code().to_int64()
+  // Upstream keys the memo by `(id, symbol)`; the packed key must be
+  // lossless (`Symbol::code` is not: it only has 28 index bits).
+  if id >= INSERT_MEMO_MAX_ID {
+    let key = (id, symbol.kind.ordinal(), symbol.index)
+    if self.insert_memo_wide.get(key) is Some(result) {
+      return result
+    }
+    let set = self.get(id).copy()
+    set.insert(symbol)
+    let result = self.intern(set)
+    self.insert_memo_wide[key] = result
+    return result
+  }
+  let key = insert_memo_key(id, symbol)
   if self.insert_memo.get(key) is Some(result) {
     return result
   }
@@ -498,6 +515,19 @@ fn LookaheadSetPool::insert(
   let result = self.intern(set)
   self.insert_memo[key] = result
   result
+}
+
+///|
+/// Ids below this bound pack losslessly into `insert_memo_key`.
+const INSERT_MEMO_MAX_ID : Int32 = 0x20000000
+
+///|
+/// `(id, symbol)` packed into 64 bits: 29 bits of id, 3 bits of symbol kind
+/// and the 31 bits of a non-negative symbol index.
+fn insert_memo_key(id : Int32, symbol : Symbol) -> Int64 {
+  (id.to_int64() << 34) |
+  (symbol.kind.ordinal().to_int64() << 31) |
+  symbol.index.to_int64()
 }
 
 ///|
@@ -707,7 +737,6 @@ fn ParseItem::substitute_production(
     has_preceding_inherited_fields=self.has_preceding_inherited_fields,
   )
 }
-
 
 ///|
 fn ParseItemSet::insert(

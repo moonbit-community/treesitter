@@ -115,3 +115,38 @@ test "size limit" {
     _ => fail("expected the size limit to be exceeded")
   }
 }
+
+///|
+/// Whether `regex` 1.13.1 accepts `pattern` (`OK`) or rejects it for its
+/// size (`BIG`).
+fn size_class(pattern : String) -> String {
+  try @regex.Regex::new(pattern) |> ignore catch {
+    CompiledTooBig(_) => "BIG"
+    _ => "ERR"
+  } noraise {
+    _ => "OK"
+  }
+}
+
+///|
+test "size limit boundaries match regex-automata's accounting" {
+  // The largest accepted count and the smallest rejected one, from the
+  // `regex` crate. They depend on the exact states the Thompson compiler
+  // adds (forward with captures, and reverse), including the UTF-8 suffix
+  // caches and the literal trie of alternations.
+  for
+    pair in [
+      ("\\w{209}", "\\w{210}"),
+      ("\\pL{244}", "\\pL{245}"),
+      ("\\W{225}", "\\W{226}"),
+      ("\\d{2046}", "\\d{2047}"),
+      ("(?:\\w+\\s*){206}", "(?:\\w+\\s*){207}"),
+      ("(?:\\p{Han}|\\p{Hiragana}){2472}", "(?:\\p{Han}|\\p{Hiragana}){2473}"),
+      ("\\p{Greek}{4667}", "\\p{Greek}{4668}"),
+      ("(?:foo|bar|baz){19709}", "(?:foo|bar|baz){19710}"),
+      ("(?i)(?:straße){13869}", "(?i)(?:straße){13870}"),
+      ("(?:\\w\\d){190}x", "(?:\\w\\d){191}x"),
+    ] {
+    assert_eq((size_class(pair.0), size_class(pair.1)), ("OK", "BIG"))
+  }
+}

@@ -4,6 +4,7 @@ package "moonbit-community/treesitter/generate"
 import {
   "moonbit-community/treesitter/language",
   "moonbit-community/treesitter/regex_syntax/hir",
+  "moonbit-community/treesitter/serde_json",
   "moonbitlang/core/debug",
   "moonbitlang/core/sorted_map",
 }
@@ -35,9 +36,13 @@ pub let end_name_id : StrId
 
 pub fn expand_tokens(RulePool, ArrayView[LexicalToken], ArrayView[RuleId]) -> LexicalGrammar raise
 
+pub fn generate_error_json(Error) -> Json?
+
 pub fn generate_from_grammar_json(String, semantic_version? : (Int32, Int32, Int32), abi_version? : Int32, report_symbol_name? : String, optimizations? : OptLevel, diagnostics? : Array[Diagnostic]) -> GeneratedParser raise
 
 pub fn generate_node_types_for_grammar(String, Array[Diagnostic]) -> String raise
+
+pub fn generate_node_types_for_input_grammar(InputGrammar, Array[Diagnostic]) -> String raise
 
 pub fn generate_node_types_json(SyntaxGrammar, LexicalGrammar, @sorted_map.SortedMap[Symbol, Alias], Array[VariableInfo], InlinedProductionMap, StrPool) -> String raise
 
@@ -76,6 +81,8 @@ pub fn[T] swap_remove(Array[T], Int32) -> T
 pub let symbol_end : Symbol
 
 pub let symbol_end_of_nonterminal_extra : Symbol
+
+pub fn tree_sitter_json_version(String) -> String raise @serde_json.JsonError
 
 // Errors
 pub(all) suberror EmptyStringExtraError {

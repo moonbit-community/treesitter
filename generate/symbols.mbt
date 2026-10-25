@@ -72,7 +72,8 @@ fn SymbolType::ordinal(self : SymbolType) -> Int {
 }
 
 ///|
-/// A distinct `Int` for each symbol, for packing symbols into map keys.
+/// A hash code for a symbol. Distinct only for indices below 2^28, so it
+/// must not be used as a lossless map key.
 fn Symbol::code(self : Symbol) -> Int {
   (self.kind.ordinal() << 28) | self.index
 }
