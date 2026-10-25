@@ -9,6 +9,7 @@
 #
 # Usage: sh tools/oracle/diff_cli.sh [section...]
 #   sections: help errors completions generate parse query highlight tags test langs
+#   misc, plus one per file in tools/oracle/diff_cli.d (see its README)
 set -u
 cd "$(dirname "$0")/../.."
 ROOT=$(pwd)
@@ -17,7 +18,14 @@ UPSTREAM=${UPSTREAM:-$(cd ../../.. 2>/dev/null && pwd)/.repos/ts-pinned}
 UP="$UPSTREAM/target/release/tree-sitter"
 MBT="$ROOT/_build/native/release/build/cmd/treesitter/treesitter.exe"
 WORK="$ROOT/_build/cli_diff"
-SECTIONS=${*:-"help errors completions generate parse query highlight tags test langs misc"}
+# Extra sections: tools/oracle/diff_cli.d/<name>.sh defines `section_<name>`.
+EXTRA_SECTIONS=""
+for extra in "$ROOT"/tools/oracle/diff_cli.d/*.sh; do
+  [ -f "$extra" ] || continue
+  . "$extra"
+  EXTRA_SECTIONS="$EXTRA_SECTIONS $(basename "$extra" .sh)"
+done
+SECTIONS=${*:-"help errors completions generate parse query highlight tags test langs misc$EXTRA_SECTIONS"}
 
 moon build --target native --release cmd/treesitter >/dev/null || exit 1
 
@@ -373,6 +381,14 @@ for section in $SECTIONS; do
     done
     (cd "$WORK/init-up" && find . -type f | sort | sed 's#^\./##' | grep -v '^build.zig.zon$' > "$WORK/init-files.txt")
     compare_trees init "$WORK/init-up" "$WORK/init-mbt" $(cat "$WORK/init-files.txt")
+    ;;
+  *)
+    if declare -F "section_$section" > /dev/null; then
+      "section_$section"
+    else
+      fail=$((fail + 1))
+      echo "FAIL unknown-section-$section" | tee -a "$WORK/report.txt"
+    fi
     ;;
   esac
 done
