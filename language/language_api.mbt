@@ -464,10 +464,11 @@ pub fn Language::language_metadata(self : Language) -> LanguageMetadata? {
 }
 
 ///|
-/// `ts_language_name`.
+/// `ts_language_name`: the C string, which ends at the first NUL of the
+/// stored name.
 pub fn Language::language_name(self : Language) -> String? {
   if self.abi_version >= language_version_with_reserved_words {
-    Some(self.name)
+    Some(c_string(self.name))
   } else {
     None
   }

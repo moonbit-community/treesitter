@@ -30,7 +30,24 @@ pub(all) struct QueryProperty {
   key : String
   value : String?
   capture_id : Int32?
-} derive(Eq, Debug)
+} derive(Eq)
+
+///|
+/// Rust's derived `Debug`: `QueryProperty { key: "k", value: Some("v"),
+/// capture_id: None }`.
+pub impl Debug for QueryProperty with fn to_repr(self) {
+  let value = match self.value {
+    Some(value) => "Some(\{@serde_json.rust_debug_str(value)})"
+    None => "None"
+  }
+  let capture_id = match self.capture_id {
+    Some(id) => "Some(\{id})"
+    None => "None"
+  }
+  Repr::literal(
+    "QueryProperty { key: \{@serde_json.rust_debug_str(self.key)}, value: \{value}, capture_id: \{capture_id} }",
+  )
+}
 
 ///|
 /// Create a query property.
@@ -47,7 +64,21 @@ pub fn QueryProperty::new(
 pub(all) enum QueryPredicateArg {
   Capture(Int32)
   String(String)
-} derive(Eq, Debug)
+} derive(Eq)
+
+///|
+/// Rust's derived `Debug`: `Capture(0)` or `String("text")`.
+pub impl Debug for QueryPredicateArg with fn to_repr(self) {
+  Repr::literal(self.debug_text())
+}
+
+///|
+fn QueryPredicateArg::debug_text(self : QueryPredicateArg) -> String {
+  match self {
+    Capture(index) => "Capture(\{index})"
+    String(text) => "String(\{@serde_json.rust_debug_str(text)})"
+  }
+}
 
 ///|
 /// A predicate with a user-defined operator associated with a particular
@@ -55,7 +86,17 @@ pub(all) enum QueryPredicateArg {
 pub(all) struct QueryPredicate {
   operator : String
   args : Array[QueryPredicateArg]
-} derive(Eq, Debug)
+} derive(Eq)
+
+///|
+/// Rust's derived `Debug`: `QueryPredicate { operator: "op?", args:
+/// [Capture(0), String("text")] }`.
+pub impl Debug for QueryPredicate with fn to_repr(self) {
+  let args = self.args.map(arg => arg.debug_text()).join(", ")
+  Repr::literal(
+    "QueryPredicate { operator: \{@serde_json.rust_debug_str(self.operator)}, args: [\{args}] }",
+  )
+}
 
 ///|
 /// The kind of a [`QueryError`].
@@ -79,7 +120,26 @@ pub(all) suberror QueryError {
     message~ : String,
     kind~ : QueryErrorKind
   )
-} derive(Eq, Debug)
+} derive(Eq)
+
+///|
+/// Rust's derived `Debug` of the `QueryError` struct: `QueryError { row: 0,
+/// column: 0, offset: 0, message: "...", kind: Syntax }`.
+pub impl Debug for QueryError with fn to_repr(self) {
+  let QueryError(row~, column~, offset~, message~, kind~) = self
+  let kind = match kind {
+    Syntax => "Syntax"
+    NodeType => "NodeType"
+    Field => "Field"
+    Capture => "Capture"
+    Predicate => "Predicate"
+    Structure => "Structure"
+    Language => "Language"
+  }
+  Repr::literal(
+    "QueryError { row: \{row}, column: \{column}, offset: \{offset}, message: \{@serde_json.rust_debug_str(message)}, kind: \{kind} }",
+  )
+}
 
 ///|
 /// The zero-based row of the error.

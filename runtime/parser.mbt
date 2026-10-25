@@ -1048,13 +1048,22 @@ fn Parser::accept(self : Parser, version : Int32, lookahead : Subtree) -> Unit {
         for child in children {
           child.retain()
         }
-        trees.remove(j) |> ignore
-        for k, child in children {
-          trees.insert(j + k, child)
+        // `array_splice(&trees, j, 1, child_count, children)`, in one pass.
+        let spliced : Array[Subtree] = Array(
+          capacity=trees.length() - 1 + children.length(),
+        )
+        for k in 0..<j {
+          spliced.push(trees[k])
+        }
+        for child in children {
+          spliced.push(child)
+        }
+        for k in (j + 1)..<trees.length() {
+          spliced.push(trees[k])
         }
         root = Subtree::new_node(
           tree.symbol(),
-          trees,
+          spliced,
           tree.ptr().production_id,
           self.lang(),
         )
@@ -2093,11 +2102,38 @@ pub fn Parser::reset(self : Parser) -> Unit {
   self.canceled_balancing = false
   self.parse_options = { progress_callback: None, }
   self.parse_state = { current_byte_offset: 0, has_error: false, }
+  self.release_scratch()
+}
+
+///|
+/// Drop what the scratch state of an idle parser still refers to. Upstream
+/// keeps stale pointers there that do not own anything; in MoonBit they
+/// would keep the previous tree alive. The arrays are emptied (they are
+/// already logically empty or hold references owned elsewhere) and their
+/// spare capacity, which native arrays do not overwrite when they shrink, is
+/// overwritten.
+fn Parser::release_scratch(self : Parser) -> Unit {
+  self.stack.release_scratch()
+  self.reusable_node.release_scratch()
+  self.trailing_extras.clear()
+  self.trailing_extras.release_unused(placeholder=Null)
+  self.trailing_extras2.clear()
+  self.trailing_extras2.release_unused(placeholder=Null)
+  self.balance_stack.clear()
+  self.balance_stack.release_unused(placeholder=Null)
 }
 
 ///|
 /// `ts_parser_parse`.
 pub fn Parser::parse(self : Parser, old_tree : Tree?, input : Input) -> Tree? {
+  let result = self.parse_input(old_tree, input)
+  // The input ends with the call, as the Rust binding's input payload does.
+  self.lexer.release_input()
+  result
+}
+
+///|
+fn Parser::parse_input(self : Parser, old_tree : Tree?, input : Input) -> Tree? {
   guard self.language is Some(language) else { return None }
   if old_tree is Some(old) && !physical_equal(old.language, language) {
     return None

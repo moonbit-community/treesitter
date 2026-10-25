@@ -127,11 +127,15 @@ fn lz_decompress(
     if o == raw_length {
       break
     }
-    let length = r.uint() + lz_min_match
-    let distance = r.uint() + 1
-    if distance > o || length > raw_length - o {
+    // Compare the encoded values before adding the offsets, which could
+    // overflow.
+    let length_code = r.uint()
+    let distance_code = r.uint()
+    if distance_code >= o || length_code > raw_length - o - lz_min_match {
       raise CompactError("match out of range")
     }
+    let length = length_code + lz_min_match
+    let distance = distance_code + 1
     let from = o - distance
     if distance >= length {
       FixedArray::unsafe_blit(out, o, out, from, length)

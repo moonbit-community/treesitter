@@ -988,6 +988,26 @@ pub fn Stack::clear(self : Stack) -> Unit {
 }
 
 ///|
+/// The value written over vacated slots of `slices` by `release_scratch`.
+let stack_slice_none : StackSlice = { subtrees: no_subtrees, version: 0, }
+
+///|
+/// Drop the scratch references of the last pop: the slices (whose subtree
+/// arrays now belong to tree nodes, or were deleted) and any outstanding
+/// iterators. Upstream leaves stale pointers there, which do not own
+/// anything; here they would keep the subtrees alive while the parser is
+/// idle, so they are cleared, including the spare capacity that native
+/// arrays do not overwrite when shrinking.
+fn Stack::release_scratch(self : Stack) -> Unit {
+  self.slices.clear()
+  self.slices.release_unused(placeholder=stack_slice_none)
+  for iterator in self.iterators {
+    self.recycle_iterator(iterator)
+  }
+  self.iterators.clear()
+}
+
+///|
 /// `ts_stack_print_dot_graph`. Node addresses are replaced by stable ids.
 pub fn Stack::print_dot_graph(
   self : Stack,
