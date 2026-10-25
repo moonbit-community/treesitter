@@ -1,0 +1,72 @@
+name: Publish grammar modules to Mooncakes
+# Publishes the modules under grammars/ (moonbit-community/tree-sitter-<name>).
+# Run after the core module they depend on has been published; a module whose
+# version is already on the registry fails to publish and is reported, the
+# others continue.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit, branch or tag to publish from
+        required: true
+        default: main
+        type: string
+      modules:
+        description: Space-separated directory names under grammars/ (empty for all)
+        required: false
+        default: ''
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: publish-mooncakes
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install MoonBit
+        run: |
+          curl --fail --silent --show-error --location https://cli.moonbitlang.com/install/unix.sh -o "$RUNNER_TEMP/install-moon.sh"
+          bash "$RUNNER_TEMP/install-moon.sh"
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - run: moon version --all
+      - run: moon update
+      - name: Test the grammar modules
+        run: moon test --target native
+      - name: Publish
+        env:
+          MOONCAKES_CREDENTIALS: ${{ secrets.MOONCAKES_MOONBIT_COMMUNITY_TOKEN || secrets.MOONCAKES_TOKEN }}
+          MODULES: ${{ inputs.modules }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          test -n "$MOONCAKES_CREDENTIALS" || { echo 'Mooncakes community credentials are required'; exit 1; }
+          umask 077
+          mkdir -p "$HOME/.moon"
+          trap 'rm -f "$HOME/.moon/credentials.json"' EXIT
+          printf '%s' "$MOONCAKES_CREDENTIALS" > "$HOME/.moon/credentials.json"
+          if [ -z "$MODULES" ]; then MODULES=$(cd grammars && ls -d */ | tr -d /); fi
+          failed=""
+          for m in $MODULES; do
+            echo "::group::$m"
+            if (cd "grammars/$m" && moon publish --dry-run && moon publish); then
+              echo "published $m"
+            else
+              failed="$failed $m"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "$failed" ]; then echo "failed:$failed"; exit 1; fi
+      - name: Verify registry installation
+        run: |
+          core=$(sed -n 's/^version = "\(.*\)"/\1/p' moon.mod)
+          mods=""
+          for m in json python typescript; do
+            v=$(sed -n 's/^version = "\(.*\)"/\1/p' grammars/$m/moon.mod)
+            mods="$mods moonbit-community/tree-sitter-$m@$v"
+          done
+          python3 tools/check_registry.py "$core" $mods
