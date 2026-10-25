@@ -472,10 +472,13 @@ fn Regex::search_at(
   hay : BytesView,
   start : Int32,
 ) -> (Int32, Int32)? {
-  let program = self.find_program()
   if start > hay.length() {
     return None
   }
+  if self.literals is Some(literals) {
+    return literals.find(hay, start)
+  }
+  let program = self.find_program()
   let mut from = start
   let mut m = program.search(hay, from)
   if self.utf8 && program.has_empty {
@@ -494,11 +497,20 @@ fn Regex::search_at(
 /// The leftmost-first match of the regex in `haystack` that starts at or
 /// after `start`, as a `(start, end)` byte range. Assertions such as `^` and
 /// `\b` see the whole haystack (like `Regex::find_at`).
+///
+/// # Panics
+///
+/// Like `Input::span(start..haystack.len())`, panics unless
+/// `0 <= start <= haystack.length() + 1`.
 pub fn Regex::find_at(
   self : Regex,
   haystack : BytesView,
   start : Int32,
 ) -> (Int32, Int32)? {
+  let len = haystack.length()
+  if start < 0 || start > len + 1 {
+    abort("invalid span \{start}..\{len} for haystack of length \{len}")
+  }
   self.search_at(haystack, start)
 }
 

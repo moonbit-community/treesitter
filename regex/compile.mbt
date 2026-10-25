@@ -24,6 +24,8 @@ priv struct Program {
   /// Whether every match must start at offset 0 (`\A` prefix), in which case
   /// the search stops once no thread is alive.
   anchored : Bool
+  /// Whether the regex can match the empty string (`NFA::has_empty`).
+  has_empty : Bool
 }
 
 ///|
@@ -132,5 +134,6 @@ fn compile(hir : @hir.Hir) -> Program {
   let matched = compiler.add(Match)
   let start = compiler.compile(hir, matched)
   let anchored = hir.properties().look_set_prefix().contains(Start)
-  { states: compiler.states, start, anchored, }
+  let has_empty = hir.properties().minimum_len() is Some(0)
+  { states: compiler.states, start, anchored, has_empty, }
 }

@@ -15,7 +15,8 @@
 //
 // Before compiling, the meta strategy may answer the regex with a literal
 // prefilter alone, without building an NFA. Its large-alternation case (an
-// alternation of at least 3000 literals) is reproduced. Its other case, an
+// alternation of at least 3000 literals, aho_corasick.mbt) is reproduced.
+// Its other case, an
 // exact prefix literal set (at most 250 literals of at most 100 bytes), is
 // not: such a regex compiles to a small NFA.
 
@@ -864,24 +865,11 @@ fn LiteralTrie::compile(
 // The meta engine ----------------------------------------------------------------
 
 ///|
-/// Whether the meta engine answers `hir` with an Aho-Corasick prefilter
-/// alone (`Pre::from_alternation_literals`), without building an NFA.
-fn is_large_literal_alternation(hir : @hir.Hir) -> Bool {
-  let props = hir.properties()
-  props.look_set().is_empty() &&
-  props.explicit_captures_len() == 0 &&
-  props.is_alternation_literal() &&
-  hir.kind() is Alternation(alts) &&
-  alts.length() >= 3000
-}
-
-///|
 /// Whether `regex` rejects `hir` because its forward or its reverse NFA
-/// exceeds the size limit.
+/// exceeds the size limit. Not called for the regexes that the meta engine
+/// answers with Aho-Corasick alone (`alternation_literals`, aho_corasick.mbt),
+/// as it builds no NFA for them.
 fn exceeds_size_limit(hir : @hir.Hir) -> Bool {
-  if is_large_literal_alternation(hir) {
-    return false
-  }
   let limit = nfa_size_limit.to_int64()
   for reverse in [false, true] {
     SizeCompiler::new(reverse, limit).compile(hir) catch {
