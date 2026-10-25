@@ -1,9 +1,0 @@
-import {
-  "moonbit-community/treesitter/next/cli",
-  "moonbitlang/async",
-  "moonbitlang/core/env",
-}
-
-supported_targets = "+native"
-
-pkgtype(kind: "executable")

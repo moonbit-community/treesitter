@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Embed tree-sitter crates/cli/src/templates/* verbatim into
-next/cli/init/templates.mbt (the `include_str!` constants of init.rs).
+cli/init/templates.mbt (the `include_str!` constants of init.rs).
 
 Usage: python3 tools/next/gen_init_templates.py [<pinned checkout>]
 
@@ -16,7 +16,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PINNED = sys.argv[1] if len(sys.argv) > 1 else "/Users/dii/git/treesitter/.repos/ts-pinned"
 TEMPLATES = os.path.join(PINNED, "crates/cli/src/templates")
-OUT = os.path.join(ROOT, "next/cli/init/templates.mbt")
+OUT = os.path.join(ROOT, "cli/init/templates.mbt")
 
 # (MoonBit name, template file), in init.rs order.
 ENTRIES = [

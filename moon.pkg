@@ -1,10 +1,13 @@
 import {
+  "moonbit-community/treesitter/runtime",
+  "moonbit-community/treesitter/query",
   "moonbit-community/treesitter/language",
-  "moonbit-community/treesitter/lex",
-  "moonbitlang/core/debug",
+  "moonbit-community/treesitter/regex",
+  "moonbit-community/treesitter/regex_syntax/hir",
   "moonbitlang/core/encoding/utf8",
-  "moonbitlang/core/buffer",
 }
+
+warnings = "-implicit_impl_as_method-reserved_keyword"
 
 import {
   "moonbit-community/treesitter/grammar",

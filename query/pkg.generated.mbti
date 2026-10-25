@@ -2,64 +2,19 @@
 package "moonbit-community/treesitter/query"
 
 import {
-  "moonbit-community/treesitter",
   "moonbit-community/treesitter/language",
+  "moonbit-community/treesitter/runtime",
   "moonbitlang/core/debug",
 }
 
 // Values
 
 // Errors
-pub(all) suberror QueryError {
-  InvalidQuery(Int32, String)
-  MatchLimit
-  Cancelled
+pub suberror QueryError {
+  QueryError(kind~ : QueryErrorKind, offset~ : UInt32)
 } derive(@debug.Debug)
-pub fn QueryError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
-pub(all) enum Argument {
-  Capture(String)
-  Text(String)
-}
-
-pub(all) struct Capture {
-  name : String
-  node : @treesitter.Node
-}
-
-pub struct CaptureCursor {
-  // private fields
-}
-pub fn CaptureCursor::next_capture(Self) -> (Match, Int32)? raise QueryError
-pub fn CaptureCursor::remove_match(Self, Int32) -> Unit
-
-pub struct Cursor {
-  // private fields
-}
-pub fn Cursor::next_match(Self) -> Match? raise QueryError
-
-pub(all) struct Directive {
-  name : String
-  args : Array[Argument]
-}
-
-pub struct Locals {
-  // private fields
-}
-pub fn Locals::definition(Self, @treesitter.Node) -> @treesitter.Node?
-pub fn Locals::is_local(Self, @treesitter.Node) -> Bool
-pub fn Locals::new(Query, @treesitter.Tree) -> Self raise QueryError
-
-pub(all) struct Match {
-  id : Int32
-  pattern_index : Int32
-  captures : Array[Capture]
-  properties : Map[String, String]
-  directives : Array[Directive]
-}
-pub fn Match::texts(Self, String, Bytes) -> Array[String] raise QueryError
-
 pub(all) enum Quantifier {
   Zero
   ZeroOrOne
@@ -67,26 +22,86 @@ pub(all) enum Quantifier {
   One
   OneOrMore
 } derive(Eq, @debug.Debug)
-pub fn Quantifier::equal(Self, Self) -> Bool
-pub fn Quantifier::not_equal(Self, Self) -> Bool
-pub fn Quantifier::to_repr(Self) -> @debug.Repr
 
 pub struct Query {
-  capture_names : Array[String]
   // private fields
 }
-pub fn Query::capture_cursor(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, containing_byte_range? : (Int32, Int32), containing_point_range? : (@treesitter.Point, @treesitter.Point), start_point? : @treesitter.Point, end_point? : @treesitter.Point, max_start_depth? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> CaptureCursor
-pub fn Query::capture_quantifier(Self, Int32, Int32) -> Quantifier?
-pub fn Query::captures(Self, @treesitter.Node, Bytes) -> Array[Capture] raise QueryError
+pub fn Query::capture_count(Self) -> Int32
+pub fn Query::capture_name_bytes_for_id(Self, Int32) -> Bytes
+pub fn Query::capture_name_for_id(Self, Int32) -> String
+pub fn Query::capture_quantifier_for_id(Self, Int32, Int32) -> Quantifier
 pub fn Query::copy(Self) -> Self
-pub fn Query::cursor(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, containing_byte_range? : (Int32, Int32), containing_point_range? : (@treesitter.Point, @treesitter.Point), start_point? : @treesitter.Point, end_point? : @treesitter.Point, max_start_depth? : Int32, max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> Cursor
-pub fn Query::disable_capture(Self, String) -> Bool
-pub fn Query::disable_pattern(Self, Int32) -> Bool
-pub fn Query::matches(Self, @treesitter.Node, Bytes, start_byte? : Int32, end_byte? : Int32, containing_byte_range? : (Int32, Int32), containing_point_range? : (@treesitter.Point, @treesitter.Point), max_steps? : Int32, max_matches? : Int32, cancelled? : () -> Bool, property? : (String, String?, @treesitter.Node?) -> Bool, predicate? : (String, Array[Argument], Array[Capture], Bytes) -> Bool) -> Array[Match] raise QueryError
-pub fn Query::new(@language.Language, String) -> Self raise QueryError
+pub fn Query::disable_capture(Self, StringView) -> Unit
+pub fn Query::disable_pattern(Self, Int32) -> Unit
+pub fn Query::end_byte_for_pattern(Self, Int32) -> UInt32
+pub fn Query::is_pattern_guaranteed_at_step(Self, UInt32) -> Bool
+pub fn Query::is_pattern_non_local(Self, Int32) -> Bool
+pub fn Query::is_pattern_rooted(Self, Int32) -> Bool
+pub fn Query::language(Self) -> @language.Language
+pub fn Query::new(@language.Language, Bytes) -> Self raise QueryError
 pub fn Query::pattern_count(Self) -> Int32
-pub fn Query::pattern_range(Self, Int32) -> (Int32, Int32)?
-pub fn Query::predicates(Self, Int32) -> Array[Directive]?
+pub fn Query::predicates_for_pattern(Self, Int32) -> ArrayView[QueryPredicateStep]
+pub fn Query::start_byte_for_pattern(Self, Int32) -> UInt32
+pub fn Query::string_count(Self) -> Int32
+pub fn Query::string_value_bytes_for_id(Self, Int32) -> Bytes
+pub fn Query::string_value_for_id(Self, Int32) -> String
+
+pub(all) struct QueryCapture {
+  node : @runtime.Node
+  index : Int32
+}
+
+pub struct QueryCursor {
+  // private fields
+}
+pub fn QueryCursor::did_exceed_match_limit(Self) -> Bool
+pub fn QueryCursor::exec(Self, Query, @runtime.Node) -> Unit
+pub fn QueryCursor::exec_with_options(Self, Query, @runtime.Node, QueryCursorOptions?) -> Unit
+pub fn QueryCursor::match_limit(Self) -> UInt32
+pub fn QueryCursor::new() -> Self
+pub fn QueryCursor::next_capture(Self) -> (QueryMatch, Int32)?
+pub fn QueryCursor::next_match(Self) -> QueryMatch?
+pub fn QueryCursor::remove_match(Self, UInt32) -> Unit
+pub fn QueryCursor::set_byte_range(Self, UInt32, UInt32) -> Bool
+pub fn QueryCursor::set_containing_byte_range(Self, UInt32, UInt32) -> Bool
+pub fn QueryCursor::set_containing_point_range(Self, @runtime.Point, @runtime.Point) -> Bool
+pub fn QueryCursor::set_match_limit(Self, UInt32) -> Unit
+pub fn QueryCursor::set_max_start_depth(Self, UInt32) -> Unit
+pub fn QueryCursor::set_point_range(Self, @runtime.Point, @runtime.Point) -> Bool
+
+pub(all) struct QueryCursorOptions {
+  progress_callback : ((QueryCursorState) -> Bool)?
+}
+
+pub(all) struct QueryCursorState {
+  current_byte_offset : UInt32
+} derive(Eq, @debug.Debug)
+
+pub(all) enum QueryErrorKind {
+  Syntax
+  NodeType
+  Field
+  Capture
+  Structure
+  Language
+} derive(Eq, @debug.Debug)
+
+pub(all) struct QueryMatch {
+  id : UInt32
+  pattern_index : Int32
+  captures : Array[QueryCapture]
+}
+
+pub(all) struct QueryPredicateStep {
+  type_ : QueryPredicateStepType
+  value_id : Int32
+} derive(Eq, @debug.Debug)
+
+pub(all) enum QueryPredicateStepType {
+  Done
+  Capture
+  String
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

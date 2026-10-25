@@ -1,0 +1,12 @@
+import {
+  "moonbit-community/treesitter",
+  "moonbit-community/treesitter/fixtures",
+  "moonbit-community/treesitter/highlight",
+  "moonbitlang/async",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/hashset",
+} for "test"
+
+supported_targets = "+native"
+
+warnings = "-implicit_impl_as_method-reserved_keyword"

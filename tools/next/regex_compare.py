@@ -1,5 +1,5 @@
 """Development-only: compare the outputs of tools/next/regex_harness and
-next/regex/probe on the same corpus and report agreement.
+regex/probe on the same corpus and report agreement.
 
 Usage: python3 tools/next/regex_compare.py corpus.jsonl rust.out mbt.out
 """

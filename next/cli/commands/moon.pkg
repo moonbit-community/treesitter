@@ -1,6 +1,0 @@
-import {
-  "moonbit-community/treesitter/next/clap",
-  "moonbitlang/core/env",
-}
-
-warnings = "-implicit_impl_as_method-reserved_keyword"

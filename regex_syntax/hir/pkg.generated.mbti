@@ -1,0 +1,319 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-community/treesitter/regex_syntax/hir"
+
+import {
+  "moonbit-community/treesitter/regex_syntax/ast",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn class(ClassQuery) -> ClassUnicode raise UnicodeError
+
+pub fn encode_utf8_into(Int32, Array[Byte]) -> Unit
+
+pub fn from_utf8(BytesView) -> Array[Char] raise Utf8Error
+
+pub fn hir_class(Array[(Int32, Int32)]) -> ClassUnicode
+
+pub fn is_word_character(Int32) -> Bool
+
+pub fn len_utf8(Int32) -> Int32
+
+pub fn perl_digit() -> ClassUnicode raise UnicodeError
+
+pub fn perl_space() -> ClassUnicode raise UnicodeError
+
+pub fn perl_word() -> ClassUnicode raise UnicodeError
+
+pub fn utf8_decode(BytesView) -> Result[Int32, Byte]?
+
+pub fn utf8_encode(String) -> Array[Byte]
+
+// Errors
+pub(all) suberror CaseFoldError {
+  CaseFoldError
+} derive(@debug.Debug)
+pub impl Show for CaseFoldError
+
+pub(all) suberror HirError {
+  HirError(kind~ : ErrorKind, pattern~ : String, span~ : @ast.Span)
+} derive(Eq, @debug.Debug)
+pub fn HirError::kind(Self) -> ErrorKind
+pub fn HirError::pattern(Self) -> String
+pub fn HirError::span(Self) -> @ast.Span
+
+pub(all) suberror UnicodeError {
+  PropertyNotFound
+  PropertyValueNotFound
+  PerlClassNotFound
+} derive(@debug.Debug)
+
+pub(all) suberror Utf8Error {
+  Utf8Error(valid_up_to~ : Int32, error_len~ : Int32?)
+} derive(Eq, @debug.Debug)
+pub impl Show for Utf8Error
+
+// Types and methods
+pub(all) struct Capture {
+  index : UInt32
+  name : String?
+  sub : Hir
+} derive(Eq, @debug.Debug)
+
+pub(all) enum Class {
+  Unicode(ClassUnicode)
+  Bytes(ClassBytes)
+} derive(Eq, @debug.Debug)
+pub fn Class::case_fold_simple(Self) -> Unit
+pub fn Class::is_empty(Self) -> Bool
+pub fn Class::is_utf8(Self) -> Bool
+pub fn Class::literal(Self) -> Bytes?
+pub fn Class::maximum_len(Self) -> UInt64?
+pub fn Class::minimum_len(Self) -> UInt64?
+pub fn Class::negate(Self) -> Unit
+pub fn Class::try_case_fold_simple(Self) -> Unit raise CaseFoldError
+
+pub struct ClassBytes {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ClassBytes::case_fold_simple(Self) -> Unit
+pub fn ClassBytes::copy(Self) -> Self
+pub fn ClassBytes::difference(Self, Self) -> Unit
+pub fn ClassBytes::empty() -> Self
+pub fn ClassBytes::intersect(Self, Self) -> Unit
+pub fn ClassBytes::is_ascii(Self) -> Bool
+pub fn ClassBytes::iter(Self) -> Iter[ClassBytesRange]
+pub fn ClassBytes::literal(Self) -> Bytes?
+pub fn ClassBytes::maximum_len(Self) -> UInt64?
+pub fn ClassBytes::minimum_len(Self) -> UInt64?
+pub fn ClassBytes::negate(Self) -> Unit
+pub fn ClassBytes::new(Array[ClassBytesRange]) -> Self
+pub fn ClassBytes::push(Self, ClassBytesRange) -> Unit
+pub fn ClassBytes::ranges(Self) -> ArrayView[ClassBytesRange]
+pub fn ClassBytes::symmetric_difference(Self, Self) -> Unit
+pub fn ClassBytes::to_unicode_class(Self) -> ClassUnicode?
+pub fn ClassBytes::union(Self, Self) -> Unit
+
+pub(all) struct ClassBytesRange {
+  start : Byte
+  end : Byte
+} derive(Compare, Eq, @debug.Debug)
+pub fn ClassBytesRange::end(Self) -> Byte
+pub fn ClassBytesRange::len(Self) -> Int32
+pub fn ClassBytesRange::new(Byte, Byte) -> Self
+pub fn ClassBytesRange::start(Self) -> Byte
+pub impl Interval for ClassBytesRange
+
+pub(all) enum ClassQuery {
+  OneLetter(Char)
+  Binary(String)
+  ByValue(property_name~ : String, property_value~ : String)
+} derive(@debug.Debug)
+
+pub struct ClassUnicode {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ClassUnicode::case_fold_simple(Self) -> Unit
+pub fn ClassUnicode::copy(Self) -> Self
+pub fn ClassUnicode::difference(Self, Self) -> Unit
+pub fn ClassUnicode::empty() -> Self
+pub fn ClassUnicode::intersect(Self, Self) -> Unit
+pub fn ClassUnicode::is_ascii(Self) -> Bool
+pub fn ClassUnicode::iter(Self) -> Iter[ClassUnicodeRange]
+pub fn ClassUnicode::literal(Self) -> Bytes?
+pub fn ClassUnicode::maximum_len(Self) -> UInt64?
+pub fn ClassUnicode::minimum_len(Self) -> UInt64?
+pub fn ClassUnicode::negate(Self) -> Unit
+pub fn ClassUnicode::new(Array[ClassUnicodeRange]) -> Self
+pub fn ClassUnicode::push(Self, ClassUnicodeRange) -> Unit
+pub fn ClassUnicode::ranges(Self) -> ArrayView[ClassUnicodeRange]
+pub fn ClassUnicode::symmetric_difference(Self, Self) -> Unit
+pub fn ClassUnicode::to_byte_class(Self) -> ClassBytes?
+pub fn ClassUnicode::try_case_fold_simple(Self) -> Unit raise CaseFoldError
+pub fn ClassUnicode::union(Self, Self) -> Unit
+
+pub(all) struct ClassUnicodeRange {
+  start : Int32
+  end : Int32
+} derive(Compare, Eq, @debug.Debug)
+pub fn ClassUnicodeRange::end(Self) -> Int32
+pub fn ClassUnicodeRange::len(Self) -> Int32
+pub fn ClassUnicodeRange::new(Int32, Int32) -> Self
+pub fn ClassUnicodeRange::start(Self) -> Int32
+pub impl Interval for ClassUnicodeRange
+
+pub(all) enum Dot {
+  AnyChar
+  AnyByte
+  AnyCharExcept(Int32)
+  AnyCharExceptLF
+  AnyCharExceptCRLF
+  AnyByteExcept(Byte)
+  AnyByteExceptLF
+  AnyByteExceptCRLF
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ErrorKind {
+  UnicodeNotAllowed
+  InvalidUtf8
+  InvalidLineTerminator
+  UnicodePropertyNotFound
+  UnicodePropertyValueNotFound
+  UnicodePerlClassNotFound
+  UnicodeCaseUnavailable
+} derive(Eq, @debug.Debug)
+pub impl Show for ErrorKind
+
+pub struct Hir {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Hir::alternation(Array[Self]) -> Self
+pub fn Hir::capture(Capture) -> Self
+pub fn Hir::class(Class) -> Self
+pub fn Hir::concat(Array[Self]) -> Self
+pub fn Hir::dot(Dot) -> Self
+pub fn Hir::empty() -> Self
+pub fn Hir::fail() -> Self
+pub fn Hir::into_kind(Self) -> HirKind
+pub fn Hir::kind(Self) -> HirKind
+pub fn Hir::literal(Bytes) -> Self
+pub fn Hir::look(Look) -> Self
+pub fn Hir::properties(Self) -> Properties
+pub fn Hir::repetition(Repetition) -> Self
+
+pub(all) enum HirKind {
+  Empty
+  Literal(Literal)
+  Class(Class)
+  Look(Look)
+  Repetition(Repetition)
+  Capture(Capture)
+  Concat(Array[Hir])
+  Alternation(Array[Hir])
+} derive(Eq, @debug.Debug)
+pub fn HirKind::subs(Self) -> Array[Hir]
+
+pub struct IntervalSet[I] {
+  // private fields
+}
+pub fn[I : Interval] IntervalSet::case_fold_simple(Self[I]) -> Unit raise CaseFoldError
+pub fn[I] IntervalSet::copy(Self[I]) -> Self[I]
+pub fn[I : Interval] IntervalSet::difference(Self[I], Self[I]) -> Unit
+pub fn[I : Interval] IntervalSet::intersect(Self[I], Self[I]) -> Unit
+pub fn[I] IntervalSet::intervals(Self[I]) -> ArrayView[I]
+pub fn[I] IntervalSet::iter(Self[I]) -> Iter[I]
+pub fn[I : Interval] IntervalSet::negate(Self[I]) -> Unit
+pub fn[I : Interval] IntervalSet::new(Array[I]) -> Self[I]
+pub fn[I : Interval] IntervalSet::push(Self[I], I) -> Unit
+pub fn[I : Interval] IntervalSet::symmetric_difference(Self[I], Self[I]) -> Unit
+pub fn[I : Interval] IntervalSet::union(Self[I], Self[I]) -> Unit
+pub impl[I : Interval] Eq for IntervalSet[I]
+pub impl[I : @debug.Debug] @debug.Debug for IntervalSet[I]
+
+pub(all) struct Literal(Bytes) derive(Eq, @debug.Debug)
+
+pub(all) enum Look {
+  Start
+  End
+  StartLF
+  EndLF
+  StartCRLF
+  EndCRLF
+  WordAscii
+  WordAsciiNegate
+  WordUnicode
+  WordUnicodeNegate
+  WordStartAscii
+  WordEndAscii
+  WordStartUnicode
+  WordEndUnicode
+  WordStartHalfAscii
+  WordEndHalfAscii
+  WordStartHalfUnicode
+  WordEndHalfUnicode
+} derive(Eq, @debug.Debug)
+pub fn Look::as_char(Self) -> Char
+pub fn Look::as_repr(Self) -> UInt32
+pub fn Look::from_repr(UInt32) -> Self?
+pub fn Look::reversed(Self) -> Self
+
+pub(all) struct LookSet {
+  bits : UInt32
+} derive(Eq, @debug.Debug)
+pub fn LookSet::contains(Self, Look) -> Bool
+pub fn LookSet::empty() -> Self
+pub fn LookSet::full() -> Self
+pub fn LookSet::insert(Self, Look) -> Self
+pub fn LookSet::intersect(Self, Self) -> Self
+pub fn LookSet::is_empty(Self) -> Bool
+pub fn LookSet::len(Self) -> Int32
+pub fn LookSet::remove(Self, Look) -> Self
+pub fn LookSet::singleton(Look) -> Self
+pub fn LookSet::subtract(Self, Self) -> Self
+pub fn LookSet::union(Self, Self) -> Self
+
+pub struct Properties {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Properties::explicit_captures_len(Self) -> UInt64
+pub fn Properties::is_alternation_literal(Self) -> Bool
+pub fn Properties::is_literal(Self) -> Bool
+pub fn Properties::is_utf8(Self) -> Bool
+pub fn Properties::look_set(Self) -> LookSet
+pub fn Properties::look_set_prefix(Self) -> LookSet
+pub fn Properties::look_set_prefix_any(Self) -> LookSet
+pub fn Properties::look_set_suffix(Self) -> LookSet
+pub fn Properties::look_set_suffix_any(Self) -> LookSet
+pub fn Properties::maximum_len(Self) -> UInt64?
+pub fn Properties::minimum_len(Self) -> UInt64?
+pub fn Properties::static_explicit_captures_len(Self) -> UInt64?
+pub fn Properties::union(Array[Self]) -> Self
+
+pub(all) struct Repetition {
+  min : UInt32
+  max : UInt32?
+  greedy : Bool
+  sub : Hir
+} derive(Eq, @debug.Debug)
+pub fn Repetition::with_sub(Self, Hir) -> Self
+
+pub struct SimpleCaseFolder {
+  // private fields
+}
+pub fn SimpleCaseFolder::mapping(Self, Int32) -> FixedArray[Int32]
+pub fn SimpleCaseFolder::new() -> Self raise CaseFoldError
+pub fn SimpleCaseFolder::overlaps(Self, Int32, Int32) -> Bool
+
+pub struct Translator {
+  // private fields
+}
+pub fn Translator::new() -> Self
+pub fn Translator::translate(Self, String, @ast.Ast) -> Hir raise HirError
+
+pub struct TranslatorBuilder {
+  // private fields
+}
+pub fn TranslatorBuilder::build(Self) -> Translator
+pub fn TranslatorBuilder::case_insensitive(Self, Bool) -> Self
+pub fn TranslatorBuilder::crlf(Self, Bool) -> Self
+pub fn TranslatorBuilder::dot_matches_new_line(Self, Bool) -> Self
+pub fn TranslatorBuilder::line_terminator(Self, Byte) -> Self
+pub fn TranslatorBuilder::multi_line(Self, Bool) -> Self
+pub fn TranslatorBuilder::new() -> Self
+pub fn TranslatorBuilder::swap_greed(Self, Bool) -> Self
+pub fn TranslatorBuilder::unicode(Self, Bool) -> Self
+pub fn TranslatorBuilder::utf8(Self, Bool) -> Self
+
+// Type aliases
+
+// Traits
+pub(open) trait Interval : Eq + Compare {
+  fn lower(Self) -> Int32
+  fn upper(Self) -> Int32
+  fn create(Int32, Int32) -> Self
+  fn case_fold_simple(Self, Array[Self]) -> Unit raise CaseFoldError
+  fn bound_min_value() -> Int32
+  fn bound_max_value() -> Int32
+  fn bound_increment(Int32) -> Int32
+  fn bound_decrement(Int32) -> Int32
+}

@@ -1,4 +1,4 @@
-"""Development-only differential test of next/runtime against the C runtime.
+"""Development-only differential test of runtime against the C runtime.
 
 For every reference grammar in _build/ref (see ref_generate.sh) whose tables
 were converted to _build/reflang/<name>.json (language_from_c.py), parse the
@@ -23,7 +23,7 @@ LANG = Path(os.environ['NEXT_LANG_DIR']) if os.environ.get('NEXT_LANG_DIR') else
 BIN = ROOT / '_build/refbin'
 TMP = ROOT / '_build/difftmp'
 UPSTREAM = Path(subprocess.check_output(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], cwd=ROOT, text=True).strip()).parent / '.repos/ts-pinned'
-PROBE = ROOT / '_build/native/debug/build/next/probe/probe.exe'
+PROBE = ROOT / '_build/native/debug/build/tools/probe/probe.exe'
 
 # Inputs for test grammars whose corpus is empty or does not reach the
 # scanner's interesting paths, taken from upstream's crates/cli/src/tests.

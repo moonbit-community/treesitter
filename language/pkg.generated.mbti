@@ -2,138 +2,185 @@
 package "moonbit-community/treesitter/language"
 
 import {
-  "moonbit-community/treesitter/lex",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
 }
 
 // Values
+pub let language_version : Int32
+
+pub let language_version_with_primary_states : Int32
+
+pub let language_version_with_reserved_words : Int32
+
+pub let tree_sitter_serialization_buffer_size : Int32
+
+pub let ts_builtin_sym_end : Int32
+
+pub let ts_builtin_sym_error : Int32
+
+pub let ts_builtin_sym_error_repeat : Int32
 
 // Errors
-pub suberror LanguageError {
-  InvalidLanguage(String)
-} derive(@debug.Debug)
-pub fn LanguageError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
-pub(all) enum Action {
-  Shift(Int32)
-  Reduce(Int32)
-  Accept
-  EnterExtra(Int32)
-  AcceptExtra
+pub(all) struct CharacterRange {
+  start : Int32
+  end : Int32
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
-pub fn Action::equal(Self, Self) -> Bool
-#deprecated
-pub fn Action::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
-pub fn Action::not_equal(Self, Self) -> Bool
-#deprecated
-pub fn Action::to_json(Self) -> Json
-pub fn Action::to_repr(Self) -> @debug.Repr
 
-pub struct Language {
+pub(all) struct ExternalScannerData {
+  states : Array[Bool]
+  symbol_map : Array[Int32]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct FieldMapEntry {
+  field_id : Int32
+  child_index : Int32
+  inherited : Bool
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct Language {
+  abi_version : Int32
+  symbol_count : Int32
+  alias_count : Int32
+  token_count : Int32
+  external_token_count : Int32
+  state_count : Int32
+  large_state_count : Int32
+  production_id_count : Int32
+  field_count : Int32
+  max_alias_sequence_length : Int32
+  parse_table : Array[Int32]
+  small_parse_table : Array[Int32]
+  small_parse_table_map : Array[Int32]
+  parse_actions : Array[ParseActionEntry]
+  symbol_names : Array[String]
+  field_names : Array[String]
+  field_map_slices : Array[MapSlice]
+  field_map_entries : Array[FieldMapEntry]
+  symbol_metadata : Array[SymbolMetadata]
+  public_symbol_map : Array[Int32]
+  alias_map : Array[Int32]
+  alias_sequences : Array[Int32]
+  lex_modes : Array[LexMode]
+  lex_fn : LexProgram
+  keyword_lex_fn : LexProgram?
+  keyword_capture_token : Int32
+  external_scanner : ExternalScannerData
+  primary_state_ids : Array[Int32]
   name : String
-  symbols : Array[Symbol]
-  tokens : Array[Token]
-  productions : Array[Production]
-  states : Array[ParseState]
-  start_symbol : Int32
-  extras : Array[Int32]
-  word_token : Int32?
-  supertypes : Array[Int32]
-  externals : Array[Int32]
-  recovery_tokens : Array[Int32]
-  // private fields
-} derive(Eq, @debug.Debug)
-pub fn Language::equal(Self, Self) -> Bool
-pub fn Language::field_count(Self) -> Int32
-pub fn Language::field_id(Self, String) -> Int32?
-pub fn Language::field_name(Self, Int32) -> String?
-pub fn Language::from_json(Json) -> Self raise
-pub fn Language::lookahead(Self, Int32) -> Array[Int32]
-pub fn Language::lookahead_iterator(Self, Int32) -> LookaheadIterator?
-pub fn Language::new(String, Array[Symbol], Array[Token], Array[Production], Array[ParseState], Int32, Array[Int32], word_token? : Int32, supertypes? : Array[Int32], externals? : Array[Int32], recovery_tokens? : Array[Int32]) -> Self raise LanguageError
-pub fn Language::next_state(Self, Int32, Int32) -> Int32?
-pub fn Language::node_types(Self) -> Json
-pub fn Language::not_equal(Self, Self) -> Bool
-pub fn Language::parse(StringView) -> Self raise
-pub fn Language::subtypes(Self, Int32) -> Array[Int32]
-pub fn Language::symbol_count(Self) -> Int32
-pub fn Language::symbol_id(Self, String, named? : Bool) -> Int32?
+  reserved_words : Array[Int32]
+  max_reserved_word_set_size : Int32
+  supertype_count : Int32
+  supertype_symbols : Array[Int32]
+  supertype_map_slices : Array[MapSlice]
+  supertype_map_entries : Array[Int32]
+  metadata : LanguageMetadata
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn Language::actions(Self, Int32, Int32) -> ArrayView[ParseActionEntry]
+pub fn Language::actions_of(Self, TableEntry) -> ArrayView[ParseActionEntry]
+pub fn Language::alias_at(Self, Int32, Int32) -> Int32
+pub fn Language::alias_sequence(Self, Int32) -> Int32?
+pub fn Language::alias_sequence_value(Self, Int32) -> Int32
+pub fn Language::aliases_for_symbol(Self, Int32) -> ArrayView[Int32]
+pub fn Language::enabled_external_tokens(Self, Int32) -> ArrayView[Bool]?
+pub fn Language::field_id_for_name(Self, StringView) -> Int32
+pub fn Language::field_map(Self, Int32) -> (Int32, Int32)
+pub fn Language::field_name_for_id(Self, Int32) -> String?
+pub fn Language::has_actions(Self, Int32, Int32) -> Bool
+pub fn Language::has_reduce_action(Self, Int32, Int32) -> Bool
+pub fn Language::is_reserved_word(Self, Int32, Int32) -> Bool
+pub fn Language::language_metadata(Self) -> LanguageMetadata?
+pub fn Language::language_name(Self) -> String?
+pub fn Language::lex_mode_for_state(Self, Int32) -> LexMode
+pub fn Language::lookaheads(Self, Int32) -> LookaheadIterator
+pub fn Language::lookup(Self, Int32, Int32) -> Int32
+pub fn Language::next_state(Self, Int32, Int32) -> Int32
+pub fn Language::public_symbol(Self, Int32) -> Int32
+pub fn Language::state_is_primary(Self, Int32) -> Bool
+pub fn Language::subtypes(Self, Int32) -> ArrayView[Int32]
+pub fn Language::supertypes(Self) -> ArrayView[Int32]
+pub fn Language::symbol_count_with_aliases(Self) -> Int32
+pub fn Language::symbol_for_name(Self, StringView, Bool) -> Int32
+pub fn Language::symbol_metadata_of(Self, Int32) -> SymbolMetadata
 pub fn Language::symbol_name(Self, Int32) -> String?
-pub fn Language::symbol_type(Self, Int32) -> SymbolType?
-#deprecated
-pub fn Language::to_json(Self) -> Json
-pub fn Language::to_repr(Self) -> @debug.Repr
-pub fn Language::validate(Self) -> Unit raise LanguageError
-pub impl ToJson for Language
+pub fn Language::symbol_type(Self, Int32) -> SymbolType
+pub fn Language::table_entry(Self, Int32, Int32) -> TableEntry
+
+pub(all) struct LanguageMetadata {
+  major_version : Int32
+  minor_version : Int32
+  patch_version : Int32
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct LexCondition {
+  large_set : (Int32, Bool)?
+  asserted : RangeCondition?
+  negated : RangeCondition?
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct LexMode {
+  lex_state : Int32
+  external_lex_state : Int32
+  reserved_word_set_id : Int32
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct LexProgram {
+  states : Array[LexStateCode]
+  large_character_sets : Array[Array[CharacterRange]]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct LexStateCode {
+  accept_token : Int32?
+  eof_advance : Int32?
+  advance_map : Array[(Int32, Int32)]
+  transitions : Array[LexTransition]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct LexTransition {
+  condition : LexCondition
+  state : Int32
+  skip : Bool
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 
 pub struct LookaheadIterator {
   // private fields
 }
-pub fn LookaheadIterator::current_symbol(Self) -> Int32?
+pub fn LookaheadIterator::actions(Self) -> ArrayView[ParseActionEntry]
+pub fn LookaheadIterator::current_symbol(Self) -> Int32
 pub fn LookaheadIterator::current_symbol_name(Self) -> String?
 pub fn LookaheadIterator::language(Self) -> Language
-pub fn LookaheadIterator::next(Self) -> Int32?
+pub fn LookaheadIterator::new(Language, Int32) -> Self?
+pub fn LookaheadIterator::next(Self) -> Bool
+pub fn LookaheadIterator::next_state(Self) -> Int32
 pub fn LookaheadIterator::reset(Self, Language, Int32) -> Bool
 pub fn LookaheadIterator::reset_state(Self, Int32) -> Bool
 
-pub(all) struct ParseState {
-  reserved_words : Array[Int32]
-  actions : Map[Int32, Array[Action]]
-  gotos : Map[Int32, Int32]
-} derive(Eq, @debug.Debug)
-pub fn ParseState::equal(Self, Self) -> Bool
-pub fn ParseState::not_equal(Self, Self) -> Bool
-pub fn ParseState::to_repr(Self) -> @debug.Repr
-
-pub(all) struct Production {
-  requires_eof : Bool?
-  lhs : Int32
-  steps : Array[Step]
-  precedence : Int32
-  precedence_name : String?
-  associativity : Int32
-  dynamic_precedence : Int32
+pub(all) struct MapSlice {
+  index : Int32
+  length : Int32
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
-pub fn Production::equal(Self, Self) -> Bool
-#deprecated
-pub fn Production::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
-pub fn Production::not_equal(Self, Self) -> Bool
-#deprecated
-pub fn Production::to_json(Self) -> Json
-pub fn Production::to_repr(Self) -> @debug.Repr
 
-pub(all) struct Step {
-  reserved_set : Int32?
-  symbol : Int32
-  field : String?
-  rename : (String, Bool)?
-  precedence : Int32
-  precedence_name : String?
-  associativity : Int32
+pub(all) enum ParseActionEntry {
+  Entry(count~ : Int32, reusable~ : Bool)
+  Shift(state~ : Int32, extra~ : Bool, repetition~ : Bool)
+  Reduce(symbol~ : Int32, child_count~ : Int32, dynamic_precedence~ : Int32, production_id~ : Int32)
+  Accept
+  Recover
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
-pub fn Step::equal(Self, Self) -> Bool
-#deprecated
-pub fn Step::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
-pub fn Step::not_equal(Self, Self) -> Bool
-#deprecated
-pub fn Step::to_json(Self) -> Json
-pub fn Step::to_repr(Self) -> @debug.Repr
+pub fn ParseActionEntry::normalized(Self) -> Self
 
-pub(all) struct Symbol {
-  name : String
-  named : Bool
+pub(all) struct RangeCondition {
+  ranges : Array[CharacterRange]
+  is_included : Bool
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct SymbolMetadata {
   visible : Bool
-  terminal : Bool
+  named : Bool
+  supertype : Bool
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
-pub fn Symbol::equal(Self, Self) -> Bool
-#deprecated
-pub fn Symbol::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
-pub fn Symbol::not_equal(Self, Self) -> Bool
-#deprecated
-pub fn Symbol::to_json(Self) -> Json
-pub fn Symbol::to_repr(Self) -> @debug.Repr
 
 pub(all) enum SymbolType {
   Regular
@@ -141,24 +188,12 @@ pub(all) enum SymbolType {
   Supertype
   Auxiliary
 } derive(Eq, @debug.Debug)
-pub fn SymbolType::equal(Self, Self) -> Bool
-pub fn SymbolType::not_equal(Self, Self) -> Bool
-pub fn SymbolType::to_repr(Self) -> @debug.Repr
 
-pub(all) struct Token {
-  symbol : Int32
-  lexer : @lex.Dfa
-  precedence : Int32
-  immediate : Bool
-  literal : Bool
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
-pub fn Token::equal(Self, Self) -> Bool
-#deprecated
-pub fn Token::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
-pub fn Token::not_equal(Self, Self) -> Bool
-#deprecated
-pub fn Token::to_json(Self) -> Json
-pub fn Token::to_repr(Self) -> @debug.Repr
+pub(all) struct TableEntry {
+  actions_start : Int32
+  action_count : Int32
+  is_reusable : Bool
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

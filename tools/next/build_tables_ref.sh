@@ -6,7 +6,7 @@
 #    writing _build/bt_ref/<name>/{inputs.json,tables.txt,time_us}: the
 #    serialized inputs of upstream's build_tables, a canonical dump of its
 #    result (or its error message), and its run time.
-# 2. Runs the MoonBit port on the same inputs (next/generate/tools/
+# 2. Runs the MoonBit port on the same inputs (generate/tools/
 #    build_tables_diff) and compares the dumps. Extra arguments are passed to
 #    it, e.g. `--repeat 3 fixture_cpp`.
 set -u
@@ -27,5 +27,5 @@ for g in tools/next/build_tables_extra/*.json; do
   mkdir -p "$OUT/$name"
   "$DUMP" "$g" "$OUT/$name" > "$OUT/$name/time_us" || echo "$name harness FAILED"
 done
-moon build --target native --release next/generate/tools/build_tables_diff || exit 1
-_build/native/release/build/next/generate/tools/build_tables_diff/build_tables_diff.exe "$OUT" "$@"
+moon build --target native --release generate/tools/build_tables_diff || exit 1
+_build/native/release/build/generate/tools/build_tables_diff/build_tables_diff.exe "$OUT" "$@"

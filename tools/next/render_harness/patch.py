@@ -1,7 +1,7 @@
 """Patch a copy of upstream crates/generate so `render_c_code` dumps its inputs.
 
 Usage: python3 -I patch.py <copy>/crates/generate/src
-Development-only differential harness for next/generate/render.mbt.
+Development-only differential harness for generate/render.mbt.
 """
 
 import sys

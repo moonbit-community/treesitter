@@ -1,22 +1,22 @@
 import {
-  "moonbit-community/treesitter/grammar",
-  "moonbit-community/treesitter/language",
-  "moonbit-community/treesitter/mbtx",
+  "moonbit-community/treesitter",
+  "moonbit-community/treesitter/cli/support",
   "moonbit-community/treesitter/config",
   "moonbit-community/treesitter/generate",
-  "moonbitlang/core/json",
-  "moonbitlang/core/env",
+  "moonbit-community/treesitter/highlight",
+  "moonbit-community/treesitter/language",
+  "moonbit-community/treesitter/regex",
+  "moonbit-community/treesitter/runtime",
+  "moonbit-community/treesitter/scanners",
+  "moonbit-community/treesitter/tags",
+  "moonbit-community/treesitter/mbtx",
   "moonbitlang/async/fs",
   "moonbitlang/async/process",
   "moonbitlang/async/stdio",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
 }
 
 supported_targets = "+native"
 
-import {
-  "moonbitlang/async",
-} for "test"
-
-import {
-  "moonbitlang/async",
-} for "wbtest"
+warnings = "-implicit_impl_as_method-reserved_keyword"

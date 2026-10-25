@@ -1,4 +1,4 @@
-"""Development-only differential test of next/query against the C query engine.
+"""Development-only differential test of query against the C query engine.
 
 For every fixture grammar without (or with ported) external scanners, compile
 each queries/*.scm file of the grammar with both implementations and compare

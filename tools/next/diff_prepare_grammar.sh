@@ -1,21 +1,21 @@
 #!/bin/sh
 # Differential check of the `parse_grammar` + `prepare_grammar` port.
 #
-# Compares the MoonBit dump (`next/generate/cmd/dump_prepared`) against the
+# Compares the MoonBit dump (`generate/cmd/dump_prepared`) against the
 # same dump produced by a scratch copy of the upstream crate, for every
 # `_build/ref/*/src/grammar.json` written by `tools/next/ref_generate.sh`.
 #
 # UPSTREAM_DUMP must point at the upstream dump binary: a copy of
 # `crates/generate` with `src/dump.rs` (the Rust twin of
-# `next/generate/prepare_grammar_dump.mbt`), a `StrPool::len` accessor and a
+# `generate/prepare_grammar_dump.mbt`), a `StrPool::len` accessor and a
 # `src/bin/dump_prepared.rs` driver, built with
 # `cargo +1.97.1 build --release --no-default-features --bin dump_prepared`.
 # Output: _build/diff_prepare/<name>.{ref,out,diff}.
 set -u
 cd "$(dirname "$0")/../.."
 : "${UPSTREAM_DUMP:?set UPSTREAM_DUMP to the upstream dump_prepared binary}"
-moon build --target native next/generate/cmd/dump_prepared >/dev/null || exit 1
-MB=_build/native/debug/build/next/generate/cmd/dump_prepared/dump_prepared.exe
+moon build --target native generate/cmd/dump_prepared >/dev/null || exit 1
+MB=_build/native/debug/build/generate/cmd/dump_prepared/dump_prepared.exe
 OUT=_build/diff_prepare
 rm -rf "$OUT"
 mkdir -p "$OUT"

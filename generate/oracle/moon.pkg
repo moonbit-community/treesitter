@@ -1,0 +1,12 @@
+import {
+  "moonbit-community/treesitter/generate",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/sorted_map",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "+native"

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Differential harness for next/generate/render.mbt.
+# Differential harness for generate/render.mbt.
 #
 # Builds a copy of the pinned upstream CLI whose `render_c_code` serializes its
 # inputs to JSON (tools/next/render_harness), then regenerates every grammar

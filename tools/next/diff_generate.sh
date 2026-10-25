@@ -3,7 +3,7 @@
 # compare parser.c / node-types.json byte-for-byte with upstream's output
 # (or the error text for grammars upstream rejects).
 cd "$(dirname "$0")/../.."
-PROBE=_build/native/release/build/next/probe/probe.exe
+PROBE=_build/native/release/build/tools/probe/probe.exe
 ok=0; fail=0
 for d in _build/ref/*/; do
   n=$(basename "$d")

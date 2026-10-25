@@ -1,13 +1,7 @@
 import {
-  "moonbit-community/treesitter" @ts,
+  "moonbit-community/treesitter/runtime",
   "moonbit-community/treesitter/language",
-  "moonbit-community/treesitter/lex",
-  "moonbitlang/core/debug",
-  "moonbitlang/core/json",
   "moonbitlang/core/encoding/utf8",
 }
 
-import {
-  "moonbit-community/treesitter/grammar",
-  "moonbit-community/treesitter/generate",
-} for "test"
+warnings = "-implicit_impl_as_method-reserved_keyword"

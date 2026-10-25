@@ -1,0 +1,5 @@
+import {
+  "moonbit-community/treesitter/runtime",
+}
+
+warnings = "-implicit_impl_as_method-reserved_keyword"

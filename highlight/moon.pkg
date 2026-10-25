@@ -1,12 +1,8 @@
 import {
-  "moonbit-community/treesitter" @ts,
-  "moonbit-community/treesitter/language",
-  "moonbit-community/treesitter/query",
-  "moonbitlang/core/debug",
+  "moonbit-community/treesitter",
+  "moonbit-community/treesitter/regex_syntax/hir",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/hashset",
 }
 
-import {
-  "moonbit-community/treesitter/examples/arithmetic",
-  "moonbit-community/treesitter/grammar",
-  "moonbit-community/treesitter/generate",
-} for "test"
+warnings = "-implicit_impl_as_method-reserved_keyword"

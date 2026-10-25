@@ -1,5 +1,6 @@
 import {
   "moonbitlang/core/json",
-  "moonbit-community/treesitter/lex",
-  "moonbitlang/core/debug",
+  "moonbitlang/core/encoding/utf8",
 }
+
+warnings = "-implicit_impl_as_method-reserved_keyword"

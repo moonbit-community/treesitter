@@ -1,0 +1,5 @@
+import {
+  "moonbit-community/treesitter/clap",
+}
+
+warnings = "-implicit_impl_as_method-reserved_keyword"

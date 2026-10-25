@@ -1,5 +1,5 @@
 """Development-only oracle: convert an upstream-generated parser.c into the
-JSON form of next/language's `Language`.
+JSON form of language's `Language`.
 
 The parse tables come from compiling parser.c with tools/next/dump_language.c
 (so every array is exactly what the C runtime reads); the lex functions are

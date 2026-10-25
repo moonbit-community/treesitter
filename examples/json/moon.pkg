@@ -1,7 +1,0 @@
-import {
-  "moonbit-community/treesitter/language",
-}
-
-import {
-  "moonbit-community/treesitter" @ts,
-} for "test"

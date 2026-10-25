@@ -1,24 +1,29 @@
 import {
-  "moonbit-community/treesitter" @ts,
-  "moonbit-community/treesitter/grammar",
-  "moonbit-community/treesitter/language",
-  "moonbit-community/treesitter/lex",
-  "moonbit-community/treesitter/generate",
-  "moonbit-community/treesitter/loader",
+  "moonbit-community/treesitter",
+  "moonbit-community/treesitter/clap",
+  "moonbit-community/treesitter/clap_complete",
+  "moonbit-community/treesitter/cli/commands",
+  "moonbit-community/treesitter/cli/init",
+  "moonbit-community/treesitter/cli/support",
+  "moonbit-community/treesitter/cli_test",
   "moonbit-community/treesitter/config",
-  "moonbit-community/treesitter/corpus",
-  "moonbit-community/treesitter/query",
+  "moonbit-community/treesitter/generate",
   "moonbit-community/treesitter/highlight",
+  "moonbit-community/treesitter/loader",
+  "moonbit-community/treesitter/query_testing",
+  "moonbit-community/treesitter/regex",
   "moonbit-community/treesitter/tags",
   "moonbitlang/async/fs",
+  "moonbitlang/async/os_error",
+  "moonbitlang/async/process",
+  "moonbitlang/async/stdio",
+  "moonbitlang/core/buffer",
   "moonbitlang/core/env",
-  "moonbitlang/core/encoding/utf8",
-  "moonbitlang/core/random",
+  "moonbitlang/core/hashset",
+  "moonbitlang/core/math",
   "moonbitlang/core/string",
 }
 
 supported_targets = "+native"
 
-import {
-  "moonbitlang/async",
-} for "test"
+warnings = "-implicit_impl_as_method-reserved_keyword"

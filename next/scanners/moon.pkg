@@ -1,5 +1,0 @@
-import {
-  "moonbit-community/treesitter/next/runtime",
-}
-
-warnings = "-implicit_impl_as_method-reserved_keyword"

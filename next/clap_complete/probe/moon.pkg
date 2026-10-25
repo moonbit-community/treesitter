@@ -1,9 +1,0 @@
-import {
-  "moonbit-community/treesitter/next/clap_complete",
-  "moonbit-community/treesitter/next/cli/commands",
-  "moonbitlang/core/env",
-}
-
-pkgtype(kind: "executable")
-
-supported_targets = "+native"

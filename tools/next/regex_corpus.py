@@ -1,4 +1,4 @@
-"""Development-only: build the differential corpus for next/regex.
+"""Development-only: build the differential corpus for regex.
 
 Collects the regexes of every `#match?`-family predicate in the query files of
 upstream's fixture grammars and in crates/cli/src/tests/*.rs, adds hand-written
@@ -6,7 +6,7 @@ edge cases, and pairs each pattern with a deterministic set of haystacks.
 
 Output: JSON lines `{"p": pattern, "t": [hex-encoded haystack bytes...]}`.
 Feed the file to both tools/next/regex_harness (Rust `regex::bytes::Regex`)
-and next/regex/probe (MoonBit) and diff their outputs.
+and regex/probe (MoonBit) and diff their outputs.
 
 Usage: python3 tools/next/regex_corpus.py <upstream checkout> [random pattern count] > corpus.jsonl
 """

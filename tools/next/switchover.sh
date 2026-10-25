@@ -20,9 +20,9 @@ git rm -q -- tools/audit_*.py tools/import_changed_ranges.py tools/import_edited
 git checkout HEAD -- examples/json/grammar.mbtx examples/json/highlights.scm examples/json/tags.scm \
   examples/json/sample.json examples/json/tree-sitter.json 2>/dev/null || true
 
-# 2. Move the port into place. next/api becomes the root package.
-git mv next/api/tests tests
-for f in next/api/*; do git mv "$f" .; done
+# 2. Move the port into place. api becomes the root package.
+git mv api/tests tests
+for f in api/*; do git mv "$f" .; done
 move() { if [ -e "next/$1" ]; then mkdir -p "$(dirname "$2")"; git mv "next/$1" "$2"; fi; }
 for pkg in runtime language generate query regex regex_syntax scanners highlight tags query_testing cli_test cli loader config clap clap_complete fixtures; do
   move "$pkg" "$pkg"
@@ -35,14 +35,14 @@ git mv next/PORTING.md PORTING.md
 files=$(git ls-files '*.mbt' '*.mbt.md' '*.mbtx' 'moon.pkg' '*/moon.pkg' '*.py' '*.sh' '*.md')
 for f in $files; do
   [ -L "$f" ] && continue
-  perl -pi -e 's#moonbit-community/treesitter/next/api/tests#moonbit-community/treesitter/tests#g;
-               s#moonbit-community/treesitter/next/api"#moonbit-community/treesitter"#g;
-               s#moonbit-community/treesitter/next/probe#moonbit-community/treesitter/tools/probe#g;
-               s#moonbit-community/treesitter/next/#moonbit-community/treesitter/#g;
+  perl -pi -e 's#moonbit-community/treesitter/tests#moonbit-community/treesitter/tests#g;
+               s#moonbit-community/treesitter"#moonbit-community/treesitter"#g;
+               s#moonbit-community/treesitter/tools/probe#moonbit-community/treesitter/tools/probe#g;
+               s#moonbit-community/treesitter/#moonbit-community/treesitter/#g;
                s#next/probe/probe\.exe#tools/probe/probe.exe#g;
                s#\bnext/(api|runtime|language|generate|query|regex|regex_syntax|scanners|highlight|tags|query_testing|cli_test|cli|loader|config|clap|clap_complete|fixtures)\b#$1#g' "$f"
 done
-# The root package (formerly next/api) is imported as @treesitter.
+# The root package (formerly api) is imported as @treesitter.
 for f in $(git ls-files '*.mbt' '*.mbt.md'); do
   [ -L "$f" ] && continue
   perl -pi -e 's#\@api\.#\@treesitter.#g' "$f"

@@ -1,4 +1,5 @@
 ///|
+/// The `tree-sitter` executable (native only).
 async fn main {
-  @cli.run(@env.args())
+  @cli.cli_main(@env.args())
 }

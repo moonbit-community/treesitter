@@ -1,5 +1,5 @@
 #!/bin/sh
-# Differential oracle for the node_types port (next/generate/node_types*.mbt).
+# Differential oracle for the node_types port (generate/node_types*.mbt).
 #
 # 1. Copies upstream crates/generate into _build/next_oracle/tsharness, patches
 #    in a dump harness (tools/next/oracle) and builds it with the pinned toolchain.
@@ -8,7 +8,7 @@
 #    grammars: the prepared inputs of get_variable_info/generate_node_types_json
 #    and upstream's outputs (variable info, supertype symbol map, node-types.json
 #    text or error text).
-# 3. Runs next/generate/oracle on the dumps and compares node-types.json byte for
+# 3. Runs generate/oracle on the dumps and compares node-types.json byte for
 #    byte with _build/ref/<name>/src/node-types.json.
 set -eu
 cd "$(dirname "$0")/../.."
@@ -35,8 +35,8 @@ mkdir -p "$OUT/node_types_tests"
 python3 tools/next/oracle/extra_node_types_grammars.py "$OUT/extra_grammars"
 "$WS/target/debug/examples/nt_dump" "$OUT/extra_grammars" "$OUT/node_types_extra" > /dev/null
 
-moon build --target native next/generate/oracle
-ORACLE=$REPO/_build/native/debug/build/next/generate/oracle/oracle.exe
+moon build --target native generate/oracle
+ORACLE=$REPO/_build/native/debug/build/generate/oracle/oracle.exe
 status=0
 echo "== fixture and test grammars (_build/ref)"
 "$ORACLE" "$OUT/node_types" "$REPO/_build/ref" || status=1

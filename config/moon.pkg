@@ -1,5 +1,10 @@
 import {
-  "moonbit-community/treesitter/lex",
+  "moonbit-community/treesitter/cli/support",
+  "moonbitlang/async/fs",
+  "moonbitlang/core/env",
   "moonbitlang/core/json",
-  "moonbitlang/core/encoding/utf8",
 }
+
+supported_targets = "+native"
+
+warnings = "-implicit_impl_as_method-reserved_keyword"

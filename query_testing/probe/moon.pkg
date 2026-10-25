@@ -1,0 +1,20 @@
+import {
+  "moonbit-community/treesitter",
+  "moonbit-community/treesitter/highlight",
+  "moonbit-community/treesitter/language",
+  "moonbit-community/treesitter/query_testing",
+  "moonbit-community/treesitter/regex",
+  "moonbit-community/treesitter/scanners",
+  "moonbit-community/treesitter/tags",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+}
+
+supported_targets = "+native"
+
+warnings = "-implicit_impl_as_method-reserved_keyword"
+
+pkgtype(kind: "executable")

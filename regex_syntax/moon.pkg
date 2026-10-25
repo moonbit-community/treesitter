@@ -1,0 +1,6 @@
+import {
+  "moonbit-community/treesitter/regex_syntax/ast",
+  "moonbit-community/treesitter/regex_syntax/hir",
+}
+
+warnings = "-implicit_impl_as_method-reserved_keyword"
