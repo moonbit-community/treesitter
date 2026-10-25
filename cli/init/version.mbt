@@ -269,23 +269,83 @@ async fn update_file_with(
 }
 
 ///|
-/// Replace the quoted value following `prefix` on `line` with `version`
-/// (panics like upstream's `unwrap`s when the quotes are missing).
+/// Replace the quoted value following `prefix` on `line` with `version`:
+///
+/// ```rust
+/// let prefix_index = line.find(prefix).unwrap() + prefix.len();
+/// let start_quote = line[prefix_index..].find('"').unwrap() + prefix_index + 1;
+/// let end_quote = line[start_quote + 1..].find('"').unwrap() + start_quote + 1;
+/// format!("{}{}{}", &line[..start_quote], version, &line[end_quote..])
+/// ```
+///
+/// with byte offsets, panicking as upstream does (at the lines `line_no + 2`
+/// and `line_no + 4` of version.rs, where `line_no` is the line of the first
+/// `unwrap`) when a quote is missing or the slice after the opening quote
+/// does not start at a character boundary.
 fn replace_quoted_after(
   line : String,
   prefix : String,
   version : String,
+  line_no~ : Int32,
 ) -> String {
-  let prefix_index = line.find(prefix).unwrap() + prefix.length()
-  let start_quote = line.view(start_offset=prefix_index).find("\"").unwrap() +
-    prefix_index +
-    1
-  let end_quote = line.view(start_offset=start_quote + 1).find("\"").unwrap() +
-    start_quote +
-    1
-  line.view(end_offset=start_quote).to_owned() +
+  let bytes = @support.utf8(line)
+  let find_quote = (from : Int32) => {
+    for i in from..<bytes.length() {
+      if bytes[i] == b'"' {
+        return Some(i)
+      }
+    }
+    None
+  }
+  let unwrap_none = (line : Int32, column : Int32) => {
+    @support.rust_panic(
+      "called `Option::unwrap()` on a `None` value",
+      "crates/cli/src/version.rs:\{line}:\{column}",
+    )
+  }
+  // `prefix` is ASCII and found (the caller checked), so `prefix_index` is a
+  // character boundary.
+  let prefix_index = @support.utf8_len(
+      line.view(end_offset=line.find(prefix).unwrap()).to_owned(),
+    ) +
+    @support.utf8_len(prefix)
+  let start_quote = match find_quote(prefix_index) {
+    Some(i) => i + 1
+    None => unwrap_none(line_no + 2, 60)
+  }
+  // `line[start_quote + 1..]`
+  let from = start_quote + 1
+  let location = "crates/cli/src/version.rs:\{line_no + 4}:33"
+  if from > bytes.length() {
+    @support.rust_panic(
+      "start byte index \{from} is out of bounds for string of length \{bytes.length()}",
+      location,
+    )
+  }
+  if from < bytes.length() && (bytes[from].to_int() & 0xC0) == 0x80 {
+    let mut char_start = from
+    while (bytes[char_start].to_int() & 0xC0) == 0x80 {
+      char_start -= 1
+    }
+    let mut char_end = char_start + 1
+    while char_end < bytes.length() && (bytes[char_end].to_int() & 0xC0) == 0x80 {
+      char_end += 1
+    }
+    let ch = @support.utf8_lossy(bytes[char_start:char_end])
+      .get_char(0)
+      .unwrap()
+    @support.rust_panic(
+      "start byte index \{from} is not a char boundary; it is inside \{@support.rust_debug_char(ch)} (bytes \{char_start}..\{char_end} of string)",
+      location,
+    )
+  }
+  let end_quote = match find_quote(from) {
+    Some(i) => i
+    None => unwrap_none(line_no + 4, 63)
+  }
+  @support.utf8_lossy(bytes[:start_quote]) +
   version +
-  line.view(start_offset=end_quote).to_owned()
+  @support.utf8_lossy(bytes[end_quote:])
 }
 
 ///|
@@ -303,7 +363,7 @@ async fn Version::update_treesitter_json(
   update_file_with(json_path, content => {
     map_lines(content, line => {
       if line.contains("\"version\":") {
-        replace_quoted_after(line, "\"version\":", version)
+        replace_quoted_after(line, "\"version\":", version, line_no=163)
       } else {
         line
       }
@@ -363,7 +423,7 @@ async fn Version::update_package_json(
   update_file_with(package_json_path, content => {
     map_lines(content, line => {
       if line.contains("\"version\":") {
-        replace_quoted_after(line, "\"version\":", version)
+        replace_quoted_after(line, "\"version\":", version, line_no=244)
       } else {
         line
       }
@@ -530,7 +590,7 @@ async fn Version::update_zig_zon(self : Version) -> Result[Unit, UpdateError] {
     let zig_version_prefix = ".version ="
     map_lines(content, line => {
       if line.trim_start(chars=" \t\n\r\u{0C}").has_prefix(zig_version_prefix) {
-        replace_quoted_after(line, zig_version_prefix, version)
+        replace_quoted_after(line, zig_version_prefix, version, line_no=375)
       } else {
         line
       }
