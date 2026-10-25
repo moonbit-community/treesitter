@@ -42,7 +42,7 @@ let capture_names_for_patterns : Array[String] = [
 ///|
 fn Pattern::random_pattern_in_tree(
   tree : @treesitter.Tree,
-  rng : StdRng,
+  rng : @cli_test.StdRng,
 ) -> (Pattern, (@treesitter.Point, @treesitter.Point)) {
   let cursor = tree.walk()
 
@@ -90,7 +90,7 @@ fn Pattern::random_pattern_in_tree(
 ///|
 fn Pattern::random_pattern_for_node(
   cursor : @treesitter.TreeCursor,
-  rng : StdRng,
+  rng : @cli_test.StdRng,
 ) -> Pattern {
   let node = cursor.node()
 
