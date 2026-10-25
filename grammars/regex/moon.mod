@@ -1,6 +1,6 @@
 name = "moonbit-community/tree-sitter-regex"
 
-version = "1.0.0"
+version = "0.100.0"
 
 readme = "README.mbt.md"
 

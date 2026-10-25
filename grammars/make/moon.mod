@@ -1,6 +1,6 @@
 name = "moonbit-community/tree-sitter-make"
 
-version = "1.1.1"
+version = "0.101.1"
 
 readme = "README.mbt.md"
 

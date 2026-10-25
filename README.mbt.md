@@ -93,6 +93,12 @@ import {
 }
 ```
 
+Module versions are the grammars' release versions. Mooncakes only accepts
+`0.x.y` versions for now, so a release `M.m.p` with `M >= 1` is published as
+`0.(100*M + m).p`: `tree-sitter-regex` 0.100.0 is regex 1.0.0,
+`tree-sitter-make` 0.101.1 is make 1.1.1, `tree-sitter-verilog` 0.100.3 is
+verilog 1.0.3 and `tree-sitter-zig` 0.101.2 is zig 1.1.2.
+
 The repository root is a workspace ([moon.work](moon.work)) of the core module
 and the grammar modules, so `moon check` and `moon test` cover them all.
 `sh tools/grammars/update.sh` regenerates the modules from the pinned grammar
