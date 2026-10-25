@@ -393,8 +393,12 @@ pub async fn Loader::language_configuration_for_scope(
 
 ///|
 /// `language_configuration_for_first_line_regex`. Upstream folds over a
-/// `HashMap`, so the result is that of the last entry visited; entries are
-/// visited in insertion order here.
+/// `HashMap` whose iteration order depends on its per-process random hash
+/// keys, and the fold returns the result of the last entry visited (`None`
+/// if that entry's pattern does not match the first line). The port keeps
+/// the fold semantics over the map's insertion order (the order in which the
+/// patterns were first seen), which is one of the orders upstream may use;
+/// with a single first-line pattern both agree.
 pub async fn Loader::language_configuration_for_first_line_regex(
   self : Loader,
   path : String,
@@ -403,22 +407,16 @@ pub async fn Loader::language_configuration_for_first_line_regex(
   for regex, ids in self.language_configuration_ids_by_first_line_regex {
     result = None
     guard make_regex(Some(regex)) is Some(regex) else { continue }
-    let contents = @fs.read_file(path).binary() catch {
+    let reader = LineReader::open(path) catch {
       e => raise IO(@support.io_error_with_path(e, Some(path)))
     }
-    let text = @support.utf8_lossy(contents)
-    let first_line = match text.find("\n") {
-      Some(i) => {
-        let line = text.unsafe_substring(start=0, end=i)
-        if line.has_suffix("\r") {
-          line.unsafe_substring(start=0, end=line.length() - 1)
-        } else {
-          line
-        }
-      }
-      None => text
+    defer reader.close()
+    let first_line = reader.next_line() catch {
+      e => raise IO("\{line_error_message(e)} (\{path})")
     }
-    if !text.is_empty() && regex.is_match(first_line) && !ids.is_empty() {
+    if first_line is Some(first_line) &&
+      regex.is_match(first_line) &&
+      !ids.is_empty() {
       let configuration = self.language_configurations[ids[0]]
       let language = self.language_for_id(configuration.language_id)
       result = Some((language, configuration))
@@ -890,7 +888,7 @@ pub async fn Loader::find_language_configurations_at_path(
       // tree-sitter.json file already uses the same language.
       let mut language_id = None
       for id in language_count..<self.languages_by_id.length() {
-        if language_path == self.languages_by_id[id].path {
+        if @support.path_eq(language_path, self.languages_by_id[id].path) {
           language_id = Some(id)
         }
       }
@@ -1028,20 +1026,19 @@ fn grammar_name(json_text : String) -> String? {
 ///|
 /// `grammar_json_name`: the name in the first three lines of `grammar.json`.
 pub async fn Loader::grammar_json_name(grammar_path : String) -> String {
-  let text = @fs.read_file(grammar_path).text() catch {
+  let reader = LineReader::open(grammar_path) catch {
     e => raise IO(@support.io_error_with_path(e, Some(grammar_path)))
   }
-  let lines = text.split("\n").take(3).map(l => l.to_owned()).collect()
-  // `BufRead::lines` strips a trailing `\r`.
-  let first_three_lines = lines
-    .map(l => {
-      if l.has_suffix("\r") {
-        l.unsafe_substring(start=0, end=l.length() - 1)
-      } else {
-        l
-      }
-    })
-    .join("\n")
+  defer reader.close()
+  // `BufReader::new(file).lines().take(3).collect::<Result<Vec<_>, _>>()`
+  let lines = []
+  for _ in 0..<3 {
+    match (reader.next_line() catch { _ => raise GrammarJSON(grammar_path) }) {
+      Some(line) => lines.push(line)
+      None => break
+    }
+  }
+  let first_three_lines = lines.join("\n")
   match grammar_name(first_three_lines) {
     Some(name) => name
     None => raise GrammarJSON(grammar_path)
