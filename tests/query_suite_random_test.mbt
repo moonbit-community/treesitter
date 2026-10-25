@@ -22,7 +22,7 @@ async test "query_random" {
   let end_seed = start_seed + iteration_count()
   for seed in start_seed..<(start_seed + end_seed) {
     let seed = seed.to_uint64()
-    let rand = StdRng::seed_from_u64(seed)
+    let rand = @cli_test.StdRng::seed_from_u64(seed)
     let (pattern_ast, _) = Pattern::random_pattern_in_tree(pattern_tree, rand)
     let pattern = Show::to_string(pattern_ast)
     let expected_matches = pattern_ast.matches_in_tree(test_tree)
