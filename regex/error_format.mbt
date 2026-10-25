@@ -3,17 +3,17 @@
 // `regex::Error::Syntax` carries.
 
 ///|
-/// `str::lines`: split on `\n`, dropping a trailing `\r` from each line and
-/// the empty string after a final `\n`.
+/// `str::lines`: split on `\n`, dropping the empty string after a final
+/// `\n`, and drop the `\r` of a `\r\n` terminator (a final line without a
+/// `\n` keeps a trailing `\r`).
 fn str_lines(s : String) -> Array[String] {
   let lines = []
   if s.is_empty() {
     return lines
   }
   let parts = s.split("\n").map(p => p.to_owned()).to_array()
-  if s.has_suffix("\n") {
-    ignore(parts.pop())
-  }
+  // The last part is not followed by `\n`: empty if `s` ends with one.
+  let last = parts.pop().unwrap()
   for part in parts {
     lines.push(
       if part.has_suffix("\r") {
@@ -22,6 +22,9 @@ fn str_lines(s : String) -> Array[String] {
         part
       },
     )
+  }
+  if !last.is_empty() {
+    lines.push(last)
   }
   lines
 }
