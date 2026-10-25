@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-community/tree-sitter-typescript"
+
+import {
+  "moonbit-community/treesitter",
+}
+
+// Values
+pub let highlights_query : String
+
+pub fn language_tsx() -> @treesitter.Language
+
+pub fn language_typescript() -> @treesitter.Language
+
+pub let locals_query : String
+
+pub let tags_query : String
+
+pub let tsx_node_types : String
+
+pub let typescript_node_types : String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

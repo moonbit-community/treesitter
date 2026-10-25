@@ -1,0 +1,10 @@
+import {
+  "moonbit-community/treesitter",
+  "moonbit-community/treesitter/language",
+  "moonbit-community/treesitter/scanners",
+}
+
+import {
+  "moonbit-community/tree-sitter-python" @tree_sitter_python,
+  "moonbitlang/core/encoding/utf8",
+} for "test"
