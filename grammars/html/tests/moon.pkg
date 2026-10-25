@@ -1,0 +1,9 @@
+import {
+  "moonbit-community/tree-sitter-html" @tree_sitter_html,
+  "moonbit-community/treesitter",
+  "moonbit-community/treesitter/cli_test",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+} for "test"
+
+supported_targets = "+native"

@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-community/tree-sitter-html"
+
+import {
+  "moonbit-community/treesitter",
+}
+
+// Values
+pub let highlights_query : String
+
+pub let injections_query : String
+
+pub fn language() -> @treesitter.Language
+
+pub let node_types : String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
