@@ -43,7 +43,23 @@ packages' own tests.
 ## Representation differences
 
 - Numeric node ids (`Node::id`) are unique within a tree but are not memory
-  addresses; `usize::MAX` sentinels are `0x7FFFFFFF`.
+  addresses.
+- Offsets, rows and columns are `Int`. `Int::max_value()` stands for
+  upstream's `usize::MAX`/`u32::MAX` sentinels; values above `0x7FFFFFFE`
+  (only possible for documents over 2 GiB or offsets given to
+  `root_node_with_offset`) are reported as `0x7FFFFFFF`.
+- MoonBit has no destructors. A discarded `Tree` keeps its share of the
+  reference counts of its subtrees, so a subtree once shared with a
+  discarded tree is copied rather than mutated in place by later edits of
+  the remaining tree; the resulting trees are identical, only the
+  `Node::id`s along the edited path and the cost of the copy differ.
+  Parsers are not destroyed automatically either: call `Parser::delete`
+  (the equivalent of dropping the Rust `Parser`) to run the external
+  scanner's `destroy` for a parse that was cancelled and not reset.
+- `Tree::print_dot_graph` and `Parser::print_dot_graphs_to` write upstream's
+  exact bytes to a `Buffer`; String destinations (`StringBuilder`,
+  `Parser::print_dot_graphs`) receive them decoded as UTF-8 with invalid
+  bytes replaced by U+FFFD.
 - `Range<usize>` values are `(Int, Int)` pairs; cancellation flags are
   `Ref[Int]`.
 - Upstream sorts query-testing assertions with an unstable sort; the port uses
