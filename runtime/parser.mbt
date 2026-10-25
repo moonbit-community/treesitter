@@ -623,6 +623,9 @@ fn Parser::lex(self : Parser, version : Int32, parse_state : Int32) -> Subtree {
         self.scanner_buffer,
         external_scanner_state_len,
       )
+      data.repeat_depth = external_scanner_state_repeat_depth(
+        data.external_scanner_state,
+      )
       data.has_external_scanner_state_change = external_scanner_state_changed
     }
     result
