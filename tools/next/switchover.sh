@@ -11,6 +11,11 @@ git rm -q -- *.mbt moon.pkg pkg.generated.mbti
 for pkg in generate language query highlight tags lex cli loader config corpus compat benchmarks cmd/treesitter examples/arithmetic examples/json; do
   if [ -e "$pkg" ]; then git rm -r -q -- "$pkg"; fi
 done
+# The previous engine's audit/import tooling.
+git rm -q -- tools/audit_*.py tools/import_changed_ranges.py tools/import_edited_spans.py \
+  tools/import_fixtures.py tools/import_node_types.py tools/import_unicode.py \
+  tools/freeze_public_examples.py tools/check_registry.py tools/grammar_matrix.json \
+  tools/reference_examples.c
 # Keep non-MoonBit example assets.
 git checkout HEAD -- examples/json/grammar.mbtx examples/json/highlights.scm examples/json/tags.scm \
   examples/json/sample.json examples/json/tree-sitter.json 2>/dev/null || true
@@ -36,5 +41,9 @@ for f in $files; do
                s#next/probe/probe\.exe#tools/probe/probe.exe#g;
                s#\bnext/(api|runtime|language|generate|query|regex|regex_syntax|scanners|highlight|tags|query_testing|cli_test|cli|loader|config|clap|clap_complete|fixtures)\b#$1#g' "$f"
 done
-rmdir next 2>/dev/null || true
+# The root package (formerly next/api) is imported as @treesitter.
+for f in $(git ls-files '*.mbt' '*.mbt.md'); do
+  perl -pi -e 's#\@api\.#\@treesitter.#g' "$f"
+done
+find next -type d -empty -delete 2>/dev/null || true
 echo "switch-over done; now run moon check / moon info and fix the remaining references"
