@@ -651,6 +651,12 @@ fn QueryCursor::advance(self : QueryCursor, stop_on_definite_step : Bool) -> Boo
       while self.states.pop() is Some(state) {
         self.capture_list_pool.release(state.capture_list_id)
       }
+      // The traversal is over until the next `exec`. Upstream's tree cursor
+      // does not own the tree, but a MoonBit `TreeCursor` keeps the tree (and
+      // its stack of subtrees) alive, so a cursor kept for reuse (as
+      // `Highlighter` and `TagsContext` do) must not hold on to it once the
+      // pending matches are consumed.
+      self.cursor = None
     }
     if did_match || self.halted {
       return did_match

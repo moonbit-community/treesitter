@@ -147,3 +147,48 @@ test "handed-out capture lists keep their elements" {
   )
   debug_inspect(pool.get(id).map(c => c.index), content="[100]")
 }
+
+///|
+/// Whether a cursor still refers to a tree: through its tree cursor, its
+/// pending states or the captures left in its capture lists.
+fn QueryCursor::holds_tree(self : QueryCursor) -> Bool {
+  self.cursor is Some(_) ||
+  self.states.length() > 0 ||
+  self.finished_states.length() > 0 ||
+  self.capture_list_pool.list.iter().any(list => {
+    list.items.iter().any(c => !physical_equal(c, null_capture))
+  })
+}
+
+///|
+test "exhausted cursors do not keep their tree" {
+  let language = basic_cst()
+  let parser = @runtime.Parser::new()
+  inspect(parser.set_language(Some(language)), content="true")
+  let tree = parser.parse_string(None, b"a = 1").unwrap()
+  let query = Query::new(language, b"(assignment (identifier) @name)")
+  let cursor = QueryCursor::new()
+  for use_captures in [false, true] {
+    cursor.exec(query, tree.root_node())
+    let mut count = 0
+    if use_captures {
+      while cursor.next_capture() is Some(_) {
+        count += 1
+      }
+    } else {
+      while cursor.next_match() is Some(_) {
+        count += 1
+      }
+    }
+    inspect(count, content="1")
+    inspect(cursor.holds_tree(), content="false")
+    // Another exhausted call keeps it that way, and the cursor can be reused.
+    inspect(cursor.next_match() is None, content="true")
+    inspect(cursor.holds_tree(), content="false")
+  }
+  // While matches are pending, the cursor does hold the tree.
+  cursor.exec(query, tree.root_node())
+  ignore(cursor.next_match())
+  inspect(cursor.holds_tree(), content="true")
+}
+
