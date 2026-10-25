@@ -566,7 +566,7 @@ async fn test_run(
   }
   loader.debug_build(m.get_flag("debug_build"))
   loader.force_rebuild(m.get_flag("rebuild") || m.contains_id("grammar_path"))
-  let parser = @treesitter.Parser::new()
+  let mut parser = @treesitter.Parser::new()
   if m.get_flag("wasm") {
     raise wasm_unsupported()
   }
@@ -615,7 +615,7 @@ async fn test_run(
       file_name: m.get_one("file_name"),
       update,
       open_log: m.get_flag("open_log"),
-      languages: languages.map(entry => (entry.1, entry.0)),
+      languages: languages_by_name(languages),
       show_fields: m.get_flag("show_fields"),
       overview_only: m.get_flag("overview_only"),
     }
@@ -638,17 +638,20 @@ async fn test_run(
   let test_highlight_dir = @support.path_join(test_dir, "highlight")
   if is_dir(test_highlight_dir) {
     let highlighter = @highlight.Highlighter::new()
+    move_parser(parser, highlighter.parser)
     let loader_config = load_loader_config(config)
     check_test(test_summary, json_summary, () => {
       test_highlights(
         loader, loader_config, highlighter, test_highlight_dir, test_summary,
       )
     })
+    parser = highlighter.parser
     test_summary.test_num = 1
   }
   let test_tag_dir = @support.path_join(test_dir, "tags")
   if is_dir(test_tag_dir) {
     let tags_context = @tags.TagsContext::new()
+    move_parser(parser, tags_context.parser)
     let loader_config = load_loader_config(config)
     check_test(test_summary, json_summary, () => {
       test_tags(loader, loader_config, tags_context, test_tag_dir, test_summary)
@@ -688,6 +691,24 @@ async fn test_run(
   } else {
     @support.print_out("\{test_summary}\n")
   }
+}
+
+///|
+/// `highlighter.parser = parser` / `tags_context.parser = parser`: upstream
+/// hands the corpus tests' parser on to the highlight tests and then to the
+/// tag tests, so the `test --debug` logger keeps logging and the tag tests
+/// start from the highlighter's language and included ranges. The
+/// highlighter and tags context own their parsers here, so the parser's
+/// configuration is copied into them instead.
+fn move_parser(
+  from : @treesitter.Parser,
+  to : @treesitter.Parser,
+) -> Unit raise {
+  if from.language() is Some(language) {
+    to.set_language(language)
+  }
+  to.set_included_ranges(from.included_ranges())
+  to.set_logger(from.logger())
 }
 
 ///|

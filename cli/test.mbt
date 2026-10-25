@@ -20,6 +20,8 @@ pub struct TestOptions {
   file_name : String?
   update : Bool
   open_log : Bool
+  /// A `BTreeMap<&str, &Language>`: unique names in Rust's `str` order (see
+  /// `languages_by_name`).
   languages : Array[(String, @treesitter.Language)]
   show_fields : Bool
   overview_only : Bool
@@ -555,25 +557,39 @@ pub async fn check_queries_at_path(
 }
 
 ///|
-/// `walkdir::WalkDir::new(path)` filtered to files, in walkdir's default
-/// order (directory entries in the order the file system returns them;
-/// sorted by name here for determinism).
+/// The paths of `walkdir::WalkDir::new(path).into_iter()
+/// .filter_map(Result::ok).filter(|e| e.file_type().is_file())` (walkdir
+/// 2.5.0 with its default options): a depth-first walk in the order the
+/// file system lists each directory, which does not follow symbolic links
+/// below the root (a symbolic link is neither a file nor a directory) but
+/// follows a root that is a symbolic link to a directory. Entries that
+/// cannot be read are skipped.
 pub async fn walk_files(path : String) -> Array[String] {
   let result = []
-  async fn visit(p : String) -> Unit {
-    let kind = @fs.kind(p, follow_symlink=true) catch { _ => return }
-    if kind is Directory {
-      let entries = @fs.readdir(p, include_hidden=true, sort=true) catch {
-        _ => return
+  async fn visit(dir : String) -> Unit {
+    let names = @fs.readdir(dir, include_hidden=true) catch { _ => return }
+    for name in names {
+      let child = @support.path_join(dir, name)
+      match (@fs.kind(child, follow_symlink=false) catch { _ => Unknown }) {
+        Directory => visit(child)
+        Regular => result.push(child)
+        _ => ()
       }
-      for name in entries {
-        visit(@support.path_join(p, name))
-      }
-    } else if kind is Regular {
-      result.push(p)
     }
   }
-  visit(path)
+
+  // The root entry takes `symlink_metadata`; `follow_root_links` descends
+  // into a root that links to a directory.
+  match (@fs.kind(path, follow_symlink=false) catch { _ => Unknown }) {
+    Directory => visit(path)
+    Regular => result.push(path)
+    SymLink =>
+      if (@fs.kind(path, follow_symlink=true) catch { _ => Unknown })
+        is Directory {
+        visit(path)
+      }
+    _ => ()
+  }
   result
 }
 
@@ -583,13 +599,31 @@ fn input_string(input : Bytes) -> String {
 }
 
 ///|
-fn language_named(opts : TestOptions, name : String) -> @treesitter.Language? {
-  for entry in opts.languages {
-    if entry.0 == name {
-      return Some(entry.1)
+/// `languages.iter().map(|(l, n)| (n.as_str(), l)).collect::<BTreeMap<_, _>>()`:
+/// keyed by name in Rust's `str` order; a later language replaces an earlier
+/// one of the same name.
+fn languages_by_name(
+  languages : Array[(@treesitter.Language, String)],
+) -> Array[(String, @treesitter.Language)] {
+  let map : Array[(String, @treesitter.Language)] = []
+  for entry in languages {
+    let (language, name) = entry
+    match map.search_by(e => e.0 == name) {
+      Some(i) => map[i] = (name, language)
+      None => map.push((name, language))
     }
   }
-  None
+  map.sort_by((a, b) => compare_bytes(a.0, b.0))
+  map
+}
+
+///|
+/// `opts.languages.get(name)`.
+fn language_named(opts : TestOptions, name : String) -> @treesitter.Language? {
+  match opts.languages.search_by(e => e.0 == name) {
+    Some(i) => Some(opts.languages[i].1)
+    None => None
+  }
 }
 
 ///|
@@ -802,6 +836,7 @@ async fn run_tests(
         }
         if i == attributes.languages.length() - 1 {
           // reset to the first language
+          // (`opts.languages.values().next().unwrap()`)
           parser.set_language(opts.languages[0].1)
         }
       }
