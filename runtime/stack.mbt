@@ -992,39 +992,39 @@ pub fn Stack::clear(self : Stack) -> Unit {
 pub fn Stack::print_dot_graph(
   self : Stack,
   language : @language.Language,
-  f : StringBuilder,
+  f : Buffer,
 ) -> Bool {
-  f.write_string("digraph stack {\n")
-  f.write_string("rankdir=\"RL\";\n")
-  f.write_string("edge [arrowhead=none]\n")
+  f.write_string_utf8("digraph stack {\n")
+  f.write_string_utf8("rankdir=\"RL\";\n")
+  f.write_string_utf8("edge [arrowhead=none]\n")
   let visited_nodes : Array[StackNode] = []
   self.iterators.clear()
   for i, head in self.heads {
     if head.status == Halted {
       continue
     }
-    f.write_string("node_head_\{i} [shape=none, label=\"\"]\n")
-    f.write_string("node_head_\{i} -> node_\{head.node.id} [")
+    f.write_string_utf8("node_head_\{i} [shape=none, label=\"\"]\n")
+    f.write_string_utf8("node_head_\{i} -> node_\{head.node.id} [")
     if head.status == Paused {
-      f.write_string("color=red ")
+      f.write_string_utf8("color=red ")
     }
-    f.write_string(
+    f.write_string_utf8(
       "label=\{i}, fontcolor=blue, weight=10000, labeltooltip=\"node_count: \{self.node_count_since_error(i)}\nerror_cost: \{self.error_cost(i)}",
     )
     if head.summary is Some(summary) {
-      f.write_string("\nsummary:")
+      f.write_string_utf8("\nsummary:")
       for entry in summary {
-        f.write_string(" \{entry.state}")
+        f.write_string_utf8(" \{entry.state}")
       }
     }
     if !head.last_external_token.is_null() {
       let state = head.last_external_token.ptr().external_scanner_state
-      f.write_string("\nexternal_scanner_state:")
+      f.write_string_utf8("\nexternal_scanner_state:")
       for byte in state {
-        f.write_string(" \{hex2(byte)}")
+        f.write_string_utf8(" \{hex2(byte)}")
       }
     }
-    f.write_string("\"]\n")
+    f.write_string_utf8("\"]\n")
     self.iterators.push({
       node: head.node,
       subtrees: [],
@@ -1044,45 +1044,45 @@ pub fn Stack::print_dot_graph(
         continue
       }
       all_iterators_done = false
-      f.write_string("node_\{node.id} [")
+      f.write_string_utf8("node_\{node.id} [")
       if node.state == error_state {
-        f.write_string("label=\"?\"")
+        f.write_string_utf8("label=\"?\"")
       } else if node.links.length() == 1 &&
         !node.links[0].subtree.is_null() &&
         node.links[0].subtree.extra() {
-        f.write_string("shape=point margin=0 label=\"\"")
+        f.write_string_utf8("shape=point margin=0 label=\"\"")
       } else {
-        f.write_string("label=\"\{node.state}\"")
+        f.write_string_utf8("label=\"\{node.state}\"")
       }
-      f.write_string(
+      f.write_string_utf8(
         " tooltip=\"position: \{node.position.extent.row + 1},\{node.position.extent.column}\nnode_count:\{node.node_count}\nerror_cost: \{node.error_cost}\ndynamic_precedence: \{node.dynamic_precedence}\"];\n",
       )
       for j, link in node.links {
-        f.write_string("node_\{node.id} -> node_\{link.node.id} [")
+        f.write_string_utf8("node_\{node.id} -> node_\{link.node.id} [")
         if link.is_pending {
-          f.write_string("style=dashed ")
+          f.write_string_utf8("style=dashed ")
         }
         if !link.subtree.is_null() && link.subtree.extra() {
-          f.write_string("fontcolor=gray ")
+          f.write_string_utf8("fontcolor=gray ")
         }
         if link.subtree.is_null() {
-          f.write_string("color=red")
+          f.write_string_utf8("color=red")
         } else {
-          f.write_string("label=\"")
+          f.write_string_utf8("label=\"")
           let quoted = link.subtree.visible() && !link.subtree.named()
           if quoted {
-            f.write_string("'")
+            f.write_string_utf8("'")
           }
           write_symbol_as_dot_string(language, f, link.subtree.symbol())
           if quoted {
-            f.write_string("'")
+            f.write_string_utf8("'")
           }
-          f.write_string("\"")
-          f.write_string(
+          f.write_string_utf8("\"")
+          f.write_string_utf8(
             "labeltooltip=\"error_cost: \{link.subtree.error_cost()}\ndynamic_precedence: \{link.subtree.dynamic_precedence()}\"",
           )
         }
-        f.write_string("];\n")
+        f.write_string_utf8("];\n")
         if j == 0 {
           self.iterators[i].node = link.node
         } else {
@@ -1095,7 +1095,7 @@ pub fn Stack::print_dot_graph(
       i += 1
     }
   }
-  f.write_string("}\n")
+  f.write_string_utf8("}\n")
   true
 }
 
@@ -1128,19 +1128,19 @@ fn hex2(byte : Byte) -> String {
 /// `ts_language_write_symbol_as_dot_string`.
 pub fn write_symbol_as_dot_string(
   language : @language.Language,
-  f : StringBuilder,
+  f : Buffer,
   symbol : Int32,
 ) -> Unit {
   let name = language.symbol_name(symbol).unwrap_or("")
   for chr in name {
     match chr {
       '"' | '\\' => {
-        f.write_char('\\')
-        f.write_char(chr)
+        f.write_char_utf8('\\')
+        f.write_char_utf8(chr)
       }
-      '\n' => f.write_string("\\n")
-      '\t' => f.write_string("\\t")
-      _ => f.write_char(chr)
+      '\n' => f.write_string_utf8("\\n")
+      '\t' => f.write_string_utf8("\\t")
+      _ => f.write_char_utf8(chr)
     }
   }
 }

@@ -154,12 +154,25 @@ pub fn Parser::set_logger(self : Parser, logger : Logger?) -> Unit {
 ///|
 /// Set the destination to which the parser should write debugging graphs
 /// during parsing. The graphs are formatted in the DOT language; `writer`
-/// receives the output in pieces.
+/// receives the output in pieces, decoded as UTF-8 with invalid sequences
+/// replaced by U+FFFD (see [`DotGraphOutput`]; use
+/// [`Parser::print_dot_graphs_to`] for upstream's exact bytes).
 pub fn Parser::print_dot_graphs(
   self : Parser,
   writer : (String) -> Unit,
 ) -> Unit {
-  self.raw.print_dot_graphs(Some(writer))
+  self.raw.print_dot_graphs(Some(bytes => writer(@utf8.decode_lossy(bytes))))
+}
+
+///|
+/// Set the destination to which the parser should write debugging graphs
+/// during parsing, as [`Parser::print_dot_graphs`] does; a `Buffer` output
+/// receives exactly the bytes upstream writes.
+pub fn[W : DotGraphOutput] Parser::print_dot_graphs_to(
+  self : Parser,
+  output : W,
+) -> Unit {
+  self.raw.print_dot_graphs(Some(bytes => output.write_dot_graph(bytes)))
 }
 
 ///|

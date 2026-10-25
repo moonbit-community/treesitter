@@ -47,7 +47,7 @@ pub struct Parser {
   priv reusable_node : ReusableNode
   priv mut external_scanner_payload : ExternalScanner?
   priv scanner_buffer : FixedArray[Byte]
-  priv mut dot_graph_file : ((String) -> Unit)?
+  priv mut dot_graph_file : ((Bytes) -> Unit)?
   priv mut accept_count : Int32
   priv mut operation_count : Int32
   priv mut old_tree : Subtree
@@ -110,35 +110,23 @@ fn Parser::logging(self : Parser) -> Bool {
 ///|
 /// `LOG(...)` followed by `ts_parser__log`.
 fn Parser::log(self : Parser, message : String) -> Unit {
-  if self.logging() {
-    self.lexer.write_debug_buffer(message)
-  }
-  // The C debug buffer holds at most 1023 characters.
-  let message = truncate_debug_message(message)
-  if self.lexer.logger is Some(log) {
+  guard self.logging() else { return }
+  // The message is formatted into the C debug buffer (at most 1023 bytes).
+  let delivered = self.lexer.write_debug_buffer(message)
+  if self.lexer.logger is Some(log) && delivered is Some(message) {
     log(Parse, message)
   }
   if self.dot_graph_file is Some(write) {
-    let buf = StringBuilder()
-    buf.write_string("graph {\nlabel=\"")
-    for chr in message {
-      if chr == '"' || chr == '\\' {
-        buf.write_char('\\')
+    let buf = Buffer()
+    buf.write_string_utf8("graph {\nlabel=\"")
+    for chr in self.lexer.debug_message() {
+      if chr == b'"' || chr == b'\\' {
+        buf.write_byte(b'\\')
       }
-      buf.write_char(chr)
+      buf.write_byte(chr)
     }
-    buf.write_string("\"\n}\n\n")
-    write(buf.to_string())
-  }
-}
-
-///|
-fn truncate_debug_message(message : String) -> String {
-  let bytes = @utf8.encode(message)
-  if bytes.length() <= 1023 {
-    message
-  } else {
-    @utf8.decode_lossy(bytes[0:1023])
+    buf.write_string_utf8("\"\n}\n\n")
+    write(buf.to_bytes())
   }
 }
 
@@ -170,10 +158,10 @@ fn Parser::log_lookahead(
 /// `LOG_STACK()`.
 fn Parser::log_stack(self : Parser) -> Unit {
   if self.dot_graph_file is Some(write) {
-    let buf = StringBuilder()
+    let buf = Buffer()
     ignore(self.stack.print_dot_graph(self.lang(), buf))
-    buf.write_string("\n\n")
-    write(buf.to_string())
+    buf.write_string_utf8("\n\n")
+    write(buf.to_bytes())
   }
 }
 
@@ -181,10 +169,10 @@ fn Parser::log_stack(self : Parser) -> Unit {
 /// `LOG_TREE(tree)`.
 fn Parser::log_tree(self : Parser, tree : Subtree) -> Unit {
   if self.dot_graph_file is Some(write) {
-    let buf = StringBuilder()
+    let buf = Buffer()
     tree.print_dot_graph(self.lang(), buf)
-    buf.write_string("\n")
-    write(buf.to_string())
+    buf.write_string_utf8("\n")
+    write(buf.to_bytes())
   }
 }
 
@@ -2052,7 +2040,7 @@ pub fn Parser::set_logger(self : Parser, logger : Logger?) -> Unit {
 /// or stop with `None`.
 pub fn Parser::print_dot_graphs(
   self : Parser,
-  writer : ((String) -> Unit)?,
+  writer : ((Bytes) -> Unit)?,
 ) -> Unit {
   self.dot_graph_file = writer
 }
