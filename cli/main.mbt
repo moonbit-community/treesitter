@@ -53,13 +53,26 @@ fn parse_range(range_str : String?) -> (Int32, Int32)? raise CliError {
   guard range_str is Some(range) else { return None }
   let err_msg = "Invalid range '\{range}', expected 'start:end'"
   let parts = range.split(":").map(p => p.to_owned()).collect()
-  guard parts.length() >= 1 && parse_usize(parts[0]) is Some(start) else {
+  guard parts.length() >= 1 && @cli_test.parse_usize(parts[0]) is Some(start) else {
     raise anyhow(err_msg)
   }
-  guard parts.length() >= 2 && parse_usize(parts[1]) is Some(end) else {
+  guard parts.length() >= 2 && @cli_test.parse_usize(parts[1]) is Some(end) else {
     raise anyhow(err_msg)
   }
-  Some((start, end))
+  Some((u32_offset(start), u32_offset(end)))
+}
+
+///|
+/// A `usize` byte offset or row as the query cursor receives it (`as u32`
+/// in the Rust binding), with values above `0x7FFFFFFE` represented by
+/// `Int::max_value()` (beyond the end of any document this port can parse).
+fn u32_offset(value : UInt64) -> Int32 {
+  let value = value & 0xFFFF_FFFFUL
+  if value > 0x7FFF_FFFEUL {
+    0x7FFF_FFFF
+  } else {
+    value.to_int()
+  }
 }
 
 ///|
