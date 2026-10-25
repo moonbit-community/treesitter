@@ -704,12 +704,13 @@ async fn fuzz_run(
   let fuzz_options : @cli_test.FuzzOptions = {
     skipped: m.get_many("skip"),
     subdir: m.get_one("subdir"),
+    // (validated as `usize` by clap)
     edits: match m.get_one("edits") {
-      Some(e) => parse_usize(e).unwrap_or(0)
+      Some(e) => @cli_test.parse_usize(e).unwrap()
       None => @cli_test.edit_count()
     },
     iterations: match m.get_one("iterations") {
-      Some(e) => parse_usize(e).unwrap_or(0)
+      Some(e) => @cli_test.parse_usize(e).unwrap()
       None => @cli_test.iteration_count()
     },
     include: compile_regex(m.get_one("include")),
@@ -717,6 +718,11 @@ async fn fuzz_run(
     log_graphs: m.get_flag("log_graphs") || @cli_test.log_graph_enabled(),
     log: m.get_flag("log") || @cli_test.log_enabled(),
   }
+  // `fuzz::corpus_test::get_parser` calls `util::log_graphs`.
+  @cli_test.set_log_graphs((parser, path) => {
+    let session = log_graphs(parser, path, false)
+    { close: () => session.close() }
+  })
   @cli_test.fuzz_language_corpus(
     language,
     language_name,

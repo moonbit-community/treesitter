@@ -20,9 +20,9 @@ let current_os : String = "windows"
 let current_os : String = "unknown"
 
 ///|
-/// `log::warn!`.
+/// `log::warn!` (the CLI's logger: `Warning: ...` on standard error).
 fn warn(message : String) -> Unit {
-  println("warning: \{message}")
+  @support.log_warn(message)
 }
 
 ///|
