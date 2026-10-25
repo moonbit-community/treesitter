@@ -684,6 +684,15 @@ fn ParseItemSet::push(
 }
 
 ///|
+fn ParseItemSet::copy(self : ParseItemSet) -> ParseItemSet {
+  {
+    items: self.items.copy(),
+    lookaheads: self.lookaheads.copy(),
+    following_reserved_word_sets: self.following_reserved_word_sets.copy(),
+  }
+}
+
+///|
 /// Removes every entry, keeping the arrays' capacity.
 fn ParseItemSet::clear(self : ParseItemSet) -> Unit {
   self.items.clear()

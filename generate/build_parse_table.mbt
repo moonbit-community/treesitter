@@ -979,10 +979,10 @@ fn ParseTableBuilder::add_parse_state(
       state.core_id = core_id
       self.parse_table.states.push(state)
       self.parse_state_queue.push({ state_id, preceding_auxiliary_context, })
-      // The successor sets that reach here are never touched again, so the
-      // map can keep them without the clone upstream makes.
+      // Successor sets are built in recycled buffers: keep an exactly sized copy
+      // (upstream's clone), so that the buffers stay in use.
       self.state_ids_by_item_set.insert_new(hash, state_id)
-      self.item_sets_by_id.push(item_set)
+      self.item_sets_by_id.push(item_set.copy())
       state_id
     }
   }
@@ -1031,19 +1031,6 @@ fn ParseTableBuilder::core_id(
   self.states_by_core_id.push(state_id)
   index.insert_new(hash, id)
   id
-}
-
-///|
-/// Recycles a successor set unless `add_parse_state` kept it as the kernel of
-/// a new state.
-fn ParseTableBuilder::recycle_unless_kept(
-  self : ParseTableBuilder,
-  state_id : Int32,
-  item_set : ParseItemSet,
-) -> Unit {
-  if !physical_equal(self.item_sets_by_id[state_id], item_set) {
-    self.successor_sets.recycle(item_set)
-  }
 }
 
 ///|
@@ -1205,7 +1192,8 @@ fn ParseTableBuilder::add_actions(
       preceding_symbols, auxiliary_context, next_item_set,
     )
     ignore(preceding_symbols.pop())
-    self.recycle_unless_kept(next_state_id, next_item_set)
+    // `add_parse_state` keeps a copy of a new state's kernel.
+    self.successor_sets.recycle(next_item_set)
     if symbol.non_terminal_index() is Some(_) {
       self.parse_table.states[state_id].nonterminal_entries.push(
         symbol,
