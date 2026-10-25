@@ -150,7 +150,11 @@ fn CppScanner::serialize(self : CppScanner, buffer : FixedArray[Byte]) -> Int32 
 fn CppScanner::deserialize(self : CppScanner, buffer : BytesView) -> Unit {
   let length = buffer.length()
   guard length % CPP_SIZEOF_WCHAR_T == 0 else {
-    abort("Can't decode serialized delimiter!")
+    c_assert_fail(
+      "length % sizeof(wchar_t) == 0 && \"Can't decode serialized delimiter!\"",
+      "tree_sitter_cpp_external_scanner_deserialize",
+      136,
+    )
   }
   // `uint8_t` truncation of `length / sizeof(wchar_t)`.
   self.delimiter_length = (length / CPP_SIZEOF_WCHAR_T) & 0xFF

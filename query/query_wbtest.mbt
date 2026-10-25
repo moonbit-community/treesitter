@@ -17,6 +17,20 @@ test "symbol names compare like strncmp, then check name[length]" {
 }
 
 ///|
+test "symbol and field lookups read the name arrays like C" {
+  let language = basic_cst()
+  // An anonymous symbol whose name has an embedded NUL.
+  language.symbol_names[1] = "a\u{0}b"
+  inspect(symbol_for_name(language, b"a\x00"[:], false), content="0")
+  inspect(symbol_for_name(language, b"a\x00b"[:], false), content="1")
+  // `strncmp` stops at the NUL: the bytes after it are not compared.
+  inspect(symbol_for_name(language, b"a\x00c"[:], false), content="1")
+  inspect(field_id_for_name(language, b"name"[:]), content="1")
+  inspect(field_id_for_name(language, b"nam"[:]), content="0")
+  inspect(field_id_for_name(language, b"value"[:]), content="2")
+}
+
+///|
 test "capture and string ids are uint16_t" {
   let table = SymbolTable::new()
   for i in 0..<=65536 {

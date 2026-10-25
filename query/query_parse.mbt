@@ -24,7 +24,11 @@ let err_structure : Int = 5
 let parent_done : Int = -1
 
 ///|
-/// The UTF-8 bytes of each symbol name, cached per language.
+/// The bytes of `symbol_names[symbol]` as the C array holds them, including
+/// any embedded NUL and the bytes after it: `strncmp` stops at the first NUL,
+/// but `symbol_name[length]` reads the array (as `Language::symbol_for_name`
+/// in language/language_api.mbt does; that one takes a `StringView`, while
+/// query names are arbitrary bytes).
 fn symbol_name_bytes(language : @language.Language, symbol : Int) -> Bytes {
   @utf8.encode(language.symbol_names[symbol])
 }
@@ -87,7 +91,9 @@ fn c_strncmp(a : BytesView, b : Bytes, n : Int) -> Int {
 }
 
 ///|
-/// `ts_language_field_id_for_name`, over the UTF-8 bytes of the name.
+/// `ts_language_field_id_for_name`, over the UTF-8 bytes of the name (the
+/// byte counterpart of `Language::field_id_for_name`: `strncmp`, then
+/// `field_names[i][name_length] == 0` over the array's bytes).
 fn field_id_for_name(language : @language.Language, name : BytesView) -> Int {
   let count = language.field_count & 0xFFFF
   for i in 1..<(count + 1) {
