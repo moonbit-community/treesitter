@@ -25,7 +25,7 @@ the remaining porting work.
 
 The GitHub Actions workflow [publish.yml](.github/workflows/publish.yml) runs
 when a GitHub release is published, or can be dispatched with an existing tag.
-The tag must be exactly `v` plus the version in `moon.mod`, for example `v0.1.0`.
+The tag must be exactly `v` plus the version in `moon.mod`, for example `v0.1.1`.
 Publish only a commit whose CI checks passed.
 
 The workflow uses the existing organization Actions secret

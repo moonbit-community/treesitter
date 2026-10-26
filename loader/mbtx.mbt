@@ -128,7 +128,7 @@ pub async fn run_grammar_script(path : String, current_dir : String) -> String {
   prepare_workspace(temp, module_checkout(current_dir))
   write_file(
     @support.path_join(temp, "script/moon.mod"),
-    "name = \"treesitter/local_grammar\"\nimport { \"moonbit-community/treesitter@0.1.0\" }\n",
+    "name = \"treesitter/local_grammar\"\nimport { \"moonbit-community/treesitter@0.1.1\" }\n",
   )
   write_file(
     @support.path_join(temp, "script/moon.pkg"),
@@ -176,7 +176,7 @@ pub async fn build_scanner_driver(
   prepare_workspace(dir, checkout)
   let deps = StringBuilder()
   deps.write_string(
-    "\"moonbit-community/treesitter@0.1.0\", \"moonbitlang/async@0.20.2\"",
+    "\"moonbit-community/treesitter@0.1.1\", \"moonbitlang/async@0.20.2\"",
   )
   write_file(
     @support.path_join(script, "moon.mod"),
