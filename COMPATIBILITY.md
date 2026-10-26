@@ -191,7 +191,8 @@ upstream:
   typescript 2.0×, rust 2.1×, cpp 2.2×, c 2.3×); every phase (parse table
   construction, minimization, token conflicts, rendering) takes about the
   same share of the time as upstream's.
-- Runtime: 1.4–2.0× the time of the C runtime (`-O2`) to parse a file
-  from scratch (C 1.36×, JSON 2.0×, Go 1.85×, Python 1.65×, JavaScript 1.84×,
-  Rust 1.82× on upstream example files). Most of the
-  remaining cost is reference counting and allocating subtrees.
+- Runtime: 1.2–1.8× the time of the C runtime (`-O2`) to parse a file
+  from scratch (C 1.2×, Python 1.5×, JavaScript 1.6×, Go 1.6×, Rust 1.7×,
+  JSON 1.7× on upstream example files). Inline leaves are packed into 8 bytes
+  as in C and stored by value; most of the remaining cost is reference
+  counting and allocating internal nodes.
