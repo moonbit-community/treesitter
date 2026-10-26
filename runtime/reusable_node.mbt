@@ -15,19 +15,19 @@ priv struct ReusableNode {
 
 ///|
 fn ReusableNode::new() -> ReusableNode {
-  { stack: [], last_external_token: Null, }
+  { stack: [], last_external_token: Subtree::null(), }
 }
 
 ///|
 fn ReusableNode::clear(self : ReusableNode) -> Unit {
   self.stack.clear()
-  self.last_external_token = Null
+  self.last_external_token = Subtree::null()
 }
 
 ///|
 /// The value written over vacated slots by `release_scratch`.
 let reusable_stack_entry_none : ReusableStackEntry = {
-  tree: Null,
+  tree: Subtree::null(),
   child_index: 0,
   byte_offset: 0,
 }
@@ -46,7 +46,7 @@ fn ReusableNode::tree(self : ReusableNode) -> Subtree {
   if self.stack.length() > 0 {
     self.stack[self.stack.length() - 1].tree
   } else {
-    Null
+    Subtree::null()
   }
 }
 
@@ -66,7 +66,7 @@ fn ReusableNode::advance(self : ReusableNode) -> Unit {
   if last_entry.tree.has_external_tokens() {
     self.last_external_token = last_entry.tree.last_external_token()
   }
-  let mut tree = Subtree::Null
+  let mut tree = Subtree::null()
   let mut next_index = 0
   for ;; {
     let popped_entry = self.stack.pop().unwrap()

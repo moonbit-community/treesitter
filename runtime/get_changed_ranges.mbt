@@ -28,7 +28,7 @@ fn ChangeIterator::new(
     language,
     visible_depth: 1,
     in_padding: false,
-    prev_external_token: Null,
+    prev_external_token: Subtree::null(),
   }
 }
 
@@ -85,7 +85,7 @@ fn ChangeIterator::tree_is_visible(self : ChangeIterator) -> Bool {
 fn ChangeIterator::get_visible_state(
   self : ChangeIterator,
 ) -> (Subtree, Int32, UInt32) {
-  let mut tree = Subtree::Null
+  let mut tree = Subtree::null()
   let mut alias_symbol = 0
   let mut start_byte : UInt32 = 0
   let mut i = self.stack.length() - 1

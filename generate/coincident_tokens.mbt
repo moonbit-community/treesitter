@@ -45,8 +45,8 @@ fn CoincidentTokenIndex::new(
   let recorded_without_word : Map[Array[Int32], Unit] = Map([])
   for state in table.states {
     terminal_indices.clear()
-    for s in state.terminal_entries.keys() {
-      if s.terminal_index() is Some(index) {
+    for k in 0..<state.terminal_entries.len() {
+      if state.terminal_entries.symbol_at(k).terminal_index() is Some(index) {
         terminal_indices.push(index)
       }
     }

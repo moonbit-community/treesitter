@@ -62,7 +62,7 @@ fn assert_parser_scratch_released(parser : Parser) -> Unit raise {
   assert_eq(parser.lexer.chunk.length(), 0)
   assert_eq(parser.stack.slices.length(), 0)
   for slice in spare_slots(parser.stack.slices) {
-    assert_true(physical_equal(slice, stack_slice_none))
+    assert_true(physical_equal(slice.subtrees, no_subtrees))
   }
   assert_eq(parser.stack.iterators.length(), 0)
   assert_eq(parser.reusable_node.stack.length(), 0)
@@ -77,7 +77,7 @@ fn assert_parser_scratch_released(parser : Parser) -> Unit raise {
     ] {
     assert_eq(array.length(), 0)
     for subtree in spare_slots(array) {
-      assert_true(subtree is Null)
+      assert_true(subtree.is_null())
     }
   }
 }
@@ -107,7 +107,7 @@ test "accept splices the root's children once" {
   }
   assert_eq(root.ptr().ref_count, 1)
   for child in root.children() {
-    if child is Heap(d) {
+    if child.heap is Some(d) {
       assert_eq(d.ref_count, 1)
     }
   }
@@ -154,7 +154,10 @@ test "subtree release leaves no references in its stack" {
   let parser = extra_non_terminals_parser()
   let tree = parser.parse_string(None, extra_non_terminals_source(50)).unwrap()
   let root = tree.root()
-  let heap_children = root.children().filter(child => child is Heap(_)).length()
+  let heap_children = root
+    .children()
+    .filter(child => child.heap is Some(_))
+    .length()
   assert_true(heap_children >= 100)
   root.release()
   assert_eq(release_stack.length(), 0)
@@ -162,6 +165,6 @@ test "subtree release leaves no references in its stack" {
   // 0..heap_children.
   let slots = spare_slots(release_stack, upto=heap_children)
   for slot in slots {
-    assert_true(slot is Null)
+    assert_true(slot.is_null())
   }
 }

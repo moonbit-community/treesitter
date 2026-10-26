@@ -68,6 +68,7 @@ pub struct Parser {
 }
 
 ///|
+#valtype
 priv struct ErrorStatus {
   cost : UInt32
   node_count : UInt32
@@ -457,7 +458,7 @@ fn Parser::lex(self : Parser, version : Int32, parse_state : Int32) -> Subtree {
     if self.logging() {
       self.log("no_lookahead_after_non_terminal_extra")
     }
-    return Null
+    return Subtree::null()
   }
   let start_position = self.stack.position(version)
   let external_token = self.stack.last_external_token(version)
@@ -488,7 +489,7 @@ fn Parser::lex(self : Parser, version : Int32, parse_state : Int32) -> Subtree {
       found_token = self.external_scanner_scan(lex_mode.external_lex_state)
       called_get_column = called_get_column || self.lexer.did_get_column
       if self.has_scanner_error {
-        return Null
+        return Subtree::null()
       }
       lookahead_end_byte = self.lexer.finish(lookahead_end_byte)
       if found_token {
@@ -642,9 +643,9 @@ fn Parser::get_cached_token(
       cache.token.retain()
       return cache.token
     }
-    return Null
+    return Subtree::null()
   }
-  Null
+  Subtree::null()
 }
 
 ///|
@@ -785,7 +786,7 @@ fn Parser::reuse_node(
     result.retain()
     return result
   }
-  Null
+  Subtree::null()
 }
 
 ///|
@@ -1040,7 +1041,7 @@ fn Parser::accept(self : Parser, version : Int32, lookahead : Subtree) -> Unit {
   let pop = self.stack.pop_all(version)
   for i in 0..<pop.length() {
     let trees = pop[i].subtrees
-    let mut root = Subtree::Null
+    let mut root = Subtree::null()
     for j = trees.length() - 1; j >= 0; j = j - 1 {
       let tree = trees[j]
       if !tree.extra() {
@@ -1520,7 +1521,7 @@ fn Parser::handle_error(
         }
       }
     }
-    self.stack.push(v, Null, false, error_state)
+    self.stack.push(v, Subtree::null(), false, error_state)
     v = if v == version { previous_version_count } else { v + 1 }
   }
   for _ in previous_version_count..<version_count {
@@ -1547,7 +1548,7 @@ fn Parser::handle_error(
 ///|
 fn Parser::check_progress(
   self : Parser,
-  lookahead : Subtree?,
+  lookahead : Subtree,
   position : UInt32?,
   operations : Int32,
 ) -> Bool {
@@ -1564,7 +1565,7 @@ fn Parser::check_progress(
   if self.operation_count == 0 &&
     self.parse_options.progress_callback is Some(callback) &&
     callback(self.parse_state) {
-    if lookahead is Some(lookahead) && !lookahead.is_null() {
+    if !lookahead.is_null() {
       lookahead.release()
     }
     return false
@@ -1583,7 +1584,7 @@ fn Parser::advance(
   let position = self.stack.position(version).bytes
   let last_external_token = self.stack.last_external_token(version)
   let mut did_reuse = true
-  let mut lookahead = Subtree::Null
+  let mut lookahead = Subtree::null()
   let out = self.advance_out
   out.state = state
   out.table_entry = { actions_start: 0, action_count: 0, is_reusable: false }
@@ -1622,7 +1623,7 @@ fn Parser::advance(
     }
     // If a progress callback was provided, then check every time a fixed
     // number of parse actions has been processed.
-    if !self.check_progress(Some(lookahead), Some(position), 1) {
+    if !self.check_progress(lookahead, Some(position), 1) {
       return false
     }
     // Process each parse action for the current lookahead token in the
@@ -1898,7 +1899,7 @@ fn Parser::balance_subtree(self : Parser) -> Bool {
     }
   }
   while self.balance_stack.length() > 0 {
-    if !self.check_progress(None, None, 1) {
+    if !self.check_progress(Subtree::null(), None, 1) {
       return false
     }
     let tree = self.balance_stack[self.balance_stack.length() - 1]
@@ -1917,14 +1918,14 @@ fn Parser::balance_subtree(self : Parser) -> Bool {
           // Scale the operation count increment proportionately to the
           // compression size.
           let operations = if i >> 4 > 0 { (i >> 4) & 0xFF } else { 1 }
-          if !self.check_progress(None, None, operations) {
+          if !self.check_progress(Subtree::null(), None, operations) {
             return false
           }
           i /= 2
         }
       }
     }
-    ignore(self.balance_stack.pop())
+    self.balance_stack.unsafe_pop() |> ignore
     for child in t.children {
       if child.child_count() > 0 && child.ptr().ref_count == 1 {
         self.balance_stack.push(child)
@@ -1954,10 +1955,14 @@ pub fn Parser::new() -> Parser {
     language: None,
     scanner_factory: None,
     reduce_actions: [],
-    finished_tree: Null,
+    finished_tree: Subtree::null(),
     trailing_extras: [],
     trailing_extras2: [],
-    token_cache: { token: Null, last_external_token: Null, byte_index: 0, },
+    token_cache: {
+      token: Subtree::null(),
+      last_external_token: Subtree::null(),
+      byte_index: 0,
+    },
     reusable_node: ReusableNode::new(),
     external_scanner_payload: None,
     // C serializes external scanner state into `self->lexer.debug_buffer`.
@@ -1965,7 +1970,7 @@ pub fn Parser::new() -> Parser {
     dot_graph_file: None,
     accept_count: 0,
     operation_count: 0,
-    old_tree: Null,
+    old_tree: Subtree::null(),
     included_range_differences: [],
     parse_options: { progress_callback: None, },
     parse_state: { current_byte_offset: 0, has_error: false, },
@@ -1981,7 +1986,7 @@ pub fn Parser::new() -> Parser {
       table_entry: { actions_start: 0, action_count: 0, is_reusable: false },
     },
   }
-  self.set_cached_token(0, Null, Null)
+  self.set_cached_token(0, Subtree::null(), Subtree::null())
   self
 }
 
@@ -2086,15 +2091,15 @@ pub fn Parser::reset(self : Parser) -> Unit {
   self.external_scanner_destroy()
   if !self.old_tree.is_null() {
     self.old_tree.release()
-    self.old_tree = Null
+    self.old_tree = Subtree::null()
   }
   self.reusable_node.clear()
   self.lexer.reset(length_zero())
   self.stack.clear()
-  self.set_cached_token(0, Null, Null)
+  self.set_cached_token(0, Subtree::null(), Subtree::null())
   if !self.finished_tree.is_null() {
     self.finished_tree.release()
-    self.finished_tree = Null
+    self.finished_tree = Subtree::null()
   }
   self.accept_count = 0
   self.has_scanner_error = false
@@ -2116,11 +2121,11 @@ fn Parser::release_scratch(self : Parser) -> Unit {
   self.stack.release_scratch()
   self.reusable_node.release_scratch()
   self.trailing_extras.clear()
-  self.trailing_extras.release_unused(placeholder=Null)
+  self.trailing_extras.release_unused(placeholder=Subtree::null())
   self.trailing_extras2.clear()
-  self.trailing_extras2.release_unused(placeholder=Null)
+  self.trailing_extras2.release_unused(placeholder=Subtree::null())
   self.balance_stack.clear()
-  self.balance_stack.release_unused(placeholder=Null)
+  self.balance_stack.release_unused(placeholder=Subtree::null())
 }
 
 ///|
@@ -2263,7 +2268,7 @@ fn Parser::parse_input(self : Parser, old_tree : Tree?, input : Input) -> Tree? 
     language,
     self.lexer.included_ranges,
   )
-  self.finished_tree = Null
+  self.finished_tree = Subtree::null()
   self.reset()
   Some(result)
 }

@@ -65,7 +65,7 @@ fn TreeCursor::iterate_children(self : TreeCursor) -> CursorChildIterator {
   let subtree = last_entry.subtree.get()
   if subtree.child_count() == 0 {
     return {
-      parent: Null,
+      parent: Subtree::null(),
       tree: self.tree,
       position: length_zero(),
       child_index: 0,
