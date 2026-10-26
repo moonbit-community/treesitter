@@ -25,6 +25,23 @@ fn ReusableNode::clear(self : ReusableNode) -> Unit {
 }
 
 ///|
+/// The value written over vacated slots by `release_scratch`.
+let reusable_stack_entry_none : ReusableStackEntry = {
+  tree: Null,
+  child_index: 0,
+  byte_offset: 0,
+}
+
+///|
+/// `clear`, also overwriting the slots that popped entries leave in the
+/// array's spare capacity on native targets, so that an idle parser does not
+/// keep the previous tree alive (upstream's stale pointers do not own it).
+fn ReusableNode::release_scratch(self : ReusableNode) -> Unit {
+  self.clear()
+  self.stack.release_unused(placeholder=reusable_stack_entry_none)
+}
+
+///|
 fn ReusableNode::tree(self : ReusableNode) -> Subtree {
   if self.stack.length() > 0 {
     self.stack[self.stack.length() - 1].tree

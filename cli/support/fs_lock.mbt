@@ -41,7 +41,12 @@ pub fn is_already_exists(err : Error) -> Bool {
 /// the file again: `true` if the file was created, `false` if it already
 /// existed; other errors are raised.
 pub async fn create_new_file(path : String) -> Bool {
-  let file = @fs.open(path, mode=WriteOnly, create_mode=CreateNew) catch {
+  let file = @fs.open(
+    path,
+    mode=WriteOnly,
+    create_mode=CreateNew,
+    permission=0o666,
+  ) catch {
     e => if is_already_exists(e) { return false } else { raise e }
   }
   file.close()

@@ -154,23 +154,74 @@ pub(all) struct QueryCapture {
 
 ///|
 /// A capture list. `in_use == false` stands for upstream's `UINT32_MAX` size.
+///
+/// The captures are `items[0:size]`. Elements are only ever written at index
+/// `size` or later, and growing copies them into a new array, so a view of the
+/// list that `next_match`/`next_capture` hand out (upstream returns a pointer
+/// to the list's contents) keeps its elements however the list grows. A list
+/// that was handed out gets a new array when it is cleared instead of being
+/// overwritten. `serial` changes whenever the list is cleared, so the id and
+/// the serial together identify a list's current contents.
 priv struct CaptureList {
-  items : Array[QueryCapture]
+  mut items : FixedArray[QueryCapture]
+  mut size : Int
   mut in_use : Bool
+  mut exposed : Bool
+  mut serial : Int
 }
 
 ///|
-/// Overwrites a capture list's elements before clearing it. Upstream's
-/// captures hold non-owning node pointers, but a MoonBit `Node` keeps its
-/// `Tree` alive, so lists that are cleared for reuse or no longer in use must
-/// not keep referring to their previous nodes (capacity is retained).
-fn clear_capture_list(items : Array[QueryCapture]) -> Unit {
-  if items.length() > 0 {
-    for i in 0..<items.length() {
-      items[i] = null_capture
-    }
-    items.clear()
+fn CaptureList::new() -> CaptureList {
+  { items: [], size: 0, in_use: true, exposed: false, serial: 0 }
+}
+
+///|
+fn CaptureList::view(self : CaptureList) -> ArrayView[QueryCapture] {
+  self.items[0:self.size]
+}
+
+///|
+fn CaptureList::push(self : CaptureList, capture : QueryCapture) -> Unit {
+  if self.size == self.items.length() {
+    let items = FixedArray::make(
+      if self.size < 2 {
+        4
+      } else {
+        self.size * 2
+      },
+      null_capture,
+    )
+    self.items.blit_to(items, len=self.size)
+    self.items = items
   }
+  self.items[self.size] = capture
+  self.size += 1
+}
+
+///|
+/// The list's captures, as handed out by `next_match` and `next_capture`.
+fn CaptureList::expose(self : CaptureList) -> ArrayView[QueryCapture] {
+  self.exposed = true
+  self.view()
+}
+
+///|
+/// Empties the list. Upstream's captures hold non-owning node pointers, but a
+/// MoonBit `Node` keeps its `Tree` alive, so lists that are cleared for reuse
+/// or no longer in use must not keep referring to their previous nodes: the
+/// elements are overwritten (capacity is retained), unless the list was handed
+/// out, in which case its array is left to the views of it.
+fn CaptureList::clear(self : CaptureList) -> Unit {
+  self.serial += 1
+  if self.exposed {
+    self.items = []
+    self.exposed = false
+  } else {
+    for i in 0..<self.size {
+      self.items[i] = null_capture
+    }
+  }
+  self.size = 0
 }
 
 ///|
@@ -200,7 +251,7 @@ priv struct CaptureListPool {
 fn CaptureListPool::new() -> CaptureListPool {
   {
     list: [],
-    empty_list: { items: [], in_use: true },
+    empty_list: CaptureList::new(),
     max_capture_list_count: 0xFFFFFFFFU,
     free_id_stack: [],
   }
@@ -212,17 +263,25 @@ fn CaptureListPool::reset(self : CaptureListPool) -> Unit {
   for i, list in self.list {
     // This invalid size means that the list is not in use.
     list.in_use = false
-    clear_capture_list(list.items)
+    list.clear()
     self.free_id_stack.push(i)
   }
 }
 
 ///|
-fn CaptureListPool::get(self : CaptureListPool, id : UInt) -> Array[QueryCapture] {
+fn CaptureListPool::get(
+  self : CaptureListPool,
+  id : UInt,
+) -> ArrayView[QueryCapture] {
+  self.get_list(id).view()
+}
+
+///|
+fn CaptureListPool::get_list(self : CaptureListPool, id : UInt) -> CaptureList {
   if id >= self.list.length().reinterpret_as_uint() {
-    return self.empty_list.items
+    return self.empty_list
   }
-  self.list[id.reinterpret_as_int()].items
+  self.list[id.reinterpret_as_int()]
 }
 
 ///|
@@ -237,7 +296,7 @@ fn CaptureListPool::is_empty(self : CaptureListPool) -> Bool {
 fn CaptureListPool::acquire(self : CaptureListPool) -> UInt {
   // First see if any already allocated capture list is currently unused.
   if self.free_id_stack.pop() is Some(id) {
-    clear_capture_list(self.list[id].items)
+    self.list[id].clear()
     self.list[id].in_use = true
     return id.reinterpret_as_uint()
   }
@@ -247,7 +306,7 @@ fn CaptureListPool::acquire(self : CaptureListPool) -> UInt {
   if i.reinterpret_as_uint() >= self.max_capture_list_count {
     return capture_list_none
   }
-  self.list.push({ items: [], in_use: true })
+  self.list.push(CaptureList::new())
   i.reinterpret_as_uint()
 }
 
@@ -261,7 +320,7 @@ fn CaptureListPool::release(self : CaptureListPool, id : UInt) -> Unit {
     return // Guard against releasing a list twice
   }
   list.in_use = false
-  clear_capture_list(list.items)
+  list.clear()
   self.free_id_stack.push(id.reinterpret_as_int())
 }
 

@@ -51,7 +51,7 @@ async fn path_exists(path : String) -> Bool {
 }
 
 ///|
-/// `str::lines`: split at `\n`, dropping a trailing `\r` of each line; a
+/// `str::lines`: split at `\n`, dropping the `\r` before each `\n`; a
 /// final empty line after a trailing newline is not produced.
 fn rust_lines(s : String) -> Array[String] {
   let lines = []
@@ -59,9 +59,8 @@ fn rust_lines(s : String) -> Array[String] {
     return lines
   }
   let parts = s.split("\n").map(v => v.to_owned()).collect()
-  if s.has_suffix("\n") {
-    ignore(parts.pop())
-  }
+  // The last part has no `\n`: its `\r` stays.
+  let unterminated = parts.pop()
   for part in parts {
     lines.push(
       if part.has_suffix("\r") {
@@ -70,6 +69,9 @@ fn rust_lines(s : String) -> Array[String] {
         part
       },
     )
+  }
+  if unterminated is Some(part) && !part.is_empty() {
+    lines.push(part)
   }
   lines
 }

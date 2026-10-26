@@ -40,7 +40,7 @@ pub async fn webbrowser_open(url : String) -> Unit {
 ///|
 /// `TargetType::try_from`: a URL is used as it is, anything else is a file
 /// path converted to a `file://` URL.
-fn target_type_try_from(value : String) -> String {
+fn target_type_try_from(value : String) -> String raise {
   if has_url_scheme(value) {
     value
   } else {
@@ -66,11 +66,11 @@ fn has_url_scheme(value : String) -> Bool {
 ///|
 /// `TargetType::from_file_path`: `url::Url::from_file_path` of the path
 /// made absolute with the current directory.
-fn target_type_from_file_path(value : String) -> String {
+fn target_type_from_file_path(value : String) -> String raise {
   let path = if is_absolute(value) {
     value
   } else {
-    let current_dir = @env.current_dir().unwrap_or("/")
+    let current_dir = current_dir()
     path_join(current_dir, value)
   }
   let url = StringBuilder()
@@ -203,14 +203,14 @@ async fn unix_open_browser_default(target : String) -> Unit {
 ///|
 /// `try_browser!`: run `name` (found as `for_matching_path` does) with
 /// `args`; whether that succeeded.
-async fn try_browser(name : String, args : Array[String]) -> Bool {
+fn try_browser(name : String, args : Array[String]) -> Bool {
   guard for_matching_path(name) is Some(pb) else { return false }
   run_command(pb, args, !is_text_browser(pb))
 }
 
 ///|
 /// `try_with_browser_env`.
-async fn try_with_browser_env(url : String) -> Bool {
+fn try_with_browser_env(url : String) -> Bool {
   let browser = @env.get_env_var("BROWSER").unwrap_or("")
   for browser_env in browser.split(":") {
     let browser_env = browser_env.to_owned()
@@ -349,7 +349,7 @@ fn guess_desktop_env() -> String {
 /// `try_wsl`: http(s) URLs through the Windows shell; local files (which
 /// upstream opens with the browser that PowerShell reports) are not
 /// supported.
-async fn try_wsl(target : String) -> Bool {
+fn try_wsl(target : String) -> Bool {
   if target.has_prefix("http:") || target.has_prefix("https:") {
     let url = target
     try_browser("cmd.exe", [
@@ -371,19 +371,14 @@ async fn try_wsl(target : String) -> Bool {
 /// `try_xdg`: the browser of `xdg-settings get default-web-browser`.
 async fn try_xdg(url : String) -> Bool {
   guard for_matching_path("xdg-settings") is Some(pb) else { return false }
-  let null_in = @process.redirect_from_file("/dev/null")
-  let null_err = @process.redirect_to_file("/dev/null")
-  let (_, browser_name_os) = @process.collect_stdout(
+  let (_, browser_name_os, _) = command_output(
     pb,
     ["get", "default-web-browser"],
-    stdin=null_in,
-    stderr=null_err,
+    null_stderr=true,
   ) catch {
     _ => return false
   }
-  guard utf8_strict(browser_name_os.binary()) is Some(browser_name) else {
-    return false
-  }
+  guard utf8_strict(browser_name_os) is Some(browser_name) else { return false }
   let browser_name = browser_name.trim().to_owned()
   if browser_name.is_empty() {
     return false
@@ -435,7 +430,7 @@ priv enum XdgResult {
 ///|
 /// `open_using_xdg_config`: run the `Exec` line of the `[Desktop Entry]`
 /// group of a desktop file.
-async fn open_using_xdg_config(config_path : String, url : String) -> XdgResult {
+fn open_using_xdg_config(config_path : String, url : String) -> XdgResult {
   let contents = read_file(config_path) catch {
     @os_error.OSError(_) as e if e.is_ENOENT() => return XdgNotFound
     _ => return XdgFailed
@@ -511,7 +506,8 @@ fn rust_lines(contents : Bytes) -> Array[String?] {
       end += 1
     }
     let mut line_end = end
-    if line_end > start && contents[line_end - 1] == b'\r' {
+    // `\r` is removed only before a `\n`.
+    if end < n && line_end > start && contents[line_end - 1] == b'\r' {
       line_end -= 1
     }
     result.push(utf8_strict(contents[start:line_end]))
@@ -598,30 +594,21 @@ fn is_executable_file(path : String) -> Bool {
 /// `common::run_command` with the default options: a GUI browser runs in
 /// the background with its output suppressed, a text browser in the
 /// foreground. Whether it could be run.
-async fn run_command(
+fn run_command(
   program : String,
   args : Array[String],
   background : Bool,
 ) -> Bool {
   if background {
-    let null_in = @process.redirect_from_file("/dev/null")
-    let null_out = @process.redirect_to_file("/dev/null")
-    let null_err = @process.redirect_to_file("/dev/null")
+    // `Stdio::null()` for all three streams; the child is not waited for.
     try {
-      ignore(
-        @process.spawn_orphan(
-          program,
-          args,
-          stdin=null_in,
-          stdout=null_out,
-          stderr=null_err,
-        ),
-      )
+      ignore(spawn(program, args, stdin=Null, stdout=Null, stderr=Null))
       true
     } catch {
       _ => false
     }
   } else {
-    (@process.run(program, args) catch { _ => -1 }) == 0
+    // `cmd.status()`: a process ended by a signal did not succeed.
+    (command_status(program, args) catch { _ => None }) == Some(0)
   }
 }

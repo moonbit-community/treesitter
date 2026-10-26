@@ -26,3 +26,16 @@ test "utf8_error matches Rust's Utf8Error" {
     assert_eq(@support.from_utf8(bytes) is None, expected != "ok")
   }
 }
+
+///|
+test "utf8_error_debug is the Debug of Utf8Error" {
+  debug_inspect(@support.utf8_error_debug(b"ok"), content="None")
+  inspect(
+    @support.utf8_error_debug(b"\xff").unwrap(),
+    content="Utf8Error { valid_up_to: 0, error_len: Some(1) }",
+  )
+  inspect(
+    @support.utf8_error_debug(b"ab\xe2\x82").unwrap(),
+    content="Utf8Error { valid_up_to: 2, error_len: None }",
+  )
+}

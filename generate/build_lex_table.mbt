@@ -85,11 +85,11 @@ fn build_lex_table(
       builder.add_state_for_tokens(TokenSet::from_array([symbol]), str_pool),
     )
     for state in builder.table.states {
-      let mut characters = CharacterSet::empty()
+      let characters = CharacterSet::empty()
       for advance in state.advance_actions {
         let (chars, action) = advance
         if action.in_main_token {
-          characters = characters.add(chars)
+          characters.add_in_place(chars)
           continue
         }
         if chars.range_count() > LARGE_CHARACTER_RANGE_COUNT &&

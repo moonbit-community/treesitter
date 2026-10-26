@@ -6,7 +6,6 @@ using @support {
   color_enabled,
   log_info,
   log_warn,
-  log_error,
   type Color,
   type Style,
   black,

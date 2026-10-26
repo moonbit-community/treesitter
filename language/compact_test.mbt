@@ -106,3 +106,85 @@ test "compact rejects malformed data" {
     _ => fail("expected an error")
   }
 }
+
+///|
+fn compact_error(data : Bytes) -> String {
+  try @language.Language::from_compact(data) catch {
+    e => e.to_string()
+  } noraise {
+    _ => "no error"
+  }
+}
+
+///|
+/// A container holding `raw` as a single literal run.
+fn compact_container(raw : Array[Byte]) -> Bytes {
+  let container : Array[Byte] = [b'\x01', raw.length().to_byte()]
+  container.push(raw.length().to_byte())
+  container.append(raw)
+  Bytes::from_array(container)
+}
+
+///|
+/// Encoded distances, lengths and index gaps near `Int::max_value()` must not
+/// overflow past the range checks (they used to panic).
+test "compact rejects out-of-range offsets" {
+  // A match whose distance code is 0x7FFFFFFF.
+  inspect(
+    compact_error(b"\x01\x08\x01\x41\x00\xff\xff\xff\xff\x07\x00"),
+    content="invalid compact language: match out of range",
+  )
+  // A match whose length code is 0x7FFFFFFF.
+  inspect(
+    compact_error(b"\x01\x08\x01\x41\xff\xff\xff\xff\x07\x00\x00"),
+    content="invalid compact language: match out of range",
+  )
+  // A sparse array (the parse table, after the ten counts) whose second
+  // index gap is 0x7FFFFFFF.
+  let raw : Array[Byte] = Array::make(10, b'\x00')
+  raw.append([b'\x02', b'\x02', b'\x00', b'\x01'])
+  raw.append([b'\xff', b'\xff', b'\xff', b'\xff', b'\x07', b'\x01'])
+  inspect(
+    compact_error(compact_container(raw)),
+    content="invalid compact language: sparse index out of range",
+  )
+  // An overlong signed varint, whose high bits used to be dropped: the first
+  // element of the small parse table map, after an empty parse table and an
+  // empty small parse table.
+  let raw : Array[Byte] = Array::make(10, b'\x00')
+  raw.append([b'\x00', b'\x00', b'\x00', b'\x01'])
+  raw.append([b'\x80', b'\x80', b'\x80', b'\x80', b'\x80', b'\x00'])
+  inspect(
+    compact_error(compact_container(raw)),
+    content="invalid compact language: varint out of range",
+  )
+}
+
+///|
+/// A field map child index that the packed encoding cannot represent is
+/// rejected instead of being changed.
+test "compact rejects out-of-range child indices" {
+  for child_index in [-2147483648, -1, 0x40000000, 2147483647] {
+    let language : @language.Language = {
+      ..sample_language(),
+      field_map_entries: [{ field_id: 1, child_index, inherited: false, }],
+    }
+    try language.to_compact() catch {
+      e =>
+        assert_eq(
+          e.to_string(),
+          "invalid compact language: child index \{child_index} out of range",
+        )
+    } noraise {
+      _ => fail("expected an error for \{child_index}")
+    }
+  }
+  let language : @language.Language = {
+    ..sample_language(),
+    field_map_entries: [
+      { field_id: 1, child_index: 0x3FFFFFFF, inherited: true, },
+      { field_id: 0, child_index: 0, inherited: false, },
+    ],
+  }
+  assert_eq(@language.Language::from_compact(language.to_compact()), language)
+}

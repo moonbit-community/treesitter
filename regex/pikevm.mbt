@@ -52,7 +52,16 @@ fn Sim::add(self : Sim, pos : Int32, state : Int32) -> Bool {
 }
 
 ///|
-fn Program::is_match(self : Program, haystack : BytesView) -> Bool {
+/// The end of a match of a search of `haystack` starting at `from` (whose
+/// assertions see all of `haystack`), or -1 if there is none. With `any`,
+/// this is the end of the first match found; otherwise it is the smallest
+/// match end (the offset of an earliest search, `Input::earliest`).
+fn Program::earliest_end(
+  self : Program,
+  haystack : BytesView,
+  from : Int32,
+  any~ : Bool,
+) -> Int32 {
   let n = self.states.length()
   let sim : Sim = {
     program: self,
@@ -62,10 +71,25 @@ fn Program::is_match(self : Program, haystack : BytesView) -> Bool {
     stack: [],
   }
   let len = haystack.length()
-  for pos in 0..<=len {
-    if pos == 0 || !self.anchored {
-      if sim.add(pos, self.start) {
-        return true
+  // The smallest match end found so far. A match ending at `end` is found
+  // while processing a position before `end` (a code point class reaches
+  // several bytes ahead) or when a thread starts at `end`, so once `pos`
+  // reaches `best`, no smaller end can be found.
+  let mut best = -1
+  // Record a match ending at `end`; true when the search is over.
+  let found = (end : Int32) => {
+    if best < 0 || end < best {
+      best = end
+    }
+    any
+  }
+  for pos in from..<=len {
+    if best >= 0 && best <= pos {
+      return best
+    }
+    if pos == from || !self.anchored {
+      if sim.add(pos, self.start) && found(pos) {
+        return best
       }
     }
     let list = sim.lists[pos % slot_count]
@@ -80,7 +104,7 @@ fn Program::is_match(self : Program, haystack : BytesView) -> Bool {
         }
       }
       if !alive {
-        return false
+        return best
       }
     }
     for i = 0; i < list.length(); i = i + 1 {
@@ -88,20 +112,24 @@ fn Program::is_match(self : Program, haystack : BytesView) -> Bool {
         ByteRange(lo, hi, next) =>
           if pos < len {
             let b = haystack[pos].to_int()
-            if b >= lo && b <= hi && sim.add(pos + 1, next) {
-              return true
+            if b >= lo && b <= hi && sim.add(pos + 1, next) && found(pos + 1) {
+              return best
             }
           }
         ByteClass(ranges, next) =>
           if pos < len &&
             ranges_contain(ranges, haystack[pos].to_int()) &&
-            sim.add(pos + 1, next) {
-            return true
+            sim.add(pos + 1, next) &&
+            found(pos + 1) {
+            return best
           }
         CodePointClass(ranges, next) => {
           let (cp, width) = decode_utf8(haystack, pos)
-          if cp >= 0 && ranges_contain(ranges, cp) && sim.add(pos + width, next) {
-            return true
+          if cp >= 0 &&
+            ranges_contain(ranges, cp) &&
+            sim.add(pos + width, next) &&
+            found(pos + width) {
+            return best
           }
         }
         _ => ()
@@ -109,7 +137,7 @@ fn Program::is_match(self : Program, haystack : BytesView) -> Bool {
     }
     list.clear()
   }
-  false
+  best
 }
 
 ///|

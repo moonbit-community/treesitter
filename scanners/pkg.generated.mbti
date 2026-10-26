@@ -3,14 +3,22 @@ package "moonbit-community/treesitter/scanners"
 
 import {
   "moonbit-community/treesitter/runtime",
+  "moonbitlang/core/debug",
 }
 
 // Values
 pub fn scanner_for(String) -> (() -> @runtime.ExternalScanner)?
 
+pub fn yaml_scanner_with_schema(YamlSchema) -> () -> @runtime.ExternalScanner
+
 // Errors
 
 // Types and methods
+pub(all) enum YamlSchema {
+  Core
+  Json
+  Legacy
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

@@ -34,7 +34,7 @@ fn from_u32(x : UInt32) -> Int32 {
 pub(all) struct Point {
   row : Int32
   column : Int32
-} derive(Eq, Hash, Compare, Debug, Default)
+} derive(Eq, Hash, Compare, Default)
 
 ///|
 /// Create a point.
@@ -46,6 +46,17 @@ pub fn Point::new(row : Int32, column : Int32) -> Point {
 /// Formats as `(row, column)`.
 pub impl Show for Point with fn output(self, logger) {
   logger.write_string("(\{self.row}, \{self.column})")
+}
+
+///|
+/// Rust's derived `Debug`: `Point { row: 1, column: 2 }`.
+pub impl Debug for Point with fn to_repr(self) {
+  Repr::literal(self.debug_text())
+}
+
+///|
+fn Point::debug_text(self : Point) -> String {
+  "Point { row: \{self.row}, column: \{self.column} }"
 }
 
 ///|
@@ -66,7 +77,16 @@ pub(all) struct Range {
   end_byte : Int32
   start_point : Point
   end_point : Point
-} derive(Eq, Hash, Debug)
+} derive(Eq, Hash)
+
+///|
+/// Rust's derived `Debug`: `Range { start_byte: 0, end_byte: 1, start_point:
+/// Point { .. }, end_point: Point { .. } }`.
+pub impl Debug for Range with fn to_repr(self) {
+  Repr::literal(
+    "Range { start_byte: \{self.start_byte}, end_byte: \{self.end_byte}, start_point: \{self.start_point.debug_text()}, end_point: \{self.end_point.debug_text()} }",
+  )
+}
 
 ///|
 fn Range::to_ts(self : Range) -> @runtime.Range {
@@ -97,7 +117,17 @@ pub(all) struct InputEdit {
   start_position : Point
   old_end_position : Point
   new_end_position : Point
-} derive(Eq, Debug)
+} derive(Eq)
+
+///|
+/// Rust's derived `Debug`: `InputEdit { start_byte: .., old_end_byte: ..,
+/// new_end_byte: .., start_position: Point { .. }, old_end_position: ..,
+/// new_end_position: .. }`.
+pub impl Debug for InputEdit with fn to_repr(self) {
+  Repr::literal(
+    "InputEdit { start_byte: \{self.start_byte}, old_end_byte: \{self.old_end_byte}, new_end_byte: \{self.new_end_byte}, start_position: \{self.start_position.debug_text()}, old_end_position: \{self.old_end_position.debug_text()}, new_end_position: \{self.new_end_position.debug_text()} }",
+  )
+}
 
 ///|
 fn InputEdit::to_ts(self : InputEdit) -> @runtime.InputEdit {

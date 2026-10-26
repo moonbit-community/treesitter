@@ -209,8 +209,16 @@ a{100000}
 \b[A-Z]{2,}\b
 (?u)\w
 (?-u)a
+x☃|(?-u:\B)
+(?-u:\B)x
+(?:[☃é]|(?-u:\B)+)(?:(?m:^){0,2}|\b{start}|\b{start}*)
 '''.strip().split('\n')
 patterns += EDGE
+# Alternations of at least 3000 literals (the meta engine's Aho-Corasick
+# strategy), with literals that are prefixes of each other in both orders.
+WORDS = [f'w{i}' for i in range(3000)]
+patterns += ['|'.join(WORDS), '|'.join(['abcd', 'b'] + WORDS), '|'.join(['ab', 'abc'] + WORDS),
+             '|'.join(['abc', 'ab'] + WORDS), '|'.join(WORDS[:2999])]
 
 seen, unique = set(), []
 for p in patterns:

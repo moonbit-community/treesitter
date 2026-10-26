@@ -5,8 +5,9 @@ Usage: python3 tools/check_registry.py VERSION [GRAMMAR_MODULE@VERSION ...]
 Creates a consumer module outside this repository that depends on
 moonbit-community/treesitter@VERSION (and the given grammar modules, e.g.
 moonbit-community/tree-sitter-json@0.24.8), and runs a test that generates a
-grammar, parses, queries and, for each grammar module, parses with its
-`language()`.
+grammar, parses, queries and, for each grammar module, parses with every
+language constructor it exports (`pub fn ...() -> @treesitter.Language` in the
+installed module's pkg.generated.mbti).
 """
 import os
 import re
@@ -34,7 +35,7 @@ test "core" {
 '''
 
 TEST_GRAMMAR = '''///|
-test "{alias}" {
+test "{alias}.{function}" {
   let parser = @treesitter.Parser::new()
   parser.set_language(@{alias}.{function}())
   guard parser.parse(@utf8.encode("")) is Some(tree) else { fail("parse failed") }
@@ -60,21 +61,33 @@ def main():
             + ',\n  '.join(deps) + ',\n}\n')
         imports = ['"moonbit-community/treesitter"', '"moonbit-community/treesitter/grammar"',
                    '"moonbit-community/treesitter/generate"', '"moonbitlang/core/encoding/utf8"']
-        tests = TEST_CORE
+        aliases = []
         for g in grammars:
             name = g.split('@')[0]
             alias = name.split('/')[-1].replace('-', '_')
             imports.append(f'"{name}" @{alias}')
-            # Grammar modules with several languages name them language_<x>().
-            function = 'language' if alias != 'tree_sitter_typescript' else 'language_typescript'
-            tests += TEST_GRAMMAR.replace('{alias}', alias).replace('{function}', function)
+            aliases.append((name, alias))
         (project / 'moon.pkg').write_text(
             'import {\n  ' + ',\n  '.join(imports) + ',\n} for "test"\n')
-        (project / 'consumer_test.mbt').write_text(tests)
+        (project / 'consumer_test.mbt').write_text(TEST_CORE)
         env = dict(os.environ)
-        for command in (['moon', 'update'], ['moon', 'test', '--target', 'native']):
-            print('$', ' '.join(command), flush=True)
-            subprocess.run(command, cwd=project, env=env, check=True)
+        run = lambda *command: (print('$', ' '.join(command), flush=True),
+                                subprocess.run(command, cwd=project, env=env, check=True))
+        run('moon', 'update')
+        # Download the dependencies, then test every language constructor
+        # the installed grammar modules export.
+        run('moon', 'check', '--target', 'native')
+        tests = TEST_CORE
+        for name, alias in aliases:
+            mbti = project / '.mooncakes' / name / 'pkg.generated.mbti'
+            functions = re.findall(r'^pub fn (\w+)\(\) -> @treesitter\.Language$', mbti.read_text(), re.M)
+            if not functions:
+                sys.exit(f'{name} exports no language constructor ({mbti})')
+            for function in functions:
+                print(f'checking {name} {function}()')
+                tests += TEST_GRAMMAR.replace('{alias}', alias).replace('{function}', function)
+        (project / 'consumer_test.mbt').write_text(tests)
+        run('moon', 'test', '--target', 'native')
     print('registry check passed')
 
 

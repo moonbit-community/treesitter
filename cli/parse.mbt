@@ -574,10 +574,14 @@ pub async fn parse_file_at_path(
     let edit_time = @support.now_ns()
     for i, edit in opts.edits {
       let edit = parse_edit_flag(source_code, edit)
-      ignore(@cli_test.perform_edit(tree, source_code, edit))
-      tree = parser
-        .parse(Bytes::from_array(source_code), old_tree=tree)
-        .unwrap()
+      perform_flag_edit(tree, source_code, edit)
+      tree = match parser.parse(Bytes::from_array(source_code), old_tree=tree) {
+        Some(tree) => tree
+        None =>
+          @support.rust_panic(
+            "called `Option::unwrap()` on a `None` value", "crates/cli/src/parse.rs:445:60",
+          )
+      }
       if opts.debug_graph {
         log_info(
           "AFTER \{i}:\n\{@support.utf8_lossy(Bytes::from_array(source_code))}",
@@ -720,10 +724,15 @@ pub async fn parse_file_at_path(
             did_visit_children = true
             let start = node.start_byte()
             let end = node.end_byte()
-            let value = match @support.utf8_strict(source_bytes[start:end]) {
-              Some(v) => v
-              None => panic()
+            // `std::str::from_utf8(..).expect("has a string")`
+            let value = source_bytes[start:end]
+            if @support.utf8_error_debug(value) is Some(error) {
+              @support.rust_panic(
+                "has a string: \{error}",
+                "crates/cli/src/parse.rs:599:75",
+              )
             }
+            let value = @support.utf8_lossy(value)
             if !is_named && needs_newline {
               stdout.write_string("\n")
               for _ in 0..<indent_level {
@@ -1185,10 +1194,19 @@ fn cst_render_node(
 }
 
 ///|
+/// `fuzz::edits::Edit` as `parse_edit_flag` makes it: `usize` offsets
+/// (`UInt64`), which `perform_flag_edit` checks before converting.
+priv struct FlagEdit {
+  position : UInt64
+  deleted_length : UInt64
+  inserted_text : Array[Byte]
+}
+
+///|
 fn parse_edit_flag(
   source_code : Array[Byte],
   flag : String,
-) -> @cli_test.Edit raise CliError {
+) -> FlagEdit raise CliError {
   let error = () => {
     anyhow(
       "Invalid edit string '\{flag}'. Edit strings must match the pattern '<START_BYTE_OR_POSITION> <REMOVED_LENGTH> <NEW_TEXT>'",
@@ -1204,19 +1222,62 @@ fn parse_edit_flag(
   // Position can either be a byte_offset or row,column pair, separated by a
   // comma
   let position = if position == "$" {
-    source_code.length()
+    source_code.length().to_uint64()
   } else if position.contains(",") {
     let ps = position.split(",").map(p => p.to_owned()).collect()
-    let row = parse_usize(ps[0]).or_raise(error())
+    let row = @cli_test.parse_usize(ps[0]).or_raise(error())
     guard ps.length() >= 2 else { raise error() }
-    let column = parse_usize(ps[1]).or_raise(error())
-    offset_for_position(source_code, { row, column, })
+    let column = @cli_test.parse_usize(ps[1]).or_raise(error())
+    offset_for_usize_position(source_code, row, column).to_uint64()
   } else {
-    parse_usize(position).or_raise(error())
+    @cli_test.parse_usize(position).or_raise(error())
   }
   // Deleted length must be a byte count.
-  let deleted_length = parse_usize(deleted_length).or_raise(error())
+  let deleted_length = @cli_test.parse_usize(deleted_length).or_raise(error())
   { position, deleted_length, inserted_text, }
+}
+
+///|
+/// `perform_edit(tree, input, edit)` for an edit of `parse_edit_flag`: the
+/// endpoints are computed with `usize` arithmetic (wrapping, as in release
+/// builds) and checked as upstream's `position_for_offset` and
+/// `Vec::splice` check them, before the input or the tree changes.
+fn perform_flag_edit(
+  tree : @treesitter.Tree,
+  input : Array[Byte],
+  edit : FlagEdit,
+) -> Unit raise {
+  let (start_byte, deleted_length) = check_flag_edit(input.length(), edit)
+  ignore(
+    @cli_test.perform_edit(tree, input, {
+      position: start_byte,
+      deleted_length,
+      inserted_text: edit.inserted_text,
+    }),
+  )
+}
+
+///|
+/// The checks of `perform_edit` for an input of `len` bytes, before it
+/// changes: the start byte and the deleted length.
+fn check_flag_edit(len : Int32, edit : FlagEdit) -> (Int32, Int32) raise {
+  let len = len.to_uint64()
+  let start_byte = edit.position
+  let old_end_byte = edit.position + edit.deleted_length
+  if start_byte > len {
+    raise @cli_test.ParseError("Failed to address an offset: \{start_byte}")
+  }
+  if old_end_byte > len {
+    raise @cli_test.ParseError("Failed to address an offset: \{old_end_byte}")
+  }
+  if start_byte > old_end_byte {
+    // `input.splice(start_byte..old_end_byte, ..)` (`slice::range`)
+    @support.rust_panic(
+      "slice index starts at \{start_byte} but ends at \{old_end_byte}",
+      "/rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library/core/src/slice/index.rs:1031:55",
+    )
+  }
+  (start_byte.to_int(), edit.deleted_length.to_int())
 }
 
 ///|
@@ -1228,56 +1289,44 @@ fn[T] Option::or_raise(self : T?, err : CliError) -> T raise CliError {
 }
 
 ///|
-/// `str::parse::<usize>`.
-pub fn parse_usize(s : String) -> Int32? {
-  if s.is_empty() {
-    return None
-  }
-  let mut n = 0L
-  let mut s = s
-  if s.has_prefix("+") {
-    s = s.unsafe_substring(start=1, end=s.length())
-    if s.is_empty() {
-      return None
-    }
-  }
-  for c in s {
-    if c < '0' || c > '9' {
-      return None
-    }
-    n = n * 10L + (c.to_int() - '0'.to_int()).to_int64()
-    if n > 2147483647L {
-      return None
-    }
-  }
-  Some(n.to_int())
-}
-
-///|
 pub fn offset_for_position(
   input : Array[Byte],
   position : @treesitter.Point,
 ) -> Int32 raise CliError {
-  let mut row = 0
+  offset_for_usize_position(
+    input,
+    position.row.to_uint64(),
+    position.column.to_uint64(),
+  )
+}
+
+///|
+/// `offset_for_position` for a `Point` of `usize` coordinates.
+fn offset_for_usize_position(
+  input : Array[Byte],
+  row : UInt64,
+  column : UInt64,
+) -> Int32 raise CliError {
+  let mut current_row = 0UL
   let mut line_start = 0
   for line_end, b in input {
     if b != b'\n' {
       continue
     }
-    if row == position.row {
-      if position.column > line_end - line_start {
-        raise anyhow("Failed to address a column: \{position.column}")
+    if current_row == row {
+      if column > (line_end - line_start).to_uint64() {
+        raise anyhow("Failed to address a column: \{column}")
       }
-      return line_start + position.column
+      return line_start + column.to_int()
     }
-    row += 1
+    current_row += 1
     line_start = line_end + 1
   }
-  if row != position.row {
-    raise anyhow("Failed to address a row: \{position.row}")
+  if current_row != row {
+    raise anyhow("Failed to address a row: \{row}")
   }
-  if position.column > input.length() - line_start {
+  if column > (input.length() - line_start).to_uint64() {
     raise anyhow("Failed to address a column over the end")
   }
-  line_start + position.column
+  line_start + column.to_int()
 }

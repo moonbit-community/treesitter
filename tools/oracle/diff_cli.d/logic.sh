@@ -112,13 +112,14 @@ EOF
     d="$L/init-$which"
     rm -rf "$d"
     mkdir -p "$d/src"
+    # (with the Zig bindings: build.zig.zon's name and fingerprint)
     sed -e 's/"name": "json"/"name": "ÉFooΣ"/' -e 's/"camelcase": "JSON"/"camelcase": "ÉFooΣ"/' \
+      -e 's/"swift": true/"swift": true, "zig": true/' \
       "$GRAMMARS/tree-sitter-json/tree-sitter.json" > "$d/tree-sitter.json"
     cp "$GRAMMARS/tree-sitter-json/grammar.js" "$d/"
     cp "$GRAMMARS/tree-sitter-json/src/grammar.json" "$d/src/"
     if [ $which = up ]; then cli=$UP; else cli=$MBT; fi
     (cd "$d" && env NO_COLOR=1 "$cli" init > init.out 2> init.err; echo $? > init.code)
   done
-  (cd "$L/init-up" && find . -type f | sort | sed 's#^\./##' | grep -v '^build.zig.zon$' > "$L/init-files.txt")
-  compare_trees logic-init-unicode "$L/init-up" "$L/init-mbt" $(cat "$L/init-files.txt")
+  compare_init logic-init-unicode "$L/init-up" "$L/init-mbt"
 }

@@ -10,18 +10,18 @@ intended to behave identically, and a difference is a bug.
 
 | Area | Check | Result |
 | --- | --- | --- |
-| Generator | `parser.c`, `node-types.json` and error text for the 74 upstream test grammars (12 of which upstream rejects), 17 fixture grammars and 17 additional languages | 108/108 byte-identical |
-| Runtime | trees for every corpus input, plus 2 random mutations each | 13,269/13,269 |
-| Runtime | 3 random incremental edits per input: edited trees, changed ranges, fresh reparse | 13,269/13,269 |
-| Runtime | parser and lexer log streams | 8,846/8,846 |
-| Runtime | UTF-16LE, UTF-16BE, random included ranges | 4,432/4,432 each |
-| Queries | matches and captures of every grammar's query files and the test queries | 11,623/11,623 |
+| Generator | `parser.c`, `node-types.json` and error text for the 74 upstream test grammars (12 of which upstream rejects), 17 fixture grammars and 17 additional languages | 108/108 byte-identical, warnings and errors compared in full |
+| Runtime | trees for every corpus input, plus 2 random mutations each | 13,800/13,800 |
+| Runtime | 3 random incremental edits per input: edited trees, changed ranges, fresh reparse | 13,800/13,800 |
+| Runtime | parser and lexer log streams | 9,200/9,200 |
+| Runtime | UTF-16LE, UTF-16BE, random included ranges | 4,600/4,600 each |
+| Queries | matches, captures and metadata of every grammar's query files and the test queries | 11,952/11,952 |
 | Grammar modules | embedded tables of the 34 languages vs upstream's `parser.c` | 34/34 identical |
 | Highlight, tags | event streams, HTML, tags of 10 fixture grammars | byte-identical |
-| Regex | matching, `find_iter` and error messages vs the `regex` crate | 446,822 pairs identical |
+| Regex | `is_match`, `find`, `find_iter` (bytes and UTF-8 mode) and error messages vs the `regex` crate | 486,885 + 410,406 pairs identical |
 | Regex | compilation size limit at 316 boundary patterns | identical |
 | `grammar.json` reading | error messages for 3,001 malformed grammars (serde_json behaviour) | identical |
-| CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,695/1,695 command lines |
+| CLI | help, errors, completions, generate, parse, query, highlight, tags, test, fuzz, init, version | 1,774/1,774 command lines |
 
 The comparisons cover the upstream test and fixture grammars and the 14
 further grammar repositories pinned in
@@ -29,7 +29,10 @@ further grammar repositories pinned in
 julia, ocaml, regex, scala, verilog, lua, make, markdown, toml, yaml, zig),
 including every external scanner: the scanners of all fixture, test and
 additional grammars are ported to MoonBit and compiled from their original
-C sources for the reference side. They are reproduced by
+C sources for the reference side. Corpus inputs are extracted with a port of upstream's corpus parser
+(identical to upstream's extraction on all 375 corpus paths), and
+`tools/oracle/selftest.py` checks that the harness fails on injected
+differences, crashes, missing records and one-sided hangs. They are reproduced by
 `tools/oracle/oracle.sh` and `tools/oracle/diff_cli.sh` (run in CI by the
 `oracle` job). The upstream test suites of the CLI crate (`parser_test.rs`,
 `node_test.rs`, `tree_test.rs`, `query_test.rs`, `corpus_test.rs`,
@@ -47,6 +50,8 @@ packages' own tests.
 | QuickJS (`--js-runtime native`) | Not available; `grammar.js` is evaluated with node, bun or deno, as upstream does. |
 | CLI: Ctrl-C cancellation, generator debug traces under `generate --log`, dialoguer's terminal UI in `init` (line prompts instead), colored clap output, `RUST_BACKTRACE` backtraces | Not ported. |
 | Optional query debug output (`DEBUG_QUERY_STEPS`, `DEBUG_ANALYZE_QUERY`, `DEBUG_EXECUTE_QUERY` in `query.c`) | Off in the default upstream build; not ported. |
+| Optional scanner debug traces (tree-sitter-scala's `scanner.c` compiled with `-DDEBUG`) | Off in the default upstream build; not ported. |
+| tree-sitter-markdown's optional Rust `parser` feature (`MarkdownParser`, `MarkdownTree`, `MarkdownCursor`, `MarkdownParseOptions`) | Not ported. `moonbit-community/tree-sitter-markdown` exports what the binding exports without the feature: the block and inline languages, their queries and node types. Combined parsing works as `parser.rs` does it: parse the block tree, then parse each `inline` node's ranges with `inline_language()` using included ranges. |
 | `fuzz` allocation tracking | Not applicable (memory is garbage collected); a failed consistency assertion during a trial is reported as an error and counts as a failed test. |
 
 ## Representation differences
@@ -65,6 +70,13 @@ packages' own tests.
   Parsers are not destroyed automatically either: call `Parser::delete`
   (the equivalent of dropping the Rust `Parser`) to run the external
   scanner's `destroy` for a parse that was cancelled and not reset.
+- An idle parser (after a completed parse, `reset`, `set_language(None)` or
+  `delete`) holds no references to the previous tree or input. A cancelled
+  parse keeps its parse stack, as upstream does, but not its input callback.
+- A query cursor drops its tree once its execution is exhausted. A cursor
+  whose matches or captures are abandoned before exhaustion keeps the tree
+  alive until its next `exec` (this includes the cursors `Highlighter` and
+  `TagsContext` reuse); upstream's cursor does not own the tree.
 - `Tree::print_dot_graph` and `Parser::print_dot_graphs_to` write upstream's
   exact bytes to a `Buffer`; String destinations (`StringBuilder`,
   `Parser::print_dot_graphs`) receive them decoded as UTF-8 with invalid
@@ -86,7 +98,16 @@ packages' own tests.
   actions) are not reproduced; the port behaves like release builds.
 - The regex size limit reproduces regex-automata's NFA accounting; the meta
   engine's exact-prefix literal bypass is not modelled, as it only applies
-  to regexes far below the limit.
+  to regexes far below the limit. Alternations of 3,000 or more literals use
+  a port of aho-corasick's leftmost-first automaton, as upstream does.
+- `Regex::is_match` in UTF-8 mode, for regexes that can match the empty
+  string, follows the meta engine's choice of engine (lazy DFA; the bounded
+  backtracker for haystacks of at most 128 bytes once the lazy DFA gives up
+  on a Unicode word boundary; otherwise the PikeVM). The backtracker's
+  visited-set limit (NFAs of more than about 16,000 states) and the lazy DFA
+  giving up when its cache thrashes are not modelled.
+- The YAML scanner's schema (`YAML_SCHEMA` at build time upstream, `core` by
+  default) is selected with `@scanners.yaml_scanner_with_schema`.
 
 ## Nondeterministic upstream behaviour
 
@@ -119,7 +140,15 @@ the orders upstream can produce:
   include them.
 - Writes to stdout are all-or-error (no partial writes). File names that are
   not valid UTF-8 are decoded lossily, so glob patterns may match or sort
-  them differently.
+  them differently, and such a path that does not exist gives "No files
+  were found…" rather than upstream's "Invalid path: …".
+- When a command is re-run through a compiled MoonBit scanner driver,
+  arguments that are not valid UTF-8 reach the driver decoded lossily, so
+  clap's InvalidUtf8 check does not apply there.
+- Query `--byte-range`/`--row-range` values are truncated to u32 as the
+  Rust binding does; values above 0x7FFFFFFE are represented as 0x7FFFFFFF,
+  so a range whose start and end both lie in 2³¹…2³²−2 with start > end is
+  set (and matches nothing) instead of being ignored by the C cursor.
 - A failed C `assert` in a ported external scanner prints macOS libc's
   diagnostic (`Assertion failed: (expr), function f, file scanner.c, line
   N.`) on stderr and then ends with a MoonBit panic instead of `abort()`.
@@ -147,9 +176,11 @@ indents) abort in the port.
 The library packages are pure MoonBit and build for native, JavaScript and
 Wasm GC. The CLI, loader and config are native only and use one C file of
 host bindings (`cli/support/stub.c`): binary writes to stdout and stderr with
-errno, reading special files, process exit and wait status, a monotonic
-clock, `isatty`, `strerror`, the passwd home directory, the target OS, and
-macOS Launch Services for `--open-log`.
+errno, reading special files, process spawning (`posix_spawn`, with Rust's
+signal setup and blocking pipe ends) and wait status, `fcntl` blocking mode,
+process exit, a monotonic clock, `isatty`, `strerror`, `getcwd`, the default
+temporary directory, the passwd home directory, the target OS, and macOS
+Launch Services for `--open-log`.
 
 ## Performance
 

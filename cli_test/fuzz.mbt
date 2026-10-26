@@ -91,7 +91,14 @@ pub fn parse_usize(s : String) -> UInt64? {
 ///|
 fn regex_env_var(name : String) -> @regex.Regex? {
   guard @env.get_env_var(name) is Some(value) else { return None }
-  try @regex.Regex::new(value) catch {
+  env_regex(value)
+}
+
+///|
+/// `Regex::new(&e).ok()` with `regex::Regex` (UTF-8 mode: a pattern that
+/// can match invalid UTF-8 is rejected).
+fn env_regex(value : String) -> @regex.Regex? {
+  try @regex.Regex::new(value, utf8=true) catch {
     _ => None
   } noraise {
     regex => Some(regex)

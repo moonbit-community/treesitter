@@ -269,23 +269,83 @@ async fn update_file_with(
 }
 
 ///|
-/// Replace the quoted value following `prefix` on `line` with `version`
-/// (panics like upstream's `unwrap`s when the quotes are missing).
+/// Replace the quoted value following `prefix` on `line` with `version`:
+///
+/// ```rust
+/// let prefix_index = line.find(prefix).unwrap() + prefix.len();
+/// let start_quote = line[prefix_index..].find('"').unwrap() + prefix_index + 1;
+/// let end_quote = line[start_quote + 1..].find('"').unwrap() + start_quote + 1;
+/// format!("{}{}{}", &line[..start_quote], version, &line[end_quote..])
+/// ```
+///
+/// with byte offsets, panicking as upstream does (at the lines `line_no + 2`
+/// and `line_no + 4` of version.rs, where `line_no` is the line of the first
+/// `unwrap`) when a quote is missing or the slice after the opening quote
+/// does not start at a character boundary.
 fn replace_quoted_after(
   line : String,
   prefix : String,
   version : String,
+  line_no~ : Int32,
 ) -> String {
-  let prefix_index = line.find(prefix).unwrap() + prefix.length()
-  let start_quote = line.view(start_offset=prefix_index).find("\"").unwrap() +
-    prefix_index +
-    1
-  let end_quote = line.view(start_offset=start_quote + 1).find("\"").unwrap() +
-    start_quote +
-    1
-  line.view(end_offset=start_quote).to_owned() +
+  let bytes = @support.utf8(line)
+  let find_quote = (from : Int32) => {
+    for i in from..<bytes.length() {
+      if bytes[i] == b'"' {
+        return Some(i)
+      }
+    }
+    None
+  }
+  let unwrap_none = (line : Int32, column : Int32) => {
+    @support.rust_panic(
+      "called `Option::unwrap()` on a `None` value",
+      "crates/cli/src/version.rs:\{line}:\{column}",
+    )
+  }
+  // `prefix` is ASCII and found (the caller checked), so `prefix_index` is a
+  // character boundary.
+  let prefix_index = @support.utf8_len(
+      line.view(end_offset=line.find(prefix).unwrap()).to_owned(),
+    ) +
+    @support.utf8_len(prefix)
+  let start_quote = match find_quote(prefix_index) {
+    Some(i) => i + 1
+    None => unwrap_none(line_no + 2, 60)
+  }
+  // `line[start_quote + 1..]`
+  let from = start_quote + 1
+  let location = "crates/cli/src/version.rs:\{line_no + 4}:33"
+  if from > bytes.length() {
+    @support.rust_panic(
+      "start byte index \{from} is out of bounds for string of length \{bytes.length()}",
+      location,
+    )
+  }
+  if from < bytes.length() && (bytes[from].to_int() & 0xC0) == 0x80 {
+    let mut char_start = from
+    while (bytes[char_start].to_int() & 0xC0) == 0x80 {
+      char_start -= 1
+    }
+    let mut char_end = char_start + 1
+    while char_end < bytes.length() && (bytes[char_end].to_int() & 0xC0) == 0x80 {
+      char_end += 1
+    }
+    let ch = @support.utf8_lossy(bytes[char_start:char_end])
+      .get_char(0)
+      .unwrap()
+    @support.rust_panic(
+      "start byte index \{from} is not a char boundary; it is inside \{@support.rust_debug_char(ch)} (bytes \{char_start}..\{char_end} of string)",
+      location,
+    )
+  }
+  let end_quote = match find_quote(from) {
+    Some(i) => i
+    None => unwrap_none(line_no + 4, 63)
+  }
+  @support.utf8_lossy(bytes[:start_quote]) +
   version +
-  line.view(start_offset=end_quote).to_owned()
+  @support.utf8_lossy(bytes[end_quote:])
 }
 
 ///|
@@ -303,7 +363,7 @@ async fn Version::update_treesitter_json(
   update_file_with(json_path, content => {
     map_lines(content, line => {
       if line.contains("\"version\":") {
-        replace_quoted_after(line, "\"version\":", version)
+        replace_quoted_after(line, "\"version\":", version, line_no=163)
       } else {
         line
       }
@@ -336,15 +396,17 @@ async fn Version::update_cargo_lock(
   self : Version,
 ) -> Result[Unit, UpdateError] {
   if path_exists(@support.path_join(self.current_dir, "Cargo.lock")) {
-    let (code, _, stderr) = @process.collect_output(
+    // `Command::output()`: stdin is null, and a process ended by a signal
+    // did not succeed.
+    let (code, _, stderr) = @support.command_output(
       "cargo",
       ["generate-lockfile", "--offline"],
       cwd=self.current_dir,
     ) catch {
       _ => return Ok(()) // cargo is not `executable`, ignore
     }
-    if code != 0 {
-      let stderr = @support.utf8_lossy(stderr.binary())
+    if code != Some(0) {
+      let stderr = @support.utf8_lossy(stderr)
       return Err(UpdateError::Command("cargo generate-lockfile", stderr))
     }
   }
@@ -363,7 +425,7 @@ async fn Version::update_package_json(
   update_file_with(package_json_path, content => {
     map_lines(content, line => {
       if line.contains("\"version\":") {
-        replace_quoted_after(line, "\"version\":", version)
+        replace_quoted_after(line, "\"version\":", version, line_no=244)
       } else {
         line
       }
@@ -376,15 +438,17 @@ async fn Version::update_package_lock_json(
   self : Version,
 ) -> Result[Unit, UpdateError] {
   if path_exists(@support.path_join(self.current_dir, "package-lock.json")) {
-    let (code, _, stderr) = @process.collect_output(
+    // `Command::output()`: stdin is null, and a process ended by a signal
+    // did not succeed.
+    let (code, _, stderr) = @support.command_output(
       "npm",
       ["install", "--package-lock-only"],
       cwd=self.current_dir,
     ) catch {
       _ => return Ok(()) // npm is not `executable`, ignore
     }
-    if code != 0 {
-      let stderr = @support.utf8_lossy(stderr.binary())
+    if code != Some(0) {
+      let stderr = @support.utf8_lossy(stderr)
       return Err(UpdateError::Command("npm install", stderr))
     }
   }
@@ -455,12 +519,10 @@ fn replace_cmake_version(content : String, version : String) -> String {
     }
   }
 
-  // The end of group 1 and the end of the match, for a match at `start`.
-  fn match_at(start : Int32) -> (Int32, Int32)? {
-    let mut i = start
-    while i < n && is_space(chars[i]) {
-      i += 1
-    }
+  // The end of group 1 and the end of the match, for a match whose leading
+  // `\s*` ends at `i`.
+  fn match_after_spaces(i : Int32) -> (Int32, Int32)? {
+    let mut i = i
     let keyword = "VERSION"
     for k in 0..<keyword.length() {
       if i + k >= n || chars[i + k].to_int() != keyword[k].to_int() {
@@ -486,12 +548,21 @@ fn replace_cmake_version(content : String, version : String) -> String {
     Some((group_end, i + 1))
   }
 
-  for start in 0..<=n {
-    if match_at(start) is Some((group_end, end)) {
+  // Leftmost-first: a match starting anywhere in a run of whitespace (or at
+  // the character after it) depends only on what follows the run, so each
+  // run is scanned once and the search stays linear.
+  let mut start = 0
+  while start <= n {
+    let mut i = start
+    while i < n && is_space(chars[i]) {
+      i += 1
+    }
+    if match_after_spaces(i) is Some((group_end, end)) {
       return String::from_array(chars[:group_end]) +
         "\"\{version}\"" +
         String::from_array(chars[end:])
     }
+    start = i + 1
   }
   content
 }
@@ -530,7 +601,7 @@ async fn Version::update_zig_zon(self : Version) -> Result[Unit, UpdateError] {
     let zig_version_prefix = ".version ="
     map_lines(content, line => {
       if line.trim_start(chars=" \t\n\r\u{0C}").has_prefix(zig_version_prefix) {
-        replace_quoted_after(line, zig_version_prefix, version)
+        replace_quoted_after(line, zig_version_prefix, version, line_no=375)
       } else {
         line
       }

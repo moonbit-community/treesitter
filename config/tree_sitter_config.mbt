@@ -150,7 +150,13 @@ pub async fn Config::save(self : Config) -> Unit {
   @support.create_dir_all(config_dir) catch {
     e => raise IO(@support.io_error_with_path(e, Some(config_dir)))
   }
-  @fs.write_file(self.location, json, create_mode=CreateOrTruncate) catch {
+  // `fs::write` creates the file with mode 0o666 (less the umask).
+  @fs.write_file(
+    self.location,
+    json,
+    create_mode=CreateOrTruncate,
+    permission=0o666,
+  ) catch {
     e => raise IO(@support.io_error_with_path(e, Some(self.location)))
   }
 }
@@ -165,10 +171,20 @@ pub fn Config::get(self : Config) -> @support.Value {
 
 ///|
 /// Adds a component-specific configuration (the output of its `Serialize`,
-/// a JSON object) to the configuration file (`Config::add`).
+/// a JSON object) to the configuration file (`Config::add`). Panics, as
+/// upstream's `unwrap`s do, when the configuration or `config` is not an
+/// object.
 pub fn Config::add(self : Config, config : Json) -> Unit {
-  guard self.config is Object(target) else { return }
-  guard @support.Value::from_json(config) is Object(source) else { return }
+  guard self.config is Object(target) else {
+    @support.rust_panic(
+      "called `Option::unwrap()` on a `None` value", "crates/config/src/tree_sitter_config.rs:209:14",
+    )
+  }
+  guard @support.Value::from_json(config) is Object(source) else {
+    @support.rust_panic(
+      "called `Option::unwrap()` on a `None` value", "crates/config/src/tree_sitter_config.rs:210:44",
+    )
+  }
   for k, v in source {
     target[k] = v
   }

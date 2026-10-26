@@ -41,6 +41,7 @@ def main():
     args = ap.parse_args()
     names = [n for n in (args.names or sorted(p.stem for p in dr.LANG.glob('*.json'))) if n not in args.exclude]
     total = same = 0
+    failed = False
     for name in names:
         lang = json.loads((dr.LANG / f'{name}.json').read_text())
         if lang['external_token_count'] and not args.names and not args.externals:
@@ -48,8 +49,13 @@ def main():
         queries = query_files(name)
         if args.queries:
             queries += sorted(Path(args.queries).glob('*.scm'))
+        if not queries:
+            continue
         inputs = dr.corpus_inputs(name)
-        if not queries or not inputs:
+        if not inputs:
+            if name not in dr.NO_INPUTS:
+                print(f'{name}: 0/0 DIFF (no inputs)')
+                failed = True
             continue
         work = dr.TMP / name
         work.mkdir(parents=True, exist_ok=True)
@@ -60,34 +66,32 @@ def main():
             paths.append(str(p))
         ref = dr.build_ref(name, 'reference_query.c', '.query')
         for q in queries:
-            (expected, _), (actual, code) = dr.run(
-                [[str(ref), str(q), *paths], [str(dr.PROBE), 'query', str(dr.LANG / f'{name}.json'), str(q), *paths]],
-                dr.BATCH_TIMEOUT + len(paths))
-            expected, actual = expected or '', actual or ''
-            exp = expected.split('\n== ')
-            act = actual.split('\n== ')
-            n_same = sum(1 for a, b in zip(exp, act) if a == b)
-            total += len(exp)
-            same += n_same
-            ok = n_same == len(exp) and len(act) == len(exp)
-            print(f'{name} {q.name}: {n_same}/{len(exp)} {"ok" if ok else "DIFF"}' + ('' if code == 0 else f' (probe exit {code})'), flush=True)
-            shown = 0
-            for a, b in zip(exp, act):
-                if a != b and shown < args.show:
-                    shown += 1
-                    al, bl = a.split('\n'), b.split('\n')
-                    for k, (x, y) in enumerate(zip(al, bl)):
-                        if x != y:
-                            print('  first diff at line', k, 'of', al[0][:80])
-                            print('  expected:', x[:300])
-                            print('  actual:  ', y[:300])
-                            break
-                    else:
-                        print('  length differs', len(al), len(bl))
-            if len(act) < len(exp):
-                print('  probe output truncated:', actual[-400:])
+            # The first record is the query's metadata (or compile error).
+            pairs = dr.run_pair([str(ref), str(q)], [str(dr.PROBE), 'query', str(dr.LANG / f'{name}.json'), str(q)],
+                                [[p] for p in paths], paths, preamble=True)
+            passed, hangs, failures = dr.judge(name, pairs)
+            total += len(pairs)
+            same += passed
+            status = 'ok' if not failures else 'DIFF'
+            if hangs:
+                status += f' ({hangs} hang in both)'
+            kinds = sorted({f'ref {es}' for _, es, _, _ in failures if es != 0}
+                           | {f'probe {as_}' for _, _, _, as_ in failures if as_ != 0}, key=str)
+            if kinds:
+                status += ' (' + ', '.join(kinds) + ')'
+            print(f'{name} {q.name}: {passed}/{len(pairs)} {status}', flush=True)
+            for a, _, b, _ in failures[:args.show]:
+                al, bl = a.split('\n'), b.split('\n')
+                for k, (x, y) in enumerate(zip(al, bl)):
+                    if x != y:
+                        print('  first diff at line', k, 'of', al[0][:80])
+                        print('  expected:', x[:300])
+                        print('  actual:  ', y[:300])
+                        break
+                else:
+                    print('  length differs', len(al), len(bl))
     print(f'TOTAL {same}/{total}')
-    sys.exit(0 if same == total else 1)
+    sys.exit(0 if same == total and not failed else 1)
 
 
 if __name__ == '__main__':

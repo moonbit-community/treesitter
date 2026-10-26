@@ -185,6 +185,7 @@ pub async fn generate_parser_in_directory(
       @support.path_join(src_path, "grammar.json"),
       grammar_json,
       create_mode=CreateOrTruncate,
+      permission=0o666,
     ) catch {
       e => raise io_error(e, Some(src_path))
     }
@@ -255,7 +256,7 @@ pub async fn generate_parser_in_directory(
 ///|
 /// `write_file`.
 async fn write_file(path : String, body : String) -> Unit {
-  @fs.write_file(path, body, create_mode=CreateOrTruncate) catch {
+  @fs.write_file(path, body, create_mode=CreateOrTruncate, permission=0o666) catch {
     e => raise io_error(e, Some(path))
   }
 }
@@ -377,29 +378,39 @@ async fn load_js_grammar_file(
   }
   // `Stdio::piped()` for stdin and stdout; stderr is inherited. The child's
   // ends are blocking, as Rust's pipes are (a non-blocking stdin makes some
-  // runtimes fail with EAGAIN on Linux).
-  let (stdin_read, js_stdin) = @process.write_to_process() catch {
-    e => raise spawn_error(e)
-  }
-  let (js_stdout, stdout_write) = @process.read_from_process() catch {
+  // runtimes fail with EAGAIN on Linux). Every end is closed when a later
+  // step fails, as dropping Rust's pipes does. (moonbitlang/async's
+  // `write_to_process` and `read_from_process` make the same pipes, but
+  // their child ends can only be closed by spawning a process.)
+  let (stdin_read, js_stdin) = @pipe.pipe() catch { e => raise spawn_error(e) }
+  let (js_stdout, stdout_write) = @pipe.pipe() catch {
     e => {
+      stdin_read.close()
       js_stdin.close()
       raise spawn_error(e)
     }
   }
-  let pid = @process.spawn_orphan(
-    js_runtime,
-    args,
-    extra_env=Map::from_array([("TREE_SITTER_GRAMMAR_PATH", grammar_path)]),
-    stdin=stdin_read,
-    stdout=stdout_write,
-  ) catch {
+  let pid = try {
+    @support.set_blocking(stdin_read.fd())
+    @support.set_blocking(stdout_write.fd())
+    @support.spawn(
+      js_runtime,
+      args,
+      extra_env=[("TREE_SITTER_GRAMMAR_PATH", grammar_path)],
+      stdin=Fd(stdin_read.fd()),
+      stdout=Fd(stdout_write.fd()),
+    )
+  } catch {
     e => {
+      stdin_read.close()
+      stdout_write.close()
       js_stdin.close()
       js_stdout.close()
       raise spawn_error(e)
     }
   }
+  stdin_read.close()
+  stdout_write.close()
   defer js_stdout.close()
   let write_error = (item : String, e : Error) => {
     let error = @support.io_error_message(e)

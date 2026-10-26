@@ -13,7 +13,7 @@ test "paths" {
   inspect(@support.with_extension("lib/foo", "json"), content="lib/foo.json")
   inspect(@support.path_starts_with("/a/b/c", "/a/b"), content="true")
   debug_inspect(
-    @support.strip_path_prefix("~/x/y", "~"),
+    @support.path_strip_prefix("~/x/y", "~"),
     content="Some(\"x/y\")",
   )
 }

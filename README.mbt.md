@@ -146,7 +146,7 @@ The oracle checks that the generator emits byte-identical `parser.c` and
 changed ranges, parser logs, UTF-16 input and included ranges match the C
 runtime on every corpus input and random mutations and edits of them, and
 that query matches and captures match `query.c`. The CLI comparison runs
-1,695 command lines through both executables. The ported upstream test suites
+1,774 command lines through both executables. The ported upstream test suites
 (`tests/`, and the tests of each package) run with `moon test`.
 
 ## License

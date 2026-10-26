@@ -76,10 +76,10 @@ fn deserialize_parser_directories(
 ///|
 /// Replace `~` or `$HOME` with the home path.
 fn standardize_path(path : String, home : String) -> String {
-  if @support.strip_path_prefix(path, "~") is Some(p) {
+  if @support.path_strip_prefix(path, "~") is Some(p) {
     return @support.path_join(home, p)
   }
-  if @support.strip_path_prefix(path, "$HOME") is Some(p) {
+  if @support.path_strip_prefix(path, "$HOME") is Some(p) {
     return @support.path_join(home, p)
   }
   path

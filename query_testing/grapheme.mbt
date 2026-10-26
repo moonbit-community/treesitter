@@ -146,17 +146,43 @@ fn decode_grapheme_size(bs : BytesView) -> Int32 {
 /// The end offsets of the graphemes of `bs` (`grapheme_indices().map(|(_,
 /// end, _)| end)`).
 pub fn grapheme_ends(bs : BytesView) -> Array[Int32] {
-  let result = []
+  grapheme_ends_iter(bs).collect()
+}
+
+///|
+/// `grapheme_ends(bs)` as an iterator, which decodes graphemes only as far as
+/// it is consumed (`grapheme_indices()` is lazy).
+fn grapheme_ends_iter(bs : BytesView) -> Iter[Int32] {
   let mut index = 0
-  while index < bs.length() {
+  Iter::new(() => {
     let size = decode_grapheme_size(bs[index:])
     if size == 0 {
-      break
+      None
+    } else {
+      index += size
+      Some(index)
     }
-    index += size
-    result.push(index)
+  })
+}
+
+///|
+/// `lines_with_terminator(bs).get(n)`, scanning `bs` only up to the end of
+/// that line (`lines_with_terminator().nth(n)`).
+fn nth_line_with_terminator(bs : BytesView, n : Int32) -> BytesView? {
+  let mut start = 0
+  let mut row = 0
+  while start < bs.length() {
+    let end = match bs[start:].find(b"\n"[:]) {
+      Some(i) => start + i + 1
+      None => bs.length()
+    }
+    if row == n {
+      return Some(bs[start:end])
+    }
+    row += 1
+    start = end
   }
-  result
+  None
 }
 
 ///|

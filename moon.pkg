@@ -4,6 +4,7 @@ import {
   "moonbit-community/treesitter/language",
   "moonbit-community/treesitter/regex",
   "moonbit-community/treesitter/regex_syntax/hir",
+  "moonbit-community/treesitter/serde_json",
   "moonbitlang/core/encoding/utf8",
 }
 

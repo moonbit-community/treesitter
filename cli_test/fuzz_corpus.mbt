@@ -188,35 +188,14 @@ fn point_for_offset(text : BytesView, offset : Int32) -> @treesitter.Point {
 }
 
 ///|
-/// A started `util::LogSession`: `close` is its `Drop`, called when the
-/// session goes out of scope upstream.
-pub(all) struct LogSession {
-  close : async () -> Unit
-}
-
-///|
-/// `util::log_graphs(parser, path, false)`. The CLI's `util` depends on this
-/// package, so the CLI installs it with `set_log_graphs`.
-let log_graphs_fn : Ref[(async (@treesitter.Parser, String) -> LogSession)?] = Ref(
-  None,
-)
-
-///|
-/// Install the CLI's `util::log_graphs(parser, path, false)`, which starts a
-/// `LogSession` writing the parser's debug graphs to `path` as an HTML file of
-/// SVG images. Without it (in the test suites), `TREE_SITTER_LOG_GRAPHS`
-/// writes the graphs to standard error in DOT format.
-pub fn set_log_graphs(
-  log_graphs : async (@treesitter.Parser, String) -> LogSession,
-) -> Unit {
-  log_graphs_fn.val = Some(log_graphs)
-}
+/// `util::LogSession` (cli/support/log_session.mbt).
+pub using @support {type LogSession}
 
 ///|
 /// End the log session (`Drop for LogSession`), if there is one.
 pub async fn end_log_session(session : LogSession?) -> Unit {
   if session is Some(session) {
-    (session.close)()
+    session.close()
   }
 }
 
@@ -241,15 +220,22 @@ pub async fn get_parser(
     )
   }
   if log_graph_enabled() {
-    session.val = Some(
-      match log_graphs_fn.val {
-        Some(log_graphs) => log_graphs(parser, log_filename)
-        None => {
-          parser.print_dot_graphs(graph => @support.print_err("\{graph}\n"))
-          { close: () => (), }
+    let log_session = @support.log_graphs(parser, log_filename, false) catch {
+      e => {
+        // `.unwrap()` of the `anyhow::Error` (`Debug`: the context, then its
+        // cause).
+        let message = match e {
+          @support.DotSpawnError(e) =>
+            "Failed to run the `dot` command. Check that graphviz is installed.\n\nCaused by:\n    \{@support.io_error_message(e)}"
+          e => @support.io_error_message(e)
         }
-      },
-    )
+        @support.rust_panic(
+          "called `Result::unwrap()` on an `Err` value: \{message}",
+          "crates/cli/src/fuzz/corpus_test.rs:173:76",
+        )
+      }
+    }
+    session.val = Some(log_session)
   }
   parser
 }
