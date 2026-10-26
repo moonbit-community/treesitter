@@ -17,9 +17,9 @@ source.
 ## Install
 
 ```sh
-moon add moonbit-community/treesitter@0.1.0
+moon add moonbit-community/treesitter@0.1.1
 moon add moonbit-community/tree-sitter-json@0.24.8   # or any module in grammars/
-moon install moonbit-community/treesitter/cmd/treesitter@0.1.0   # the CLI (native)
+moon install moonbit-community/treesitter/cmd/treesitter@0.1.1   # the CLI (native)
 ```
 
 ## Library
