@@ -539,7 +539,7 @@ pub(all) suberror RegexError {
     pattern~ : String,
     kind~ : RegexErrorKind,
     span~ : PatternSpan?,
-    aux_span~ : PatternSpan?,
+    aux_span~ : PatternSpan?
   )
 }
 

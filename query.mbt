@@ -124,7 +124,7 @@ pub(all) suberror QueryError {
     column~ : Int32,
     offset~ : Int32,
     message~ : String,
-    kind~ : QueryErrorKind,
+    kind~ : QueryErrorKind
   )
 }
 

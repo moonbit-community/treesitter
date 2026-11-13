@@ -26,7 +26,7 @@ pub(all) enum NfaState {
     chars~ : CharacterSet,
     state_id~ : Int32,
     is_sep~ : Bool,
-    precedence~ : Int32,
+    precedence~ : Int32
   )
   Split(Int32, Int32)
   Accept(variable_index~ : Int32, precedence~ : Int32)

@@ -91,14 +91,14 @@ pub(all) suberror QueryTestError {
     row~ : Int32,
     column~ : Int32,
     expected_highlight~ : String,
-    actual_highlights~ : Array[String],
+    actual_highlights~ : Array[String]
   )
   /// test_tags.rs's `Failure`.
   TagsFailure(
     row~ : Int32,
     column~ : Int32,
     expected_tag~ : String,
-    actual_tags~ : Array[String],
+    actual_tags~ : Array[String]
   )
   Highlight(@highlight.HighlightError)
   Tags(@tags.TagsError)

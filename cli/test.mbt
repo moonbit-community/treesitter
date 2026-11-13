@@ -45,7 +45,7 @@ pub(all) enum TestInfo {
   ParseTest(
     outcome~ : TestOutcome,
     parse_rate~ : (Double, Double)?,
-    test_num~ : Int32,
+    test_num~ : Int32
   )
   AssertionTest(outcome~ : TestOutcome, test_num~ : Int32)
 }

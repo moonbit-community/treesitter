@@ -512,7 +512,7 @@ fn ParseItemSetBuilder::new(
     follow_set_info_by_non_terminal.clear()
     while stack.pop()
           is Some(
-            (sym_ix, lookaheads, reserved_word_set_id, propagates_lookaheads),
+            (sym_ix, lookaheads, reserved_word_set_id, propagates_lookaheads)
           ) {
       let mut did_add = false
       let info = follow_set_info_by_non_terminal.get_or_init(sym_ix, () => {

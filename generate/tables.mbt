@@ -12,7 +12,7 @@ pub(all) enum ParseAction {
     symbol~ : Symbol,
     child_count~ : Int32,
     dynamic_precedence~ : Int32,
-    production_id~ : Int32,
+    production_id~ : Int32
   )
 }
 

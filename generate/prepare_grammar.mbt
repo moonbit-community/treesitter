@@ -48,7 +48,7 @@ pub(all) suberror ValidatePrecedenceError {
   UndeclaredPrecedenceError(precedence~ : String, rule~ : String)
   ConflictingPrecedenceOrderingError(
     precedence_1~ : String,
-    precedence_2~ : String,
+    precedence_2~ : String
   )
 }
 
