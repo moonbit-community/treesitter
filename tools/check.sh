@@ -4,10 +4,12 @@
 # (tools/oracle/oracle_setup.sh, tools/oracle/oracle.sh, tools/oracle/diff_cli.sh).
 set -eu
 cd "$(dirname "$0")/.."
-moon check --target all
-moon test --target native
-moon test --target js
-moon test --target wasm-gc
+moon fmt --check
+moon fmt --check examples/*/grammar.mbtx examples/quoted/src/scanner.mbtx
+moon check --target all --deny-warn --warn-list +unnecessary_annotation
+moon test --target native --deny-warn
+moon test --target js --deny-warn
+moon test --target wasm-gc --deny-warn
 moon build --target native --release cmd/treesitter
 ts=$PWD/_build/native/release/build/moonbit-community/treesitter/cmd/treesitter/treesitter.exe
 
