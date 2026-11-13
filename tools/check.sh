@@ -15,8 +15,9 @@ ts=$PWD/_build/native/release/build/moonbit-community/treesitter/cmd/treesitter/
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/treesitter-check.XXXXXX")
 trap 'rm -rf "$work"' EXIT HUP INT TERM
-mkdir -p "$work/config"
+mkdir -p "$work/config" "$work/cache"
 export TREE_SITTER_DIR="$work/config"
+export XDG_CACHE_HOME="$work/cache"
 
 # Grammars written in MoonBit (.mbtx), one of them with a MoonBit scanner.
 for example in arithmetic json quoted; do

@@ -5,6 +5,10 @@
 // (`std::env::home_dir`), the OS thread id shown in panic messages and the
 // macOS default-browser launch of `webbrowser`.
 
+#if defined(__linux__) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
+
 #include <moonbit.h>
 #include <stdio.h>
 #include <stdlib.h>
