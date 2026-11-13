@@ -19,20 +19,23 @@ pub let language_version : Int32
 pub let min_compatible_language_version : Int32
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror IncludedRangesError {
   IncludedRangesError(Int32)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for IncludedRangesError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror LanguageError {
   Version(Int32)
   NotParseable
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for LanguageError
 
+#derive(Eq)
 pub(all) suberror QueryError {
   QueryError(row~ : Int32, column~ : Int32, offset~ : Int32, message~ : String, kind~ : QueryErrorKind)
-} derive(Eq)
+}
 pub fn QueryError::column(Self) -> Int32
 pub fn QueryError::kind(Self) -> QueryErrorKind
 pub fn QueryError::message(Self) -> String
@@ -42,19 +45,22 @@ pub impl Show for QueryError
 pub impl @debug.Debug for QueryError
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum CaptureQuantifier {
   Zero
   ZeroOrOne
   ZeroOrMore
   One
   OneOrMore
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ControlFlow {
   Continue
   Break
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq)
 pub(all) struct InputEdit {
   start_byte : Int32
   old_end_byte : Int32
@@ -62,7 +68,7 @@ pub(all) struct InputEdit {
   start_position : Point
   old_end_position : Point
   new_end_position : Point
-} derive(Eq)
+}
 pub fn InputEdit::edit_point(Self, Point, Int32) -> (Point, Int32)
 pub fn InputEdit::edit_range(Self, Range) -> Range
 pub impl @debug.Debug for InputEdit
@@ -95,16 +101,18 @@ pub impl Eq for Language
 pub impl Hash for Language
 pub impl @debug.Debug for Language
 
+#derive(Eq, @debug.Debug)
 pub(all) struct LanguageMetadata {
   major_version : Int32
   minor_version : Int32
   patch_version : Int32
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum LogType {
   Parse
   Lex
-} derive(Eq, @debug.Debug)
+}
 
 pub struct LookaheadIterator {
   // private fields
@@ -218,10 +226,11 @@ pub fn Parser::set_language(Self, Language) -> Unit raise LanguageError
 pub fn Parser::set_logger(Self, ((LogType, String) -> Unit)?) -> Unit
 pub fn Parser::stop_printing_dot_graphs(Self) -> Unit
 
+#derive(Compare, Default, Eq, Hash)
 pub(all) struct Point {
   row : Int32
   column : Int32
-} derive(Compare, Default, Eq, Hash)
+}
 pub fn Point::new(Int32, Int32) -> Self
 pub impl Show for Point
 pub impl @debug.Debug for Point
@@ -290,6 +299,7 @@ pub struct QueryCursorState {
 }
 pub fn QueryCursorState::current_byte_offset(Self) -> Int32
 
+#derive(Eq, @debug.Debug)
 pub(all) enum QueryErrorKind {
   Syntax
   NodeType
@@ -298,7 +308,7 @@ pub(all) enum QueryErrorKind {
   Predicate
   Structure
   Language
-} derive(Eq, @debug.Debug)
+}
 
 pub struct QueryMatch {
   pattern_index : Int32
@@ -319,32 +329,36 @@ pub fn[T : TextProvider] QueryMatches::next(Self[T]) -> QueryMatch?
 pub fn[T] QueryMatches::set_byte_range(Self[T], Int32, Int32) -> Unit
 pub fn[T] QueryMatches::set_point_range(Self[T], Point, Point) -> Unit
 
+#derive(Eq)
 pub(all) struct QueryPredicate {
   operator : String
   args : Array[QueryPredicateArg]
-} derive(Eq)
+}
 pub impl @debug.Debug for QueryPredicate
 
+#derive(Eq)
 pub(all) enum QueryPredicateArg {
   Capture(Int32)
   String(String)
-} derive(Eq)
+}
 pub impl @debug.Debug for QueryPredicateArg
 
+#derive(Eq)
 pub(all) struct QueryProperty {
   key : String
   value : String?
   capture_id : Int32?
-} derive(Eq)
+}
 pub fn QueryProperty::new(String, String?, Int32?) -> Self
 pub impl @debug.Debug for QueryProperty
 
+#derive(Eq, Hash)
 pub(all) struct Range {
   start_byte : Int32
   end_byte : Int32
   start_point : Point
   end_point : Point
-} derive(Eq, Hash)
+}
 pub impl @debug.Debug for Range
 
 pub struct TextCallback {

@@ -325,7 +325,7 @@ fn flatten_emit_ready(
     dynamic_precedence: st.dyn_prec,
     requires_eof_lookahead,
   }
-  let hash = production.hash()
+  let hash = Hash::hash(production)
   match st.emitted.get(hash) {
     Some(candidates) =>
       for index in candidates {

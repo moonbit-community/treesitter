@@ -176,7 +176,7 @@ pub async fn build_scanner_driver(
   prepare_workspace(dir, checkout)
   let deps = StringBuilder()
   deps.write_string(
-    "\"moonbit-community/treesitter@0.1.1\", \"moonbitlang/async@0.20.2\"",
+    "\"moonbit-community/treesitter@0.1.1\", \"moonbitlang/async@0.22.9\"",
   )
   write_file(
     @support.path_join(script, "moon.mod"),

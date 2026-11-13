@@ -31,7 +31,7 @@ pub fn Unexpected::json_display(self : Unexpected) -> String {
   match self {
     Unit => "null"
     Float(value) => "floating point `\{zmij_format(value)}`"
-    unexp => unexp.to_string()
+    unexp => Show::to_string(unexp)
   }
 }
 

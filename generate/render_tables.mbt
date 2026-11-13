@@ -302,7 +302,7 @@ fn Generator::non_terminal_alias_map(
   }
   let entries = alias_ids_by_symbol.to_array()
   // Upstream `sort_unstable_by_key` on distinct symbols.
-  stable_sort_by(entries, (a, b) => a.0.compare(b.0))
+  stable_sort_by(entries, (a, b) => Compare::compare(a.0, b.0))
   entries.map(entry => {
     let (symbol, alias_ids) = entry
     (
@@ -525,7 +525,7 @@ fn Generator::parse_tables(
     let nonterminal_entries = state.nonterminal_entries
     let nonterminal_order = Array::makei(nonterminal_entries.len(), k => k)
     stable_sort_by(nonterminal_order, (a, b) => {
-      nonterminal_entries.symbol_at(a).compare(nonterminal_entries.symbol_at(b))
+      Compare::compare(nonterminal_entries.symbol_at(a), nonterminal_entries.symbol_at(b))
     })
     let nonterminals = nonterminal_order.map(k => {
       (
@@ -605,7 +605,7 @@ fn Generator::parse_tables(
         if c != 0 {
           return c
         }
-        a_symbols[0].compare(b_symbols[0])
+        Compare::compare(a_symbols[0], b_symbols[0])
       })
       next_table_index += 1
       let groups = []

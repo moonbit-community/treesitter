@@ -373,7 +373,7 @@ async fn fuzz_trial(
     @support.print_out("Incorrect parse for \{test_name} - seed \{seed}\n")
     DiffKey::print()
     @support.print_out(
-      TestDiff::new(actual_output, flat.output).to_string() + "\n",
+      Show::to_string(TestDiff::new(actual_output, flat.output)) + "\n",
     )
     @support.print_out("\n")
     return false
@@ -477,7 +477,7 @@ async fn FlattenedTest::check_initial_parse_with(
     @support.print_out("Incorrect initial parse for \{display_name}\n")
     DiffKey::print()
     @support.print_out(
-      TestDiff::new(actual_output, self.output).to_string() + "\n",
+      Show::to_string(TestDiff::new(actual_output, self.output)) + "\n",
     )
     @support.print_out("\n")
     false

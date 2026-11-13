@@ -367,7 +367,7 @@ fn NfaBuilder::expand_regex(
     Empty => false
     Literal(Literal(bytes)) => {
       let chars = @hir.from_utf8(bytes[:]) catch {
-        e => raise Utf8(e.to_string())
+        e => raise Utf8(Show::to_string(e))
       }
       for i = chars.length() - 1; i >= 0; i = i - 1 {
         self.push_advance(

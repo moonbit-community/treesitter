@@ -98,7 +98,7 @@ async fn main {
       }
       // The JSON form must round-trip.
       let round_trip : @language.Language = @json.from_json(
-        @json.parse(language.to_json().stringify()),
+        @json.parse(ToJson::to_json(language).stringify()),
       ) catch {
         e => {
           println("\{label}: JSON ERROR \{e}")

@@ -85,7 +85,7 @@ pub impl Show for ParseGrammarError with fn output(self, logger) {
 ///|
 /// `impl From<serde_json::Error> for ParseGrammarError`.
 fn serialization_error(e : @serde_json.JsonError) -> ParseGrammarError {
-  Serialization(e.to_string())
+  Serialization(Show::to_string(e))
 }
 
 // serde_derive's `Deserialize` impls --------------------------------------------

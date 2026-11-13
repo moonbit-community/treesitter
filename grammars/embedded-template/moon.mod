@@ -14,5 +14,5 @@ description = "Embedded Template (ERB, EJS) grammar for tree-sitter (tree-sitter
 
 import {
   "moonbit-community/treesitter@0.1.0",
-  "moonbitlang/async@0.20.2",
+  "moonbitlang/async@0.22.9",
 }

@@ -587,7 +587,7 @@ pub impl Show for RegexError with fn output(self, f) {
         (None, None) => 0
         (None, Some(_)) => -1
         (Some(_), None) => 1
-        (Some(x), Some(y)) => x.compare(y)
+        (Some(x), Some(y)) => Compare::compare(x, y)
       }
     })
     f.write_string("    ")

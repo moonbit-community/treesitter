@@ -10,9 +10,10 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub suberror QueryError {
   QueryError(kind~ : QueryErrorKind, offset~ : UInt32)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 pub struct CaptureConversionCache[T] {
@@ -22,13 +23,14 @@ pub fn[T] CaptureConversionCache::clear(Self[T]) -> Unit
 pub fn[T] CaptureConversionCache::convert(Self[T], QueryMatch) -> ArrayView[T]
 pub fn[T] CaptureConversionCache::new((QueryCapture) -> T) -> Self[T]
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Quantifier {
   Zero
   ZeroOrOne
   ZeroOrMore
   One
   OneOrMore
-} derive(Eq, @debug.Debug)
+}
 
 pub struct Query {
   // private fields
@@ -80,10 +82,12 @@ pub(all) struct QueryCursorOptions {
   progress_callback : ((QueryCursorState) -> Bool)?
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) struct QueryCursorState {
   current_byte_offset : UInt32
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum QueryErrorKind {
   Syntax
   NodeType
@@ -91,7 +95,7 @@ pub(all) enum QueryErrorKind {
   Capture
   Structure
   Language
-} derive(Eq, @debug.Debug)
+}
 
 pub struct QueryMatch {
   id : UInt32
@@ -100,16 +104,18 @@ pub struct QueryMatch {
   // private fields
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) struct QueryPredicateStep {
   type_ : QueryPredicateStepType
   value_id : Int32
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum QueryPredicateStepType {
   Done
   Capture
   String
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

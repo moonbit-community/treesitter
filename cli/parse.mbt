@@ -313,7 +313,7 @@ pub fn ParseTheme::from_config(
   config : @support.Value,
 ) -> ParseTheme raise CliError {
   let raw = @support.from_value(config, deserialize_parse_config) catch {
-    e => raise anyhow(e.to_string())
+    e => raise anyhow(Show::to_string(e))
   }
   let raw = raw.unwrap_or(Array::make(11, None))
   let default = ParseTheme::default()

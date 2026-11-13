@@ -93,12 +93,12 @@ async test "fixture grammar assertion tests" {
         _ => None,
         source,
       ).to_string() catch {
-        e => e.to_string()
+        e => Show::to_string(e)
       }
     } else {
       guard @fixtures.get_tags_config(name) is Some(config) else { return }
       @query_testing.test_tag(@tags.TagsContext::new(), config, source).to_string() catch {
-        e => e.to_string()
+        e => Show::to_string(e)
       }
     }
     results.push("\{name}/\{kind}/\{file}: \{result}")

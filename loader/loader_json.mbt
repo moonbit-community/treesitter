@@ -29,7 +29,7 @@ pub fn LoaderConfig::from_json(
   config : @support.Value,
 ) -> LoaderConfig raise JsonError {
   @support.from_value(config, LoaderConfig::deserialize) catch {
-    e => raise JsonError(e.to_string())
+    e => raise JsonError(Show::to_string(e))
   }
 }
 
@@ -543,7 +543,7 @@ fn deserialize_version(
 ) -> SemverVersion raise @support.SerdeJsonError {
   de.deserialize_str("semver version", string => {
     SemverVersion::parse(string) catch {
-      e => raise @support.SerdeJsonError::custom(e.to_string())
+      e => raise @support.SerdeJsonError::custom(Show::to_string(e))
     }
   })
 }
@@ -691,7 +691,7 @@ fn Metadata::deserialize(
 ///|
 fn Metadata::to_json(self : Metadata) -> Json {
   let obj : Map[String, Json] = Map([])
-  obj["version"] = Json::string(self.version.to_string())
+  obj["version"] = Json::string(Show::to_string(self.version))
   if self.license is Some(v) {
     obj["license"] = Json::string(v)
   }
@@ -857,7 +857,7 @@ fn TreeSitterJSON::deserialize(
 /// `serde_json::from_str::<TreeSitterJSON>`.
 pub fn TreeSitterJSON::parse(text : String) -> TreeSitterJSON raise JsonError {
   @support.from_str_with(text, TreeSitterJSON::deserialize) catch {
-    e => raise JsonError(e.to_string())
+    e => raise JsonError(Show::to_string(e))
   }
 }
 

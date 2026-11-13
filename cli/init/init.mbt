@@ -207,7 +207,7 @@ pub fn JsonConfigOpts::to_json(self : JsonConfigOpts) -> Json {
   }
   obj["scope"] = Json::string(self.scope)
   obj["file_types"] = Json::array(self.file_types.map(Json::string))
-  obj["version"] = Json::string(self.version.to_string())
+  obj["version"] = Json::string(Show::to_string(self.version))
   obj["license"] = Json::string(self.license)
   obj["author"] = Json::string(self.author)
   if self.email is Some(v) {
@@ -1647,7 +1647,7 @@ pub async fn get_root_path(path : String) -> String {
             found
           })
         }) catch {
-          e => raise with_context(e.to_string(), "Failed to parse \{filename}")
+          e => raise with_context(Show::to_string(e), "Failed to parse \{filename}")
         }
         Some(has_tree_sitter)
       } else {
@@ -1718,7 +1718,7 @@ async fn generate_file(
     )
     .replace_all(
       old=PARSER_VERSION_PLACEHOLDER,
-      new=generate_opts.version.to_string(),
+      new=Show::to_string(generate_opts.version),
     )
     .replace_all(
       old=PARSER_CLASS_NAME_PLACEHOLDER,

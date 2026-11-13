@@ -126,7 +126,7 @@ async fn dump(args : ArrayView[String]) -> Unit {
   let language = @language.Language::from_compact_base64(extract_tables(source))
   @fs.write_file(
     out_path,
-    language.to_json().stringify(),
+    ToJson::to_json(language).stringify(),
     create_mode=CreateOrTruncate,
   )
 }

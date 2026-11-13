@@ -16,15 +16,17 @@ pub let input_encoding_utf16le : UInt32
 pub let input_encoding_utf8 : UInt32
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror HighlightError {
   Cancelled
   InvalidLanguage(@treesitter.LanguageError)
   Unknown
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for HighlightError
 
 // Types and methods
-pub(all) struct Highlight(Int32) derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+pub(all) struct Highlight(Int32)
 
 pub struct HighlightConfiguration {
   language : @treesitter.Language
@@ -37,11 +39,12 @@ pub fn HighlightConfiguration::names(Self) -> ArrayView[String]
 pub fn HighlightConfiguration::new(@treesitter.Language, String, String, String, String) -> Self raise @treesitter.QueryError
 pub fn HighlightConfiguration::nonconformant_capture_names(Self, @hashset.HashSet[String]) -> Array[String]
 
+#derive(Eq, @debug.Debug)
 pub(all) enum HighlightEvent {
   Source(start~ : Int32, end~ : Int32)
   HighlightStart(Highlight)
   HighlightEnd
-} derive(Eq, @debug.Debug)
+}
 
 pub struct HighlightIter {
   // private fields

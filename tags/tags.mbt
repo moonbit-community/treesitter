@@ -68,8 +68,8 @@ pub(all) suberror TagsError {
 ///|
 pub impl Show for TagsError with fn output(self, logger) {
   match self {
-    Query(e) => logger.write_string(e.to_string())
-    Regex(e) => logger.write_string(e.to_string())
+    Query(e) => logger.write_string(Show::to_string(e))
+    Regex(e) => logger.write_string(Show::to_string(e))
     Cancelled => logger.write_string("Cancelled")
     InvalidLanguage(e) => logger.write_string("Invalid language: \{e}")
     InvalidCapture(name) =>

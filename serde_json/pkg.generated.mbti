@@ -41,9 +41,10 @@ pub fn untagged_mismatch(String) -> JsonError
 pub fn zmij_format(Double) -> String
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub suberror JsonError {
   JsonError(code~ : ErrorCode, line~ : Int32, column~ : Int32)
-} derive(Eq, @debug.Debug)
+}
 pub fn JsonError::code(Self) -> ErrorCode
 pub fn JsonError::column(Self) -> Int32
 pub fn JsonError::custom(String) -> Self
@@ -53,6 +54,7 @@ pub fn JsonError::syntax(ErrorCode, Int32, Int32) -> Self
 pub impl Show for JsonError
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum Content {
   Bool(Bool)
   U64(UInt64)
@@ -62,7 +64,7 @@ pub(all) enum Content {
   Unit
   Seq(Array[Content])
   Map(Array[(Content, Content)])
-} derive(Eq, @debug.Debug)
+}
 pub fn Content::deserialize_bool(Self) -> Bool raise JsonError
 pub fn Content::deserialize_i32(Self) -> Int32 raise JsonError
 pub fn Content::deserialize_internally_tagged(Self, String, String, Array[String]) -> (Int32, Self) raise JsonError
@@ -99,6 +101,7 @@ pub fn Deserializer::fix_position(Self, JsonError) -> JsonError
 pub fn Deserializer::from_str(String) -> Self
 pub fn Deserializer::peek_error(Self, ErrorCode) -> JsonError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ErrorCode {
   Message(String)
   EofWhileParsingList
@@ -124,7 +127,7 @@ pub(all) enum ErrorCode {
   TrailingCharacters
   UnexpectedEndOfHexEscape
   RecursionLimitExceeded
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for ErrorCode
 
 pub struct MapAccess {
@@ -133,23 +136,26 @@ pub struct MapAccess {
 pub fn[T] MapAccess::next_key(Self, (String) -> T raise JsonError) -> T? raise JsonError
 pub fn[T] MapAccess::next_value(Self, (Deserializer) -> T raise JsonError) -> T raise JsonError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Number {
   PosInt(UInt64)
   NegInt(Int64)
   Float(Double)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ParserNumber {
   F64(Double)
   U64(UInt64)
   I64(Int64)
-} derive(Eq, @debug.Debug)
+}
 
 pub struct SeqAccess {
   // private fields
 }
 pub fn[T] SeqAccess::next_element(Self, (Deserializer) -> T raise JsonError) -> T? raise JsonError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Unexpected {
   Bool(Bool)
   Unsigned(UInt64)
@@ -169,10 +175,11 @@ pub(all) enum Unexpected {
   TupleVariant
   StructVariant
   Other(String)
-} derive(Eq, @debug.Debug)
+}
 pub fn Unexpected::json_display(Self) -> String
 pub impl Show for Unexpected
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Value {
   Null
   Bool(Bool)
@@ -180,7 +187,7 @@ pub(all) enum Value {
   String(String)
   Array(Array[Value])
   Object(Map[String, Value])
-} derive(Eq, @debug.Debug)
+}
 pub fn Value::deserialize_internally_tagged(Self, String, String, Array[String]) -> (Int32, Content) raise JsonError
 pub fn Value::to_content(Self) -> Content
 pub fn Value::unexpected(Self) -> Unexpected

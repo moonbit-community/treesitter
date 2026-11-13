@@ -1,6 +1,6 @@
 ///|
 fn semver(text : String) -> String {
-  @loader.SemverVersion::parse(text).to_string() catch {
+  Show::to_string(@loader.SemverVersion::parse(text)) catch {
     e => "error: \{e}"
   }
 }
@@ -72,7 +72,7 @@ test "tree-sitter.json" {
     ),
   )
   let missing = try @loader.TreeSitterJSON::parse("{\"grammars\": []}") catch {
-    e => e.to_string()
+    e => Show::to_string(e)
   } noraise {
     _ => "ok"
   }

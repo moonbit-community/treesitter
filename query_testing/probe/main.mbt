@@ -213,7 +213,7 @@ fn highlight(name : String, source : Bytes) -> Unit {
       out.push(b)
     }
   }) catch {
-    e => abort(e.to_string())
+    e => abort(Show::to_string(e))
   }
   for line in renderer.lines() {
     println("HTML \{line.strip_suffix("\n").unwrap_or(line[:])}")
@@ -331,7 +331,7 @@ fn regex_find(source : String) -> Unit {
     i += 2
     let regex = @regex.Regex::new(pattern, utf8=true) catch {
       e => {
-        println("ERR \{escape(e.to_string())}")
+        println("ERR \{escape(Show::to_string(e))}")
         continue
       }
     }

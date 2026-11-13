@@ -65,7 +65,7 @@ fn ChildQuantity::union(self : ChildQuantity, other : ChildQuantity) -> Bool {
 
 ///|
 pub impl Default for FieldInfo with fn default() {
-  { quantity: ChildQuantity::default(), types: [], }
+  { quantity: (Default::default() : ChildQuantity), types: [], }
 }
 
 ///|
@@ -78,8 +78,8 @@ fn FieldInfo::clone(self : FieldInfo) -> FieldInfo {
 pub impl Default for VariableInfo with fn default() {
   {
     fields: Map([]),
-    children: FieldInfo::default(),
-    children_without_fields: FieldInfo::default(),
+    children: (Default::default() : FieldInfo),
+    children_without_fields: (Default::default() : FieldInfo),
     has_multi_step_production: false,
   }
 }
@@ -110,7 +110,7 @@ pub(all) suberror VariableInfoError {
 pub impl Show for VariableInfoError with fn output(self, logger) {
   match self {
     // `#[error(transparent)]`
-    InvalidSupertype(error) => error.output(logger)
+    InvalidSupertype(error) => Show::output(error, logger)
     SupertypeAliasCollision(name) =>
       logger.write_string(
         "Named alias `\{name}` conflicts with a supertype of the same name.",
@@ -240,7 +240,7 @@ fn compute_variable_info_fixed_point(
   let mut did_change = true
   let mut all_initialized = false
   let result = Array::makei(syntax_grammar.variables.length(), _ => {
-    VariableInfo::default()
+    (Default::default() : VariableInfo)
   })
   while did_change {
     did_change = false
@@ -286,7 +286,7 @@ fn compute_variable_info_fixed_point(
             // in this production.
             if step.field is Some(field_name) {
               let field_info = variable_info.fields.get_or_init(field_name, () => {
-                FieldInfo::default()
+                (Default::default() : FieldInfo)
               })
               if extend_sorted(field_info.types, [child_type]) {
                 did_change = true
@@ -473,7 +473,7 @@ fn inherit_hidden_child_fields(
     .get_or_init(field_name, ChildQuantity::zero)
     .append(child_field_info.quantity)
     if extend_sorted(
-        variable_info.fields.get_or_init(field_name, () => FieldInfo::default()).types,
+        variable_info.fields.get_or_init(field_name, () => (Default::default() : FieldInfo)).types,
         child_field_info.types,
       ) {
       did_change = true

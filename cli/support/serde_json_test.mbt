@@ -33,7 +33,7 @@ test "serde_json::Error display and custom positions" {
 ///|
 fn struct_error(f : () -> Unit raise @support.SerdeJsonError) -> String {
   try f() catch {
-    e => e.to_string()
+    e => Show::to_string(e)
   } noraise {
     _ => "ok"
   }
@@ -171,7 +171,7 @@ test "Value conversions" {
   )
   inspect(
     @support.parse_json("[1.50, 1e2]").stringify() catch {
-      e => e.to_string()
+      e => Show::to_string(e)
     },
     content="[1.5,100.0]",
   )

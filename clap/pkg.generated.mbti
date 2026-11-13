@@ -95,6 +95,7 @@ pub fn Arg::visible_alias(Self, String) -> Self
 pub fn Arg::visible_short_alias(Self, Char) -> Self
 pub impl Show for Arg
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ArgAction {
   Set
   Append
@@ -104,7 +105,7 @@ pub(all) enum ArgAction {
   HelpShort
   HelpLong
   Version
-} derive(Eq, @debug.Debug)
+}
 
 pub struct ArgGroup {
   id : String
@@ -185,6 +186,7 @@ pub fn Command::try_get_matches_from(Self, Array[String], invalid_utf8? : Array[
 pub fn Command::version(Self, String) -> Self
 pub fn Command::visible_alias(Self, String) -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ErrorKind {
   InvalidValue
   UnknownArgument
@@ -201,14 +203,15 @@ pub(all) enum ErrorKind {
   DisplayHelp
   DisplayHelpOnMissingArgumentOrSubcommand
   DisplayVersion
-} derive(Eq, @debug.Debug)
+}
 
+#derive(@debug.Debug)
 pub(all) struct PossibleValue {
   name : String
   help : String?
   aliases : Array[String]
   hide : Bool
-} derive(@debug.Debug)
+}
 pub fn PossibleValue::get_help(Self) -> String?
 pub fn PossibleValue::get_name(Self) -> String
 pub fn PossibleValue::get_name_and_aliases(Self) -> Array[String]
@@ -218,6 +221,7 @@ pub fn PossibleValue::matches(Self, String, Bool) -> Bool
 pub fn PossibleValue::new(String, help? : String) -> Self
 pub fn PossibleValue::should_show_help(Self) -> Bool
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ValueHint {
   Unknown
   Other
@@ -232,7 +236,7 @@ pub(all) enum ValueHint {
   Hostname
   Url
   EmailAddress
-} derive(Eq, @debug.Debug)
+}
 
 pub(all) enum ValueParser {
   String
@@ -246,10 +250,11 @@ pub(all) enum ValueParser {
   Custom((String) -> String?)
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ValueRange {
   min : Int32
   max : Int32
-} derive(Eq, @debug.Debug)
+}
 pub fn ValueRange::accepts_more(Self, Int32) -> Bool
 pub fn ValueRange::at_least(Int32) -> Self
 pub fn ValueRange::empty() -> Self
@@ -264,11 +269,12 @@ pub fn ValueRange::single() -> Self
 pub fn ValueRange::takes_values(Self) -> Bool
 pub fn ValueRange::to_string(Self) -> String
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ValueSource {
   DefaultValue
   EnvVariable
   CommandLine
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

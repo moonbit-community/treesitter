@@ -24,28 +24,33 @@ pub let ts_builtin_sym_error : Int32
 pub let ts_builtin_sym_error_repeat : Int32
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror CompactError {
   CompactError(String)
-} derive(@debug.Debug)
+}
 pub impl Show for CompactError
 
 // Types and methods
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct CharacterRange {
   start : Int32
   end : Int32
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct ExternalScannerData {
   states : Array[Bool]
   symbol_map : Array[Int32]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct FieldMapEntry {
   field_id : Int32
   child_index : Int32
   inherited : Bool
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Language {
   abi_version : Int32
   symbol_count : Int32
@@ -83,7 +88,7 @@ pub(all) struct Language {
   supertype_map_slices : Array[MapSlice]
   supertype_map_entries : Array[Int32]
   metadata : LanguageMetadata
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 pub fn Language::actions(Self, Int32, Int32) -> ArrayView[ParseActionEntry]
 pub fn Language::actions_of(Self, TableEntry) -> ArrayView[ParseActionEntry]
 pub fn Language::alias_at(Self, Int32, Int32) -> Int32
@@ -118,41 +123,47 @@ pub fn Language::table_entry(Self, Int32, Int32) -> TableEntry
 pub fn Language::to_compact(Self) -> Bytes raise CompactError
 pub fn Language::to_compact_base64(Self) -> String raise CompactError
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct LanguageMetadata {
   major_version : Int32
   minor_version : Int32
   patch_version : Int32
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct LexCondition {
   large_set : (Int32, Bool)?
   asserted : RangeCondition?
   negated : RangeCondition?
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct LexMode {
   lex_state : Int32
   external_lex_state : Int32
   reserved_word_set_id : Int32
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct LexProgram {
   states : Array[LexStateCode]
   large_character_sets : Array[Array[CharacterRange]]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct LexStateCode {
   accept_token : Int32?
   eof_advance : Int32?
   advance_map : Array[(Int32, Int32)]
   transitions : Array[LexTransition]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct LexTransition {
   condition : LexCondition
   state : Int32
   skip : Bool
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
 pub struct LookaheadIterator {
   // private fields
@@ -167,43 +178,49 @@ pub fn LookaheadIterator::next_state(Self) -> Int32
 pub fn LookaheadIterator::reset(Self, Language, Int32) -> Bool
 pub fn LookaheadIterator::reset_state(Self, Int32) -> Bool
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct MapSlice {
   index : Int32
   length : Int32
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) enum ParseActionEntry {
   Entry(count~ : Int32, reusable~ : Bool)
   Shift(state~ : Int32, extra~ : Bool, repetition~ : Bool)
   Reduce(symbol~ : Int32, child_count~ : Int32, dynamic_precedence~ : Int32, production_id~ : Int32)
   Accept
   Recover
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 pub fn ParseActionEntry::normalized(Self) -> Self
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct RangeCondition {
   ranges : Array[CharacterRange]
   is_included : Bool
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct SymbolMetadata {
   visible : Bool
   named : Bool
   supertype : Bool
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum SymbolType {
   Regular
   Anonymous
   Supertype
   Auxiliary
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct TableEntry {
   actions_start : Int32
   action_count : Int32
   is_reusable : Bool
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

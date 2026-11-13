@@ -661,7 +661,7 @@ fn group_transitions(
     i += 1
   }
   // Characters of the grouped transitions are disjoint, so this ordering is total.
-  result.sort_by((a, b) => a.characters.compare(b.characters))
+  result.sort_by((a, b) => Compare::compare(a.characters, b.characters))
   result
 }
 

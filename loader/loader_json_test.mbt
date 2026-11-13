@@ -4,7 +4,7 @@
 ///|
 fn tree_sitter_json(text : String) -> String {
   try @loader.TreeSitterJSON::parse(text) catch {
-    e => e.to_string()
+    e => Show::to_string(e)
   } noraise {
     config =>
       config.grammars
@@ -52,7 +52,7 @@ test "config.json parser directories" {
   let dirs = (text : String) => {
     let value = try! @support.from_str(text)
     @loader.LoaderConfig::from_json(value).parser_directories.join(",") catch {
-      e => e.to_string()
+      e => Show::to_string(e)
     }
   }
   inspect(dirs("{\"parser-directories\": [\"/a\", \"/b\"]}"), content="/a,/b")
@@ -76,7 +76,7 @@ test "config.json parser directories" {
 test "read_grammar_version's TreeSitterJson (@generate.tree_sitter_json_version)" {
   let version = (text : String) => {
     @generate.tree_sitter_json_version(text) catch {
-      e => e.to_string()
+      e => Show::to_string(e)
     }
   }
   inspect(version("{\"metadata\": {\"version\": \"0.1.0\"}}"), content="0.1.0")

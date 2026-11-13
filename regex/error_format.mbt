@@ -48,11 +48,11 @@ priv struct Spans {
 
 ///|
 fn span_compare(a : @ast.Span, b : @ast.Span) -> Int32 {
-  let c = a.start.compare(b.start)
+  let c = Compare::compare(a.start, b.start)
   if c != 0 {
     c
   } else {
-    a.end.compare(b.end)
+    Compare::compare(a.end, b.end)
   }
 }
 
@@ -199,7 +199,7 @@ fn format_error(
 fn format_ast_error(err : @ast.AstError) -> String {
   format_error(
     err.pattern(),
-    err.kind().to_string(),
+    Show::to_string(err.kind()),
     err.span(),
     err.auxiliary_span(),
   )
@@ -208,5 +208,5 @@ fn format_ast_error(err : @ast.AstError) -> String {
 ///|
 /// The `Display` text of a `regex_syntax::Error` wrapping an HIR error.
 fn format_hir_error(err : @hir.HirError) -> String {
-  format_error(err.pattern(), err.kind().to_string(), err.span(), None)
+  format_error(err.pattern(), Show::to_string(err.kind()), err.span(), None)
 }

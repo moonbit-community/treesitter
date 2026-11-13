@@ -263,9 +263,9 @@ test "validate_indirect_recursion" {
       { name: p.intern("c"), root: c, },
     ]
   })
-  let err1 = IndirectRecursionError(["a", "b", "a"]).to_string()
-  let err3 = IndirectRecursionError(["b", "c", "d", "b"]).to_string()
-  let err4 = IndirectRecursionError(["b", "c", "b"]).to_string()
+  let err1 = Show::to_string(IndirectRecursionError(["a", "b", "a"]))
+  let err3 = Show::to_string(IndirectRecursionError(["b", "c", "d", "b"]))
+  let err4 = Show::to_string(IndirectRecursionError(["b", "c", "b"]))
   for
     case in [
       (case1, Some(err1)),
@@ -390,7 +390,7 @@ test "validate_extras" {
   for case in cases {
     let (grammar, matches_empty) = case
     let expected = if matches_empty {
-      Some(EmptyStringExtraError("comment").to_string())
+      Some(Show::to_string(EmptyStringExtraError("comment")))
     } else {
       None
     }
@@ -442,7 +442,7 @@ test "validate_extras_with_shared_nullable_rules" {
   // The same memo must still identify the second extra as nullable.
   assert_eq(
     prepare_error(grammar),
-    Some(EmptyStringExtraError("second").to_string()),
+    Some(Show::to_string(EmptyStringExtraError("second"))),
   )
 }
 

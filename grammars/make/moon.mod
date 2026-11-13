@@ -14,5 +14,5 @@ description = "Makefile grammar for tree-sitter (tree-sitter-grammars/tree-sitte
 
 import {
   "moonbit-community/treesitter@0.1.0",
-  "moonbitlang/async@0.20.2",
+  "moonbitlang/async@0.22.9",
 }

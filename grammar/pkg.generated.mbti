@@ -3,6 +3,7 @@ package "moonbit-community/treesitter/grammar"
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -21,14 +22,16 @@ pub fn sep(Rule, Rule) -> Rule
 pub fn sep1(Rule, Rule) -> Rule
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub suberror GrammarError {
   InvalidGrammar(String)
-} derive(Eq, @debug.Debug)
+}
 pub fn GrammarError::equal(Self, Self) -> Bool
 pub fn GrammarError::not_equal(Self, Self) -> Bool
 pub fn GrammarError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct Grammar {
   name : String
   rules : Array[(String, Rule)]
@@ -40,26 +43,28 @@ pub(all) struct Grammar {
   supertypes : Array[String]
   word : String?
   reserved : Map[String, Array[Rule]]
-} derive(Eq, @debug.Debug)
+}
 pub fn Grammar::equal(Self, Self) -> Bool
-pub fn Grammar::from_json(Json) -> Self raise GrammarError
+pub fn Grammar::from_json(@json.Json) -> Self raise GrammarError
 pub fn Grammar::new(String, Array[(String, Rule)], extras? : Array[Rule], externals? : Array[Rule], conflicts? : Array[Array[String]], precedences? : Array[Array[Rule]], inline_rules? : Array[String], supertypes? : Array[String], word? : String, reserved? : Map[String, Array[Rule]]) -> Self
 pub fn Grammar::not_equal(Self, Self) -> Bool
 pub fn Grammar::parse(StringView) -> Self raise
 #deprecated
-pub fn Grammar::to_json(Self) -> Json
+pub fn Grammar::to_json(Self) -> @json.Json
 pub fn Grammar::to_repr(Self) -> @debug.Repr
 pub fn Grammar::validate(Self) -> Unit raise GrammarError
-pub impl ToJson for Grammar
+pub impl @json.ToJson for Grammar
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Precedence {
   Integer(Int32)
   Name(String)
-} derive(Eq, @debug.Debug)
+}
 pub fn Precedence::equal(Self, Self) -> Bool
 pub fn Precedence::not_equal(Self, Self) -> Bool
 pub fn Precedence::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Rule {
   Blank
   Literal(String)
@@ -79,14 +84,14 @@ pub(all) enum Rule {
   Alias(Rule, String, named~ : Bool)
   Reserved(String, Rule)
   Eof
-} derive(Eq, @debug.Debug)
+}
 pub fn Rule::equal(Self, Self) -> Bool
-pub fn Rule::from_json(Json, path? : String) -> Self raise GrammarError
+pub fn Rule::from_json(@json.Json, path? : String) -> Self raise GrammarError
 pub fn Rule::not_equal(Self, Self) -> Bool
 #deprecated
-pub fn Rule::to_json(Self) -> Json
+pub fn Rule::to_json(Self) -> @json.Json
 pub fn Rule::to_repr(Self) -> @debug.Repr
-pub impl ToJson for Rule
+pub impl @json.ToJson for Rule
 
 // Type aliases
 

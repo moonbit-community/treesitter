@@ -174,7 +174,7 @@ fn ts(p : String, f : String) -> String {
     .replace_all(old="\\S", new="[^\\t-\\r ]")
     .replace_all(old="\\D", new="[^0-9]")
   let h = @generate.pattern_parse(s, f.contains("i")) catch {
-    e => return "TSERR(\{esc(e.to_string())})"
+    e => return "TSERR(\{esc(Show::to_string(e))})"
   }
   let out = StringBuilder()
   dump(h, out)

@@ -90,11 +90,11 @@ pub impl Show for LoaderError with fn output(self, logger) {
       if file is Some(path) {
         logger.write_string("Error in query file \{path}:\n")
       }
-      logger.write_string(error.to_string())
+      logger.write_string(Show::to_string(error))
     }
     ScopeLoad(scope, e) =>
       logger.write_string("Failed to load language for scope '\{scope}':\n\{e}")
-    Tags(e) => logger.write_string(e.to_string())
+    Tags(e) => logger.write_string(Show::to_string(e))
     UnknownScope(scope) => logger.write_string("Unknown scope '\{scope}'")
     Generate(path, e) =>
       logger.write_string("Failed to generate the language from \{path}:\n\{e}")
@@ -720,7 +720,7 @@ async fn generate_language_tables(
   let repo_path = @support.parent(src_path).unwrap_or(".")
   let semantic_version = read_grammar_version(repo_path) catch {
     IOError(e, path) => raise IO(@support.io_error_with_path(e, Some(path)))
-    e => raise Serialization(e.to_string())
+    e => raise Serialization(Show::to_string(e))
   }
   let generated = @generate.generate_from_grammar_json(
     grammar_json,
@@ -734,7 +734,7 @@ async fn generate_language_tables(
   let temp_output = temp_path(output_path)
   @fs.write_file(
     temp_output,
-    language.to_json().stringify(),
+    ToJson::to_json(language).stringify(),
     create_mode=CreateOrTruncate,
     permission=0o666,
   ) catch {

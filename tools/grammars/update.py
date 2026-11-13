@@ -41,7 +41,7 @@ import grammars as G  # noqa: E402
 TOOL = ROOT / '_build/native/release/build/moonbit-community/treesitter/tools/grammar_modules/grammar_modules.exe'
 CORE = 'moonbit-community/treesitter'
 CORE_VERSION = '0.1.0'
-ASYNC_VERSION = '0.20.2'
+ASYNC_VERSION = '0.22.9'
 REPOSITORY = 'https://github.com/moonbit-community/treesitter'
 
 # Grammars without a usable corpus entry: a small sample for the smoke test.
@@ -264,7 +264,7 @@ def binding_file(entry, languages, version):
                '    return language\n'
                '  }\n'
                '  let raw = @language.Language::from_compact_base64(tables) catch {\n'
-               '    e => abort(e.to_string())\n'
+               '    e => abort(Show::to_string(e))\n'
                '  }\n'
                f'{make}'
                '  cache.val = Some(language)\n'

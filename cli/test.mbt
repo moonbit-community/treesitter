@@ -396,7 +396,7 @@ pub impl Show for TestSummary with fn output(self, logger) {
   if !self.query_results.root_group.is_empty() {
     render_assertion_results("queries", self.query_results)
   }
-  f.write_string(self.parse_stats.to_string())
+  f.write_string(Show::to_string(self.parse_stats))
   logger.write_string(f.to_string())
 }
 

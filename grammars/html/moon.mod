@@ -14,5 +14,5 @@ description = "HTML grammar for tree-sitter (tree-sitter/tree-sitter-html v0.23.
 
 import {
   "moonbit-community/treesitter@0.1.0",
-  "moonbitlang/async@0.20.2",
+  "moonbitlang/async@0.22.9",
 }

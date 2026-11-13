@@ -359,7 +359,7 @@ async fn corpus_trial(
     println("Incorrect parse for \{test_name} - seed \{seed}")
     @cli_test.DiffKey::print()
     println(
-      @cli_test.TestDiff::new(actual_output, test_case.output).to_string(),
+      Show::to_string(@cli_test.TestDiff::new(actual_output, test_case.output)),
     )
     println("")
     return false

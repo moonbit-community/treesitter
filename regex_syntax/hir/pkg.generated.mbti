@@ -30,40 +30,46 @@ pub fn utf8_decode(BytesView) -> Result[Int32, Byte]?
 pub fn utf8_encode(String) -> Array[Byte]
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror CaseFoldError {
   CaseFoldError
-} derive(@debug.Debug)
+}
 pub impl Show for CaseFoldError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror HirError {
   HirError(kind~ : ErrorKind, pattern~ : String, span~ : @ast.Span)
-} derive(Eq, @debug.Debug)
+}
 pub fn HirError::kind(Self) -> ErrorKind
 pub fn HirError::pattern(Self) -> String
 pub fn HirError::span(Self) -> @ast.Span
 
+#derive(@debug.Debug)
 pub(all) suberror UnicodeError {
   PropertyNotFound
   PropertyValueNotFound
   PerlClassNotFound
-} derive(@debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror Utf8Error {
   Utf8Error(valid_up_to~ : Int32, error_len~ : Int32?)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for Utf8Error
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct Capture {
   index : UInt32
   name : String?
   sub : Hir
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Class {
   Unicode(ClassUnicode)
   Bytes(ClassBytes)
-} derive(Eq, @debug.Debug)
+}
 pub fn Class::case_fold_simple(Self) -> Unit
 pub fn Class::is_empty(Self) -> Bool
 pub fn Class::is_utf8(Self) -> Bool
@@ -73,9 +79,10 @@ pub fn Class::minimum_len(Self) -> UInt64?
 pub fn Class::negate(Self) -> Unit
 pub fn Class::try_case_fold_simple(Self) -> Unit raise CaseFoldError
 
+#derive(Eq, @debug.Debug)
 pub struct ClassBytes {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn ClassBytes::case_fold_simple(Self) -> Unit
 pub fn ClassBytes::copy(Self) -> Self
 pub fn ClassBytes::difference(Self, Self) -> Unit
@@ -94,25 +101,28 @@ pub fn ClassBytes::symmetric_difference(Self, Self) -> Unit
 pub fn ClassBytes::to_unicode_class(Self) -> ClassUnicode?
 pub fn ClassBytes::union(Self, Self) -> Unit
 
+#derive(Compare, Eq, @debug.Debug)
 pub(all) struct ClassBytesRange {
   start : Byte
   end : Byte
-} derive(Compare, Eq, @debug.Debug)
+}
 pub fn ClassBytesRange::end(Self) -> Byte
 pub fn ClassBytesRange::len(Self) -> Int32
 pub fn ClassBytesRange::new(Byte, Byte) -> Self
 pub fn ClassBytesRange::start(Self) -> Byte
 pub impl Interval for ClassBytesRange
 
+#derive(@debug.Debug)
 pub(all) enum ClassQuery {
   OneLetter(Char)
   Binary(String)
   ByValue(property_name~ : String, property_value~ : String)
-} derive(@debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub struct ClassUnicode {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn ClassUnicode::case_fold_simple(Self) -> Unit
 pub fn ClassUnicode::copy(Self) -> Self
 pub fn ClassUnicode::difference(Self, Self) -> Unit
@@ -132,16 +142,18 @@ pub fn ClassUnicode::to_byte_class(Self) -> ClassBytes?
 pub fn ClassUnicode::try_case_fold_simple(Self) -> Unit raise CaseFoldError
 pub fn ClassUnicode::union(Self, Self) -> Unit
 
+#derive(Compare, Eq, @debug.Debug)
 pub(all) struct ClassUnicodeRange {
   start : Int32
   end : Int32
-} derive(Compare, Eq, @debug.Debug)
+}
 pub fn ClassUnicodeRange::end(Self) -> Int32
 pub fn ClassUnicodeRange::len(Self) -> Int32
 pub fn ClassUnicodeRange::new(Int32, Int32) -> Self
 pub fn ClassUnicodeRange::start(Self) -> Int32
 pub impl Interval for ClassUnicodeRange
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Dot {
   AnyChar
   AnyByte
@@ -151,8 +163,9 @@ pub(all) enum Dot {
   AnyByteExcept(Byte)
   AnyByteExceptLF
   AnyByteExceptCRLF
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ErrorKind {
   UnicodeNotAllowed
   InvalidUtf8
@@ -161,12 +174,13 @@ pub(all) enum ErrorKind {
   UnicodePropertyValueNotFound
   UnicodePerlClassNotFound
   UnicodeCaseUnavailable
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for ErrorKind
 
+#derive(Eq, @debug.Debug)
 pub struct Hir {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn Hir::alternation(Array[Self]) -> Self
 pub fn Hir::capture(Capture) -> Self
 pub fn Hir::class(Class) -> Self
@@ -181,6 +195,7 @@ pub fn Hir::look(Look) -> Self
 pub fn Hir::properties(Self) -> Properties
 pub fn Hir::repetition(Repetition) -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) enum HirKind {
   Empty
   Literal(Literal)
@@ -190,7 +205,7 @@ pub(all) enum HirKind {
   Capture(Capture)
   Concat(Array[Hir])
   Alternation(Array[Hir])
-} derive(Eq, @debug.Debug)
+}
 pub fn HirKind::subs(Self) -> Array[Hir]
 
 pub struct IntervalSet[I] {
@@ -210,8 +225,10 @@ pub fn[I : Interval] IntervalSet::union(Self[I], Self[I]) -> Unit
 pub impl[I : Interval] Eq for IntervalSet[I]
 pub impl[I : @debug.Debug] @debug.Debug for IntervalSet[I]
 
-pub(all) struct Literal(Bytes) derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+pub(all) struct Literal(Bytes)
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Look {
   Start
   End
@@ -231,15 +248,16 @@ pub(all) enum Look {
   WordEndHalfAscii
   WordStartHalfUnicode
   WordEndHalfUnicode
-} derive(Eq, @debug.Debug)
+}
 pub fn Look::as_char(Self) -> Char
 pub fn Look::as_repr(Self) -> UInt32
 pub fn Look::from_repr(UInt32) -> Self?
 pub fn Look::reversed(Self) -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) struct LookSet {
   bits : UInt32
-} derive(Eq, @debug.Debug)
+}
 pub fn LookSet::contains(Self, Look) -> Bool
 pub fn LookSet::empty() -> Self
 pub fn LookSet::full() -> Self
@@ -252,9 +270,10 @@ pub fn LookSet::singleton(Look) -> Self
 pub fn LookSet::subtract(Self, Self) -> Self
 pub fn LookSet::union(Self, Self) -> Self
 
+#derive(Eq, @debug.Debug)
 pub struct Properties {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn Properties::explicit_captures_len(Self) -> UInt64
 pub fn Properties::is_alternation_literal(Self) -> Bool
 pub fn Properties::is_literal(Self) -> Bool
@@ -269,12 +288,13 @@ pub fn Properties::minimum_len(Self) -> UInt64?
 pub fn Properties::static_explicit_captures_len(Self) -> UInt64?
 pub fn Properties::union(Array[Self]) -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Repetition {
   min : UInt32
   max : UInt32?
   greedy : Bool
   sub : Hir
-} derive(Eq, @debug.Debug)
+}
 pub fn Repetition::with_sub(Self, Hir) -> Self
 
 pub struct SimpleCaseFolder {

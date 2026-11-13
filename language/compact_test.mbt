@@ -19,7 +19,7 @@ test "compact round trip of the sample language" {
     language,
   )
   // The JSON form decodes to the same value.
-  let json : @language.Language = @json.from_json(language.to_json())
+  let json : @language.Language = @json.from_json(ToJson::to_json(language))
   assert_eq(@language.Language::from_compact(json.to_compact()), language)
 }
 
@@ -110,7 +110,7 @@ test "compact rejects malformed data" {
 ///|
 fn compact_error(data : Bytes) -> String {
   try @language.Language::from_compact(data) catch {
-    e => e.to_string()
+    e => Show::to_string(e)
   } noraise {
     _ => "no error"
   }
@@ -172,7 +172,7 @@ test "compact rejects out-of-range child indices" {
     try language.to_compact() catch {
       e =>
         assert_eq(
-          e.to_string(),
+          Show::to_string(e),
           "invalid compact language: child index \{child_index} out of range",
         )
     } noraise {

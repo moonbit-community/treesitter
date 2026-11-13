@@ -79,7 +79,7 @@ pub suberror JsonError {
 pub impl Show for JsonError with fn output(self, logger) {
   let JsonError(code~, line~, column~) = self
   if line == 0 {
-    logger.write_string(code.to_string())
+    logger.write_string(Show::to_string(code))
   } else {
     logger.write_string("\{code} at line \{line} column \{column}")
   }

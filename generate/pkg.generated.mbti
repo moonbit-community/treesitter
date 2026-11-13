@@ -6,6 +6,7 @@ import {
   "moonbit-community/treesitter/regex_syntax/hir",
   "moonbit-community/treesitter/serde_json",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
   "moonbitlang/core/sorted_map",
 }
 
@@ -36,7 +37,7 @@ pub let end_name_id : StrId
 
 pub fn expand_tokens(RulePool, ArrayView[LexicalToken], ArrayView[RuleId]) -> LexicalGrammar raise
 
-pub fn generate_error_json(Error) -> Json?
+pub fn generate_error_json(Error) -> @json.Json?
 
 pub fn generate_from_grammar_json(String, semantic_version? : (Int32, Int32, Int32), abi_version? : Int32, report_symbol_name? : String, optimizations? : OptLevel, diagnostics? : Array[Diagnostic]) -> GeneratedParser raise
 
@@ -85,39 +86,45 @@ pub let symbol_end_of_nonterminal_extra : Symbol
 pub fn tree_sitter_json_version(String) -> String raise @serde_json.JsonError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror EmptyStringExtraError {
   EmptyStringExtraError(String)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for EmptyStringExtraError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror ExpandRegexError {
   Utf8(String)
   Assertion
   NonAsciiByteClass(NonAsciiByteClassError)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for ExpandRegexError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror ExpandRepeatsError {
   ExpandRepeatsError(String)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for ExpandRepeatsError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror ExpandRuleError {
   UnexpectedSymbol(Symbol)
   UnexpectedReserved(String)
   UnexpectedEof
   Parse(RegexError)
   ExpandRegex(ExpandRegexError)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for ExpandRuleError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror ExpandTokensError {
   EmptyString(String)
   Processing(ExpandTokensProcessingError)
   ExpandRule(ExpandRuleError)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for ExpandTokensError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror ExtractTokensError {
   EmptyString(String)
   SupertypeTerminal(String)
@@ -125,39 +132,43 @@ pub(all) suberror ExtractTokensError {
   NonSymbolExternalToken
   WordToken(NonTerminalWordTokenError)
   NonTokenReservedWord(String)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for ExtractTokensError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror FlattenGrammarError {
   NoReservedWordSet(String)
   TooManyReservedWordSets(Int32)
   EmptyString(String)
   RecursiveInline(String)
   NoReachableProductions(String)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for FlattenGrammarError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror IndirectRecursionError {
   IndirectRecursionError(Array[String])
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for IndirectRecursionError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror InternSymbolsError {
   HiddenStartRule
   Undefined(String)
   UndefinedSupertype(String)
   UndefinedConflict(String)
   UndefinedWordToken(String)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for InternSymbolsError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror ParseGrammarError {
   Serialization(String)
   InvalidExtra
   Unexpected
   InvalidReservedWordSet
   UnexpectedRule(String)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for ParseGrammarError
 
 pub(all) suberror ParseTableBuilderError {
@@ -168,47 +179,54 @@ pub(all) suberror ParseTableBuilderError {
 }
 pub impl Show for ParseTableBuilderError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror ProcessInlinesError {
   ExternalToken(String)
   Token(String)
   FirstRule(String)
   NoReachableProductions(String)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for ProcessInlinesError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror RegexError {
   RegexError(pattern~ : String, kind~ : RegexErrorKind, span~ : PatternSpan?, aux_span~ : PatternSpan?)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for RegexError
 
+#derive(Eq, @debug.Debug)
 pub suberror RenderError {
   ParseTable(Int32)
   ABI(Int32)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for RenderError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror SuperTypeCycleError {
   SuperTypeCycleError(items~ : Array[String])
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for SuperTypeCycleError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror ValidatePrecedenceError {
   UndeclaredPrecedenceError(precedence~ : String, rule~ : String)
   ConflictingPrecedenceOrderingError(precedence_1~ : String, precedence_2~ : String)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for ValidatePrecedenceError
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror VariableInfoError {
   InvalidSupertype(InvalidSupertypeError)
   SupertypeAliasCollision(String)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for VariableInfoError
 
 // Types and methods
+#derive(Eq, Hash, @debug.Debug)
 pub(all) struct ActionListId {
   index : Int32
   reusable : Bool
-} derive(Eq, Hash, @debug.Debug)
+}
 pub fn ActionListId::new(Int32, Bool) -> Self
 pub fn ActionListId::with_reusable(Self, Bool) -> Self
 
@@ -223,26 +241,30 @@ pub fn ActionListPool::len(Self) -> Int32
 pub fn ActionListPool::new() -> Self
 pub fn ActionListPool::push(Self, Array[ParseAction]) -> Int32
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) struct AdvanceAction {
   state : Int32
   in_main_token : Bool
-} derive(Compare, Eq, Hash, @debug.Debug)
+}
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) struct Alias {
   value : StrId
   is_named : Bool
-} derive(Compare, Eq, Hash, @debug.Debug)
+}
 pub fn Alias::kind(Self) -> VariableType
 
+#derive(Eq, @debug.Debug)
 pub(all) struct AmbiguousExtraError {
   parent_symbols : Array[String]
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for AmbiguousExtraError
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) enum Associativity {
   Left
   Right
-} derive(Compare, Eq, Hash, @debug.Debug)
+}
 
 pub struct BitVec {
   // private fields
@@ -265,14 +287,16 @@ pub impl Eq for BitVec
 pub impl Hash for BitVec
 pub impl @debug.Debug for BitVec
 
+#derive(Eq, Hash, @debug.Debug)
 pub(all) struct CharRange {
   start : Int32
   end : Int32
-} derive(Eq, Hash, @debug.Debug)
+}
 
+#derive(Eq, Hash)
 pub struct CharacterSet {
   // private fields
-} derive(Eq, Hash)
+}
 pub fn CharacterSet::add(Self, Self) -> Self
 pub fn CharacterSet::add_char(Self, Int32) -> Self
 pub fn CharacterSet::add_char_in_place(Self, Int32) -> Unit
@@ -301,57 +325,65 @@ pub fn CharacterSet::symmetric_difference(Self, Self) -> Self
 pub impl Compare for CharacterSet
 pub impl @debug.Debug for CharacterSet
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ChildQuantity {
   mut exists : Bool
   mut required : Bool
   mut multiple : Bool
-} derive(Eq, @debug.Debug)
+}
 pub impl Default for ChildQuantity
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) enum ChildType {
   Normal(Symbol)
   Aliased(Alias)
-} derive(Compare, Eq, Hash, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ConflictError {
   symbol_sequence : Array[String]
   conflicting_lookahead : String
   possible_interpretations : Array[Interpretation]
   possible_resolutions : Array[Resolution]
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for ConflictError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Diagnostic {
   UnnecessaryConflicts(Array[Array[String]])
   UnaryChoice(name~ : String?)
   UnarySeq(name~ : String?)
   UnsupportedRegexFlag(flag~ : Char, pattern~ : String)
   SupertypeInlined(name~ : String)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for Diagnostic
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ExpandTokensProcessingError {
   rule : String
   error : ExpandRuleError
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for ExpandTokensProcessingError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ExternalToken {
   name : StrId
   kind : VariableType
   corresponding_internal_token : Symbol?
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct FieldInfo {
   mut quantity : ChildQuantity
   mut types : Array[ChildType]
-} derive(Eq, @debug.Debug)
+}
 pub impl Default for FieldInfo
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) struct FieldLocation {
   index : Int32
   inherited : Bool
-} derive(Compare, Eq, Hash, @debug.Debug)
+}
 
 pub(all) struct GeneratedParser {
   c_code : String
@@ -359,10 +391,11 @@ pub(all) struct GeneratedParser {
   language : @language.Language
 }
 
+#derive(Eq, Hash, @debug.Debug)
 pub(all) enum GotoAction {
   Goto(Int32)
   ShiftExtra
-} derive(Eq, Hash, @debug.Debug)
+}
 
 pub(all) struct InlinedProductionMap {
   map : Map[(Int32, Int32), Array[Int32]]
@@ -374,10 +407,11 @@ pub fn InlinedProductionMap::fully_inlined_prod_ids(Self, Int32) -> ArrayView[In
 pub fn InlinedProductionMap::inlined_prod_ids(Self, Int32, Int32) -> Array[Int32]?
 pub fn InlinedProductionMap::new() -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) struct InlinedProductionRange {
   start : Int32
   end : Int32
-} derive(Eq, @debug.Debug)
+}
 
 pub(all) struct InputGrammar {
   pool : RulePool
@@ -394,6 +428,7 @@ pub(all) struct InputGrammar {
 }
 pub fn InputGrammar::new() -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Interpretation {
   preceding_symbols : Array[String]
   variable_name : String
@@ -404,48 +439,55 @@ pub(all) struct Interpretation {
   precedence : String?
   associativity : String?
   requires_eof_lookahead : Bool
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for Interpretation
 
+#derive(Eq, @debug.Debug)
 pub(all) struct InvalidSupertypeError {
   supertype : String
   child : String?
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for InvalidSupertypeError
 
+#derive(Eq, Hash, @debug.Debug)
 pub(all) struct LexState {
   mut accept_action : Symbol?
   mut eof_action : AdvanceAction?
   mut advance_actions : Array[(CharacterSet, AdvanceAction)]
-} derive(Eq, Hash, @debug.Debug)
+}
 pub fn LexState::new() -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) struct LexTable {
   mut states : Array[LexState]
-} derive(Eq, @debug.Debug)
+}
 pub fn LexTable::new() -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) struct LexicalGrammar {
   nfa : Nfa
   variables : Array[LexicalVariable]
-} derive(Eq, @debug.Debug)
+}
 pub fn LexicalGrammar::new() -> Self
 pub fn LexicalGrammar::variable_index_for_nfa_state(Self, Int32) -> Int32
 pub fn LexicalGrammar::variable_indices_for_nfa_states(Self, ArrayView[Int32]) -> Array[Int32]
 
+#derive(@debug.Debug)
 pub(all) struct LexicalToken {
   name : StrId
   kind : VariableType
   root : RuleId
-} derive(@debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct LexicalVariable {
   name : StrId
   kind : VariableType
   implicit_precedence : Int32
   start_state : Int32
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, Hash, @debug.Debug)
 pub(all) struct MetadataParams {
   precedence : Precedence
   associativity : Associativity?
@@ -454,11 +496,12 @@ pub(all) struct MetadataParams {
   field : StrId?
   is_token : Bool
   is_main_token : Bool
-} derive(Eq, Hash, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Nfa {
   states : Array[NfaState]
-} derive(Eq, @debug.Debug)
+}
 pub fn Nfa::last_state_id(Self) -> Int32
 pub fn Nfa::new() -> Self
 
@@ -476,44 +519,51 @@ pub fn NfaCursor::transition_chars(Self) -> Array[(CharacterSet, Bool)]
 pub fn NfaCursor::transitions(Self) -> Array[NfaTransition]
 pub fn NfaCursor::transitions_and_any_sep(Self) -> (Array[NfaTransition], Bool)
 
+#derive(Eq, @debug.Debug)
 pub(all) enum NfaState {
   Advance(chars~ : CharacterSet, state_id~ : Int32, is_sep~ : Bool, precedence~ : Int32)
   Split(Int32, Int32)
   Accept(variable_index~ : Int32, precedence~ : Int32)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct NfaTransition {
   characters : CharacterSet
   is_separator : Bool
   precedence : Int32
   states : Array[Int32]
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct NonAsciiByteClassError {
   start : Byte
   end : Byte
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for NonAsciiByteClassError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct NonTerminalWordTokenError {
   symbol_name : String
   conflicting_symbol_name : String?
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for NonTerminalWordTokenError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct OptLevel {
   merge_states : Bool
-} derive(Eq, @debug.Debug)
+}
 
-pub(all) struct ParamsId(Int32) derive(Eq, Hash, @debug.Debug)
+#derive(Eq, Hash, @debug.Debug)
+pub(all) struct ParamsId(Int32)
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) enum ParseAction {
   Accept
   Shift(state~ : Int32, is_repetition~ : Bool)
   ShiftExtra
   Recover
   Reduce(symbol~ : Symbol, child_count~ : Int32, dynamic_precedence~ : Int32, production_id~ : Int32)
-} derive(Compare, Eq, Hash, @debug.Debug)
+}
 
 pub(all) struct ParseState {
   mut id : Int32
@@ -563,21 +613,24 @@ pub(all) struct ParseTable {
 pub fn ParseTable::new() -> Self
 pub fn ParseTable::remap_terminal_references(Self, (Int32) -> Int32) -> Unit
 
+#derive(Compare, Eq, @debug.Debug)
 pub(all) struct PatternSpan {
   start : UInt32
   end : UInt32
-} derive(Compare, Eq, @debug.Debug)
+}
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) enum Precedence {
   NoPrecedence
   Integer(Int32)
   Name(StrId)
-} derive(Compare, Eq, Hash, @debug.Debug)
+}
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) enum PrecedenceEntry {
   Name(StrId)
   Symbol(StrId)
-} derive(Compare, Eq, Hash, @debug.Debug)
+}
 
 pub(all) struct PreparedGrammar {
   syntax_grammar : SyntaxGrammar
@@ -596,19 +649,22 @@ pub fn ProdRef::first_symbol(Self) -> Symbol?
 pub impl Eq for ProdRef
 pub impl Hash for ProdRef
 
+#derive(Eq, Hash, @debug.Debug)
 pub(all) struct Production {
   steps_start : Int32
   steps_len : Int32
   dynamic_precedence : Int32
   requires_eof_lookahead : Bool
-} derive(Eq, Hash, @debug.Debug)
+}
 pub fn Production::contents(Self, Array[ProductionStep]) -> ProdRef
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ProductionInfo {
   alias_sequence : Array[Alias?]
   field_map : @sorted_map.SortedMap[StrId, Array[FieldLocation]]
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, Hash, @debug.Debug)
 pub(all) struct ProductionStep {
   symbol : Symbol
   precedence : Precedence
@@ -616,7 +672,7 @@ pub(all) struct ProductionStep {
   alias : Alias?
   field : StrId?
   reserved : Int32
-} derive(Eq, Hash, @debug.Debug)
+}
 pub fn ProductionStep::child_type(Self, @sorted_map.SortedMap[Symbol, Alias]) -> ChildType
 pub fn ProductionStep::non_terminal_index(Self) -> Int32?
 pub fn ProductionStep::pack(Symbol, Precedence, Associativity?, Alias?, StrId?, Int32) -> Self
@@ -635,6 +691,7 @@ pub(all) struct ProductionStore {
 pub fn ProductionStore::new() -> Self
 pub fn ProductionStore::production(Self, Int32) -> ProdRef
 
+#derive(Eq, @debug.Debug)
 pub(all) enum RegexErrorKind {
   CaptureLimitExceeded
   ClassEscapeInvalid
@@ -678,23 +735,27 @@ pub(all) enum RegexErrorKind {
   GroupNameDuplicate
   NestLimitExceeded(UInt32)
   Other(String)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for RegexErrorKind
 
+#derive(@debug.Debug)
 pub(all) struct ReservedWordContext {
   name : StrId
   roots : Array[RuleId]
-} derive(@debug.Debug)
+}
 
-pub(all) struct ReservedWordSetId(Int32) derive(Compare, Eq, Hash, @debug.Debug)
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub(all) struct ReservedWordSetId(Int32)
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Resolution {
   Precedence(symbols~ : Array[String])
   Associativity(symbols~ : Array[String])
   AddConflict(symbols~ : Array[String])
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for Resolution
 
+#derive(Eq, Hash, @debug.Debug)
 pub(all) enum Rule {
   Blank
   String(StrId)
@@ -707,16 +768,18 @@ pub(all) enum Rule {
   Eof
   Metadata(params~ : ParamsId, rule~ : RuleId)
   Reserved(rule~ : RuleId, ctx~ : StrId)
-} derive(Eq, Hash, @debug.Debug)
+}
 pub fn Rule::symbol(Self) -> Symbol?
 
-pub(all) struct RuleId(Int32) derive(Compare, Eq, Hash, @debug.Debug)
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub(all) struct RuleId(Int32)
 pub fn RuleId::index(Self) -> Int32
 
+#derive(Eq, Hash, @debug.Debug)
 pub(all) struct RuleIdRange {
   start : Int32
   len : Int32
-} derive(Eq, Hash, @debug.Debug)
+}
 
 pub struct RulePool {
   str_pool : StrPool
@@ -767,7 +830,8 @@ pub(all) struct SplitCriterion[S] {
 }
 pub fn[S] SplitCriterion::simple((S, S, Array[Int32]) -> Bool) -> Self[S]
 
-pub(all) struct StrId(Int32) derive(Compare, Eq, Hash, @debug.Debug)
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub(all) struct StrId(Int32)
 pub fn StrId::index(Self) -> Int32
 pub fn StrId::raw(Self) -> Int32
 
@@ -779,10 +843,11 @@ pub fn StrPool::intern(Self, StringView) -> StrId
 pub fn StrPool::new() -> Self
 pub fn StrPool::resolve(Self, StrId) -> String
 
+#derive(Compare, Eq, @debug.Debug)
 pub(all) struct Symbol {
   kind : SymbolType
   index : Int32
-} derive(Compare, Eq, @debug.Debug)
+}
 pub fn Symbol::external(Int32) -> Self
 pub fn Symbol::external_index(Self) -> Int32?
 pub fn Symbol::is_eof(Self) -> Bool
@@ -795,13 +860,14 @@ pub fn Symbol::terminal(Int32) -> Self
 pub fn Symbol::terminal_index(Self) -> Int32?
 pub impl Hash for Symbol
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) enum SymbolType {
   External
   End
   EndOfNonTerminalExtra
   Terminal
   NonTerminal
-} derive(Compare, Eq, Hash, @debug.Debug)
+}
 
 pub(all) struct SyntaxGrammar {
   variables : Array[SyntaxVariable]
@@ -820,10 +886,11 @@ pub(all) struct SyntaxGrammar {
 pub fn SyntaxGrammar::production(Self, Int32) -> ProdRef
 pub fn SyntaxGrammar::variable_prod_ids(Self, Int32) -> (Int32, Int32)
 
+#derive(Eq, @debug.Debug)
 pub(all) struct SyntaxVariable {
   name : StrId
   kind : VariableType
-} derive(Eq, @debug.Debug)
+}
 pub fn SyntaxVariable::is_auxiliary(Self) -> Bool
 pub fn SyntaxVariable::is_hidden(Self) -> Bool
 
@@ -857,25 +924,28 @@ pub impl Eq for TokenSet
 pub impl Hash for TokenSet
 pub impl @debug.Debug for TokenSet
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Variable {
   name : StrId
   root : RuleId
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct VariableInfo {
   mut fields : Map[StrId, FieldInfo]
   mut children : FieldInfo
   mut children_without_fields : FieldInfo
   mut has_multi_step_production : Bool
-} derive(Eq, @debug.Debug)
+}
 pub impl Default for VariableInfo
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) enum VariableType {
   Hidden
   Auxiliary
   Anonymous
   Named
-} derive(Compare, Eq, Hash, @debug.Debug)
+}
 pub fn VariableType::is_visible(Self) -> Bool
 
 // Type aliases
