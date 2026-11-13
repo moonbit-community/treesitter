@@ -339,13 +339,14 @@ pub fn ParseTheme::from_config(
 }
 
 ///|
+#derive(Eq)
 pub(all) enum ParseOutput {
   Normal
   Quiet
   Xml
   Cst
   Dot
-} derive(Eq)
+}
 
 ///|
 pub struct ParseSummary {
@@ -409,19 +410,21 @@ pub fn ParseStats::to_json(self : ParseStats) -> Json {
 }
 
 ///|
+#derive(Eq)
 pub(all) enum ParseDebugType {
   Quiet
   Normal
   Pretty
-} derive(Eq)
+}
 
 ///|
 /// `TSInputEncoding`.
+#derive(Eq)
 pub(all) enum InputEncoding {
   Utf8
   Utf16LE
   Utf16BE
-} derive(Eq)
+}
 
 ///|
 pub struct ParseFileOptions {
@@ -470,7 +473,11 @@ pub async fn parse_file_at_path(
   // Held for its `Drop` side effect: closed on every path out of this
   // function (after `stdout` is dropped, as upstream's locals are).
   let mut log_session : LogSession? = None
-  defer (if log_session is Some(session) { session.close() })
+  defer @async.protect_from_cancel(() => {
+    if log_session is Some(session) {
+      session.close()
+    }
+  })
   parser.set_language(language)
   let source_code = (@support.read_file(path) catch {
     e => raise with_context(e, "Error reading \{rust_debug_str(name)}")
@@ -493,7 +500,7 @@ pub async fn parse_file_at_path(
           if message.has_prefix("process version:") {
             let comma_idx = message.find(",").unwrap()
             curr_version.val = @string.parse_int(
-              message.view(start_offset=16, end_offset=comma_idx),
+              message.clamped_view(start=16, end=comma_idx),
             ) catch {
               _ => 0
             }

@@ -98,8 +98,7 @@ pub fn Node::same_id(self : Node, other : Node) -> Bool {
 pub fn Node::node_id(self : Node) -> UInt64 {
   match self.id {
     None => 0
-    Some(slot) =>
-      (slot.owner.to_uint64() << 32) | (slot.index.to_uint64() + 1)
+    Some(slot) => (slot.owner.to_uint64() << 32) | (slot.index.to_uint64() + 1)
   }
 }
 

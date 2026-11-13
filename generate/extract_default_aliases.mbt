@@ -92,7 +92,7 @@ fn extract_default_aliases(
   // For each symbol that always appears aliased, find the alias that occurs most often,
   // and designate that alias as the symbol's "default alias". Store all of these
   // default aliases in a map that will be returned.
-  let result : AliasMap = @sorted_map.SortedMap([])
+  let result : AliasMap = SortedMap([])
   for entry in symbols_with_statuses {
     let (symbol, status) = entry
     if status.appears_unaliased {

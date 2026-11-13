@@ -24,11 +24,12 @@ pub(all) struct StackSlice {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct StackSummaryEntry {
   position : Length
   depth : Int32
   state : Int32
-} derive(Eq, Debug)
+}
 
 ///|
 pub type StackSummary = Array[StackSummaryEntry]
@@ -70,11 +71,12 @@ fn StackIterator::copy(self : StackIterator) -> StackIterator {
 }
 
 ///|
+#derive(Eq)
 priv enum StackStatus {
   Active
   Paused
   Halted
-} derive(Eq)
+}
 
 ///|
 priv struct StackHead {

@@ -151,7 +151,10 @@ fn PatternExpander::expand(
 /// `ſ`/`K` straight back. It goes back in wherever [`FoldMode::folds_here`]
 /// says we left the folding alone, which would otherwise lose case-insensitivity
 /// in that scope entirely.
-fn PatternExpander::set_flags(self : PatternExpander, flags : @ast.Flags) -> Unit {
+fn PatternExpander::set_flags(
+  self : PatternExpander,
+  flags : @ast.Flags,
+) -> Unit {
   let mut negated = false
   for item in flags.items {
     match item.kind {
@@ -258,7 +261,9 @@ fn PatternExpander::leaf_set(
         negated: false,
         kind: Item(item),
       })
-      return PatternExpander::class_of(self.translator.translate(self.pattern, ast))
+      return PatternExpander::class_of(
+        self.translator.translate(self.pattern, ast),
+      )
     }
   }
   @hir.ClassUnicode::new([range])
@@ -277,7 +282,7 @@ fn PatternExpander::class_of(hir : @hir.Hir) -> @hir.ClassUnicode {
     Literal(literal) => {
       // A one character class, translated in unicode mode, so this must
       // be that character's UTF-8.
-      let @hir.Literal(bytes) = literal
+      let Literal(bytes) = literal
       let literal = try! @hir.from_utf8(bytes[:])
       @hir.ClassUnicode::new(
         literal.map(c => @hir.ClassUnicodeRange::new(c.to_int(), c.to_int())),
@@ -346,6 +351,7 @@ fn PatternExpander::fold_ascii_safe(class : @hir.ClassUnicode) -> Unit {
 
 ///|
 /// Mirror of `regex_syntax::ast::ErrorKind` and `regex_syntax::hir::ErrorKind`.
+#derive(Eq, Debug)
 pub(all) enum RegexErrorKind {
   CaptureLimitExceeded
   ClassEscapeInvalid
@@ -390,7 +396,7 @@ pub(all) enum RegexErrorKind {
   NestLimitExceeded(UInt32)
   /// A kind `regex_syntax` added after this mirror was written.
   Other(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for RegexErrorKind with fn output(self, f) {
@@ -510,10 +516,11 @@ fn RegexErrorKind::from_hir(kind : @hir.ErrorKind) -> RegexErrorKind {
 
 ///|
 /// Byte range within a pattern string.
+#derive(Eq, Compare, Debug)
 pub(all) struct PatternSpan {
   start : UInt32
   end : UInt32
-} derive(Eq, Compare, Debug)
+}
 
 ///|
 fn PatternSpan::new(span : @ast.Span) -> PatternSpan {
@@ -526,14 +533,15 @@ fn PatternSpan::new(span : @ast.Span) -> PatternSpan {
 ///|
 /// A pattern rejected by [`pattern_parse`], carrying the pattern and the
 /// offending range inside it.
+#derive(Eq, Debug)
 pub(all) suberror RegexError {
   RegexError(
     pattern~ : String,
     kind~ : RegexErrorKind,
     span~ : PatternSpan?,
-    aux_span~ : PatternSpan?
+    aux_span~ : PatternSpan?,
   )
-} derive(Eq, Debug)
+}
 
 ///|
 fn RegexError::new(error : @regex_syntax.SyntaxError) -> RegexError {

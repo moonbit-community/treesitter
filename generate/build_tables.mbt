@@ -284,7 +284,8 @@ fn populate_used_symbols(
       }
     }
     for k in 0..<state.nonterminal_entries.len() {
-      guard state.nonterminal_entries.symbol_at(k).non_terminal_index() is Some(index) else {
+      guard state.nonterminal_entries.symbol_at(k).non_terminal_index()
+        is Some(index) else {
         abort("unreachable")
       }
       non_terminal_usages[index] = true

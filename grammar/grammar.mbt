@@ -1,5 +1,6 @@
 ///|
 /// Rule order is significant: the first rule is the start rule.
+#derive(Debug, Eq)
 pub(all) struct Grammar {
   name : String
   rules : Array[(String, Rule)]
@@ -11,7 +12,7 @@ pub(all) struct Grammar {
   supertypes : Array[String]
   word : String?
   reserved : Map[String, Array[Rule]]
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Grammar::new(
@@ -41,9 +42,10 @@ pub fn Grammar::new(
 }
 
 ///|
+#derive(Debug, Eq)
 pub suberror GrammarError {
   InvalidGrammar(String)
-} derive(Debug, Eq)
+}
 
 ///|
 fn invalid(message : String) -> Unit raise GrammarError {

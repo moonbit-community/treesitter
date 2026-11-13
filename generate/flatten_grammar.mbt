@@ -1,13 +1,14 @@
 // Port of tree-sitter crates/generate/src/prepare_grammar/flatten_grammar.rs.
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror FlattenGrammarError {
   NoReservedWordSet(String)
   TooManyReservedWordSets(Int32)
   EmptyString(String)
   RecursiveInline(String)
   NoReachableProductions(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for FlattenGrammarError with fn output(self, logger) {

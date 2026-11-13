@@ -32,7 +32,7 @@ async fn read_answer() -> String {
   match @stdio.stdin.read_until("\n") {
     Some(line) =>
       if line.has_suffix("\r") {
-        line.view(end_offset=line.length() - 1).to_owned()
+        line.clamped_view(end=line.length() - 1).to_owned()
       } else {
         line
       }
@@ -296,7 +296,7 @@ async fn initial_version() -> @loader.SemverVersion {
       return default
     }
     return @loader.SemverVersion::parse(answer) catch {
-      @loader.SemverError(e) => {
+      SemverError(e) => {
         render_error(e)
         continue
       }

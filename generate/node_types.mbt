@@ -101,10 +101,11 @@ fn VariableInfo::clone(self : VariableInfo) -> VariableInfo {
 
 ///|
 /// `node_types::VariableInfoError`.
+#derive(Eq, Debug)
 pub(all) suberror VariableInfoError {
   InvalidSupertype(InvalidSupertypeError)
   SupertypeAliasCollision(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for VariableInfoError with fn output(self, logger) {
@@ -120,10 +121,11 @@ pub impl Show for VariableInfoError with fn output(self, logger) {
 
 ///|
 /// `node_types::InvalidSupertypeError`.
+#derive(Eq, Debug)
 pub(all) struct InvalidSupertypeError {
   supertype : String
   child : String?
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for InvalidSupertypeError with fn output(self, logger) {
@@ -231,11 +233,10 @@ fn compute_variable_info_fixed_point(
 ) -> Array[VariableInfo] {
   let child_type_is_visible = (t : ChildType) => {
     variable_type_for_child_type(t, syntax_grammar, lexical_grammar) >=
-    VariableType::Anonymous
+    Anonymous
   }
   let child_type_is_named = (t : ChildType) => {
-    variable_type_for_child_type(t, syntax_grammar, lexical_grammar) ==
-    VariableType::Named
+    variable_type_for_child_type(t, syntax_grammar, lexical_grammar) == Named
   }
   let mut did_change = true
   let mut all_initialized = false
@@ -473,7 +474,9 @@ fn inherit_hidden_child_fields(
     .get_or_init(field_name, ChildQuantity::zero)
     .append(child_field_info.quantity)
     if extend_sorted(
-        variable_info.fields.get_or_init(field_name, () => (Default::default() : FieldInfo)).types,
+        variable_info.fields.get_or_init(field_name, () => {
+          (Default::default() : FieldInfo)
+        }).types,
         child_field_info.types,
       ) {
       did_change = true
@@ -495,7 +498,7 @@ fn validate_supertype_structure(
 ) -> Unit raise VariableInfoError {
   let child_type_is_visible = (t : ChildType) => {
     variable_type_for_child_type(t, syntax_grammar, lexical_grammar) >=
-    VariableType::Anonymous
+    Anonymous
   }
   for supertype_symbol in syntax_grammar.supertype_symbols {
     guard supertype_symbol.non_terminal_index() is Some(supertype_index) else {
@@ -560,7 +563,7 @@ fn strip_hidden_child_types(
 ) -> Unit {
   let child_type_is_visible = (t : ChildType) => {
     variable_type_for_child_type(t, syntax_grammar, lexical_grammar) >=
-    VariableType::Anonymous
+    Anonymous
   }
   for supertype_symbol in syntax_grammar.supertype_symbols {
     guard supertype_symbol.non_terminal_index() is Some(index) else {
@@ -596,9 +599,7 @@ fn get_aliases_by_symbol(
   }
   for extra_symbol in syntax_grammar.extra_symbols {
     if !default_aliases.contains(extra_symbol) {
-      aliases_by_symbol
-      .get_or_init(extra_symbol, () => @sorted_set.SortedSet([]))
-      .add(None)
+      aliases_by_symbol.get_or_init(extra_symbol, () => SortedSet([])).add(None)
     }
   }
   for i in 0..<syntax_grammar.variables.length() {
@@ -611,7 +612,7 @@ fn get_aliases_by_symbol(
       for prod_id in production_ids {
         for step in syntax_grammar.production(prod_id).steps {
           aliases_by_symbol
-          .get_or_init(step.symbol, () => @sorted_set.SortedSet([]))
+          .get_or_init(step.symbol, () => SortedSet([]))
           .add(
             match step.alias {
               Some(alias) => Some(alias)
@@ -641,7 +642,7 @@ pub fn get_supertype_symbol_map(
   let aliases_by_symbol = get_aliases_by_symbol(
     syntax_grammar, default_aliases, inlines,
   )
-  let supertype_symbol_map : @sorted_map.SortedMap[Symbol, Array[ChildType]] = @sorted_map.SortedMap([],
+  let supertype_symbol_map : @sorted_map.SortedMap[Symbol, Array[ChildType]] = SortedMap([],
   )
 
   // Upstream builds this map and never reads it; it is kept for structural

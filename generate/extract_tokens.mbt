@@ -1,6 +1,7 @@
 // Port of tree-sitter crates/generate/src/prepare_grammar/extract_tokens.rs.
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ExtractTokensError {
   EmptyString(String)
   SupertypeTerminal(String)
@@ -8,7 +9,7 @@ pub(all) suberror ExtractTokensError {
   NonSymbolExternalToken
   WordToken(NonTerminalWordTokenError)
   NonTokenReservedWord(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ExtractTokensError with fn output(self, logger) {
@@ -40,10 +41,11 @@ pub impl Show for ExtractTokensError with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct NonTerminalWordTokenError {
   symbol_name : String
   conflicting_symbol_name : String?
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for NonTerminalWordTokenError with fn output(self, logger) {

@@ -37,9 +37,7 @@ async fn main {
         let source = @fs.read_file(args[i]).binary()
         println("== \{args[i]}")
         match parser.parse_string(None, source) {
-          Some(tree) => {
-            println(tree.root_node().to_sexp())
-          }
+          Some(tree) => println(tree.root_node().to_sexp())
           None => println("(no tree)")
         }
       }
@@ -130,15 +128,17 @@ async fn main {
         ignore(parser.parse_string(None, text))
       }
       let elapsed = @env.now() - start
-      println("\{n} parses in \{elapsed} ms (\{elapsed.to_double() / n.to_double()} ms/parse)")
+      println(
+        "\{n} parses in \{elapsed} ms (\{elapsed.to_double() / n.to_double()} ms/parse)",
+      )
     }
     "modes" => {
       let language = load_language(args[2])
       let parser = new_parser(language)
       let encoding = match args[3] {
         "utf16le" => @runtime.InputEncoding::UTF16LE
-        "utf16be" => @runtime.InputEncoding::UTF16BE
-        _ => @runtime.InputEncoding::UTF8
+        "utf16be" => UTF16BE
+        _ => UTF8
       }
       for i in 5..<args.length() {
         let text = @fs.read_file(args[i]).binary()
@@ -148,8 +148,8 @@ async fn main {
           for tok in args[4].split(",") {
             let parts = tok.split("-").collect()
             let size = text.length().reinterpret_as_uint()
-            let mut a = parse_uint(parts[0].to_string())
-            let mut b = parse_uint(parts[1].to_string())
+            let mut a = parse_uint(parts[0].to_owned())
+            let mut b = parse_uint(parts[1].to_owned())
             if a > size {
               a = size
             }
@@ -194,9 +194,21 @@ async fn main {
           return
         }
       }
-      @fs.write_file(out + "/parser.c", generated.c_code, create_mode=CreateOrTruncate)
-      @fs.write_file(out + "/node-types.json", generated.node_types_json, create_mode=CreateOrTruncate)
-      @fs.write_file(out + "/language.json", ToJson::to_json(generated.language).stringify(), create_mode=CreateOrTruncate)
+      @fs.write_file(
+        out + "/parser.c",
+        generated.c_code,
+        create_mode=CreateOrTruncate,
+      )
+      @fs.write_file(
+        out + "/node-types.json",
+        generated.node_types_json,
+        create_mode=CreateOrTruncate,
+      )
+      @fs.write_file(
+        out + "/language.json",
+        ToJson::to_json(generated.language).stringify(),
+        create_mode=CreateOrTruncate,
+      )
       for d in diagnostics {
         println("warning: \{d}")
       }
@@ -213,15 +225,25 @@ async fn main {
         steps += 1
         if ascending {
           match cursor.goto_next_sibling_internal() {
-            StepNone => if !cursor.goto_parent() { break } else { println("up") }
-            step => { println("sibling \{to_repr(step)}"); ascending = false }
+            StepNone =>
+              if !cursor.goto_parent() {
+                break
+              } else {
+                println("up")
+              }
+            step => {
+              println("sibling \{Repr(step)}")
+              ascending = false
+            }
           }
         } else {
           let node = cursor.current_node()
-          println("enter \{node.kind()} \{node.start_byte()}-\{node.end_byte()} depth=\{cursor.current_depth()}")
+          println(
+            "enter \{node.kind()} \{node.start_byte()}-\{node.end_byte()} depth=\{cursor.current_depth()}",
+          )
           match cursor.goto_first_child_internal() {
             StepNone => ascending = true
-            step => println("child \{to_repr(step)}")
+            step => println("child \{Repr(step)}")
           }
         }
       }
@@ -264,23 +286,23 @@ async fn main {
 }
 
 ///|
-fn point_at(text : Bytes, byte : UInt) -> @runtime.Point {
-  let mut row : UInt = 0
-  let mut column : UInt = 0
+fn point_at(text : Bytes, byte : UInt32) -> @runtime.Point {
+  let mut row : UInt32 = 0
+  let mut column : UInt32 = 0
   for i in 0..<byte.reinterpret_as_int() {
-    if text[i] == '\n' {
+    if text[i] == b'\n' {
       row += 1
       column = 0
     } else {
       column += 1
     }
   }
-  { row, column }
+  { row, column, }
 }
 
 ///|
-fn parse_uint(s : String) -> UInt {
-  let mut n : UInt = 0
+fn parse_uint(s : String) -> UInt32 {
+  let mut n : UInt32 = 0
   for c in s {
     n = n * 10 + (c.to_int() - '0'.to_int()).reinterpret_as_uint()
   }
@@ -292,12 +314,12 @@ fn parse_uint(s : String) -> UInt {
 /// encoding), columns count bytes.
 fn point_at_encoding(
   text : Bytes,
-  byte : UInt,
+  byte : UInt32,
   encoding : @runtime.InputEncoding,
 ) -> @runtime.Point {
   let unit = if encoding is UTF8 { 1 } else { 2 }
-  let mut row : UInt = 0
-  let mut column : UInt = 0
+  let mut row : UInt32 = 0
+  let mut column : UInt32 = 0
   let mut i = 0
   while i < byte.reinterpret_as_int() {
     let next = if i + 1 < text.length() { text[i + 1] } else { b'\x00' }
@@ -315,5 +337,5 @@ fn point_at_encoding(
     }
     i += unit
   }
-  { row, column }
+  { row, column, }
 }

@@ -35,11 +35,11 @@ fn Primitive::span(self : Primitive) -> Span {
 /// Convert this primitive into a proper AST.
 fn Primitive::into_ast(self : Primitive) -> Ast {
   match self {
-    Literal(lit) => Ast::Literal(lit)
-    Assertion(assert) => Ast::Assertion(assert)
-    Dot(span) => Ast::Dot(span)
-    Perl(cls) => Ast::ClassPerl(cls)
-    Unicode(cls) => Ast::ClassUnicode(cls)
+    Literal(lit) => Literal(lit)
+    Assertion(assert) => Assertion(assert)
+    Dot(span) => Dot(span)
+    Perl(cls) => ClassPerl(cls)
+    Unicode(cls) => ClassUnicode(cls)
   }
 }
 
@@ -53,9 +53,9 @@ fn Primitive::into_class_set_item(
   p : ParserI,
 ) -> ClassSetItem raise AstError {
   match self {
-    Literal(lit) => ClassSetItem::Literal(lit)
-    Perl(cls) => ClassSetItem::Perl(cls)
-    Unicode(cls) => ClassSetItem::Unicode(cls)
+    Literal(lit) => Literal(lit)
+    Perl(cls) => Perl(cls)
+    Unicode(cls) => Unicode(cls)
     x => raise p.error(x.span(), ClassEscapeInvalid)
   }
 }
@@ -766,7 +766,7 @@ fn ParserI::pop_group_end(
     Some(Alternation(alt)) => {
       alt.span = { ..alt.span, end: self.pos(), }
       alt.asts.push(concat.into_ast())
-      Ast::Alternation(alt)
+      Alternation(alt)
     }
     Some(Group(group~, ..)) => raise self.error(group.span, GroupUnclosed)
   }
@@ -1069,10 +1069,10 @@ fn ParserI::parse_counted_repetition(
       ).unwrap_or_error()
       RepetitionRange::Bounded(count_start, count_end)
     } else {
-      RepetitionRange::AtLeast(count_start.unwrap_or_error())
+      AtLeast(count_start.unwrap_or_error())
     }
   } else {
-    RepetitionRange::Exactly(count_start.unwrap_or_error())
+    Exactly(count_start.unwrap_or_error())
   }
   if self.is_eof() || self.char() != '}' {
     raise self.error(Span::new(start, self.pos()), RepetitionCountUnclosed)
@@ -1355,7 +1355,7 @@ fn ParserI::parse_escape(self : ParserI) -> Primitive raise AstError {
       }
       let lit = self.parse_octal()
       lit.span = { ..lit.span, start, }
-      return Primitive::Literal(lit)
+      return Literal(lit)
     }
     '8'..<='9' if !self.parser.octal =>
       raise self.error(
@@ -1365,17 +1365,17 @@ fn ParserI::parse_escape(self : ParserI) -> Primitive raise AstError {
     'x' | 'u' | 'U' => {
       let lit = self.parse_hex()
       lit.span = { ..lit.span, start, }
-      return Primitive::Literal(lit)
+      return Literal(lit)
     }
     'p' | 'P' => {
       let cls = self.parse_unicode_class()
       cls.span = { ..cls.span, start, }
-      return Primitive::Unicode(cls)
+      return Unicode(cls)
     }
     'd' | 's' | 'w' | 'D' | 'S' | 'W' => {
       let cls = self.parse_perl_class()
       cls.span = { ..cls.span, start, }
-      return Primitive::Perl(cls)
+      return Perl(cls)
     }
     _ => ()
   }
@@ -1384,10 +1384,10 @@ fn ParserI::parse_escape(self : ParserI) -> Primitive raise AstError {
   ignore(self.bump())
   let span = Span::new(start, self.pos())
   if is_meta_character(c) {
-    return Primitive::Literal({ span, kind: Meta, c, })
+    return Literal({ span, kind: Meta, c, })
   }
   if is_escapeable_character(c) {
-    return Primitive::Literal({ span, kind: Superfluous, c, })
+    return Literal({ span, kind: Superfluous, c, })
   }
   let special = (kind, c) => {
     Primitive::Literal({ span, kind: Special(kind), c, })
@@ -1399,8 +1399,8 @@ fn ParserI::parse_escape(self : ParserI) -> Primitive raise AstError {
     'n' => special(LineFeed, '\n')
     'r' => special(CarriageReturn, '\r')
     'v' => special(VerticalTab, '\u{0B}')
-    'A' => Primitive::Assertion({ span, kind: StartText, })
-    'z' => Primitive::Assertion({ span, kind: EndText, })
+    'A' => Assertion({ span, kind: StartText, })
+    'z' => Assertion({ span, kind: EndText, })
     'b' => {
       let wb : Assertion = { span, kind: WordBoundary, }
       // After a \b, we "try" to parse things like \b{start} for
@@ -1411,11 +1411,11 @@ fn ParserI::parse_escape(self : ParserI) -> Primitive raise AstError {
           wb.span = { ..wb.span, end: self.pos(), }
         }
       }
-      Primitive::Assertion(wb)
+      Assertion(wb)
     }
-    'B' => Primitive::Assertion({ span, kind: NotWordBoundary, })
-    '<' => Primitive::Assertion({ span, kind: WordBoundaryStartAngle, })
-    '>' => Primitive::Assertion({ span, kind: WordBoundaryEndAngle, })
+    'B' => Assertion({ span, kind: NotWordBoundary, })
+    '<' => Assertion({ span, kind: WordBoundaryStartAngle, })
+    '>' => Assertion({ span, kind: WordBoundaryEndAngle, })
     _ => raise self.error(span, EscapeUnrecognized)
   }
 }
@@ -1951,30 +1951,30 @@ fn ParserI::parse_unicode_class(self : ParserI) -> ClassUnicode raise AstError {
         start,
         ClassUnicodeKind::NamedValue(
           op=NotEqual,
-          name=name.view(end_offset=i).to_owned(),
-          value=name.view(start_offset=i + 2).to_owned(),
+          name=name.clamped_view(end=i).to_owned(),
+          value=name.clamped_view(start=i + 2).to_owned(),
         ),
       )
     } else if name.find(":") is Some(i) {
       (
         start,
-        ClassUnicodeKind::NamedValue(
+        NamedValue(
           op=Colon,
-          name=name.view(end_offset=i).to_owned(),
-          value=name.view(start_offset=i + 1).to_owned(),
+          name=name.clamped_view(end=i).to_owned(),
+          value=name.clamped_view(start=i + 1).to_owned(),
         ),
       )
     } else if name.find("=") is Some(i) {
       (
         start,
-        ClassUnicodeKind::NamedValue(
+        NamedValue(
           op=Equal,
-          name=name.view(end_offset=i).to_owned(),
-          value=name.view(start_offset=i + 1).to_owned(),
+          name=name.clamped_view(end=i).to_owned(),
+          value=name.clamped_view(start=i + 1).to_owned(),
         ),
       )
     } else {
-      (start, ClassUnicodeKind::Named(name))
+      (start, Named(name))
     }
   } else {
     let start = self.pos()

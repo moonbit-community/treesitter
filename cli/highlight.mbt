@@ -13,10 +13,11 @@ pub let html_body_header : String = "\n</head>\n<body>\n"
 pub let html_footer : String = "\n</body>\n"
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct HlStyle {
   ansi : Style
   css : String?
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn HlStyle::default() -> HlStyle {
@@ -358,19 +359,21 @@ fn terminal_supports_truecolor() -> Bool {
 
 ///|
 /// The kind of HTML emitted when highlighting to HTML.
+#derive(Eq)
 pub(all) enum HtmlOutput {
   Document
   NumberedDocument
   Fragment
-} derive(Eq)
+}
 
 ///|
 /// How token colors are applied in HTML output.
+#derive(Eq)
 pub(all) enum HtmlStyling {
   Classes
   Inline
   Minimal
-} derive(Eq)
+}
 
 ///|
 pub struct HighlightOptions {
@@ -455,7 +458,7 @@ pub async fn highlight(
         }
         config.nonconformant_capture_names(capture_names)
       }
-      None => config.nonconformant_capture_names(@hashset.HashSet([]))
+      None => config.nonconformant_capture_names(HashSet([]))
     }
     if names.is_empty() {
       log_info("All highlight captures conform to standards.")

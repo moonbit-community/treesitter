@@ -5,6 +5,7 @@
 
 ///|
 /// `clap::ArgAction`.
+#derive(Eq, Debug)
 pub(all) enum ArgAction {
   Set
   Append
@@ -14,7 +15,7 @@ pub(all) enum ArgAction {
   HelpShort
   HelpLong
   Version
-} derive(Eq, Debug)
+}
 
 ///|
 fn ArgAction::default_num_args(self : ArgAction) -> ValueRange {
@@ -27,10 +28,11 @@ fn ArgAction::default_num_args(self : ArgAction) -> ValueRange {
 ///|
 /// `clap::builder::ValueRange`; `max == value_range_unbounded` means no
 /// upper bound.
+#derive(Eq, Debug)
 pub(all) struct ValueRange {
   min : Int32
   max : Int32
-} derive(Eq, Debug)
+}
 
 ///|
 pub let value_range_unbounded : Int32 = 2147483647
@@ -112,12 +114,13 @@ pub fn ValueRange::to_string(self : ValueRange) -> String {
 
 ///|
 /// `clap::builder::PossibleValue`.
+#derive(Debug)
 pub(all) struct PossibleValue {
   name : String
   help : String?
   aliases : Array[String]
   hide : Bool
-} derive(Debug)
+}
 
 ///|
 pub fn PossibleValue::new(name : String, help? : String) -> PossibleValue {
@@ -182,6 +185,7 @@ pub fn PossibleValue::matches(
 
 ///|
 /// `clap::ValueHint`.
+#derive(Eq, Debug)
 pub(all) enum ValueHint {
   Unknown
   Other
@@ -196,7 +200,7 @@ pub(all) enum ValueHint {
   Hostname
   Url
   EmailAddress
-} derive(Eq, Debug)
+}
 
 ///|
 /// The value parsers used by the tree-sitter CLI (`value_parser!` of the

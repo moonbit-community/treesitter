@@ -11,11 +11,11 @@ test "sanitize_identifier" {
     },
     tiny_syntax_grammar([], []),
     LexicalGrammar::new(),
-    @sorted_map.SortedMap([]),
+    SortedMap([]),
     pool,
     15,
     None,
-    @sorted_map.SortedMap([]),
+    SortedMap([]),
   )
   let sanitize = (s : String) => generator.sanitize_identifier(pool.intern(s))
   inspect(sanitize("foo_bar1"), content="foo_bar1")
@@ -83,7 +83,7 @@ test "render rejects unsupported ABI versions" {
       pool,
       13,
       None,
-      @sorted_map.SortedMap([]),
+      SortedMap([]),
     )
   catch {
     e =>
@@ -235,7 +235,7 @@ fn tiny_grammar(
     },
     syntax_grammar,
     lexical_grammar,
-    @sorted_map.SortedMap([]),
+    SortedMap([]),
   )
 }
 
@@ -255,7 +255,7 @@ test "render a tiny grammar" {
       pool,
       abi_version,
       Some((1, 2, 3)),
-      @sorted_map.SortedMap([]),
+      SortedMap([]),
     )
   }
   inspect(
@@ -500,7 +500,7 @@ test "render_language of a tiny grammar" {
     pool,
     15,
     Some((1, 2, 3)),
-    @sorted_map.SortedMap([]),
+    SortedMap([]),
   )
   debug_inspect(
     language,

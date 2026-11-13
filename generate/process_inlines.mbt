@@ -257,12 +257,13 @@ fn InlineBuilder::production_step_for_id(
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ProcessInlinesError {
   ExternalToken(String)
   Token(String)
   FirstRule(String)
   NoReachableProductions(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ProcessInlinesError with fn output(self, logger) {

@@ -4,6 +4,7 @@
 
 ///|
 /// `serde_json::error::ErrorCode`, minus `Io`.
+#derive(Eq, Debug)
 pub(all) enum ErrorCode {
   /// Catchall for a syntax error or a `serde::de::Error::custom` message.
   Message(String)
@@ -30,7 +31,7 @@ pub(all) enum ErrorCode {
   TrailingCharacters
   UnexpectedEndOfHexEscape
   RecursionLimitExceeded
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ErrorCode with fn output(self, logger) {
@@ -71,9 +72,10 @@ pub impl Show for ErrorCode with fn output(self, logger) {
 /// byte offset within the line) where it was detected. Line 0 means the error
 /// has no position yet; `Show` then prints the code alone, otherwise
 /// `"{code} at line {line} column {column}"`.
+#derive(Eq, Debug)
 pub suberror JsonError {
   JsonError(code~ : ErrorCode, line~ : Int32, column~ : Int32)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for JsonError with fn output(self, logger) {

@@ -76,9 +76,9 @@ fn dot_repeat_depths(graph : String) -> Array[String] {
   let result = []
   for line in graph.split("\n") {
     if line.find("[label=\"") is Some(start) {
-      let rest = line.view(start_offset=start + 8)
+      let rest = line.clamped_view(start=start + 8)
       let end = rest.find("\"").unwrap()
-      result.push(rest.view(end_offset=end).to_owned())
+      result.push(rest.clamped_view(end~).to_owned())
     } else if line.has_prefix("repeat-depth: ") {
       result.push(line.to_owned())
     }

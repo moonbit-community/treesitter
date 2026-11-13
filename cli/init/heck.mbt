@@ -6,6 +6,7 @@
 ///|
 /// Tracks the current 'mode' of the transformation algorithm as it scans the
 /// input string.
+#derive(Eq)
 priv enum WordMode {
   /// There have been no lowercase or uppercase characters in the current
   /// word.
@@ -14,7 +15,7 @@ priv enum WordMode {
   Lowercase
   /// The previous cased character in the current word is uppercase.
   Uppercase
-} derive(Eq)
+}
 
 ///|
 /// `heck::transform`: split `s` into words, calling `with_word` for each word

@@ -3,9 +3,10 @@
 // (`render_cst`, without colors: `ParseTheme::empty()`, ranges shown).
 
 ///|
+#derive(Debug)
 pub(all) suberror ParseError {
   ParseError(String)
-} derive(Debug)
+}
 
 ///|
 pub impl Show for ParseError with fn output(self, logger) {

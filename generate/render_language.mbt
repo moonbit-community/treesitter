@@ -173,7 +173,7 @@ fn RenderedParser::to_language(self : RenderedParser) -> @language.Language {
             reserved_word_set_id: c_uint16(mode.reserved_word_set_id),
           }
         None =>
-          { lex_state: 65535, external_lex_state: 0, reserved_word_set_id: 0 }
+          { lex_state: 65535, external_lex_state: 0, reserved_word_set_id: 0, }
       }
     }),
     lex_fn: c_lex_program(self.lex_fn),
@@ -209,13 +209,13 @@ fn RenderedParser::to_language(self : RenderedParser) -> @language.Language {
 
 ///|
 /// The value of an integer constant converted to `uint16_t`.
-fn c_uint16(value : Int) -> Int {
+fn c_uint16(value : Int32) -> Int32 {
   value & 0xFFFF
 }
 
 ///|
 /// The value of an integer constant converted to `uint8_t`.
-fn c_uint8(value : Int) -> Int {
+fn c_uint8(value : Int32) -> Int32 {
   value & 0xFF
 }
 
@@ -270,10 +270,10 @@ fn c_string_literal_value(literal : String) -> String {
       'r' => 13
       't' => 9
       'v' => 11
-      '0'..='7' => {
+      '0'..<='7' => {
         let mut value = e.to_int() - '0'.to_int()
         let mut digits = 1
-        while digits < 3 && i < n && chars[i] is ('0'..='7') {
+        while digits < 3 && i < n && chars[i] is ('0'..<='7') {
           value = value * 8 + (chars[i].to_int() - '0'.to_int())
           i += 1
           digits += 1
@@ -321,11 +321,11 @@ fn c_string_literal_value(literal : String) -> String {
 }
 
 ///|
-fn c_hex_digit(c : Char) -> Int? {
+fn c_hex_digit(c : Char) -> Int32? {
   match c {
-    '0'..='9' => Some(c.to_int() - '0'.to_int())
-    'a'..='f' => Some(c.to_int() - 'a'.to_int() + 10)
-    'A'..='F' => Some(c.to_int() - 'A'.to_int() + 10)
+    '0'..<='9' => Some(c.to_int() - '0'.to_int())
+    'a'..<='f' => Some(c.to_int() - 'a'.to_int() + 10)
+    'A'..<='F' => Some(c.to_int() - 'A'.to_int() + 10)
     _ => None
   }
 }

@@ -127,13 +127,17 @@ test "zero_length_assertion_end_column_wraps" {
       e => Err(e)
     }
   }
-  inspect(
-    check(@query_testing.Assertion::new(0, 0, 0, false, "foo")),
-    content="Err(Assertion failed: could not match foo at row 0, column 2147483647)",
-  )
+  match check(@query_testing.Assertion::new(0, 0, 0, false, "foo")) {
+    Err(error) =>
+      inspect(
+        Show::to_string(error),
+        content="Assertion failed: could not match foo at row 0, column 2147483647",
+      )
+    Ok(_) => fail("expected the wrapped end column to fail")
+  }
   // A zero-length assertion at a later column ends one column before it.
   inspect(
-    check(@query_testing.Assertion::new(0, 1, 0, false, "foo")),
-    content="Ok(1)",
+    check(@query_testing.Assertion::new(0, 1, 0, false, "foo")).unwrap(),
+    content="1",
   )
 }

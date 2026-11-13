@@ -4,6 +4,7 @@
 
 ///|
 /// `serde::de::Unexpected`: the kind of value a visitor did not expect.
+#derive(Eq, Debug)
 pub(all) enum Unexpected {
   Bool(Bool)
   Unsigned(UInt64)
@@ -23,7 +24,7 @@ pub(all) enum Unexpected {
   TupleVariant
   StructVariant
   Other(String)
-} derive(Eq, Debug)
+}
 
 ///|
 /// `JsonUnexpected`'s `Display`.

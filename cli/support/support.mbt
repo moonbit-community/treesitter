@@ -282,9 +282,7 @@ pub async fn create_dir_all(path : String) -> Unit {
   if path.is_empty() {
     return
   }
-  let kind = @fs.kind(path, follow_symlink=true) catch {
-    _ => @fs.FileKind::Unknown
-  }
+  let kind = @fs.kind(path, follow_symlink=true) catch { _ => Unknown }
   if kind is Directory {
     return
   }

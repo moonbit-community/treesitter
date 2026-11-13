@@ -110,11 +110,12 @@ pub fn LoaderConfig::to_json(self : LoaderConfig) -> Json {
 
 ///|
 /// `PathsJSON`: absent, one path, or several paths.
+#derive(Eq, Debug)
 pub(all) enum PathsJSON {
   Empty
   Single(String)
   Multiple(Array[String])
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn PathsJSON::into_vec(self : PathsJSON) -> Array[String]? {
@@ -181,19 +182,22 @@ fn PathsJSON::to_json(self : PathsJSON) -> Json {
 }
 
 ///|
+#derive(Debug)
 pub(all) struct Author {
   name : String
   email : String?
   url : String?
-} derive(Debug)
+}
 
 ///|
+#derive(Debug)
 pub(all) struct Links {
   repository : String
   funding : String?
-} derive(Debug)
+}
 
 ///|
+#derive(Debug)
 pub(all) struct Metadata {
   version : SemverVersion
   license : String?
@@ -201,9 +205,10 @@ pub(all) struct Metadata {
   authors : Array[Author]?
   links : Links?
   namespace : String?
-} derive(Debug)
+}
 
 ///|
+#derive(Debug)
 pub(all) struct Bindings {
   c : Bool
   go : Bool
@@ -214,7 +219,7 @@ pub(all) struct Bindings {
   rust : Bool
   swift : Bool
   zig : Bool
-} derive(Debug)
+}
 
 ///|
 pub fn Bindings::default() -> Bindings {
@@ -279,6 +284,7 @@ pub fn Bindings::with_enabled_languages(
 }
 
 ///|
+#derive(Debug)
 pub(all) struct Grammar {
   name : String
   camelcase : String?
@@ -295,15 +301,16 @@ pub(all) struct Grammar {
   first_line_regex : String?
   content_regex : String?
   class_name : String?
-} derive(Debug)
+}
 
 ///|
+#derive(Debug)
 pub(all) struct TreeSitterJSON {
   schema : String?
   grammars : Array[Grammar]
   metadata : Metadata
   bindings : Bindings
-} derive(Debug)
+}
 
 ///|
 /// `Option::<String>::deserialize`.
@@ -876,13 +883,15 @@ pub fn TreeSitterJSON::to_json(self : TreeSitterJSON) -> Json {
 
 ///|
 /// `TreeSitterJSON::from_file`: read `<path>/tree-sitter.json`.
-pub async fn TreeSitterJSON::from_file(path : String) -> TreeSitterJSON {
+pub fn TreeSitterJSON::from_file(
+  path : String,
+) -> TreeSitterJSON raise LoaderError {
   let path = @support.path_join(path, "tree-sitter.json")
   let text = @support.read_to_string(path) catch {
-    e => raise LoaderError::IO(@support.io_error_with_path(e, Some(path)))
+    e => raise IO(@support.io_error_with_path(e, Some(path)))
   }
   TreeSitterJSON::parse(text) catch {
-    JsonError(e) => raise LoaderError::Serialization(e)
+    JsonError(e) => raise Serialization(e)
   }
 }
 

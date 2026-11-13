@@ -52,7 +52,7 @@ pub fn[T] Visitor::new(
 fn[T] Visitor::bool(self : Visitor[T], v : Bool) -> T raise JsonError {
   match self.visit_bool {
     Some(f) => f(v)
-    None => raise invalid_type(Unexpected::Bool(v), self.expecting)
+    None => raise invalid_type(Bool(v), self.expecting)
   }
 }
 
@@ -60,7 +60,7 @@ fn[T] Visitor::bool(self : Visitor[T], v : Bool) -> T raise JsonError {
 fn[T] Visitor::i64(self : Visitor[T], v : Int64) -> T raise JsonError {
   match self.visit_i64 {
     Some(f) => f(v)
-    None => raise invalid_type(Unexpected::Signed(v), self.expecting)
+    None => raise invalid_type(Signed(v), self.expecting)
   }
 }
 
@@ -68,7 +68,7 @@ fn[T] Visitor::i64(self : Visitor[T], v : Int64) -> T raise JsonError {
 fn[T] Visitor::u64(self : Visitor[T], v : UInt64) -> T raise JsonError {
   match self.visit_u64 {
     Some(f) => f(v)
-    None => raise invalid_type(Unexpected::Unsigned(v), self.expecting)
+    None => raise invalid_type(Unsigned(v), self.expecting)
   }
 }
 
@@ -76,7 +76,7 @@ fn[T] Visitor::u64(self : Visitor[T], v : UInt64) -> T raise JsonError {
 fn[T] Visitor::f64(self : Visitor[T], v : Double) -> T raise JsonError {
   match self.visit_f64 {
     Some(f) => f(v)
-    None => raise invalid_type(Unexpected::Float(v), self.expecting)
+    None => raise invalid_type(Float(v), self.expecting)
   }
 }
 
@@ -84,7 +84,7 @@ fn[T] Visitor::f64(self : Visitor[T], v : Double) -> T raise JsonError {
 fn[T] Visitor::str(self : Visitor[T], v : String) -> T raise JsonError {
   match self.visit_str {
     Some(f) => f(v)
-    None => raise invalid_type(Unexpected::Str(v), self.expecting)
+    None => raise invalid_type(Str(v), self.expecting)
   }
 }
 
@@ -92,7 +92,7 @@ fn[T] Visitor::str(self : Visitor[T], v : String) -> T raise JsonError {
 fn[T] Visitor::unit(self : Visitor[T]) -> T raise JsonError {
   match self.visit_unit {
     Some(f) => f()
-    None => raise invalid_type(Unexpected::Unit, self.expecting)
+    None => raise invalid_type(Unit, self.expecting)
   }
 }
 
@@ -100,7 +100,7 @@ fn[T] Visitor::unit(self : Visitor[T]) -> T raise JsonError {
 fn[T] Visitor::none(self : Visitor[T]) -> T raise JsonError {
   match self.visit_none {
     Some(f) => f()
-    None => raise invalid_type(Unexpected::Option, self.expecting)
+    None => raise invalid_type(Option, self.expecting)
   }
 }
 
@@ -108,7 +108,7 @@ fn[T] Visitor::none(self : Visitor[T]) -> T raise JsonError {
 fn[T] Visitor::some(self : Visitor[T], de : Deserializer) -> T raise JsonError {
   match self.visit_some {
     Some(f) => f(de)
-    None => raise invalid_type(Unexpected::Option, self.expecting)
+    None => raise invalid_type(Option, self.expecting)
   }
 }
 
@@ -116,7 +116,7 @@ fn[T] Visitor::some(self : Visitor[T], de : Deserializer) -> T raise JsonError {
 fn[T] Visitor::seq(self : Visitor[T], seq : SeqAccess) -> T raise JsonError {
   match self.visit_seq {
     Some(f) => f(seq)
-    None => raise invalid_type(Unexpected::Seq, self.expecting)
+    None => raise invalid_type(Seq, self.expecting)
   }
 }
 
@@ -124,7 +124,7 @@ fn[T] Visitor::seq(self : Visitor[T], seq : SeqAccess) -> T raise JsonError {
 fn[T] Visitor::map(self : Visitor[T], map : MapAccess) -> T raise JsonError {
   match self.visit_map {
     Some(f) => f(map)
-    None => raise invalid_type(Unexpected::Map, self.expecting)
+    None => raise invalid_type(Map, self.expecting)
   }
 }
 
@@ -160,14 +160,14 @@ pub let i32_visitor : Visitor[Int32] = Visitor::new(
     if v >= -2147483648L && v <= 2147483647L {
       v.to_int()
     } else {
-      raise invalid_value(Unexpected::Signed(v), "i32")
+      raise invalid_value(Signed(v), "i32")
     }
   },
   visit_u64=v => {
     if v <= 2147483647UL {
       v.to_int()
     } else {
-      raise invalid_value(Unexpected::Unsigned(v), "i32")
+      raise invalid_value(Unsigned(v), "i32")
     }
   },
 )
@@ -180,7 +180,7 @@ pub let u64_visitor : Visitor[UInt64] = Visitor::new(
     if v >= 0L {
       v.reinterpret_as_uint64()
     } else {
-      raise invalid_value(Unexpected::Signed(v), "u64")
+      raise invalid_value(Signed(v), "u64")
     }
   },
   visit_u64=v => v,

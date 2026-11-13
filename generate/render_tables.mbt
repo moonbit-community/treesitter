@@ -525,7 +525,10 @@ fn Generator::parse_tables(
     let nonterminal_entries = state.nonterminal_entries
     let nonterminal_order = Array::makei(nonterminal_entries.len(), k => k)
     stable_sort_by(nonterminal_order, (a, b) => {
-      Compare::compare(nonterminal_entries.symbol_at(a), nonterminal_entries.symbol_at(b))
+      Compare::compare(
+        nonterminal_entries.symbol_at(a),
+        nonterminal_entries.symbol_at(b),
+      )
     })
     let nonterminals = nonterminal_order.map(k => {
       (
@@ -612,7 +615,11 @@ fn Generator::parse_tables(
       for entry in values_with_symbols {
         let (key, symbols) = entry
         let value = key >> 1
-        let kind : SymbolType = if (key & 1) != 0 { NonTerminal } else { Terminal }
+        let kind : SymbolType = if (key & 1) != 0 {
+          NonTerminal
+        } else {
+          Terminal
+        }
         next_table_index += 2 + symbols.length()
         // Upstream `sort_unstable` on distinct symbols.
         symbols.mut_view().stable_sort()

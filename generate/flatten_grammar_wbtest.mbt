@@ -1,6 +1,7 @@
 // Tests ported from tree-sitter crates/generate/src/prepare_grammar/flatten_grammar.rs.
 
 ///|
+#derive(Eq, Debug)
 struct StepView {
   symbol : Symbol
   prec : Precedence
@@ -8,7 +9,7 @@ struct StepView {
   alias : Alias?
   field : String?
   reserved : Int32
-} derive(Eq, Debug)
+}
 
 ///|
 fn StepView::new(symbol : Symbol) -> StepView {
@@ -38,10 +39,11 @@ fn StepView::field(self : StepView, name : String) -> StepView {
 }
 
 ///|
+#derive(Eq, Debug)
 struct ProdView {
   dyn_prec : Int32
   steps : Array[StepView]
-} derive(Eq, Debug)
+}
 
 ///|
 fn flatten_run(

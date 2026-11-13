@@ -224,12 +224,12 @@ fn[V : Visitor] HeapVisitor::induct(
       self.visit_class(x, visitor)
       None
     }
-    Repetition(x) => Some(Frame::Repetition(x))
-    Group(x) => Some(Frame::Group(x))
+    Repetition(x) => Some(Repetition(x))
+    Group(x) => Some(Group(x))
     Concat(x) if x.asts.is_empty() => None
-    Concat(x) => Some(Frame::Concat(x.asts, 0))
+    Concat(x) => Some(Concat(x.asts, 0))
     Alternation(x) if x.asts.is_empty() => None
-    Alternation(x) => Some(Frame::Alternation(x.asts, 0))
+    Alternation(x) => Some(Alternation(x.asts, 0))
     _ => None
   }
 }
@@ -333,16 +333,16 @@ fn HeapVisitor::induct_class(
   match ast {
     Item(Bracketed(x)) =>
       match x.kind {
-        Item(item) => Some(ClassFrame::Union([item], 0))
-        BinaryOp(op) => Some(ClassFrame::Binary(op))
+        Item(item) => Some(Union([item], 0))
+        BinaryOp(op) => Some(Binary(op))
       }
     Item(Union(x)) =>
       if x.items.is_empty() {
         None
       } else {
-        Some(ClassFrame::Union(x.items, 0))
+        Some(Union(x.items, 0))
       }
-    BinaryOp(op) => Some(ClassFrame::BinaryLHS(op))
+    BinaryOp(op) => Some(BinaryLHS(op))
     _ => None
   }
 }

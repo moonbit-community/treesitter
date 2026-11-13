@@ -3,25 +3,28 @@
 ///|
 /// Declaration order is significant: it defines the derived ordering, which
 /// matches upstream's `#[derive(Ord)]` on `SymbolType`.
+#derive(Eq, Hash, Compare, Debug)
 pub(all) enum SymbolType {
   External
   End
   EndOfNonTerminalExtra
   Terminal
   NonTerminal
-} derive(Eq, Hash, Compare, Debug)
+}
 
 ///|
+#derive(Eq, Hash, Compare, Debug)
 pub(all) enum Associativity {
   Left
   Right
-} derive(Eq, Hash, Compare, Debug)
+}
 
 ///|
+#derive(Eq, Hash, Compare, Debug)
 pub(all) struct Alias {
   value : StrId
   is_named : Bool
-} derive(Eq, Hash, Compare, Debug)
+}
 
 ///|
 pub fn Alias::kind(self : Alias) -> VariableType {
@@ -33,36 +36,38 @@ pub fn Alias::kind(self : Alias) -> VariableType {
 }
 
 ///|
+#derive(Eq, Hash, Compare, Debug)
 pub(all) enum Precedence {
   /// Upstream `Precedence::None`.
   NoPrecedence
-  Integer(Int)
+  Integer(Int32)
   Name(StrId)
-} derive(Eq, Hash, Compare, Debug)
+}
 
 ///|
 /// A grammar symbol: a kind together with that kind's index into its own table.
+#derive(Eq, Compare, Debug)
 #valtype
 pub(all) struct Symbol {
   kind : SymbolType
-  index : Int
-} derive(Eq, Compare, Debug)
+  index : Int32
+}
 
 ///|
-pub impl Hash for Symbol with hash_combine(self, hasher) {
+pub impl Hash for Symbol with fn hash_combine(self, hasher) {
   hasher.combine(self.kind)
   hasher.combine_int(self.index)
 }
 
 ///|
 /// Without `Hasher`'s allocation: symbols key many hot maps.
-pub impl Hash for Symbol with hash(self) {
+pub impl Hash for Symbol with fn hash(self) {
   hash_finish(hash_mix(hash_mix(HASH_SEED, self.kind.ordinal()), self.index))
 }
 
 ///|
 /// The position of this kind in declaration order.
-fn SymbolType::ordinal(self : SymbolType) -> Int {
+fn SymbolType::ordinal(self : SymbolType) -> Int32 {
   match self {
     External => 0
     End => 1
@@ -75,12 +80,12 @@ fn SymbolType::ordinal(self : SymbolType) -> Int {
 ///|
 /// A hash code for a symbol. Distinct only for indices below 2^28, so it
 /// must not be used as a lossless map key.
-fn Symbol::code(self : Symbol) -> Int {
+fn Symbol::code(self : Symbol) -> Int32 {
   (self.kind.ordinal() << 28) | self.index
 }
 
 ///|
-pub let symbol_end : Symbol = { kind: End, index: 0 }
+pub let symbol_end : Symbol = { kind: End, index: 0, }
 
 ///|
 pub let symbol_end_of_nonterminal_extra : Symbol = {
@@ -89,18 +94,18 @@ pub let symbol_end_of_nonterminal_extra : Symbol = {
 }
 
 ///|
-pub fn Symbol::non_terminal(index : Int) -> Symbol {
-  { kind: NonTerminal, index }
+pub fn Symbol::non_terminal(index : Int32) -> Symbol {
+  { kind: NonTerminal, index, }
 }
 
 ///|
-pub fn Symbol::terminal(index : Int) -> Symbol {
-  { kind: Terminal, index }
+pub fn Symbol::terminal(index : Int32) -> Symbol {
+  { kind: Terminal, index, }
 }
 
 ///|
-pub fn Symbol::external(index : Int) -> Symbol {
-  { kind: External, index }
+pub fn Symbol::external(index : Int32) -> Symbol {
+  { kind: External, index, }
 }
 
 ///|
@@ -124,7 +129,7 @@ pub fn Symbol::is_eof(self : Symbol) -> Bool {
 }
 
 ///|
-pub fn Symbol::external_index(self : Symbol) -> Int? {
+pub fn Symbol::external_index(self : Symbol) -> Int32? {
   if self.kind is External {
     Some(self.index)
   } else {
@@ -133,7 +138,7 @@ pub fn Symbol::external_index(self : Symbol) -> Int? {
 }
 
 ///|
-pub fn Symbol::terminal_index(self : Symbol) -> Int? {
+pub fn Symbol::terminal_index(self : Symbol) -> Int32? {
   if self.kind is Terminal {
     Some(self.index)
   } else {
@@ -142,7 +147,7 @@ pub fn Symbol::terminal_index(self : Symbol) -> Int? {
 }
 
 ///|
-pub fn Symbol::non_terminal_index(self : Symbol) -> Int? {
+pub fn Symbol::non_terminal_index(self : Symbol) -> Int32? {
   if self.kind is NonTerminal {
     Some(self.index)
   } else {
@@ -208,12 +213,12 @@ pub fn TokenSet::iter(self : TokenSet) -> Array[Symbol] {
 }
 
 ///|
-pub fn TokenSet::terminals(self : TokenSet) -> Array[Int] {
+pub fn TokenSet::terminals(self : TokenSet) -> Array[Int32] {
   set_bits(self.terminal_bits.words())
 }
 
 ///|
-pub fn TokenSet::externals(self : TokenSet) -> Array[Int] {
+pub fn TokenSet::externals(self : TokenSet) -> Array[Int32] {
   set_bits(self.external_bits.words())
 }
 
@@ -234,7 +239,7 @@ pub fn TokenSet::contains(self : TokenSet, symbol : Symbol) -> Bool {
 }
 
 ///|
-pub fn TokenSet::contains_terminal(self : TokenSet, index : Int) -> Bool {
+pub fn TokenSet::contains_terminal(self : TokenSet, index : Int32) -> Bool {
   self.terminal_bits.get(index).unwrap_or(false)
 }
 
@@ -309,7 +314,7 @@ pub fn TokenSet::is_empty(self : TokenSet) -> Bool {
 }
 
 ///|
-pub fn TokenSet::len(self : TokenSet) -> Int {
+pub fn TokenSet::len(self : TokenSet) -> Int32 {
   let mut n = (if self.eof { 1 } else { 0 }) +
     (if self.end_of_nonterminal_extra { 1 } else { 0 })
   for w in self.terminal_bits.words() {
@@ -350,7 +355,7 @@ pub fn TokenSet::insert_all(self : TokenSet, other : TokenSet) -> Bool {
 }
 
 ///|
-pub impl Eq for TokenSet with equal(self, other) {
+pub impl Eq for TokenSet with fn equal(self, other) {
   self.terminal_bits == other.terminal_bits &&
   self.external_bits == other.external_bits &&
   self.eof == other.eof &&
@@ -358,7 +363,7 @@ pub impl Eq for TokenSet with equal(self, other) {
 }
 
 ///|
-pub impl Hash for TokenSet with hash_combine(self, hasher) {
+pub impl Hash for TokenSet with fn hash_combine(self, hasher) {
   Hash::hash_combine(self.terminal_bits, hasher)
   Hash::hash_combine(self.external_bits, hasher)
   hasher.combine_bool(self.eof)
@@ -366,7 +371,7 @@ pub impl Hash for TokenSet with hash_combine(self, hasher) {
 }
 
 ///|
-pub impl Compare for TokenSet with compare(self, other) {
+pub impl Compare for TokenSet with fn compare(self, other) {
   let c = Compare::compare(self.terminal_bits, other.terminal_bits)
   if c != 0 {
     return c
@@ -383,6 +388,6 @@ pub impl Compare for TokenSet with compare(self, other) {
 }
 
 ///|
-pub impl Debug for TokenSet with to_repr(self) {
-  @debug.Repr(self.iter())
+pub impl Debug for TokenSet with fn to_repr(self) {
+  Repr(self.iter())
 }

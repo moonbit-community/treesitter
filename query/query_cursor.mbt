@@ -2,9 +2,10 @@
 
 ///|
 /// `TSQueryCursorState`: what a progress callback can observe.
+#derive(Eq, Debug)
 pub(all) struct QueryCursorState {
-  current_byte_offset : UInt
-} derive(Eq, Debug)
+  current_byte_offset : UInt32
+}
 
 ///|
 /// `TSQueryCursorOptions`.
@@ -16,17 +17,17 @@ pub(all) struct QueryCursorOptions {
 /// `TSQueryMatch`. `captures` is a view of the match's capture list (upstream
 /// returns a pointer to it) that keeps its elements when the cursor moves on.
 pub struct QueryMatch {
-  id : UInt
-  pattern_index : Int
+  id : UInt32
+  pattern_index : Int32
   captures : ArrayView[QueryCapture]
   // The capture list's id and serial, for `CaptureConversionCache`.
-  priv capture_list_id : UInt
-  priv capture_list_serial : Int
+  priv capture_list_id : UInt32
+  priv capture_list_serial : Int32
 }
 
 ///|
 let max_range : @runtime.Range = {
-  start_point: { row: 0, column: 0 },
+  start_point: { row: 0, column: 0, },
   end_point: @runtime.point_max,
   start_byte: 0,
   end_byte: 0xFFFFFFFFU,
@@ -43,17 +44,17 @@ pub struct QueryCursor {
   // < this value satisfy the min-heap property; elements >= this value are
   // newly pushed and need to be sifted into place. Only used by
   // `next_capture`.
-  priv mut finished_states_heap_size : Int
+  priv mut finished_states_heap_size : Int32
   priv capture_list_pool : CaptureListPool
-  priv mut depth : UInt
-  priv mut max_start_depth : UInt
+  priv mut depth : UInt32
+  priv mut max_start_depth : UInt32
   priv mut included_range : @runtime.Range
   priv mut containing_range : @runtime.Range
-  priv mut next_state_id : UInt
-  priv mut next_finished_state_id : UInt
+  priv mut next_state_id : UInt32
+  priv mut next_finished_state_id : UInt32
   priv mut query_options : QueryCursorOptions?
   priv mut query_state : QueryCursorState
-  priv mut work_count : Int
+  priv mut work_count : Int32
   priv mut on_visible_node : Bool
   priv mut ascending : Bool
   priv mut halted : Bool
@@ -80,7 +81,7 @@ pub fn QueryCursor::new() -> QueryCursor {
     next_state_id: 0,
     next_finished_state_id: 0,
     query_options: None,
-    query_state: { current_byte_offset: 0 },
+    query_state: { current_byte_offset: 0, },
     work_count: 0,
     on_visible_node: false,
   }
@@ -104,13 +105,13 @@ pub fn QueryCursor::did_exceed_match_limit(self : QueryCursor) -> Bool {
 
 ///|
 /// `ts_query_cursor_match_limit`.
-pub fn QueryCursor::match_limit(self : QueryCursor) -> UInt {
+pub fn QueryCursor::match_limit(self : QueryCursor) -> UInt32 {
   self.capture_list_pool.max_capture_list_count
 }
 
 ///|
 /// `ts_query_cursor_set_match_limit`.
-pub fn QueryCursor::set_match_limit(self : QueryCursor, limit : UInt) -> Unit {
+pub fn QueryCursor::set_match_limit(self : QueryCursor, limit : UInt32) -> Unit {
   self.capture_list_pool.max_capture_list_count = limit
 }
 
@@ -139,7 +140,7 @@ pub fn QueryCursor::exec(
   self.did_exceed_match_limit = false
   self.work_count = 0
   self.query_options = None
-  self.query_state = { current_byte_offset: 0 }
+  self.query_state = { current_byte_offset: 0, }
 }
 
 ///|
@@ -153,7 +154,7 @@ pub fn QueryCursor::exec_with_options(
   self.exec(query, node)
   if query_options is Some(_) {
     self.query_options = query_options
-    self.query_state = { current_byte_offset: 0 }
+    self.query_state = { current_byte_offset: 0, }
   }
 }
 
@@ -161,14 +162,14 @@ pub fn QueryCursor::exec_with_options(
 /// `ts_query_cursor_set_byte_range`.
 pub fn QueryCursor::set_byte_range(
   self : QueryCursor,
-  start_byte : UInt,
-  end_byte : UInt,
+  start_byte : UInt32,
+  end_byte : UInt32,
 ) -> Bool {
   let end_byte = if end_byte == 0 { 0xFFFFFFFFU } else { end_byte }
   if start_byte > end_byte {
     return false
   }
-  self.included_range = { ..self.included_range, start_byte, end_byte }
+  self.included_range = { ..self.included_range, start_byte, end_byte, }
   true
 }
 
@@ -187,7 +188,7 @@ pub fn QueryCursor::set_point_range(
   if @runtime.point_gt(start_point, end_point) {
     return false
   }
-  self.included_range = { ..self.included_range, start_point, end_point }
+  self.included_range = { ..self.included_range, start_point, end_point, }
   true
 }
 
@@ -195,14 +196,14 @@ pub fn QueryCursor::set_point_range(
 /// `ts_query_cursor_set_containing_byte_range`.
 pub fn QueryCursor::set_containing_byte_range(
   self : QueryCursor,
-  start_byte : UInt,
-  end_byte : UInt,
+  start_byte : UInt32,
+  end_byte : UInt32,
 ) -> Bool {
   let end_byte = if end_byte == 0 { 0xFFFFFFFFU } else { end_byte }
   if start_byte > end_byte {
     return false
   }
-  self.containing_range = { ..self.containing_range, start_byte, end_byte }
+  self.containing_range = { ..self.containing_range, start_byte, end_byte, }
   true
 }
 
@@ -221,7 +222,7 @@ pub fn QueryCursor::set_containing_point_range(
   if @runtime.point_gt(start_point, end_point) {
     return false
   }
-  self.containing_range = { ..self.containing_range, start_point, end_point }
+  self.containing_range = { ..self.containing_range, start_point, end_point, }
   true
 }
 
@@ -229,13 +230,16 @@ pub fn QueryCursor::set_containing_point_range(
 /// `ts_query_cursor_set_max_start_depth`.
 pub fn QueryCursor::set_max_start_depth(
   self : QueryCursor,
-  max_start_depth : UInt,
+  max_start_depth : UInt32,
 ) -> Unit {
   self.max_start_depth = max_start_depth
 }
 
 ///|
-fn QueryCursor::push_finished_state(self : QueryCursor, state : QueryState) -> Unit {
+fn QueryCursor::push_finished_state(
+  self : QueryCursor,
+  state : QueryState,
+) -> Unit {
   state.heap_insert_order = self.next_finished_state_id
   self.next_finished_state_id += 1
   self.finished_states.push(state)
@@ -256,9 +260,9 @@ fn QueryCursor::heapify_finished_states(self : QueryCursor) -> Unit {
 ///|
 /// The result of `ts_query_cursor__first_in_progress_capture`.
 priv struct InProgressCapture {
-  state_index : Int
-  byte_offset : UInt
-  pattern_index : Int
+  state_index : Int32
+  byte_offset : UInt32
+  pattern_index : Int32
   is_definite : Bool
 }
 
@@ -316,12 +320,12 @@ fn QueryCursor::first_in_progress_capture(
     }
     i += 1
   }
-  (result, { state_index, byte_offset, pattern_index, is_definite })
+  (result, { state_index, byte_offset, pattern_index, is_definite, })
 }
 
 ///|
 /// Determine which node is first in a depth-first traversal.
-fn compare_nodes(left : @runtime.Node, right : @runtime.Node) -> Int {
+fn compare_nodes(left : @runtime.Node, right : @runtime.Node) -> Int32 {
   if !left.same_id(right) {
     let left_start = left.start_byte()
     let right_start = right.start_byte()
@@ -497,7 +501,7 @@ fn QueryCursor::add_state(self : QueryCursor, pattern : PatternEntry) -> Unit {
 fn QueryCursor::prepare_to_capture(
   self : QueryCursor,
   state : QueryState,
-  state_index_to_preserve : Int,
+  state_index_to_preserve : Int32,
 ) -> CaptureList? {
   if state.capture_list_id == capture_list_none {
     state.capture_list_id = self.capture_list_pool.acquire()
@@ -542,14 +546,17 @@ fn QueryCursor::capture(
     if capture_id == none {
       break
     }
-    capture_list.push({ node, index: capture_id })
+    capture_list.push({ node, index: capture_id, })
   }
 }
 
 ///|
 /// Duplicate the given state (at `state_index`) and insert the newly-created
 /// state immediately after it in the `states` array.
-fn QueryCursor::copy_state(self : QueryCursor, state_index : Int) -> QueryState? {
+fn QueryCursor::copy_state(
+  self : QueryCursor,
+  state_index : Int32,
+) -> QueryState? {
   let state = self.states[state_index]
   let copy = state.copy()
   copy.capture_list_id = capture_list_none
@@ -614,8 +621,10 @@ fn QueryCursor::should_descend(
 fn range_intersects(a : @runtime.Range, b : @runtime.Range) -> Bool {
   let is_empty = a.start_byte == a.end_byte
   (a.end_byte > b.start_byte || (is_empty && a.end_byte == b.start_byte)) &&
-  (@runtime.point_gt(a.end_point, b.start_point) ||
-  (is_empty && @runtime.point_eq(a.end_point, b.start_point))) &&
+  (
+    @runtime.point_gt(a.end_point, b.start_point) ||
+    (is_empty && @runtime.point_eq(a.end_point, b.start_point))
+  ) &&
   a.start_byte < b.end_byte &&
   @runtime.point_lt(a.start_point, b.end_point)
 }
@@ -643,7 +652,10 @@ fn node_range(node : @runtime.Node) -> @runtime.Range {
 /// If one or more patterns finish, return `true` and store their states in the
 /// `finished_states` array. Multiple patterns can finish on the same node. If
 /// there are no more matches, return `false`.
-fn QueryCursor::advance(self : QueryCursor, stop_on_definite_step : Bool) -> Bool {
+fn QueryCursor::advance(
+  self : QueryCursor,
+  stop_on_definite_step : Bool,
+) -> Bool {
   let query = self.q()
   let mut did_match = false
   for ;; {
@@ -691,8 +703,10 @@ fn QueryCursor::advance(self : QueryCursor, stop_on_definite_step : Bool) -> Boo
           let state = self.states[i]
           let step = query.steps[state.step_index]
           if step.depth == pattern_done_marker &&
-            (state.start_depth.reinterpret_as_uint() > self.depth ||
-            self.depth == 0) {
+            (
+              state.start_depth.reinterpret_as_uint() > self.depth ||
+              self.depth == 0
+            ) {
             // If a state completed its pattern inside of this node, but was
             // deferred from finishing in order to search for longer matches,
             // mark it as finished.
@@ -827,7 +841,8 @@ fn QueryCursor::advance(self : QueryCursor, stop_on_definite_step : Bool) -> Boo
           copy_count = 0
           // Check that the node matches all of the criteria for the next step
           // of the pattern.
-          if (state.start_depth + step.depth).reinterpret_as_uint() != self.depth {
+          if (state.start_depth + step.depth).reinterpret_as_uint() !=
+            self.depth {
             j += 1 + copy_count
             continue
           }
@@ -1083,7 +1098,9 @@ fn QueryCursor::advance(self : QueryCursor, stop_on_definite_step : Bool) -> Boo
             // order. Once `other_state`'s captures begin at or after where
             // `state`'s captures end, `other_state` (and every state after it
             // in the group) is disjoint from `state`.
-            let state_captures = self.capture_list_pool.get(state.capture_list_id)
+            let state_captures = self.capture_list_pool.get(
+              state.capture_list_id,
+            )
             let other_captures = self.capture_list_pool.get(
               other_state.capture_list_id,
             )
@@ -1098,8 +1115,10 @@ fn QueryCursor::advance(self : QueryCursor, stop_on_definite_step : Bool) -> Boo
             )
             if left_contains_right {
               if state.step_index == other_state.step_index &&
-                (other_state.seeking_immediate_match ||
-                !state.seeking_immediate_match) {
+                (
+                  other_state.seeking_immediate_match ||
+                  !state.seeking_immediate_match
+                ) {
                 self.capture_list_pool.release(other_state.capture_list_id)
                 ignore(self.states.remove(k))
                 continue
@@ -1108,8 +1127,10 @@ fn QueryCursor::advance(self : QueryCursor, stop_on_definite_step : Bool) -> Boo
             }
             if right_contains_left {
               if state.step_index == other_state.step_index &&
-                (state.seeking_immediate_match ||
-                !other_state.seeking_immediate_match) {
+                (
+                  state.seeking_immediate_match ||
+                  !other_state.seeking_immediate_match
+                ) {
                 self.capture_list_pool.release(state.capture_list_id)
                 ignore(self.states.remove(j))
                 did_remove = true
@@ -1158,7 +1179,7 @@ fn QueryCursor::advance(self : QueryCursor, stop_on_definite_step : Bool) -> Boo
 
 ///|
 /// `state - self->states.contents`.
-fn QueryCursor::index_of_state(self : QueryCursor, state : QueryState) -> Int {
+fn QueryCursor::index_of_state(self : QueryCursor, state : QueryState) -> Int32 {
   for i, s in self.states {
     if physical_equal(s, state) {
       return i
@@ -1214,7 +1235,11 @@ pub fn QueryCursor::next_match(self : QueryCursor) -> QueryMatch? {
   let result = self.query_match(state)
   self.capture_list_pool.release(state.capture_list_id)
   if self.finished_states_heap_size > 0 {
-    finished_state_erase(self.finished_states, state_index, self.capture_list_pool)
+    finished_state_erase(
+      self.finished_states,
+      state_index,
+      self.capture_list_pool,
+    )
     self.finished_states_heap_size = self.finished_states.length()
   } else {
     ignore(self.finished_states.remove(state_index))
@@ -1224,7 +1249,7 @@ pub fn QueryCursor::next_match(self : QueryCursor) -> QueryMatch? {
 
 ///|
 /// `ts_query_cursor_remove_match`.
-pub fn QueryCursor::remove_match(self : QueryCursor, match_id : UInt) -> Unit {
+pub fn QueryCursor::remove_match(self : QueryCursor, match_id : UInt32) -> Unit {
   if self.finished_states_heap_size > 0 {
     self.heapify_finished_states()
   }
@@ -1253,7 +1278,7 @@ pub fn QueryCursor::remove_match(self : QueryCursor, match_id : UInt) -> Unit {
 
 ///|
 /// `ts_query_cursor_next_capture`: the match and the index of the capture.
-pub fn QueryCursor::next_capture(self : QueryCursor) -> (QueryMatch, Int)? {
+pub fn QueryCursor::next_capture(self : QueryCursor) -> (QueryMatch, Int32)? {
   // The goal here is to return captures in order, even though they may not be
   // discovered in order, because patterns can overlap. Search for matches
   // until there is a finished capture that is before any unfinished capture.
@@ -1287,20 +1312,25 @@ pub fn QueryCursor::next_capture(self : QueryCursor) -> (QueryMatch, Int)? {
       let node_precedes_range = node.end_byte() <=
         self.included_range.start_byte ||
         @runtime.point_lte(node.end_point(), self.included_range.start_point)
-      let node_follows_range = node.start_byte() >=
-        self.included_range.end_byte ||
+      let node_follows_range = node.start_byte() >= self.included_range.end_byte ||
         @runtime.point_gte(node.start_point(), self.included_range.end_point)
       let node_outside_of_range = node_precedes_range || node_follows_range
       // Skip captures that are outside of the cursor's range.
       if node_outside_of_range {
         state.set_consumed_capture_count(state.consumed_capture_count + 1)
-        finished_state_sift_down(self.finished_states, 0, self.capture_list_pool)
+        finished_state_sift_down(
+          self.finished_states,
+          0,
+          self.capture_list_pool,
+        )
         continue
       }
       let node_start_byte = node.start_byte()
       if node_start_byte < first_finished_capture_byte ||
-        (node_start_byte == first_finished_capture_byte &&
-        state.pattern_index < first_finished_pattern_index) {
+        (
+          node_start_byte == first_finished_capture_byte &&
+          state.pattern_index < first_finished_pattern_index
+        ) {
         first_finished_state = Some(state)
         first_finished_capture_byte = node_start_byte
         first_finished_pattern_index = state.pattern_index
@@ -1331,7 +1361,11 @@ pub fn QueryCursor::next_capture(self : QueryCursor) -> (QueryMatch, Int)? {
       // changed (next capture is now later in the document). Restore heap
       // order.
       if first_finished_state is Some(first) && physical_equal(first, state) {
-        finished_state_sift_down(self.finished_states, 0, self.capture_list_pool)
+        finished_state_sift_down(
+          self.finished_states,
+          0,
+          self.capture_list_pool,
+        )
       }
       return Some((result, capture_index))
     }
@@ -1366,9 +1400,9 @@ pub struct CaptureConversionCache[T] {
 /// Like `CaptureList`, it only writes past its size, so views of it keep
 /// their elements.
 priv struct ConvertedCaptureList[T] {
-  mut serial : Int
+  mut serial : Int32
   mut items : FixedArray[T]
-  mut size : Int
+  mut size : Int32
 }
 
 ///|
@@ -1376,7 +1410,7 @@ priv struct ConvertedCaptureList[T] {
 fn[T] ConvertedCaptureList::push(
   self : ConvertedCaptureList[T],
   item : T,
-  capacity : Int,
+  capacity : Int32,
 ) -> Unit {
   if self.size == self.items.length() {
     let items = FixedArray::make(
@@ -1399,7 +1433,7 @@ fn[T] ConvertedCaptureList::push(
 pub fn[T] CaptureConversionCache::new(
   convert : (QueryCapture) -> T,
 ) -> CaptureConversionCache[T] {
-  { convert, lists: [] }
+  { convert, lists: [], }
 }
 
 ///|
@@ -1428,7 +1462,7 @@ pub fn[T] CaptureConversionCache::convert(
       list
     }
     None => {
-      let list = { serial: m.capture_list_serial, items: [], size: 0 }
+      let list = { serial: m.capture_list_serial, items: [], size: 0, }
       self.lists[id] = Some(list)
       list
     }

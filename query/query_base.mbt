@@ -3,50 +3,50 @@
 // predecessor map.
 
 ///|
-let max_step_capture_count : Int = 3
+let max_step_capture_count : Int32 = 3
 
 ///|
-let max_negated_field_count : Int = 8
+let max_negated_field_count : Int32 = 8
 
 ///|
-let max_state_predecessor_count : Int = 256
+let max_state_predecessor_count : Int32 = 256
 
 ///|
-let max_analysis_state_depth : Int = 8
+let max_analysis_state_depth : Int32 = 8
 
 ///|
-let max_analysis_iteration_count : Int = 256
+let max_analysis_iteration_count : Int32 = 256
 
 ///|
-let pattern_done_marker : Int = 65535
+let pattern_done_marker : Int32 = 65535
 
 ///|
-let none : Int = 65535
+let none : Int32 = 65535
 
 ///|
-let capture_list_none : UInt = 0xFFFFFFFFU
+let capture_list_none : UInt32 = 0xFFFFFFFFU
 
 ///|
-let wildcard_symbol : Int = 0
+let wildcard_symbol : Int32 = 0
 
 ///|
 /// The cursor calls the progress callback once it has done this much work.
 /// Entering or leaving a node costs one, plus one for each in-progress state,
 /// because every step visits all of them.
-let work_per_query_callback_check : Int = 1000
+let work_per_query_callback_check : Int32 = 1000
 
 ///|
-let max_query_pattern_depth : Int = 100
+let max_query_pattern_depth : Int32 = 100
 
 ///|
 /// C `iswspace` in the "C" locale: ASCII only.
-fn iswspace(c : Int) -> Bool {
+fn iswspace(c : Int32) -> Bool {
   (c >= 9 && c <= 13) || c == 32
 }
 
 ///|
 /// C `iswalnum` in the "C" locale: ASCII only.
-fn iswalnum(c : Int) -> Bool {
+fn iswalnum(c : Int32) -> Bool {
   (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
@@ -56,11 +56,11 @@ fn iswalnum(c : Int) -> Bool {
 /// offsets into `source`.
 priv struct Stream {
   source : Bytes
-  mut input : Int
-  start : Int
-  end : Int
-  mut next : Int
-  mut next_size : Int
+  mut input : Int32
+  start : Int32
+  end : Int32
+  mut next : Int32
+  mut next_size : Int32
 }
 
 ///|
@@ -85,7 +85,7 @@ fn Stream::advance(self : Stream) -> Bool {
 
 ///|
 /// Reset the stream to the given input position.
-fn Stream::reset(self : Stream, input : Int) -> Unit {
+fn Stream::reset(self : Stream, input : Int32) -> Unit {
   self.input = input
   self.next_size = 0
   ignore(self.advance())
@@ -141,7 +141,7 @@ fn Stream::scan_identifier(self : Stream) -> Unit {
 }
 
 ///|
-fn Stream::offset(self : Stream) -> Int {
+fn Stream::offset(self : Stream) -> Int32 {
   self.input - self.start
 }
 
@@ -149,7 +149,7 @@ fn Stream::offset(self : Stream) -> Int {
 /// `TSQueryCapture`.
 pub(all) struct QueryCapture {
   node : @runtime.Node
-  index : Int
+  index : Int32
 }
 
 ///|
@@ -164,15 +164,15 @@ pub(all) struct QueryCapture {
 /// the serial together identify a list's current contents.
 priv struct CaptureList {
   mut items : FixedArray[QueryCapture]
-  mut size : Int
+  mut size : Int32
   mut in_use : Bool
   mut exposed : Bool
-  mut serial : Int
+  mut serial : Int32
 }
 
 ///|
 fn CaptureList::new() -> CaptureList {
-  { items: [], size: 0, in_use: true, exposed: false, serial: 0 }
+  { items: [], size: 0, in_use: true, exposed: false, serial: 0, }
 }
 
 ///|
@@ -241,10 +241,10 @@ priv struct CaptureListPool {
   // The maximum number of capture lists that we are allowed to allocate. We
   // never allow `list` to allocate more entries than this, dropping pending
   // matches if needed to stay under the limit.
-  mut max_capture_list_count : UInt
+  mut max_capture_list_count : UInt32
   // The ids of the capture lists allocated in `list` that are not currently
   // in use.
-  free_id_stack : Array[Int]
+  free_id_stack : Array[Int32]
 }
 
 ///|
@@ -271,13 +271,16 @@ fn CaptureListPool::reset(self : CaptureListPool) -> Unit {
 ///|
 fn CaptureListPool::get(
   self : CaptureListPool,
-  id : UInt,
+  id : UInt32,
 ) -> ArrayView[QueryCapture] {
   self.get_list(id).view()
 }
 
 ///|
-fn CaptureListPool::get_list(self : CaptureListPool, id : UInt) -> CaptureList {
+fn CaptureListPool::get_list(
+  self : CaptureListPool,
+  id : UInt32,
+) -> CaptureList {
   if id >= self.list.length().reinterpret_as_uint() {
     return self.empty_list
   }
@@ -293,7 +296,7 @@ fn CaptureListPool::is_empty(self : CaptureListPool) -> Bool {
 }
 
 ///|
-fn CaptureListPool::acquire(self : CaptureListPool) -> UInt {
+fn CaptureListPool::acquire(self : CaptureListPool) -> UInt32 {
   // First see if any already allocated capture list is currently unused.
   if self.free_id_stack.pop() is Some(id) {
     self.list[id].clear()
@@ -311,7 +314,7 @@ fn CaptureListPool::acquire(self : CaptureListPool) -> UInt {
 }
 
 ///|
-fn CaptureListPool::release(self : CaptureListPool, id : UInt) -> Unit {
+fn CaptureListPool::release(self : CaptureListPool, id : UInt32) -> Unit {
   if id >= self.list.length().reinterpret_as_uint() {
     return
   }
@@ -329,13 +332,13 @@ fn CaptureListPool::release(self : CaptureListPool, id : UInt) -> Unit {
 /// a query. `consumed_capture_count` is a 12-bit field upstream; it is kept
 /// truncated to 12 bits here.
 priv struct QueryState {
-  mut id : UInt
-  mut capture_list_id : UInt
-  mut heap_insert_order : UInt
-  start_depth : Int
-  mut step_index : Int
-  pattern_index : Int
-  mut consumed_capture_count : Int
+  mut id : UInt32
+  mut capture_list_id : UInt32
+  mut heap_insert_order : UInt32
+  start_depth : Int32
+  mut step_index : Int32
+  pattern_index : Int32
+  mut consumed_capture_count : Int32
   mut seeking_immediate_match : Bool
   mut has_in_progress_alternatives : Bool
   mut dead : Bool
@@ -345,11 +348,14 @@ priv struct QueryState {
 
 ///|
 fn QueryState::copy(self : QueryState) -> QueryState {
-  { ..self }
+  { ..self, }
 }
 
 ///|
-fn QueryState::set_consumed_capture_count(self : QueryState, value : Int) -> Unit {
+fn QueryState::set_consumed_capture_count(
+  self : QueryState,
+  value : Int32,
+) -> Unit {
   self.consumed_capture_count = value & 0xFFF
 }
 
@@ -381,7 +387,11 @@ fn finished_state_precedes(
 }
 
 ///|
-fn finished_state_swap(states : Array[QueryState], a : Int, b : Int) -> Unit {
+fn finished_state_swap(
+  states : Array[QueryState],
+  a : Int32,
+  b : Int32,
+) -> Unit {
   let tmp = states[a]
   states[a] = states[b]
   states[b] = tmp
@@ -390,7 +400,7 @@ fn finished_state_swap(states : Array[QueryState], a : Int, b : Int) -> Unit {
 ///|
 fn finished_state_sift_down(
   states : Array[QueryState],
-  index : Int,
+  index : Int32,
   pool : CaptureListPool,
 ) -> Unit {
   let size = states.length()
@@ -399,7 +409,8 @@ fn finished_state_sift_down(
     let mut smallest = index
     let left = 2 * index + 1
     let right = 2 * index + 2
-    if left < size && finished_state_precedes(states[left], states[smallest], pool) {
+    if left < size &&
+      finished_state_precedes(states[left], states[smallest], pool) {
       smallest = left
     }
     if right < size &&
@@ -417,7 +428,7 @@ fn finished_state_sift_down(
 ///|
 fn finished_state_sift_up(
   states : Array[QueryState],
-  index : Int,
+  index : Int32,
   pool : CaptureListPool,
 ) -> Unit {
   let mut index = index
@@ -433,7 +444,10 @@ fn finished_state_sift_up(
 }
 
 ///|
-fn finished_state_pop(states : Array[QueryState], pool : CaptureListPool) -> Unit {
+fn finished_state_pop(
+  states : Array[QueryState],
+  pool : CaptureListPool,
+) -> Unit {
   if states.length() > 1 {
     states[0] = states[states.length() - 1]
   }
@@ -447,7 +461,7 @@ fn finished_state_pop(states : Array[QueryState], pool : CaptureListPool) -> Uni
 /// Remove an element at an arbitrary index and restore heap order.
 fn finished_state_erase(
   states : Array[QueryState],
-  index : Int,
+  index : Int32,
   pool : CaptureListPool,
 ) -> Unit {
   if index == states.length() - 1 {
@@ -467,13 +481,14 @@ fn finished_state_erase(
 
 ///|
 /// `TSQuantifier`; declaration order matches the C enum values.
+#derive(Eq, Debug)
 pub(all) enum Quantifier {
   Zero
   ZeroOrOne
   ZeroOrMore
   One
   OneOrMore
-} derive(Eq, Debug)
+}
 
 ///|
 fn quantifier_mul(left : Quantifier, right : Quantifier) -> Quantifier {
@@ -555,10 +570,6 @@ fn quantifier_add(left : Quantifier, right : Quantifier) -> Quantifier {
 }
 
 ///|
-/// CaptureQuantifiers - the quantifiers of a pattern's captures, by capture id.
-priv type CaptureQuantifiers = Array[Quantifier]
-
-///|
 fn capture_quantifiers_replace(
   qs : Array[Quantifier],
   quantifiers : Array[Quantifier],
@@ -570,7 +581,7 @@ fn capture_quantifiers_replace(
 }
 
 ///|
-fn capture_quantifier_for_id(qs : Array[Quantifier], id : Int) -> Quantifier {
+fn capture_quantifier_for_id(qs : Array[Quantifier], id : Int32) -> Quantifier {
   let id = id & 0xFFFF // `uint16_t id`
   if qs.length() <= id {
     Zero
@@ -582,7 +593,7 @@ fn capture_quantifier_for_id(qs : Array[Quantifier], id : Int) -> Quantifier {
 ///|
 fn capture_quantifiers_add_for_id(
   qs : Array[Quantifier],
-  id : Int,
+  id : Int32,
   quantifier : Quantifier,
 ) -> Unit {
   let id = id & 0xFFFF // `uint16_t id`
@@ -641,7 +652,7 @@ priv struct SymbolTable {
 
 ///|
 fn SymbolTable::new() -> SymbolTable {
-  { names: [] }
+  { names: [], }
 }
 
 ///|
@@ -662,7 +673,7 @@ fn symbol_name_matches(existing : Bytes, name : BytesView) -> Bool {
 }
 
 ///|
-fn SymbolTable::id_for_name(self : SymbolTable, name : BytesView) -> Int {
+fn SymbolTable::id_for_name(self : SymbolTable, name : BytesView) -> Int32 {
   for i, existing in self.names {
     if symbol_name_matches(existing, name) {
       return i
@@ -672,12 +683,12 @@ fn SymbolTable::id_for_name(self : SymbolTable, name : BytesView) -> Int {
 }
 
 ///|
-fn SymbolTable::name_for_id(self : SymbolTable, id : Int) -> Bytes {
+fn SymbolTable::name_for_id(self : SymbolTable, id : Int32) -> Bytes {
   self.names[id & 0xFFFF] // `uint16_t id`
 }
 
 ///|
-fn SymbolTable::insert_name(self : SymbolTable, name : BytesView) -> Int {
+fn SymbolTable::insert_name(self : SymbolTable, name : BytesView) -> Int32 {
   let id = self.id_for_name(name)
   if id >= 0 {
     return id & 0xFFFF
@@ -690,13 +701,13 @@ fn SymbolTable::insert_name(self : SymbolTable, name : BytesView) -> Int {
 /// QueryStep - A step in the process of matching a query. Each node within a
 /// query S-expression corresponds to one of these steps.
 priv struct QueryStep {
-  mut symbol : Int
-  mut supertype_symbol : Int
-  mut field : Int
-  capture_ids : FixedArray[Int]
-  depth : Int
-  mut alternative_index : Int
-  mut negated_field_list_id : Int
+  mut symbol : Int32
+  mut supertype_symbol : Int32
+  mut field : Int32
+  capture_ids : FixedArray[Int32]
+  depth : Int32
+  mut alternative_index : Int32
+  mut negated_field_list_id : Int32
   mut is_named : Bool
   is_immediate : Bool
   mut is_last_child : Bool
@@ -711,7 +722,11 @@ priv struct QueryStep {
 }
 
 ///|
-fn QueryStep::new(symbol : Int, depth : Int, is_immediate : Bool) -> QueryStep {
+fn QueryStep::new(
+  symbol : Int32,
+  depth : Int32,
+  is_immediate : Bool,
+) -> QueryStep {
   {
     symbol,
     supertype_symbol: 0,
@@ -737,11 +752,11 @@ fn QueryStep::new(symbol : Int, depth : Int, is_immediate : Bool) -> QueryStep {
 ///|
 /// A value copy of a step (steps are plain structs upstream).
 fn QueryStep::copy(self : QueryStep) -> QueryStep {
-  { ..self, capture_ids: self.capture_ids.copy() }
+  { ..self, capture_ids: self.capture_ids.copy(), }
 }
 
 ///|
-fn QueryStep::add_capture(self : QueryStep, capture_id : Int) -> Unit {
+fn QueryStep::add_capture(self : QueryStep, capture_id : Int32) -> Unit {
   let capture_id = capture_id & 0xFFFF // `uint16_t capture_id`
   for i in 0..<max_step_capture_count {
     if self.capture_ids[i] == none {
@@ -752,7 +767,7 @@ fn QueryStep::add_capture(self : QueryStep, capture_id : Int) -> Unit {
 }
 
 ///|
-fn QueryStep::remove_capture(self : QueryStep, capture_id : Int) -> Unit {
+fn QueryStep::remove_capture(self : QueryStep, capture_id : Int32) -> Unit {
   let capture_id = capture_id & 0xFFFF // `uint16_t capture_id`
   for i in 0..<max_step_capture_count {
     if self.capture_ids[i] == capture_id {
@@ -776,11 +791,13 @@ fn QueryStep::remove_capture(self : QueryStep, capture_id : Int) -> Unit {
 /// state. This is used during query analysis to determine which parse states
 /// can lead to which reduce actions.
 priv struct StatePredecessorMap {
-  contents : FixedArray[Int]
+  contents : FixedArray[Int32]
 }
 
 ///|
-fn StatePredecessorMap::new(language : @language.Language) -> StatePredecessorMap {
+fn StatePredecessorMap::new(
+  language : @language.Language,
+) -> StatePredecessorMap {
   {
     contents: FixedArray::make(
       language.state_count * (max_state_predecessor_count + 1),
@@ -792,14 +809,16 @@ fn StatePredecessorMap::new(language : @language.Language) -> StatePredecessorMa
 ///|
 fn StatePredecessorMap::add(
   self : StatePredecessorMap,
-  state : Int,
-  predecessor : Int,
+  state : Int32,
+  predecessor : Int32,
 ) -> Unit {
   let index = state * (max_state_predecessor_count + 1)
   let count = self.contents[index]
   if count == 0 ||
-    (count < max_state_predecessor_count &&
-    self.contents[index + count] != predecessor) {
+    (
+      count < max_state_predecessor_count &&
+      self.contents[index + count] != predecessor
+    ) {
     self.contents[index] = count + 1
     self.contents[index + count + 1] = predecessor
   }
@@ -809,8 +828,8 @@ fn StatePredecessorMap::add(
 /// The predecessors of `state`.
 fn StatePredecessorMap::get(
   self : StatePredecessorMap,
-  state : Int,
-) -> ArrayView[Int] {
+  state : Int32,
+) -> ArrayView[Int32] {
   let index = state * (max_state_predecessor_count + 1)
   let count = self.contents[index]
   self.contents[index + 1:index + 1 + count]

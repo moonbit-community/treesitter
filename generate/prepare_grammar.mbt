@@ -5,9 +5,10 @@
 // displays the same text.
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror IndirectRecursionError {
   IndirectRecursionError(Array[String])
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for IndirectRecursionError with fn output(self, logger) {
@@ -22,9 +23,10 @@ pub impl Show for IndirectRecursionError with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror EmptyStringExtraError {
   EmptyStringExtraError(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for EmptyStringExtraError with fn output(self, logger) {
@@ -41,13 +43,14 @@ pub impl Show for EmptyStringExtraError with fn output(self, logger) {
 
 ///|
 /// `ValidatePrecedenceError`: `Undeclared` or `Ordering`.
+#derive(Eq, Debug)
 pub(all) suberror ValidatePrecedenceError {
   UndeclaredPrecedenceError(precedence~ : String, rule~ : String)
   ConflictingPrecedenceOrderingError(
     precedence_1~ : String,
-    precedence_2~ : String
+    precedence_2~ : String,
   )
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ValidatePrecedenceError with fn output(self, logger) {
@@ -125,7 +128,7 @@ fn validate_indirect_recursion(
     // `IndexMap::insert` keeps an existing key's position.
     epsilon_transitions[variable.name] = symbols
   }
-  let visited : @hashset.HashSet[StrId] = @hashset.HashSet([])
+  let visited : @hashset.HashSet[StrId] = HashSet([])
   for start_symbol, _ in epsilon_transitions {
     let path = []
     if get_cycle(start_symbol, epsilon_transitions, visited, path)
@@ -395,7 +398,7 @@ fn validate_precedences(
       }
     }
   }
-  let precedence_names : @hashset.HashSet[StrId] = @hashset.HashSet([])
+  let precedence_names : @hashset.HashSet[StrId] = HashSet([])
   for list in grammar.precedence_orderings {
     for p in list {
       if p is Name(sid) {

@@ -64,7 +64,7 @@ fn rust_lines(s : String) -> Array[String] {
   for part in parts {
     lines.push(
       if part.has_suffix("\r") {
-        part.view(end_offset=part.length() - 1).to_owned()
+        part.clamped_view(end=part.length() - 1).to_owned()
       } else {
         part
       },
@@ -83,7 +83,7 @@ fn rust_lines(s : String) -> Array[String] {
 fn indoc(s : String) -> String {
   let ignore_first_line = s.has_prefix("\n") || s.has_prefix("\r\n")
   let text = if s.has_prefix("\r\n") {
-    s.view(start_offset=1).to_owned()
+    s.clamped_view(start=1).to_owned()
   } else {
     s
   }
@@ -118,7 +118,7 @@ fn indoc(s : String) -> String {
     if i == 0 {
       result.write_string(line)
     } else if line.length() > spaces {
-      result.write_view(line.view(start_offset=spaces))
+      result.write_view(line.clamped_view(start=spaces))
     }
   }
   result.to_string()

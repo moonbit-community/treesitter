@@ -2,15 +2,16 @@
 
 ///|
 /// Interned string id: a 1-based index into the pool's string table.
-pub(all) struct StrId(Int) derive(Eq, Hash, Compare, Debug)
+#derive(Eq, Hash, Compare, Debug)
+pub(all) struct StrId(Int32)
 
 ///|
-pub fn StrId::index(self : StrId) -> Int {
+pub fn StrId::index(self : StrId) -> Int32 {
   self.0 - 1
 }
 
 ///|
-pub fn StrId::raw(self : StrId) -> Int {
+pub fn StrId::raw(self : StrId) -> Int32 {
   self.0
 }
 
@@ -32,7 +33,7 @@ pub let end_name_id : StrId = StrId(2)
 
 ///|
 pub fn StrPool::new() -> StrPool {
-  let pool = { strings: [], ids: {}, buf_len: 0 }
+  let pool = { strings: [], ids: {}, buf_len: 0, }
   ignore(pool.intern(""))
   ignore(pool.intern("end"))
   pool

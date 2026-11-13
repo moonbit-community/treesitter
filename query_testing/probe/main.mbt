@@ -206,7 +206,7 @@ fn highlight(name : String, source : Bytes) -> Unit {
   }
   let renderer = @highlight.HtmlRenderer::new()
   renderer.set_carriage_return_highlight(
-    names.search("carriage-return").map(i => @highlight.Highlight(i)),
+    names.search("carriage-return").map(i => Highlight(i)),
   )
   renderer.render(collected.iter(), source, (h, out) => {
     for b in @utf8.encode("class=\{names[h.0]}") {
@@ -268,7 +268,11 @@ async fn query_test(name : String, source : Bytes) -> Unit {
     return
   }
   try
-    @query_testing.parse_position_comments(@treesitter.Parser::new(), language, source)
+    @query_testing.parse_position_comments(
+      @treesitter.Parser::new(),
+      language,
+      source,
+    )
   catch {
     e => println("ASSERTIONS ERROR \{e}")
   } noraise {

@@ -12,10 +12,11 @@ priv struct Pattern {
 }
 
 ///|
+#derive(Eq)
 priv struct Match {
   captures : Array[(String, @treesitter.Node)]
   mut last_node : @treesitter.Node?
-} derive(Eq)
+}
 
 ///|
 impl Show for Match with fn output(self, logger) {
@@ -181,7 +182,10 @@ impl Show for Pattern with fn output(self, logger) {
 }
 
 ///|
-fn Pattern::matches_in_tree(self : Pattern, tree : @treesitter.Tree) -> Array[Match] {
+fn Pattern::matches_in_tree(
+  self : Pattern,
+  tree : @treesitter.Tree,
+) -> Array[Match] {
   let matches = []
 
   // Compute the matches naively: walk the tree and

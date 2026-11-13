@@ -84,8 +84,8 @@ test "query compilation releases its string buffer" {
 
 ///|
 /// A capture whose node is distinguishable from `null_capture`.
-fn test_capture(index : Int) -> QueryCapture {
-  { node: @runtime.Node::new(None, None, @runtime.length_zero(), 1), index }
+fn test_capture(index : Int32) -> QueryCapture {
+  { node: @runtime.Node::new(None, None, @runtime.length_zero(), 1), index, }
 }
 
 ///|
@@ -155,9 +155,9 @@ fn QueryCursor::holds_tree(self : QueryCursor) -> Bool {
   self.cursor is Some(_) ||
   self.states.length() > 0 ||
   self.finished_states.length() > 0 ||
-  self.capture_list_pool.list.iter().any(list => {
-    list.items.iter().any(c => !physical_equal(c, null_capture))
-  })
+  self.capture_list_pool.list
+  .iter()
+  .any(list => list.items.iter().any(c => !physical_equal(c, null_capture)))
 }
 
 ///|
@@ -191,4 +191,3 @@ test "exhausted cursors do not keep their tree" {
   ignore(cursor.next_match())
   inspect(cursor.holds_tree(), content="true")
 }
-

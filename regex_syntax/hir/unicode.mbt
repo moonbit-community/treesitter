@@ -10,12 +10,13 @@ type Range = Array[(Int32, Int32)]
 ///|
 /// An error that occurs when dealing with Unicode (upstream
 /// `unicode::Error`).
+#derive(Debug)
 pub(all) suberror UnicodeError {
   PropertyNotFound
   PropertyValueNotFound
   // Not used when unicode-perl is enabled.
   PerlClassNotFound
-} derive(Debug)
+}
 
 ///|
 /// An error that occurs when Unicode-aware simple case folding fails.
@@ -23,9 +24,10 @@ pub(all) suberror UnicodeError {
 /// This error can occur when the case mapping tables necessary for Unicode
 /// aware case folding are unavailable. This only occurs when the
 /// `unicode-case` feature is disabled, so it never happens here.
+#derive(Debug)
 pub(all) suberror CaseFoldError {
   CaseFoldError
-} derive(Debug)
+}
 
 ///|
 pub impl Show for CaseFoldError with fn output(_self, f) {
@@ -187,6 +189,7 @@ fn SimpleCaseFolder::get(
 ///
 /// In all circumstances, property names and values are normalized and
 /// canonicalized. That is, `GC == gc == GeneralCategory == general_category`.
+#derive(Debug)
 pub(all) enum ClassQuery {
   /// Return a class corresponding to a Unicode binary property, named by
   /// a single letter.
@@ -201,7 +204,7 @@ pub(all) enum ClassQuery {
   /// (identified by `property_name`) corresponds to the given value
   /// (identified by `property_value`).
   ByValue(property_name~ : String, property_value~ : String)
-} derive(Debug)
+}
 
 ///|
 fn ClassQuery::canonicalize(

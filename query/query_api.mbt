@@ -4,13 +4,13 @@
 /// `ts_query_copy`.
 pub fn Query::copy(self : Query) -> Query {
   {
-    captures: { names: self.captures.names.copy() },
-    predicate_values: { names: self.predicate_values.names.copy() },
+    captures: { names: self.captures.names.copy(), },
+    predicate_values: { names: self.predicate_values.names.copy(), },
     capture_quantifiers: self.capture_quantifiers.map(q => q.copy()),
     steps: self.steps.map(s => s.copy()),
     pattern_map: self.pattern_map.copy(),
     predicate_steps: self.predicate_steps.copy(),
-    patterns: self.patterns.map(p => { ..p }),
+    patterns: self.patterns.map(p => { ..p, }),
     step_offsets: self.step_offsets.copy(),
     negated_fields: self.negated_fields.copy(),
     string_buffer: self.string_buffer.copy(),
@@ -27,31 +27,31 @@ pub fn Query::language(self : Query) -> @language.Language {
 
 ///|
 /// `ts_query_pattern_count`.
-pub fn Query::pattern_count(self : Query) -> Int {
+pub fn Query::pattern_count(self : Query) -> Int32 {
   self.patterns.length()
 }
 
 ///|
 /// `ts_query_capture_count`.
-pub fn Query::capture_count(self : Query) -> Int {
+pub fn Query::capture_count(self : Query) -> Int32 {
   self.captures.names.length()
 }
 
 ///|
 /// `ts_query_string_count`.
-pub fn Query::string_count(self : Query) -> Int {
+pub fn Query::string_count(self : Query) -> Int32 {
   self.predicate_values.names.length()
 }
 
 ///|
 /// `ts_query_capture_name_for_id` (the UTF-8 bytes of the name).
-pub fn Query::capture_name_bytes_for_id(self : Query, index : Int) -> Bytes {
+pub fn Query::capture_name_bytes_for_id(self : Query, index : Int32) -> Bytes {
   self.captures.name_for_id(index)
 }
 
 ///|
 /// `ts_query_capture_name_for_id`.
-pub fn Query::capture_name_for_id(self : Query, index : Int) -> String {
+pub fn Query::capture_name_for_id(self : Query, index : Int32) -> String {
   @utf8.decode_lossy(self.captures.name_for_id(index))
 }
 
@@ -59,8 +59,8 @@ pub fn Query::capture_name_for_id(self : Query, index : Int) -> String {
 /// `ts_query_capture_quantifier_for_id`.
 pub fn Query::capture_quantifier_for_id(
   self : Query,
-  pattern_index : Int,
-  capture_index : Int,
+  pattern_index : Int32,
+  capture_index : Int32,
 ) -> Quantifier {
   capture_quantifier_for_id(
     self.capture_quantifiers[pattern_index],
@@ -70,13 +70,13 @@ pub fn Query::capture_quantifier_for_id(
 
 ///|
 /// `ts_query_string_value_for_id` (the bytes of the value).
-pub fn Query::string_value_bytes_for_id(self : Query, index : Int) -> Bytes {
+pub fn Query::string_value_bytes_for_id(self : Query, index : Int32) -> Bytes {
   self.predicate_values.name_for_id(index)
 }
 
 ///|
 /// `ts_query_string_value_for_id`.
-pub fn Query::string_value_for_id(self : Query, index : Int) -> String {
+pub fn Query::string_value_for_id(self : Query, index : Int32) -> String {
   @utf8.decode_lossy(self.predicate_values.name_for_id(index))
 }
 
@@ -84,7 +84,7 @@ pub fn Query::string_value_for_id(self : Query, index : Int) -> String {
 /// `ts_query_predicates_for_pattern`.
 pub fn Query::predicates_for_pattern(
   self : Query,
-  pattern_index : Int,
+  pattern_index : Int32,
 ) -> ArrayView[QueryPredicateStep] {
   let slice = self.patterns[pattern_index].predicate_steps
   self.predicate_steps[slice.offset:slice.offset + slice.length]
@@ -92,19 +92,25 @@ pub fn Query::predicates_for_pattern(
 
 ///|
 /// `ts_query_start_byte_for_pattern`.
-pub fn Query::start_byte_for_pattern(self : Query, pattern_index : Int) -> UInt {
+pub fn Query::start_byte_for_pattern(
+  self : Query,
+  pattern_index : Int32,
+) -> UInt32 {
   self.patterns[pattern_index].start_byte
 }
 
 ///|
 /// `ts_query_end_byte_for_pattern`.
-pub fn Query::end_byte_for_pattern(self : Query, pattern_index : Int) -> UInt {
+pub fn Query::end_byte_for_pattern(
+  self : Query,
+  pattern_index : Int32,
+) -> UInt32 {
   self.patterns[pattern_index].end_byte
 }
 
 ///|
 /// `ts_query_is_pattern_rooted`.
-pub fn Query::is_pattern_rooted(self : Query, pattern_index : Int) -> Bool {
+pub fn Query::is_pattern_rooted(self : Query, pattern_index : Int32) -> Bool {
   for entry in self.pattern_map {
     if entry.pattern_index == pattern_index {
       if !entry.is_rooted {
@@ -117,7 +123,7 @@ pub fn Query::is_pattern_rooted(self : Query, pattern_index : Int) -> Bool {
 
 ///|
 /// `ts_query_is_pattern_non_local`.
-pub fn Query::is_pattern_non_local(self : Query, pattern_index : Int) -> Bool {
+pub fn Query::is_pattern_non_local(self : Query, pattern_index : Int32) -> Bool {
   if pattern_index < self.patterns.length() {
     self.patterns[pattern_index].is_non_local
   } else {
@@ -129,7 +135,7 @@ pub fn Query::is_pattern_non_local(self : Query, pattern_index : Int) -> Bool {
 /// `ts_query_is_pattern_guaranteed_at_step`.
 pub fn Query::is_pattern_guaranteed_at_step(
   self : Query,
-  byte_offset : UInt,
+  byte_offset : UInt32,
 ) -> Bool {
   let mut step_index = -1
   for step_offset in self.step_offsets {
@@ -147,7 +153,7 @@ pub fn Query::is_pattern_guaranteed_at_step(
 
 ///|
 /// `ts_query__step_is_fallible`.
-fn Query::step_is_fallible(self : Query, step_index : Int) -> Bool {
+fn Query::step_is_fallible(self : Query, step_index : Int32) -> Bool {
   let mut i = 1
   let step = self.steps[step_index]
   let mut next_step = step
@@ -159,8 +165,10 @@ fn Query::step_is_fallible(self : Query, step_index : Int) -> Bool {
     }
   }
   next_step.depth != pattern_done_marker &&
-  (next_step.depth > step.depth ||
-  (next_step.depth == step.depth && next_step.is_immediate)) &&
+  (
+    next_step.depth > step.depth ||
+    (next_step.depth == step.depth && next_step.is_immediate)
+  ) &&
   (!next_step.parent_pattern_guaranteed || step.symbol == wildcard_symbol)
 }
 
@@ -179,7 +187,7 @@ pub fn Query::disable_capture(self : Query, name : StringView) -> Unit {
 
 ///|
 /// `ts_query_disable_pattern`.
-pub fn Query::disable_pattern(self : Query, pattern_index : Int) -> Unit {
+pub fn Query::disable_pattern(self : Query, pattern_index : Int32) -> Unit {
   // Remove the given pattern from the pattern map. Its steps will still be
   // in the `steps` array, but they will never be read.
   let mut i = 0

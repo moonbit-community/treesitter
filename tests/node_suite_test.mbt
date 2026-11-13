@@ -578,7 +578,10 @@ async test "node_descendant_for_range" {
 
   // Leaf node exactly matches the given bounds - point query
   let colon_node = array_node
-    .descendant_for_point_range(@treesitter.Point::new(6, 7), @treesitter.Point::new(6, 8))
+    .descendant_for_point_range(
+      @treesitter.Point::new(6, 7),
+      @treesitter.Point::new(6, 8),
+    )
     .unwrap()
   assert_eq(colon_node.kind(), ":")
   assert_eq(colon_node.start_byte(), colon_index)
@@ -599,7 +602,10 @@ async test "node_descendant_for_range" {
 
   // The given point is between two adjacent leaf nodes - point query
   let colon_node = array_node
-    .descendant_for_point_range(@treesitter.Point::new(6, 7), @treesitter.Point::new(6, 7))
+    .descendant_for_point_range(
+      @treesitter.Point::new(6, 7),
+      @treesitter.Point::new(6, 7),
+    )
     .unwrap()
   assert_eq(colon_node.kind(), ":")
   assert_eq(colon_node.start_byte(), colon_index)
@@ -620,7 +626,10 @@ async test "node_descendant_for_range" {
 
   // Leaf node starts at the lower bound, ends after the upper bound - point query
   let string_node = array_node
-    .descendant_for_point_range(@treesitter.Point::new(6, 4), @treesitter.Point::new(6, 6))
+    .descendant_for_point_range(
+      @treesitter.Point::new(6, 4),
+      @treesitter.Point::new(6, 6),
+    )
     .unwrap()
   assert_eq(string_node.kind(), "string")
   assert_eq(string_node.start_byte(), string_index)
@@ -641,7 +650,10 @@ async test "node_descendant_for_range" {
 
   // Leaf node starts before the lower bound, ends at the upper bound - point query
   let null_node = array_node
-    .descendant_for_point_range(@treesitter.Point::new(6, 11), @treesitter.Point::new(6, 13))
+    .descendant_for_point_range(
+      @treesitter.Point::new(6, 11),
+      @treesitter.Point::new(6, 13),
+    )
     .unwrap()
   assert_eq(null_node.kind(), "null")
   assert_eq(null_node.start_byte(), null_index)

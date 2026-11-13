@@ -269,22 +269,24 @@ pub fn Language::lookahead_iterator(
 /// information should be used to signal if a given parser might be
 /// incompatible with existing queries when upgrading between major versions,
 /// or minor versions if it's in zerover.
+#derive(Eq, Debug)
 pub(all) struct LanguageMetadata {
   major_version : Int32
   minor_version : Int32
   patch_version : Int32
-} derive(Eq, Debug)
+}
 
 ///|
 /// An error that occurred when trying to assign a [`Language`] to a
 /// [`Parser`].
+#derive(Eq, Debug)
 pub(all) suberror LanguageError {
   /// The language's ABI version is not supported.
   Version(Int32)
   /// The language cannot be used for parsing (here: it has external tokens
   /// but no external scanner).
   NotParseable
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for LanguageError with fn output(self, logger) {

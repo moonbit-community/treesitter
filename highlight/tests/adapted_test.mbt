@@ -31,7 +31,7 @@ fn adapted_html(
   let highlighter = @highlight.Highlighter::new()
   let events = highlighter.highlight(config, src, callback)
   renderer.set_carriage_return_highlight(
-    highlight_names.search("carriage-return").map(i => @highlight.Highlight(i)),
+    highlight_names.search("carriage-return").map(i => Highlight(i)),
   )
   renderer.render(events.iter(), src, (h, out) => {
     for b in utf8(html_attrs[h.0]) {
@@ -169,7 +169,7 @@ async test "adapted: nonconformant capture names" {
   let set = @hashset.HashSet::from_array(["keyword", "string"])
   guard adapted_config("python") is Some(python) else { return }
   debug_inspect(
-    python.nonconformant_capture_names(@hashset.HashSet([])),
+    python.nonconformant_capture_names(HashSet([])),
     content=(
       #|["function.method"]
     ),
@@ -198,7 +198,7 @@ async test "adapted: nonconformant capture names" {
   )
   guard adapted_config("ruby") is Some(ruby) else { return }
   debug_inspect(
-    ruby.nonconformant_capture_names(@hashset.HashSet([])),
+    ruby.nonconformant_capture_names(HashSet([])),
     content=(
       #|[
       #|  "local.scope",
@@ -212,7 +212,7 @@ async test "adapted: nonconformant capture names" {
   )
   guard adapted_config("c") is Some(c) else { return }
   debug_inspect(
-    c.nonconformant_capture_names(@hashset.HashSet([])),
+    c.nonconformant_capture_names(HashSet([])),
     content=(
       #|["delimiter", "label", "function.special"]
     ),

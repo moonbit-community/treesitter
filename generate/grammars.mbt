@@ -2,12 +2,13 @@
 
 ///|
 /// Declaration order defines the derived ordering (matches upstream).
+#derive(Eq, Hash, Compare, Debug)
 pub(all) enum VariableType {
   Hidden
   Auxiliary
   Anonymous
   Named
-} derive(Eq, Hash, Compare, Debug)
+}
 
 ///|
 pub fn VariableType::is_visible(self : VariableType) -> Bool {
@@ -15,22 +16,25 @@ pub fn VariableType::is_visible(self : VariableType) -> Bool {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct Variable {
   name : StrId
   root : RuleId
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Hash, Compare, Debug)
 pub(all) enum PrecedenceEntry {
   Name(StrId)
   Symbol(StrId)
-} derive(Eq, Hash, Compare, Debug)
+}
 
 ///|
+#derive(Debug)
 pub(all) struct ReservedWordContext {
   name : StrId
   roots : Array[RuleId]
-} derive(Debug)
+}
 
 ///|
 /// The parsed grammar.
@@ -66,32 +70,34 @@ pub fn InputGrammar::new() -> InputGrammar {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct LexicalVariable {
   name : StrId
   kind : VariableType
-  implicit_precedence : Int
-  start_state : Int
-} derive(Eq, Debug)
+  implicit_precedence : Int32
+  start_state : Int32
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct LexicalGrammar {
   nfa : Nfa
   variables : Array[LexicalVariable]
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn LexicalGrammar::new() -> LexicalGrammar {
-  { nfa: Nfa::new(), variables: [] }
+  { nfa: Nfa::new(), variables: [], }
 }
 
 ///|
 /// Indices of the variables owning `state_ids`, skipping consecutive repeats.
 pub fn LexicalGrammar::variable_indices_for_nfa_states(
   self : LexicalGrammar,
-  state_ids : ArrayView[Int],
-) -> Array[Int] {
+  state_ids : ArrayView[Int32],
+) -> Array[Int32] {
   let result = []
-  let mut prev : Int? = None
+  let mut prev : Int32? = None
   for state_id in state_ids {
     let variable_id = self.variable_index_for_nfa_state(state_id)
     if prev != Some(variable_id) {
@@ -109,8 +115,8 @@ pub fn LexicalGrammar::variable_indices_for_nfa_states(
 /// variable whose `start_state >= state_id`.
 pub fn LexicalGrammar::variable_index_for_nfa_state(
   self : LexicalGrammar,
-  state_id : Int,
-) -> Int {
+  state_id : Int32,
+) -> Int32 {
   let mut lo = 0
   let mut hi = self.variables.length()
   while lo < hi {
@@ -127,19 +133,20 @@ pub fn LexicalGrammar::variable_index_for_nfa_state(
 ///|
 /// Sentinel meaning no reserved word set at all. Only the augmented start
 /// production carries it, and it must never index the reserved-sets table.
-pub let no_reserved_words : Int = 65535
+pub let no_reserved_words : Int32 = 65535
 
 ///|
 /// A production step. Upstream packs this into 20 bytes; the fields here hold
 /// the same information and compare/hash the same way.
+#derive(Eq, Hash, Debug)
 pub(all) struct ProductionStep {
   symbol : Symbol
   precedence : Precedence
   associativity : Associativity?
   alias : Alias?
   field : StrId?
-  reserved : Int
-} derive(Eq, Hash, Debug)
+  reserved : Int32
+}
 
 ///|
 pub fn ProductionStep::pack(
@@ -148,13 +155,13 @@ pub fn ProductionStep::pack(
   assoc : Associativity?,
   alias : Alias?,
   field : StrId?,
-  reserved : Int,
+  reserved : Int32,
 ) -> ProductionStep {
-  { symbol, precedence: prec, associativity: assoc, alias, field, reserved }
+  { symbol, precedence: prec, associativity: assoc, alias, field, reserved, }
 }
 
 ///|
-pub fn ProductionStep::non_terminal_index(self : ProductionStep) -> Int? {
+pub fn ProductionStep::non_terminal_index(self : ProductionStep) -> Int32? {
   self.symbol.non_terminal_index()
 }
 
@@ -163,7 +170,7 @@ pub fn ProductionStep::with_precedence(
   self : ProductionStep,
   prec : Precedence,
 ) -> ProductionStep {
-  { ..self, precedence: prec }
+  { ..self, precedence: prec, }
 }
 
 ///|
@@ -171,7 +178,7 @@ pub fn ProductionStep::with_associativity(
   self : ProductionStep,
   assoc : Associativity?,
 ) -> ProductionStep {
-  { ..self, associativity: assoc }
+  { ..self, associativity: assoc, }
 }
 
 ///|
@@ -193,7 +200,7 @@ pub fn ProductionStep::with_field(
 ///|
 pub fn ProductionStep::with_reserved(
   self : ProductionStep,
-  reserved : Int,
+  reserved : Int32,
 ) -> ProductionStep {
   { ..self, reserved, }
 }
@@ -222,23 +229,26 @@ pub fn ProductionStep::child_type(
 }
 
 ///|
+#derive(Eq, Hash, Compare, Debug)
 pub(all) enum ChildType {
   Normal(Symbol)
   Aliased(Alias)
-} derive(Eq, Hash, Compare, Debug)
+}
 
 ///|
-pub(all) struct ReservedWordSetId(Int) derive(Eq, Hash, Compare, Debug)
+#derive(Eq, Hash, Compare, Debug)
+pub(all) struct ReservedWordSetId(Int32)
 
 ///|
 /// A flattened production: a step range, its dynamic precedence, and whether
 /// its reduce action is gated on end-of-input lookahead.
+#derive(Eq, Hash, Debug)
 pub(all) struct Production {
-  steps_start : Int
-  steps_len : Int
-  dynamic_precedence : Int
+  steps_start : Int32
+  steps_len : Int32
+  dynamic_precedence : Int32
   requires_eof_lookahead : Bool
-} derive(Eq, Hash, Debug)
+}
 
 ///|
 pub fn Production::contents(
@@ -258,36 +268,40 @@ pub fn Production::contents(
 pub(all) struct ProductionStore {
   steps : Array[ProductionStep]
   productions : Array[Production]
-  var_prods : Array[(Int, Int)]
+  var_prods : Array[(Int32, Int32)]
 }
 
 ///|
 pub fn ProductionStore::new() -> ProductionStore {
-  { steps: [], productions: [], var_prods: [] }
+  { steps: [], productions: [], var_prods: [], }
 }
 
 ///|
-pub fn ProductionStore::production(self : ProductionStore, id : Int) -> ProdRef {
+pub fn ProductionStore::production(
+  self : ProductionStore,
+  id : Int32,
+) -> ProdRef {
   self.productions[id].contents(self.steps)
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct InlinedProductionRange {
-  start : Int
-  end : Int
-} derive(Eq, Debug)
+  start : Int32
+  end : Int32
+}
 
 ///|
 /// Records replacement production ids when inline rule references are expanded.
 pub(all) struct InlinedProductionMap {
-  map : Map[(Int, Int), Array[Int]]
-  mut fully_inlined : Map[Int, InlinedProductionRange]
-  mut fully_inlined_ids : Array[Int]
+  map : Map[(Int32, Int32), Array[Int32]]
+  mut fully_inlined : Map[Int32, InlinedProductionRange]
+  mut fully_inlined_ids : Array[Int32]
 }
 
 ///|
 pub fn InlinedProductionMap::new() -> InlinedProductionMap {
-  { map: Map([]), fully_inlined: Map([]), fully_inlined_ids: [] }
+  { map: Map([]), fully_inlined: Map([]), fully_inlined_ids: [], }
 }
 
 ///|
@@ -301,8 +315,8 @@ pub fn InlinedProductionMap::discard_fully_inlined(
 ///|
 pub fn InlinedProductionMap::fully_inlined_prod_ids(
   self : InlinedProductionMap,
-  prod_id : Int,
-) -> ArrayView[Int]? {
+  prod_id : Int32,
+) -> ArrayView[Int32]? {
   match self.fully_inlined.get(prod_id) {
     Some(range) => Some(self.fully_inlined_ids[range.start:range.end])
     None => None
@@ -312,17 +326,18 @@ pub fn InlinedProductionMap::fully_inlined_prod_ids(
 ///|
 pub fn InlinedProductionMap::inlined_prod_ids(
   self : InlinedProductionMap,
-  prod_id : Int,
-  step_index : Int,
-) -> Array[Int]? {
+  prod_id : Int32,
+  step_index : Int32,
+) -> Array[Int32]? {
   self.map.get((prod_id, step_index))
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct SyntaxVariable {
   name : StrId
   kind : VariableType
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn SyntaxVariable::is_auxiliary(self : SyntaxVariable) -> Bool {
@@ -335,11 +350,12 @@ pub fn SyntaxVariable::is_hidden(self : SyntaxVariable) -> Bool {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct ExternalToken {
   name : StrId
   kind : VariableType
   corresponding_internal_token : Symbol?
-} derive(Eq, Debug)
+}
 
 ///|
 pub(all) struct SyntaxGrammar {
@@ -354,11 +370,11 @@ pub(all) struct SyntaxGrammar {
   reserved_word_sets : Array[TokenSet]
   steps : Array[ProductionStep]
   productions : Array[Production]
-  var_prods : Array[(Int, Int)]
+  var_prods : Array[(Int32, Int32)]
 }
 
 ///|
-pub fn SyntaxGrammar::production(self : SyntaxGrammar, id : Int) -> ProdRef {
+pub fn SyntaxGrammar::production(self : SyntaxGrammar, id : Int32) -> ProdRef {
   self.productions[id].contents(self.steps)
 }
 
@@ -366,8 +382,8 @@ pub fn SyntaxGrammar::production(self : SyntaxGrammar, id : Int) -> ProdRef {
 /// The pooled production ids belonging to a variable, as `[start, end)`.
 pub fn SyntaxGrammar::variable_prod_ids(
   self : SyntaxGrammar,
-  variable_index : Int,
-) -> (Int, Int) {
+  variable_index : Int32,
+) -> (Int32, Int32) {
   self.var_prods[variable_index]
 }
 
@@ -375,7 +391,7 @@ pub fn SyntaxGrammar::variable_prod_ids(
 /// A production's contents, with its steps borrowed from wherever they're stored.
 pub(all) struct ProdRef {
   steps : ArrayView[ProductionStep]
-  dynamic_precedence : Int
+  dynamic_precedence : Int32
   requires_eof_lookahead : Bool
 }
 
@@ -388,7 +404,7 @@ pub fn ProdRef::first_symbol(self : ProdRef) -> Symbol? {
 }
 
 ///|
-pub impl Eq for ProdRef with equal(self, other) {
+pub impl Eq for ProdRef with fn equal(self, other) {
   if self.dynamic_precedence != other.dynamic_precedence ||
     self.requires_eof_lookahead != other.requires_eof_lookahead ||
     self.steps.length() != other.steps.length() {
@@ -403,7 +419,7 @@ pub impl Eq for ProdRef with equal(self, other) {
 }
 
 ///|
-pub impl Hash for ProdRef with hash_combine(self, hasher) {
+pub impl Hash for ProdRef with fn hash_combine(self, hasher) {
   hasher.combine_int(self.steps.length())
   for step in self.steps {
     hasher.combine(step)

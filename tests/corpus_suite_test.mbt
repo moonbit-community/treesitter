@@ -292,7 +292,9 @@ async fn corpus_trial(
 ) -> Bool {
   let rand = @cli_test.Rand::new(seed)
   let log_session = Ref(None)
-  defer @cli_test.end_log_session(log_session.val)
+  defer @async.protect_from_cancel(() => {
+    @cli_test.end_log_session(log_session.val)
+  })
   let parser = @cli_test.get_parser(log_session, "log.html")
   parser.set_language(language)
   let tree = tree.clone()
@@ -390,7 +392,8 @@ async test "feature_corpus_files" {
   let mut failure_count = 0
   for language_name in @fs.readdir(test_grammars_dir, sort=true) {
     // (`_build/ref` also holds the fixture and extra grammars.)
-    if language_name.has_prefix("fixture_") || language_name.has_prefix("extra_") {
+    if language_name.has_prefix("fixture_") ||
+      language_name.has_prefix("extra_") {
       continue
     }
     let test_path = "\{test_grammars_dir}/\{language_name}"

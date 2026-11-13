@@ -39,7 +39,7 @@ test "generate a grammar, parse and query" {
     ("word", @grammar.pattern("[a-z]+")),
   ])
   let generated = @generate.generate_from_grammar_json(
-    grammar.to_json().stringify(),
+    ToJson::to_json(grammar).stringify(),
   )
   // `generated.c_code` is the parser.c upstream would emit, byte for byte.
   let language = @treesitter.Language::new(generated.language)

@@ -32,10 +32,11 @@ let render_large_character_range_count : Int32 = 8
 
 ///|
 /// Upstream `RenderError`.
+#derive(Eq, Debug)
 pub suberror RenderError {
   ParseTable(Int32)
   ABI(Int32)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for RenderError with fn output(self, logger) {

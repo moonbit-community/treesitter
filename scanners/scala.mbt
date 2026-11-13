@@ -406,11 +406,12 @@ fn scala_is_close_or_separator(c : Int32) -> Bool {
 /// 1. Simple strings, `"..."` or `"""..."""`
 /// 2. Interpolated strings, `s"..."` or `f"..."` or `foo"..."` or foo"""...""".
 /// 3. Raw strings, `raw"..."`
+#derive(Eq)
 priv enum ScalaStringMode {
   Simple
   Interpolated
   Raw
-} derive(Eq)
+}
 
 ///|
 fn scala_scan_string_content(

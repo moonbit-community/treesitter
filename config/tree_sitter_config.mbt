@@ -39,7 +39,7 @@ pub let warn_hook : Ref[(String) -> Unit] = Ref(@support.log_warn)
 
 ///|
 async fn is_file(path : String) -> Bool {
-  (@fs.kind(path) catch { _ => @fs.FileKind::Unknown }) is Regular
+  (@fs.kind(path) catch { _ => Unknown }) is Regular
 }
 
 ///|

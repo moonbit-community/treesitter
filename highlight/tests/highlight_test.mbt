@@ -101,7 +101,7 @@ fn to_html(
     language_config, src, test_language_for_injection_string,
   )
   renderer.set_carriage_return_highlight(
-    highlight_names.search("carriage-return").map(i => @highlight.Highlight(i)),
+    highlight_names.search("carriage-return").map(i => Highlight(i)),
   )
   renderer.render(events.iter(), src, (highlight, output) => {
     for b in utf8(html_attrs[highlight.0]) {

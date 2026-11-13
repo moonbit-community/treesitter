@@ -3,13 +3,14 @@
 // error messages of `src/error.rs`.
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct SemverVersion {
   major : UInt64
   minor : UInt64
   patch : UInt64
   pre : String
   build : String
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn SemverVersion::new(
@@ -45,13 +46,14 @@ pub impl Show for SemverError with fn output(self, logger) {
 
 ///|
 /// `error::Position`.
+#derive(Eq)
 priv enum Position {
   Major
   Minor
   Patch
   Pre
   Build
-} derive(Eq)
+}
 
 ///|
 impl Show for Position with fn output(self, formatter) {

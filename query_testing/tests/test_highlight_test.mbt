@@ -29,7 +29,7 @@ fn point(row : Int32, column : Int32) -> @query_testing.Utf8Point {
 
 ///|
 fn h(i : Int32) -> @highlight.Highlight {
-  @highlight.Highlight(i)
+  Highlight(i)
 }
 
 ///|
@@ -87,7 +87,7 @@ fn failure(
 ) -> (Int32, Int32, String, Array[String]) {
   match result {
     Err(
-      HighlightFailure(row~, column~, expected_highlight~, actual_highlights~)
+      HighlightFailure(row~, column~, expected_highlight~, actual_highlights~),
     ) => (row, column, expected_highlight, actual_highlights)
     _ => abort("expected a highlight failure")
   }

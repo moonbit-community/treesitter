@@ -2,36 +2,39 @@
 
 ///|
 /// Constructor order defines the derived ordering (matches upstream).
+#derive(Eq, Hash, Compare, Debug)
 pub(all) enum ParseAction {
   Accept
-  Shift(state~ : Int, is_repetition~ : Bool)
+  Shift(state~ : Int32, is_repetition~ : Bool)
   ShiftExtra
   Recover
   Reduce(
     symbol~ : Symbol,
-    child_count~ : Int,
-    dynamic_precedence~ : Int,
-    production_id~ : Int
+    child_count~ : Int32,
+    dynamic_precedence~ : Int32,
+    production_id~ : Int32,
   )
-} derive(Eq, Hash, Compare, Debug)
+}
 
 ///|
+#derive(Eq, Hash, Debug)
 pub(all) enum GotoAction {
-  Goto(Int)
+  Goto(Int32)
   ShiftExtra
-} derive(Eq, Hash, Debug)
+}
 
 ///|
 /// Index of an action list in an `ActionListPool`, plus the entry's reusable bit.
+#derive(Eq, Hash, Debug)
 #valtype
 pub(all) struct ActionListId {
-  index : Int
+  index : Int32
   reusable : Bool
-} derive(Eq, Hash, Debug)
+}
 
 ///|
-pub fn ActionListId::new(index : Int, reusable : Bool) -> ActionListId {
-  { index, reusable }
+pub fn ActionListId::new(index : Int32, reusable : Bool) -> ActionListId {
+  { index, reusable, }
 }
 
 ///|
@@ -49,14 +52,14 @@ pub struct ActionListPool {
 
 ///|
 pub fn ActionListPool::new() -> ActionListPool {
-  { lists: [] }
+  { lists: [], }
 }
 
 ///|
 pub fn ActionListPool::push(
   self : ActionListPool,
   list : Array[ParseAction],
-) -> Int {
+) -> Int32 {
   let index = self.lists.length()
   self.lists.push(list.copy())
   index
@@ -73,22 +76,22 @@ pub fn ActionListPool::get(
 ///|
 pub fn ActionListPool::get_index(
   self : ActionListPool,
-  index : Int,
+  index : Int32,
 ) -> Array[ParseAction] {
   self.lists[index]
 }
 
 ///|
-pub fn ActionListPool::len(self : ActionListPool) -> Int {
+pub fn ActionListPool::len(self : ActionListPool) -> Int32 {
   self.lists.length()
 }
 
 ///|
 pub fn ActionListPool::intern(
   self : ActionListPool,
-  dedup : Map[Array[ParseAction], Int],
+  dedup : Map[Array[ParseAction], Int32],
   list : Array[ParseAction],
-) -> Int {
+) -> Int32 {
   match dedup.get(list) {
     Some(index) => index
     None => {
@@ -108,7 +111,7 @@ pub fn ActionListPool::canonicalize(
 ) -> Unit {
   let old_lists = self.lists
   self.lists = []
-  let ids : Map[Array[ParseAction], Int] = Map([])
+  let ids : Map[Array[ParseAction], Int32] = Map([])
   ignore(self.intern(ids, []))
   let old_to_new = Array::make(old_lists.length(), -1)
   for state in states {
@@ -136,21 +139,21 @@ pub struct ParseStateEntries[V] {
 
 ///|
 pub fn[V] ParseStateEntries::new() -> ParseStateEntries[V] {
-  { syms: [], vals: [] }
+  { syms: [], vals: [], }
 }
 
 ///|
 /// Makes room for `additional` more entries.
 fn[V] ParseStateEntries::reserve(
   self : ParseStateEntries[V],
-  additional : Int,
+  additional : Int32,
 ) -> Unit {
   self.syms.reserve_capacity(self.syms.length() + additional)
   self.vals.reserve_capacity(self.vals.length() + additional)
 }
 
 ///|
-pub fn[V] ParseStateEntries::len(self : ParseStateEntries[V]) -> Int {
+pub fn[V] ParseStateEntries::len(self : ParseStateEntries[V]) -> Int32 {
   self.syms.length()
 }
 
@@ -177,7 +180,7 @@ pub fn[V] ParseStateEntries::values(self : ParseStateEntries[V]) -> Array[V] {
 /// The symbol of the entry at `index`.
 pub fn[V] ParseStateEntries::symbol_at(
   self : ParseStateEntries[V],
-  index : Int,
+  index : Int32,
 ) -> Symbol {
   self.syms[index]
 }
@@ -186,7 +189,7 @@ pub fn[V] ParseStateEntries::symbol_at(
 /// The value of the entry at `index`.
 pub fn[V] ParseStateEntries::value_at(
   self : ParseStateEntries[V],
-  index : Int,
+  index : Int32,
 ) -> V {
   self.vals[index]
 }
@@ -195,7 +198,7 @@ pub fn[V] ParseStateEntries::value_at(
 /// Replaces the value of the entry at `index`, keeping its symbol.
 pub fn[V] ParseStateEntries::set_value_at(
   self : ParseStateEntries[V],
-  index : Int,
+  index : Int32,
   value : V,
 ) -> Unit {
   self.vals[index] = value
@@ -206,7 +209,7 @@ pub fn[V] ParseStateEntries::set_value_at(
 fn[V] ParseStateEntries::position(
   self : ParseStateEntries[V],
   symbol : Symbol,
-) -> Int {
+) -> Int32 {
   for i, s in self.syms {
     if s == symbol {
       return i
@@ -231,7 +234,7 @@ pub fn[V] ParseStateEntries::get(
 ///|
 pub fn[V] ParseStateEntries::get_index(
   self : ParseStateEntries[V],
-  index : Int,
+  index : Int32,
 ) -> (Symbol, V) {
   (self.syms[index], self.vals[index])
 }
@@ -239,7 +242,7 @@ pub fn[V] ParseStateEntries::get_index(
 ///|
 pub fn[V] ParseStateEntries::set_index(
   self : ParseStateEntries[V],
-  index : Int,
+  index : Int32,
   symbol : Symbol,
   value : V,
 ) -> Unit {
@@ -296,7 +299,7 @@ pub fn[V] ParseStateEntries::push(
 pub fn[V] ParseStateEntries::copy(
   self : ParseStateEntries[V],
 ) -> ParseStateEntries[V] {
-  { syms: self.syms.copy(), vals: self.vals.copy() }
+  { syms: self.syms.copy(), vals: self.vals.copy(), }
 }
 
 ///|
@@ -332,13 +335,13 @@ pub type NonterminalEntries = ParseStateEntries[GotoAction]
 
 ///|
 pub(all) struct ParseState {
-  mut id : Int
+  mut id : Int32
   mut terminal_entries : TerminalEntries
   mut nonterminal_entries : NonterminalEntries
   mut reserved_words : TokenSet
-  mut lex_state_id : Int
-  mut external_lex_state_id : Int
-  mut core_id : Int
+  mut lex_state_id : Int32
+  mut external_lex_state_id : Int32
+  mut core_id : Int32
   mut has_eof_gated_reduce : Bool
 }
 
@@ -366,7 +369,7 @@ pub fn ParseState::is_end_of_non_terminal_extra(self : ParseState) -> Bool {
 pub fn ParseState::referenced_states(
   self : ParseState,
   pool : ActionListPool,
-) -> Array[Int] {
+) -> Array[Int32] {
   let result = []
   let terminal_entries = self.terminal_entries
   for i in 0..<terminal_entries.len() {
@@ -388,11 +391,11 @@ pub fn ParseState::referenced_states(
 ///|
 pub fn ParseState::update_nonterminal_references(
   self : ParseState,
-  f : (Int, ParseState) -> Int,
+  f : (Int32, ParseState) -> Int32,
 ) -> Unit {
   let entries = self.nonterminal_entries
   // Pairs of an entry's index and its new target.
-  let updates : Array[Int] = []
+  let updates : Array[Int32] = []
   for index in 0..<entries.len() {
     if entries.value_at(index) is Goto(other_state) {
       let result = f(other_state, self)
@@ -408,17 +411,19 @@ pub fn ParseState::update_nonterminal_references(
 }
 
 ///|
+#derive(Eq, Hash, Compare, Debug)
 pub(all) struct FieldLocation {
-  index : Int
+  index : Int32
   inherited : Bool
-} derive(Eq, Hash, Compare, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct ProductionInfo {
   alias_sequence : Array[Alias?]
   /// Upstream: `BTreeMap<StrId, Vec<FieldLocation>>`, ordered by intern id.
   field_map : @sorted_map.SortedMap[StrId, Array[FieldLocation]]
-} derive(Eq, Debug)
+}
 
 ///|
 pub(all) struct ParseTable {
@@ -426,7 +431,7 @@ pub(all) struct ParseTable {
   action_lists : ActionListPool
   mut symbols : Array[Symbol]
   mut production_infos : Array[ProductionInfo]
-  mut max_aliased_production_length : Int
+  mut max_aliased_production_length : Int32
   mut external_lex_states : Array[TokenSet]
 }
 
@@ -446,7 +451,7 @@ pub fn ParseTable::new() -> ParseTable {
 /// Apply `f` to every shift target in action lists referenced by some state.
 pub fn ParseTable::remap_terminal_references(
   self : ParseTable,
-  f : (Int) -> Int,
+  f : (Int32) -> Int32,
 ) -> Unit {
   let referenced = Array::make(self.action_lists.len(), false)
   for state in self.states {
@@ -468,29 +473,32 @@ pub fn ParseTable::remap_terminal_references(
 }
 
 ///|
+#derive(Eq, Hash, Compare, Debug)
 pub(all) struct AdvanceAction {
-  state : Int
+  state : Int32
   in_main_token : Bool
-} derive(Eq, Hash, Compare, Debug)
+}
 
 ///|
+#derive(Eq, Hash, Debug)
 pub(all) struct LexState {
   mut accept_action : Symbol?
   mut eof_action : AdvanceAction?
   mut advance_actions : Array[(CharacterSet, AdvanceAction)]
-} derive(Eq, Hash, Debug)
-
-///|
-pub fn LexState::new() -> LexState {
-  { accept_action: None, eof_action: None, advance_actions: [] }
 }
 
 ///|
+pub fn LexState::new() -> LexState {
+  { accept_action: None, eof_action: None, advance_actions: [], }
+}
+
+///|
+#derive(Eq, Debug)
 pub(all) struct LexTable {
   mut states : Array[LexState]
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn LexTable::new() -> LexTable {
-  { states: [] }
+  { states: [], }
 }

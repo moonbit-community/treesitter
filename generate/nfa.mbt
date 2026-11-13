@@ -2,53 +2,66 @@
 
 ///|
 /// A half-open range of code points `[start, end)`.
+#derive(Eq, Hash, Debug)
 pub(all) struct CharRange {
-  start : Int
-  end : Int
-} derive(Eq, Hash, Debug)
+  start : Int32
+  end : Int32
+}
 
 ///|
 /// A set of characters represented as sorted, disjoint, non-adjacent ranges.
+#derive(Eq, Hash)
 pub struct CharacterSet {
   priv ranges : Array[CharRange]
-} derive(Eq, Hash)
+}
 
 ///|
-pub let char_set_end : Int = 0x110000
+pub let char_set_end : Int32 = 0x110000
 
 ///|
 /// A state in an NFA representing a regular grammar.
+#derive(Eq, Debug)
 pub(all) enum NfaState {
-  Advance(chars~ : CharacterSet, state_id~ : Int, is_sep~ : Bool, precedence~ : Int)
-  Split(Int, Int)
-  Accept(variable_index~ : Int, precedence~ : Int)
-} derive(Eq, Debug)
+  Advance(
+    chars~ : CharacterSet,
+    state_id~ : Int32,
+    is_sep~ : Bool,
+    precedence~ : Int32,
+  )
+  Split(Int32, Int32)
+  Accept(variable_index~ : Int32, precedence~ : Int32)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct Nfa {
   states : Array[NfaState]
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct NfaTransition {
   characters : CharacterSet
   is_separator : Bool
-  precedence : Int
-  states : Array[Int]
-} derive(Eq, Debug)
+  precedence : Int32
+  states : Array[Int32]
+}
 
 ///|
 /// Rewrites a set's ranges as they're read in order: once finished, the ranges
 /// that were read are replaced by the ones that were kept.
 priv struct RangeRewriter {
   ranges : Array[CharRange]
-  mut kept : Int
-  mut read : Int
+  mut kept : Int32
+  mut read : Int32
 }
 
 ///|
-fn RangeRewriter::new(ranges : Array[CharRange], start : Int) -> RangeRewriter {
-  { ranges, kept: start, read: start }
+fn RangeRewriter::new(
+  ranges : Array[CharRange],
+  start : Int32,
+) -> RangeRewriter {
+  { ranges, kept: start, read: start, }
 }
 
 ///|
@@ -92,23 +105,23 @@ fn RangeRewriter::finish(self : RangeRewriter, current : CharRange?) -> Unit {
 
 ///|
 pub fn CharacterSet::empty() -> CharacterSet {
-  { ranges: [] }
+  { ranges: [], }
 }
 
 ///|
-pub fn CharacterSet::from_char(c : Int) -> CharacterSet {
-  { ranges: [{ start: c, end: c + 1 }] }
+pub fn CharacterSet::from_char(c : Int32) -> CharacterSet {
+  { ranges: [{ start: c, end: c + 1, }], }
 }
 
 ///|
-pub fn CharacterSet::from_range(first : Int, last : Int) -> CharacterSet {
+pub fn CharacterSet::from_range(first : Int32, last : Int32) -> CharacterSet {
   let (first, last) = if first > last { (last, first) } else { (first, last) }
-  { ranges: [{ start: first, end: last + 1 }] }
+  { ranges: [{ start: first, end: last + 1, }], }
 }
 
 ///|
 pub fn CharacterSet::copy(self : CharacterSet) -> CharacterSet {
-  { ranges: self.ranges.copy() }
+  { ranges: self.ranges.copy(), }
 }
 
 ///|
@@ -128,20 +141,20 @@ pub fn CharacterSet::negate(self : CharacterSet) -> CharacterSet {
     let start = previous_end
     previous_end = range.end
     if start < range.start {
-      ranges[i] = { start, end: range.start }
+      ranges[i] = { start, end: range.start, }
       i += 1
     } else {
       ignore(ranges.remove(i))
     }
   }
   if previous_end < char_set_end {
-    ranges.push({ start: previous_end, end: char_set_end })
+    ranges.push({ start: previous_end, end: char_set_end, })
   }
   { ranges, }
 }
 
 ///|
-pub fn CharacterSet::add_char(self : CharacterSet, c : Int) -> CharacterSet {
+pub fn CharacterSet::add_char(self : CharacterSet, c : Int32) -> CharacterSet {
   let result = self.copy()
   ignore(result.add_int_range(0, c, c + 1))
   result
@@ -150,8 +163,8 @@ pub fn CharacterSet::add_char(self : CharacterSet, c : Int) -> CharacterSet {
 ///|
 pub fn CharacterSet::add_range(
   self : CharacterSet,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> CharacterSet {
   let result = self.copy()
   ignore(result.add_int_range(0, start, end + 1))
@@ -159,7 +172,10 @@ pub fn CharacterSet::add_range(
 }
 
 ///|
-pub fn CharacterSet::add(self : CharacterSet, other : CharacterSet) -> CharacterSet {
+pub fn CharacterSet::add(
+  self : CharacterSet,
+  other : CharacterSet,
+) -> CharacterSet {
   let result = self.copy()
   let mut index = 0
   for range in other.ranges {
@@ -170,15 +186,15 @@ pub fn CharacterSet::add(self : CharacterSet, other : CharacterSet) -> Character
 
 ///|
 /// In-place variants used where upstream mutates through `&mut self`.
-pub fn CharacterSet::add_char_in_place(self : CharacterSet, c : Int) -> Unit {
+pub fn CharacterSet::add_char_in_place(self : CharacterSet, c : Int32) -> Unit {
   ignore(self.add_int_range(0, c, c + 1))
 }
 
 ///|
 pub fn CharacterSet::add_range_in_place(
   self : CharacterSet,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Unit {
   ignore(self.add_int_range(0, start, end + 1))
 }
@@ -205,20 +221,20 @@ pub fn CharacterSet::assign(self : CharacterSet, other : CharacterSet) -> Unit {
 ///|
 fn CharacterSet::add_int_range(
   self : CharacterSet,
-  i : Int,
-  start : Int,
-  end : Int,
-) -> Int {
+  i : Int32,
+  start : Int32,
+  end : Int32,
+) -> Int32 {
   let ranges = self.ranges
   // Regex character classes provide sorted, disjoint ranges.
   match ranges.last() {
     None => {
-      ranges.push({ start, end })
+      ranges.push({ start, end, })
       return 0
     }
     Some(last) if last.end < start => {
       let index = ranges.length()
-      ranges.push({ start, end })
+      ranges.push({ start, end, })
       return index
     }
     _ => ()
@@ -227,19 +243,27 @@ fn CharacterSet::add_int_range(
   while i < ranges.length() {
     let range = ranges[i]
     if range.start > end {
-      ranges.insert(i, { start, end })
+      ranges.insert(i, { start, end, })
       return i
     }
     if range.end >= start {
       ranges[i] = {
-        start: if range.start < start { range.start } else { start },
-        end: if range.end > end { range.end } else { end },
+        start: if range.start < start {
+          range.start
+        } else {
+          start
+        },
+        end: if range.end > end {
+          range.end
+        } else {
+          end
+        },
       }
       // Join this range with the next range if needed.
       while i + 1 < ranges.length() && ranges[i + 1].start <= ranges[i].end {
         let next_end = ranges[i + 1].end
         if next_end > ranges[i].end {
-          ranges[i] = { start: ranges[i].start, end: next_end }
+          ranges[i] = { start: ranges[i].start, end: next_end, }
         }
         ignore(ranges.remove(i + 1))
       }
@@ -247,7 +271,7 @@ fn CharacterSet::add_int_range(
     }
     i += 1
   }
-  ranges.push({ start, end })
+  ranges.push({ start, end, })
   i
 }
 
@@ -264,11 +288,10 @@ pub fn CharacterSet::does_intersect(
 fn CharacterSet::first_overlap(
   self : CharacterSet,
   other : CharacterSet,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   let mut left_index = 0
   let mut right_index = 0
-  while left_index < self.ranges.length() &&
-        right_index < other.ranges.length() {
+  while left_index < self.ranges.length() && right_index < other.ranges.length() {
     let left = self.ranges[left_index]
     let right = other.ranges[right_index]
     if left.end <= right.start {
@@ -310,18 +333,18 @@ pub fn CharacterSet::remove_intersection(
       // Up to the later start, the characters are only in the range that
       // starts first, so that part stays in its set.
       if l.start < r.start {
-        left.keep({ start: l.start, end: r.start })
-        l = { start: r.start, end: l.end }
+        left.keep({ start: l.start, end: r.start, })
+        l = { start: r.start, end: l.end, }
       } else if r.start < l.start {
-        right.keep({ start: r.start, end: l.start })
-        r = { start: l.start, end: r.end }
+        right.keep({ start: r.start, end: l.start, })
+        r = { start: l.start, end: r.end, }
       }
       // Both ranges now start together, and up to the earlier end the
       // characters are in both sets.
       let end = if l.end < r.end { l.end } else { r.end }
-      intersection.push({ start: l.start, end })
-      l = { start: end, end: l.end }
-      r = { start: end, end: r.end }
+      intersection.push({ start: l.start, end, })
+      l = { start: end, end: l.end, }
+      r = { start: end, end: r.end, }
       left_range = Some(l)
       right_range = Some(r)
       if l.start == l.end {
@@ -334,7 +357,7 @@ pub fn CharacterSet::remove_intersection(
   }
   left.finish(left_range)
   right.finish(right_range)
-  { ranges: intersection }
+  { ranges: intersection, }
 }
 
 ///|
@@ -361,7 +384,7 @@ pub fn CharacterSet::symmetric_difference(
 
 ///|
 /// Every code point in the set, including surrogates.
-pub fn CharacterSet::char_codes(self : CharacterSet) -> Array[Int] {
+pub fn CharacterSet::char_codes(self : CharacterSet) -> Array[Int32] {
   let result = []
   for range in self.ranges {
     for c in range.start..<range.end {
@@ -372,24 +395,24 @@ pub fn CharacterSet::char_codes(self : CharacterSet) -> Array[Int] {
 }
 
 ///|
-fn is_scalar(c : Int) -> Bool {
+fn is_scalar(c : Int32) -> Bool {
   c >= 0 && c < 0x110000 && !(c >= 0xD800 && c <= 0xDFFF)
 }
 
 ///|
 /// Every Unicode scalar value in the set.
-pub fn CharacterSet::chars(self : CharacterSet) -> Array[Int] {
+pub fn CharacterSet::chars(self : CharacterSet) -> Array[Int32] {
   self.char_codes().filter(is_scalar)
 }
 
 ///|
-pub fn CharacterSet::range_count(self : CharacterSet) -> Int {
+pub fn CharacterSet::range_count(self : CharacterSet) -> Int32 {
   self.ranges.length()
 }
 
 ///|
 /// Inclusive scalar-value ranges, skipping ranges that contain no scalar values.
-pub fn CharacterSet::ranges(self : CharacterSet) -> Array[(Int, Int)] {
+pub fn CharacterSet::ranges(self : CharacterSet) -> Array[(Int32, Int32)] {
   let result = []
   for range in self.ranges {
     let mut start = range.start
@@ -431,7 +454,7 @@ pub fn CharacterSet::simplify_ignoring(
       }
       if prev_range is Some(prev) &&
         ruled_out_characters.contains_codepoint_range(prev.end, range.start) {
-        prev_range = Some({ start: prev.start, end: range.end })
+        prev_range = Some({ start: prev.start, end: range.end, })
         continue
       }
     }
@@ -440,15 +463,15 @@ pub fn CharacterSet::simplify_ignoring(
     }
     prev_range = item
   }
-  { ranges: result }
+  { ranges: result, }
 }
 
 ///|
 /// Whether the half-open range `[start, end)` is entirely inside one range.
 pub fn CharacterSet::contains_codepoint_range(
   self : CharacterSet,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Bool {
   // Binary search mirroring upstream's `binary_search_by`: the position of
   // the first range whose end is past `start`.
@@ -473,12 +496,12 @@ pub fn CharacterSet::contains_codepoint_range(
 }
 
 ///|
-pub fn CharacterSet::contains(self : CharacterSet, c : Int) -> Bool {
+pub fn CharacterSet::contains(self : CharacterSet, c : Int32) -> Bool {
   self.contains_codepoint_range(c, c + 1)
 }
 
 ///|
-pub impl Compare for CharacterSet with compare(self, other) {
+pub impl Compare for CharacterSet with fn compare(self, other) {
   let mut self_count = 0
   for range in self.ranges {
     self_count += range.end - range.start
@@ -515,17 +538,17 @@ pub impl Compare for CharacterSet with compare(self, other) {
 }
 
 ///|
-pub impl Debug for CharacterSet with to_repr(self) {
-  @debug.Repr(self.ranges.map(r => (r.start, r.end)))
+pub impl Debug for CharacterSet with fn to_repr(self) {
+  Repr(self.ranges.map(r => (r.start, r.end)))
 }
 
 ///|
 pub fn Nfa::new() -> Nfa {
-  { states: [] }
+  { states: [], }
 }
 
 ///|
-pub fn Nfa::last_state_id(self : Nfa) -> Int {
+pub fn Nfa::last_state_id(self : Nfa) -> Int32 {
   if self.states.is_empty() {
     abort("empty NFA")
   }
@@ -534,30 +557,30 @@ pub fn Nfa::last_state_id(self : Nfa) -> Int {
 
 ///|
 pub struct NfaCursor {
-  mut state_ids : Array[Int]
+  mut state_ids : Array[Int32]
   priv nfa : Nfa
 }
 
 ///|
-pub fn NfaCursor::new(nfa : Nfa, states : Array[Int]) -> NfaCursor {
-  let result = { nfa, state_ids: [] }
+pub fn NfaCursor::new(nfa : Nfa, states : Array[Int32]) -> NfaCursor {
+  let result = { nfa, state_ids: [], }
   result.add_states(states)
   result
 }
 
 ///|
-pub fn NfaCursor::state_ids(self : NfaCursor) -> Array[Int] {
+pub fn NfaCursor::state_ids(self : NfaCursor) -> Array[Int32] {
   self.state_ids
 }
 
 ///|
-pub fn NfaCursor::reset(self : NfaCursor, states : Array[Int]) -> Unit {
+pub fn NfaCursor::reset(self : NfaCursor, states : Array[Int32]) -> Unit {
   self.state_ids = []
   self.add_states(states)
 }
 
 ///|
-pub fn NfaCursor::force_reset(self : NfaCursor, states : Array[Int]) -> Unit {
+pub fn NfaCursor::force_reset(self : NfaCursor, states : Array[Int32]) -> Unit {
   self.state_ids = states
 }
 
@@ -587,7 +610,7 @@ pub fn NfaCursor::transitions_and_any_sep(
 ///|
 fn NfaCursor::raw_transitions(
   self : NfaCursor,
-) -> Array[(CharacterSet, Bool, Int, Int)] {
+) -> Array[(CharacterSet, Bool, Int32, Int32)] {
   let result = []
   for id in self.state_ids {
     if self.nfa.states[id] is Advance(chars~, state_id~, precedence~, is_sep~) {
@@ -599,7 +622,7 @@ fn NfaCursor::raw_transitions(
 
 ///|
 fn group_transitions(
-  iter : Array[(CharacterSet, Bool, Int, Int)],
+  iter : Array[(CharacterSet, Bool, Int32, Int32)],
 ) -> Array[NfaTransition] {
   let result : Array[NfaTransition] = []
   for item in iter {
@@ -667,7 +690,7 @@ fn group_transitions(
 
 ///|
 /// Rust's `Vec::swap_remove`.
-pub fn[T] swap_remove(array : Array[T], index : Int) -> T {
+pub fn[T] swap_remove(array : Array[T], index : Int32) -> T {
   let last = array.length() - 1
   let value = array[index]
   if index != last {
@@ -678,7 +701,7 @@ pub fn[T] swap_remove(array : Array[T], index : Int) -> T {
 }
 
 ///|
-pub fn NfaCursor::completions(self : NfaCursor) -> Array[(Int, Int)] {
+pub fn NfaCursor::completions(self : NfaCursor) -> Array[(Int32, Int32)] {
   let result = []
   for state_id in self.state_ids {
     if self.nfa.states[state_id] is Accept(variable_index~, precedence~) {
@@ -691,7 +714,7 @@ pub fn NfaCursor::completions(self : NfaCursor) -> Array[(Int, Int)] {
 ///|
 pub fn NfaCursor::add_states(
   self : NfaCursor,
-  new_state_ids : Array[Int],
+  new_state_ids : Array[Int32],
 ) -> Unit {
   let mut i = 0
   while i < new_state_ids.length() {

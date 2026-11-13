@@ -212,7 +212,7 @@ async test "node Debug, Display, Eq and Hash" {
   let again = tree.root_node().child(0).unwrap()
   assert_true(again == array_node)
   assert_eq(again.id(), array_node.id())
-  let set : @hashset.HashSet[@treesitter.Node] = @hashset.HashSet([])
+  let set : @hashset.HashSet[@treesitter.Node] = HashSet([])
   set.add(array_node)
   set.add(again)
   set.add(root)

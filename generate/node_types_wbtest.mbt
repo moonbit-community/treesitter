@@ -54,7 +54,7 @@ test "test_node_types_simple" {
     subtypes: None,
     children: None,
     fields: Some(
-      @sorted_map.SortedMap([
+      SortedMap([
         (
           f1_name,
           {
@@ -144,7 +144,7 @@ test "test_node_types_simple_extras" {
     subtypes: None,
     children: None,
     fields: Some(
-      @sorted_map.SortedMap([
+      SortedMap([
         (
           f1_name,
           {
@@ -250,7 +250,7 @@ test "test_node_types_deeper_extras" {
     subtypes: None,
     children: None,
     fields: Some(
-      @sorted_map.SortedMap([
+      SortedMap([
         (
           f1_name,
           {
@@ -277,7 +277,7 @@ test "test_node_types_deeper_extras" {
     extra: true,
     subtypes: None,
     children: None,
-    fields: Some(@sorted_map.SortedMap([])),
+    fields: Some(SortedMap([])),
   })
   assert_eq(node_types[2], {
     kind: semicolon,
@@ -353,7 +353,7 @@ test "test_node_types_with_supertypes" {
     subtypes: None,
     children: None,
     fields: Some(
-      @sorted_map.SortedMap([
+      SortedMap([
         (
           f1_name,
           {
@@ -707,7 +707,7 @@ test "test_node_types_for_children_without_fields" {
       types: [{ kind: v2_name, named: true, }, { kind: v4_name, named: true, }],
     }),
     fields: Some(
-      @sorted_map.SortedMap([
+      SortedMap([
         (
           f1_name,
           {
@@ -730,7 +730,7 @@ test "test_node_types_for_children_without_fields" {
       required: false,
       types: [{ kind: v3_name, named: true, }],
     }),
-    fields: Some(@sorted_map.SortedMap([])),
+    fields: Some(SortedMap([])),
   })
 }
 
@@ -774,7 +774,7 @@ test "test_node_types_with_inlined_rules" {
       required: true,
       types: [{ kind: v3_name, named: true, }, { kind: x_name, named: true, }],
     }),
-    fields: Some(@sorted_map.SortedMap([])),
+    fields: Some(SortedMap([])),
   })
 }
 
@@ -821,7 +821,7 @@ test "test_node_types_aliased_inline_unit_shape" {
     named: true,
     root: false,
     extra: false,
-    fields: Some(@sorted_map.SortedMap([])),
+    fields: Some(SortedMap([])),
     children: Some({
       multiple: false,
       required: true,
@@ -867,7 +867,7 @@ test "test_node_types_inlined_field_overrides_inner_field" {
     root: true,
     extra: false,
     fields: Some(
-      @sorted_map.SortedMap([
+      SortedMap([
         (
           outer_name,
           {
@@ -925,7 +925,7 @@ test "test_node_types_aliased_inline_repetition" {
       extra: false,
       fields: Some(
         if with_head_field {
-          @sorted_map.SortedMap([
+          SortedMap([
             (
               head_name,
               {
@@ -936,7 +936,7 @@ test "test_node_types_aliased_inline_repetition" {
             ),
           ])
         } else {
-          @sorted_map.SortedMap([])
+          SortedMap([])
         },
       ),
       children: Some({
@@ -956,7 +956,7 @@ test "test_node_types_aliased_inline_repetition" {
       named: true,
       root: false,
       extra: false,
-      fields: Some(@sorted_map.SortedMap([])),
+      fields: Some(SortedMap([])),
       children: Some({
         multiple: true,
         required: false,
@@ -1091,7 +1091,7 @@ test "test_node_types_with_multiple_valued_fields" {
       types: [{ kind: c_name, named: true, }],
     }),
     fields: Some(
-      @sorted_map.SortedMap([
+      SortedMap([
         (
           f1_name,
           {
@@ -1134,7 +1134,7 @@ test "test_node_types_with_fields_on_hidden_tokens" {
       named: true,
       root: true,
       extra: false,
-      fields: Some(@sorted_map.SortedMap([])),
+      fields: Some(SortedMap([])),
       children: None,
       subtypes: None,
     },
@@ -1214,7 +1214,7 @@ test "test_node_types_with_multiple_rules_same_alias_name" {
       subtypes: None,
       children: None,
       fields: Some(
-        @sorted_map.SortedMap([
+        SortedMap([
           (
             f1_name,
             {
@@ -1258,7 +1258,7 @@ test "test_node_types_with_multiple_rules_same_alias_name" {
         required: true,
         types: [{ kind: a_name, named: true, }],
       }),
-      fields: Some(@sorted_map.SortedMap([])),
+      fields: Some(SortedMap([])),
     },
   ]
   assert_eq(node_types[0:2].to_owned(), expected)
@@ -1318,7 +1318,7 @@ test "test_node_types_with_tokens_aliased_to_match_rules" {
       required: false,
       types: [{ kind: name_c, named: true, }],
     }),
-    fields: Some(@sorted_map.SortedMap([])),
+    fields: Some(SortedMap([])),
   })
 }
 
@@ -1366,7 +1366,7 @@ test "test_get_variable_info" {
   let variable_info = get_variable_info(
     grammar,
     lexical_grammar,
-    @sorted_map.SortedMap([]),
+    SortedMap([]),
     InlinedProductionMap::new(),
     interner,
   )
@@ -1423,7 +1423,7 @@ test "test_get_variable_info_with_repetitions_inside_fields" {
   let variable_info = get_variable_info(
     grammar,
     lexical_grammar,
-    @sorted_map.SortedMap([]),
+    SortedMap([]),
     InlinedProductionMap::new(),
     interner,
   )
@@ -1486,7 +1486,7 @@ test "test_get_variable_info_with_inherited_fields" {
   let variable_info = get_variable_info(
     grammar,
     lexical_grammar,
-    @sorted_map.SortedMap([]),
+    SortedMap([]),
     InlinedProductionMap::new(),
     interner,
   )
@@ -1539,7 +1539,7 @@ test "test_get_variable_info_with_supertypes" {
   let variable_info = get_variable_info(
     grammar,
     lexical_grammar,
-    @sorted_map.SortedMap([]),
+    SortedMap([]),
     InlinedProductionMap::new(),
     interner,
   )
@@ -1575,7 +1575,7 @@ test "test_get_variable_info_with_fields_inside_supertypes" {
     let info = get_variable_info(
       grammar,
       lexical_grammar,
-      @sorted_map.SortedMap([]),
+      SortedMap([]),
       InlinedProductionMap::new(),
       interner,
     )
@@ -1618,7 +1618,7 @@ test "test_get_variable_info_with_aliased_supertype_fields" {
   let info = get_variable_info(
     grammar,
     lexical_grammar,
-    @sorted_map.SortedMap([]),
+    SortedMap([]),
     InlinedProductionMap::new(),
     interner,
   )
@@ -1733,13 +1733,11 @@ fn find_node(nodes : Array[NodeInfoJSON], kind : StrId) -> NodeInfoJSON? {
   None
 }
 
-
 ///|
 fn string(p : RulePool, value : String) -> RuleId {
   let value = p.intern(value)
   p.string(value)
 }
-
 
 ///|
 fn field(p : RulePool, name : String, content : RuleId) -> RuleId {

@@ -237,7 +237,7 @@ priv struct PathWrapper {
 /// `fs::metadata`.
 async fn PathWrapper::from_dir_entry(path : String) -> PathWrapper {
   let is_directory = match
-    (@fs.kind(path, follow_symlink=false) catch { _ => @fs.FileKind::SymLink }) {
+    (@fs.kind(path, follow_symlink=false) catch { _ => SymLink }) {
     // We need to use fs::metadata to resolve the actual path
     // if it's a symlink.
     SymLink => is_dir(path)
@@ -260,8 +260,7 @@ fn PathWrapper::into_path(self : PathWrapper) -> String {
 ///|
 /// `fs::metadata(path).map(|m| m.is_dir()).unwrap_or(false)`.
 async fn is_dir(path : String) -> Bool {
-  (@fs.kind(path, follow_symlink=true) catch { _ => @fs.FileKind::Unknown })
-  is Directory
+  (@fs.kind(path, follow_symlink=true) catch { _ => Unknown }) is Directory
 }
 
 ///|
@@ -370,9 +369,10 @@ pub async fn Paths::next(self : Paths) -> GlobResult? {
 
 ///|
 /// A pattern parsing error.
+#derive(Debug)
 pub suberror PatternError {
   PatternError(pos~ : Int32, msg~ : String)
-} derive(Debug)
+}
 
 ///|
 /// The approximate character index of where the error occurred.
@@ -424,6 +424,7 @@ pub impl Show for PatternError with fn output(self, logger) {
 ///   `]` and NOT `]` can be matched by `[]]` and `[!]]` respectively.  The `-`
 ///   character can be specified inside a character sequence pattern by placing
 ///   it at the start or the end, e.g. `[abc-]`.
+#derive(Eq, Debug)
 pub struct Pattern {
   priv original : String
   priv tokens : Array[PatternToken]
@@ -431,7 +432,7 @@ pub struct Pattern {
   /// A bool value that indicates whether the pattern contains any metacharacters.
   /// We use this information for some fast path optimizations.
   priv has_metachars : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 /// Show the original glob pattern.
@@ -440,6 +441,7 @@ pub impl Show for Pattern with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum PatternToken {
   Char(Char)
   AnyChar
@@ -447,20 +449,22 @@ priv enum PatternToken {
   AnyRecursiveSequence
   AnyWithin(Array[CharSpecifier])
   AnyExcept(Array[CharSpecifier])
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv enum CharSpecifier {
   SingleChar(Char)
   CharRange(Char, Char)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq)
 priv enum MatchResult {
   Match
   SubPatternDoesntMatch
   EntirePatternDoesntMatch
-} derive(Eq)
+}
 
 ///|
 let error_wildcards : String = "wildcards are either regular `*` or recursive `**`"
@@ -949,6 +953,7 @@ fn chars_eq(a : Char, b : Char, case_sensitive : Bool) -> Bool {
 
 ///|
 /// Configuration options to modify the behaviour of `Pattern::matches_with(..)`.
+#derive(Eq, Debug)
 pub(all) struct MatchOptions {
   /// Whether or not patterns should be matched in a case-sensitive manner.
   /// This currently only considers upper/lower case relationships between
@@ -965,7 +970,7 @@ pub(all) struct MatchOptions {
   /// conventionally considered hidden on Unix systems and it might be
   /// desirable to skip them when listing files.
   require_literal_leading_dot : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 /// Constructs a new `MatchOptions` with default field values. This is used

@@ -42,7 +42,7 @@ test "c_lex_program converts states and symbols to uint16_t" {
         advance_map: [(97, 65538)],
         transitions: [
           {
-            condition: { large_set: None, asserted: None, negated: None },
+            condition: { large_set: None, asserted: None, negated: None, },
             state: 65536,
             skip: false,
           },

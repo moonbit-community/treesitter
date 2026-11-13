@@ -846,21 +846,21 @@ fn TranslatorI::hir_dot(
     if flags.unicode() {
       Dot::AnyChar
     } else {
-      Dot::AnyByte
+      AnyByte
     }
   } else if flags.unicode() {
     if flags.crlf() {
-      Dot::AnyCharExceptCRLF
+      AnyCharExceptCRLF
     } else {
       if lineterm > 0x7F {
         raise self.error(span, InvalidLineTerminator)
       }
-      Dot::AnyCharExcept(lineterm.to_int())
+      AnyCharExcept(lineterm.to_int())
     }
   } else if flags.crlf() {
-    Dot::AnyByteExceptCRLF
+    AnyByteExceptCRLF
   } else {
-    Dot::AnyByteExcept(lineterm)
+    AnyByteExcept(lineterm)
   }
   Hir::dot(dot)
 }
@@ -958,9 +958,9 @@ fn TranslatorI::hir_unicode_class(
   }
   let query = match ast_class.kind {
     OneLetter(name) => ClassQuery::OneLetter(name)
-    Named(name) => ClassQuery::Binary(name)
+    Named(name) => Binary(name)
     NamedValue(name~, value~, ..) =>
-      ClassQuery::ByValue(property_name=name, property_value=value)
+      ByValue(property_name=name, property_value=value)
   }
   let class = self.convert_unicode_class_error(ast_class.span, () => {
     class(query)

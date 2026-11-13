@@ -1,12 +1,9 @@
 import {
   "moonbitlang/core/cmp",
-  "moonbitlang/core/debug",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/hashset",
-  "moonbitlang/core/json",
   "moonbitlang/core/sorted_map",
   "moonbitlang/core/sorted_set",
-  "moonbitlang/core/string",
   "moonbit-community/treesitter/language",
   "moonbit-community/treesitter/regex_syntax",
   "moonbit-community/treesitter/regex_syntax/ast",
@@ -15,3 +12,7 @@ import {
 }
 
 warnings = "-implicit_impl_as_method-reserved_keyword"
+
+import {
+  "moonbitlang/core/json",
+} for "wbtest"

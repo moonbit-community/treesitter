@@ -24,7 +24,7 @@ pub async fn print_tree_graph(
   open_log : Bool,
 ) -> Unit {
   let session = LogSession::new(path, open_log)
-  defer session.close()
+  defer @async.protect_from_cancel(() => session.close())
   let graph = StringBuilder()
   tree.print_dot_graph(graph)
   session.write_graph(graph.to_string())

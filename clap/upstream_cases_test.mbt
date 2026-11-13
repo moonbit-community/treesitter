@@ -10,7 +10,7 @@ fn run_cmd(cmd : @clap.Command, args : Array[String]) -> String {
     let _ = cmd.try_get_matches_from(args)
     "ok"
   } catch {
-    @clap.ClapError(_) as e => "exit \{e.exit_code()}:\n\{e.message()}"
+    ClapError(_) as e => "exit \{e.exit_code()}:\n\{e.message()}"
   }
 }
 
@@ -39,7 +39,7 @@ fn count_outcome(env : String?, args : Array[String]) -> String {
     let m = count_cmd(env).try_get_matches_from(args)
     "ok \{describe_arg(m, "verbose")}"
   } catch {
-    @clap.ClapError(_) as e => "exit \{e.exit_code()}:\n\{e.message()}"
+    ClapError(_) as e => "exit \{e.exit_code()}:\n\{e.message()}"
   }
 }
 
@@ -155,7 +155,7 @@ fn describe_globals(m : @clap.ArgMatches) -> String {
 ///|
 fn global_outcome(args : Array[String]) -> String {
   try "ok " + describe_globals(global_cmd().try_get_matches_from(args)) catch {
-    @clap.ClapError(_) as e => "exit \{e.exit_code()}:\n\{e.message()}"
+    ClapError(_) as e => "exit \{e.exit_code()}:\n\{e.message()}"
   }
 }
 

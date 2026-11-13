@@ -1,33 +1,37 @@
 // Port of the rule IR in tree-sitter crates/generate/src/rules.rs.
 
 ///|
-pub(all) struct RuleId(Int) derive(Eq, Hash, Compare, Debug)
+#derive(Eq, Hash, Compare, Debug)
+pub(all) struct RuleId(Int32)
 
 ///|
-pub fn RuleId::index(self : RuleId) -> Int {
+pub fn RuleId::index(self : RuleId) -> Int32 {
   self.0
 }
 
 ///|
-pub(all) struct ParamsId(Int) derive(Eq, Hash, Debug)
+#derive(Eq, Hash, Debug)
+pub(all) struct ParamsId(Int32)
 
 ///|
 /// A `[start, start + len)` slice of `RulePool::children`.
+#derive(Eq, Hash, Debug)
 pub(all) struct RuleIdRange {
-  start : Int
-  len : Int
-} derive(Eq, Hash, Debug)
+  start : Int32
+  len : Int32
+}
 
 ///|
+#derive(Eq, Hash, Debug)
 pub(all) struct MetadataParams {
   precedence : Precedence
   associativity : Associativity?
-  dynamic_precedence : Int
+  dynamic_precedence : Int32
   alias : Alias?
   field : StrId?
   is_token : Bool
   is_main_token : Bool
-} derive(Eq, Hash, Debug)
+}
 
 ///|
 pub let default_params : MetadataParams = {
@@ -42,6 +46,7 @@ pub let default_params : MetadataParams = {
 
 ///|
 /// A pooled rule node.
+#derive(Eq, Hash, Debug)
 pub(all) enum Rule {
   Blank
   String(StrId)
@@ -54,7 +59,7 @@ pub(all) enum Rule {
   Eof
   Metadata(params~ : ParamsId, rule~ : RuleId)
   Reserved(rule~ : RuleId, ctx~ : StrId)
-} derive(Eq, Hash, Debug)
+}
 
 ///|
 pub fn Rule::symbol(self : Rule) -> Symbol? {
@@ -76,7 +81,7 @@ pub struct RulePool {
 
 ///|
 pub fn RulePool::new() -> RulePool {
-  { nodes: [], children: [], params: [], str_pool: StrPool::new() }
+  { nodes: [], children: [], params: [], str_pool: StrPool::new(), }
 }
 
 ///|
@@ -85,7 +90,7 @@ pub fn RulePool::node(self : RulePool, id : RuleId) -> Rule {
 }
 
 ///|
-pub fn RulePool::node_count(self : RulePool) -> Int {
+pub fn RulePool::node_count(self : RulePool) -> Int32 {
   self.nodes.length()
 }
 
@@ -118,7 +123,7 @@ pub fn RulePool::push_children(
   for id in ids {
     self.children.push(id)
   }
-  { start, len: ids.length() }
+  { start, len: ids.length(), }
 }
 
 ///|
@@ -192,7 +197,7 @@ pub fn RulePool::field(
   name : StrId,
   content : RuleId,
 ) -> RuleId {
-  self.metadata_with(content, p => { ..p, field: Some(name) })
+  self.metadata_with(content, p => { ..p, field: Some(name), })
 }
 
 ///|
@@ -202,17 +207,17 @@ pub fn RulePool::alias(
   value : StrId,
   is_named : Bool,
 ) -> RuleId {
-  self.metadata_with(content, p => { ..p, alias: Some({ value, is_named }) })
+  self.metadata_with(content, p => { ..p, alias: Some({ value, is_named, }), })
 }
 
 ///|
 pub fn RulePool::token(self : RulePool, content : RuleId) -> RuleId {
-  self.metadata_with(content, p => { ..p, is_token: true })
+  self.metadata_with(content, p => { ..p, is_token: true, })
 }
 
 ///|
 pub fn RulePool::immediate_token(self : RulePool, content : RuleId) -> RuleId {
-  self.metadata_with(content, p => { ..p, is_token: true, is_main_token: true })
+  self.metadata_with(content, p => { ..p, is_token: true, is_main_token: true, })
 }
 
 ///|
@@ -221,7 +226,7 @@ pub fn RulePool::prec(
   value : Precedence,
   content : RuleId,
 ) -> RuleId {
-  self.metadata_with(content, p => { ..p, precedence: value })
+  self.metadata_with(content, p => { ..p, precedence: value, })
 }
 
 ///|
@@ -231,7 +236,9 @@ pub fn RulePool::prec_left(
   content : RuleId,
 ) -> RuleId {
   self.metadata_with(content, p => {
-    { ..p, associativity: Some(Left), precedence: value }
+    ..p,
+    associativity: Some(Left),
+    precedence: value,
   })
 }
 
@@ -242,17 +249,19 @@ pub fn RulePool::prec_right(
   content : RuleId,
 ) -> RuleId {
   self.metadata_with(content, p => {
-    { ..p, associativity: Some(Right), precedence: value }
+    ..p,
+    associativity: Some(Right),
+    precedence: value,
   })
 }
 
 ///|
 pub fn RulePool::prec_dynamic(
   self : RulePool,
-  value : Int,
+  value : Int32,
   content : RuleId,
 ) -> RuleId {
-  self.metadata_with(content, p => { ..p, dynamic_precedence: value })
+  self.metadata_with(content, p => { ..p, dynamic_precedence: value, })
 }
 
 ///|
@@ -288,7 +297,7 @@ pub fn[T, E : Error] RulePool::try_seq(
     let id = f(self, item)
     self.children[start + i] = id
   }
-  self.push_node(Seq({ start, len }))
+  self.push_node(Seq({ start, len, }))
 }
 
 ///|
@@ -319,7 +328,7 @@ pub fn RulePool::choice(self : RulePool, ids : ArrayView[RuleId]) -> RuleId {
       }
     }
   }
-  let range = { start, len: self.children.length() - start }
+  let range = { start, len: self.children.length() - start, }
   self.push_node(Choice(range))
 }
 
@@ -345,7 +354,7 @@ pub fn RulePool::resolve(self : RulePool, id : StrId) -> String {
 ///|
 /// Structural hash of a subtree. Only used for bucketing; any equality decision
 /// goes through `subtree_eq`.
-pub fn RulePool::subtree_hash(self : RulePool, root : RuleId) -> Int {
+pub fn RulePool::subtree_hash(self : RulePool, root : RuleId) -> Int32 {
   let hasher = Hasher()
   let stack = [root]
   while stack.pop() is Some(id) {
@@ -443,7 +452,10 @@ pub fn RulePool::subtree_eq(self : RulePool, a : RuleId, b : RuleId) -> Bool {
 
 ///|
 /// Whether the subtree at `id` can only match the empty string.
-pub fn RulePool::subtree_matches_empty_str(self : RulePool, id : RuleId) -> Bool {
+pub fn RulePool::subtree_matches_empty_str(
+  self : RulePool,
+  id : RuleId,
+) -> Bool {
   match self.node(id) {
     String(sid) => self.resolve(sid).is_empty()
     Metadata(rule~, ..) | Repeat(rule) | Reserved(rule~, ..) =>

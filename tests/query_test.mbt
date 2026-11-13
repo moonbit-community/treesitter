@@ -775,7 +775,10 @@ async test "query_start_end_byte_for_pattern" {
     #|(function_declaration name: (identifier) @c)
     #|(method_definition name: (property_identifier) @d)
     #|
-  let query = @treesitter.Query::new(language, patterns_1 + patterns_2 + patterns_3)
+  let query = @treesitter.Query::new(
+    language,
+    patterns_1 + patterns_2 + patterns_3,
+  )
   assert_eq(query.start_byte_for_pattern(0), 0)
   assert_eq(query.end_byte_for_pattern(0), "\"+\" @operator\n".length())
   assert_eq(query.start_byte_for_pattern(5), patterns_1.length())
@@ -1152,7 +1155,10 @@ async test "query_matches_within_byte_and_point_range (json)" {
   ])
   // Ranges can also be set on the iterators.
   let matches = cursor.matches(query, tree.root_node(), utf8(source))
-  matches.set_point_range(@treesitter.Point::new(6, 0), @treesitter.Point::new(7, 0))
+  matches.set_point_range(
+    @treesitter.Point::new(6, 0),
+    @treesitter.Point::new(7, 0),
+  )
   assert_eq(elements(collect_matches(matches, query, source)), ["11", "12"])
 }
 
@@ -1185,7 +1191,9 @@ async test "query_captures_within_byte_range" {
 ///|
 async test "query_matches_contained_within_range (json)" {
   guard get_parsing_language("json") is Some(language) else { return }
-  let query = @treesitter.Query::new(language, "(array (number) @element (number))")
+  let query = @treesitter.Query::new(
+    language, "(array (number) @element (number))",
+  )
   let source = "[1, 2] [3, 4] [5, 6]"
   let tree = parse(parser_for(language), source)
   let cursor = @treesitter.QueryCursor::new()
@@ -1197,7 +1205,10 @@ async test "query_matches_contained_within_range (json)" {
   ])
   let cursor = @treesitter.QueryCursor::new()
   let matches = cursor
-    .set_containing_point_range(@treesitter.Point::new(0, 6), @treesitter.Point::new(0, 20))
+    .set_containing_point_range(
+      @treesitter.Point::new(0, 6),
+      @treesitter.Point::new(0, 20),
+    )
     .matches(query, tree.root_node(), utf8(source))
   assert_eq(collect_matches(matches, query, source).map(m => m.1[0].1), [
     "3", "5",

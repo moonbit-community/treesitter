@@ -5,6 +5,7 @@
 ///|
 /// The shells a completion script can be generated for
 /// (`clap_complete::Shell` plus `clap_complete_nushell::Nushell`).
+#derive(Eq, Debug)
 pub(all) enum Shell {
   Bash
   Elvish
@@ -12,7 +13,7 @@ pub(all) enum Shell {
   PowerShell
   Zsh
   Nushell
-} derive(Eq, Debug)
+}
 
 ///|
 /// `Generator::file_name`: the conventional file name of the completion

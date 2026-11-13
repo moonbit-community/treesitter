@@ -5,6 +5,7 @@
 ///|
 /// `serde_json::error::ErrorCode`. `Io` holds the display text of the
 /// `io::Error`.
+#derive(Eq, Debug)
 pub(all) enum ErrorCode {
   Message(String)
   Io(String)
@@ -31,7 +32,7 @@ pub(all) enum ErrorCode {
   TrailingCharacters
   UnexpectedEndOfHexEscape
   RecursionLimitExceeded
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ErrorCode with fn output(self, logger) {
@@ -72,9 +73,10 @@ pub impl Show for ErrorCode with fn output(self, logger) {
 /// `serde_json::Error`: an error code and the 1-based line and 0-based byte
 /// column where it occurred (line 0 when the position is unknown, as for
 /// errors of `from_value` and errors raised by a `Visitor`).
+#derive(Eq, Debug)
 pub(all) suberror SerdeJsonError {
   SerdeJsonError(code~ : ErrorCode, line~ : Int32, column~ : Int32)
-} derive(Eq, Debug)
+}
 
 ///|
 /// `Display for ErrorImpl`.
@@ -237,6 +239,7 @@ fn parse_usize(s : String, start : Int32, end : Int32) -> Int32? {
 
 ///|
 /// `serde::de::Unexpected`.
+#derive(Debug)
 pub(all) enum Unexpected {
   Bool(Bool)
   Unsigned(UInt64)
@@ -247,7 +250,7 @@ pub(all) enum Unexpected {
   Option
   Seq
   Map
-} derive(Debug)
+}
 
 ///|
 /// `Display for JsonUnexpected`: serde's `Display for Unexpected` with

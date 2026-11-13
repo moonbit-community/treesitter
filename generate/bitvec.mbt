@@ -11,17 +11,17 @@
 /// shrinking within a word, and `insert_all` ORs them in.
 pub struct BitVec {
   priv words : Array[UInt64]
-  priv mut len : Int
+  priv mut len : Int32
 }
 
 ///|
 pub fn BitVec::new() -> BitVec {
-  { words: [], len: 0 }
+  { words: [], len: 0, }
 }
 
 ///|
-pub fn BitVec::with_capacity(_n_bits : Int) -> BitVec {
-  { words: [], len: 0 }
+pub fn BitVec::with_capacity(_n_bits : Int32) -> BitVec {
+  { words: [], len: 0, }
 }
 
 ///|
@@ -31,17 +31,17 @@ pub fn BitVec::words(self : BitVec) -> Array[UInt64] {
 }
 
 ///|
-pub fn BitVec::len(self : BitVec) -> Int {
+pub fn BitVec::len(self : BitVec) -> Int32 {
   self.len
 }
 
 ///|
-fn BitVec::words_in_use(self : BitVec) -> Int {
+fn BitVec::words_in_use(self : BitVec) -> Int32 {
   (self.len + 63) / 64
 }
 
 ///|
-pub fn BitVec::get(self : BitVec, index : Int) -> Bool? {
+pub fn BitVec::get(self : BitVec, index : Int32) -> Bool? {
   if index < self.len {
     Some(((self.words[index / 64] >> (index % 64)) & 1) != 0)
   } else {
@@ -50,12 +50,12 @@ pub fn BitVec::get(self : BitVec, index : Int) -> Bool? {
 }
 
 ///|
-pub fn BitVec::at(self : BitVec, index : Int) -> Bool {
+pub fn BitVec::at(self : BitVec, index : Int32) -> Bool {
   ((self.words[index / 64] >> (index % 64)) & 1) != 0
 }
 
 ///|
-pub fn BitVec::set(self : BitVec, index : Int, val : Bool) -> Unit {
+pub fn BitVec::set(self : BitVec, index : Int32, val : Bool) -> Unit {
   let mask = 1UL << (index % 64)
   if val {
     self.words[index / 64] = self.words[index / 64] | mask
@@ -65,7 +65,7 @@ pub fn BitVec::set(self : BitVec, index : Int, val : Bool) -> Unit {
 }
 
 ///|
-fn BitVec::ensure_words(self : BitVec, n_words : Int) -> Unit {
+fn BitVec::ensure_words(self : BitVec, n_words : Int32) -> Unit {
   while self.words.length() < n_words {
     self.words.push(0)
   }
@@ -75,7 +75,7 @@ fn BitVec::ensure_words(self : BitVec, n_words : Int) -> Unit {
 /// Upstream fills whole words: growing within the last word in use leaves
 /// the newly exposed bits as they are, and shrinking within it does not clear
 /// the truncated bits.
-pub fn BitVec::resize(self : BitVec, new_len : Int, val : Bool) -> Unit {
+pub fn BitVec::resize(self : BitVec, new_len : Int32, val : Bool) -> Unit {
   let new_words = (new_len + 63) / 64
   let old_words = self.words_in_use()
   self.ensure_words(new_words)
@@ -165,11 +165,11 @@ pub fn BitVec::copy(self : BitVec) -> BitVec {
   for i in 0..<n {
     words[i] = self.words[i]
   }
-  { words, len: self.len }
+  { words, len: self.len, }
 }
 
 ///|
-fn BitVec::effective_words(self : BitVec) -> Int {
+fn BitVec::effective_words(self : BitVec) -> Int32 {
   let mut n = self.words.length()
   while n > 0 && self.words[n - 1] == 0 {
     n -= 1
@@ -178,7 +178,7 @@ fn BitVec::effective_words(self : BitVec) -> Int {
 }
 
 ///|
-pub impl Eq for BitVec with equal(self, other) {
+pub impl Eq for BitVec with fn equal(self, other) {
   let n = self.effective_words()
   if n != other.effective_words() {
     return false
@@ -192,7 +192,7 @@ pub impl Eq for BitVec with equal(self, other) {
 }
 
 ///|
-pub impl Hash for BitVec with hash_combine(self, hasher) {
+pub impl Hash for BitVec with fn hash_combine(self, hasher) {
   let n = self.effective_words()
   hasher.combine_int(n)
   for i in 0..<n {
@@ -203,7 +203,7 @@ pub impl Hash for BitVec with hash_combine(self, hasher) {
 ///|
 /// Upstream ordering: compare words from the lowest index; within the first
 /// differing word, the side that owns the lowest differing bit is greater.
-pub impl Compare for BitVec with compare(self, other) {
+pub impl Compare for BitVec with fn compare(self, other) {
   let max_len = if self.words.length() > other.words.length() {
     self.words.length()
   } else {
@@ -221,13 +221,13 @@ pub impl Compare for BitVec with compare(self, other) {
 }
 
 ///|
-pub impl Debug for BitVec with to_repr(self) {
-  @debug.Repr(set_bits(self.words))
+pub impl Debug for BitVec with fn to_repr(self) {
+  Repr(set_bits(self.words))
 }
 
 ///|
 /// Indices of set bits, in increasing order.
-pub fn set_bits(words : Array[UInt64]) -> Array[Int] {
+pub fn set_bits(words : Array[UInt64]) -> Array[Int32] {
   let result = []
   for wi, word in words {
     let mut w = word

@@ -3,25 +3,25 @@
 
 ///|
 /// `TSQueryError` codes as returned by the parser, plus `PARENT_DONE`.
-let err_none : Int = 0
+let err_none : Int32 = 0
 
 ///|
-let err_syntax : Int = 1
+let err_syntax : Int32 = 1
 
 ///|
-let err_node_type : Int = 2
+let err_node_type : Int32 = 2
 
 ///|
-let err_field : Int = 3
+let err_field : Int32 = 3
 
 ///|
-let err_capture : Int = 4
+let err_capture : Int32 = 4
 
 ///|
-let err_structure : Int = 5
+let err_structure : Int32 = 5
 
 ///|
-let parent_done : Int = -1
+let parent_done : Int32 = -1
 
 ///|
 /// The bytes of `symbol_names[symbol]` as the C array holds them, including
@@ -29,7 +29,7 @@ let parent_done : Int = -1
 /// but `symbol_name[length]` reads the array (as `Language::symbol_for_name`
 /// in language/language_api.mbt does; that one takes a `StringView`, while
 /// query names are arbitrary bytes).
-fn symbol_name_bytes(language : @language.Language, symbol : Int) -> Bytes {
+fn symbol_name_bytes(language : @language.Language, symbol : Int32) -> Bytes {
   @utf8.encode(language.symbol_names[symbol])
 }
 
@@ -57,7 +57,7 @@ fn symbol_for_name(
   language : @language.Language,
   string : BytesView,
   is_named : Bool,
-) -> Int {
+) -> Int32 {
   if is_named && string.length() == 5 && c_name_equals(b"ERROR", string) {
     return @language.ts_builtin_sym_error
   }
@@ -76,7 +76,7 @@ fn symbol_for_name(
 
 ///|
 /// C `strncmp` returning the difference of the first differing bytes.
-fn c_strncmp(a : BytesView, b : Bytes, n : Int) -> Int {
+fn c_strncmp(a : BytesView, b : Bytes, n : Int32) -> Int32 {
   for i in 0..<n {
     let ca = if i < a.length() { a[i].to_int() } else { 0 }
     let cb = if i < b.length() { b[i].to_int() } else { 0 }
@@ -94,7 +94,7 @@ fn c_strncmp(a : BytesView, b : Bytes, n : Int) -> Int {
 /// `ts_language_field_id_for_name`, over the UTF-8 bytes of the name (the
 /// byte counterpart of `Language::field_id_for_name`: `strncmp`, then
 /// `field_names[i][name_length] == 0` over the array's bytes).
-fn field_id_for_name(language : @language.Language, name : BytesView) -> Int {
+fn field_id_for_name(language : @language.Language, name : BytesView) -> Int32 {
   let count = language.field_count & 0xFFFF
   for i in 1..<(count + 1) {
     let field_name = @utf8.encode(language.field_names[i])
@@ -114,8 +114,8 @@ fn field_id_for_name(language : @language.Language, name : BytesView) -> Int {
 ///|
 fn Query::add_negated_fields(
   self : Query,
-  step_index : Int,
-  field_ids : Array[Int],
+  step_index : Int32,
+  field_ids : Array[Int32],
 ) -> Unit {
   // `step_index` is a `uint16_t` parameter upstream.
   let step = self.steps[step_index & 0xFFFF]
@@ -159,7 +159,7 @@ fn Query::add_negated_fields(
 }
 
 ///|
-fn Query::parse_string_literal(self : Query, stream : Stream) -> Int {
+fn Query::parse_string_literal(self : Query, stream : Stream) -> Int32 {
   let string_start = stream.input
   if stream.next != '"' {
     return err_syntax
@@ -168,7 +168,7 @@ fn Query::parse_string_literal(self : Query, stream : Stream) -> Int {
   let mut prev_position = stream.input
   let mut is_escaped = false
   self.string_buffer.clear()
-  let push_range = (start : Int, length : Int) => {
+  let push_range = (start : Int32, length : Int32) => {
     for i in start..<(start + length) {
       self.string_buffer.push(stream.source[i])
     }
@@ -214,7 +214,7 @@ fn Query::string_buffer_view(self : Query) -> Bytes {
 /// S-expressions associated with a pattern which are meant to be handled at a
 /// higher level of abstraction. They can contain '@'-prefixed capture names,
 /// double-quoted strings, and bare symbols, which also represent strings.
-fn Query::parse_predicate(self : Query, stream : Stream) -> Int {
+fn Query::parse_predicate(self : Query, stream : Stream) -> Int32 {
   if !stream.is_ident_start() {
     return err_syntax
   }
@@ -227,13 +227,13 @@ fn Query::parse_predicate(self : Query, stream : Stream) -> Int {
   let id = self.predicate_values.insert_name(
     stream.source[predicate_name:stream.input],
   )
-  self.predicate_steps.push({ type_: String, value_id: id })
+  self.predicate_steps.push({ type_: String, value_id: id, })
   stream.skip_whitespace()
   for ;; {
     if stream.next == ')' {
       ignore(stream.advance())
       stream.skip_whitespace()
-      self.predicate_steps.push({ type_: Done, value_id: 0 })
+      self.predicate_steps.push({ type_: Done, value_id: 0, })
       break
     } else if stream.next == '@' {
       // Parse an '@'-prefixed capture name
@@ -252,15 +252,17 @@ fn Query::parse_predicate(self : Query, stream : Stream) -> Int {
         stream.reset(capture_name)
         return err_capture
       }
-      self.predicate_steps.push({ type_: Capture, value_id: capture_id })
+      self.predicate_steps.push({ type_: Capture, value_id: capture_id, })
     } else if stream.next == '"' {
       // Parse a string literal
       let e = self.parse_string_literal(stream)
       if e != err_none {
         return e
       }
-      let query_id = self.predicate_values.insert_name(self.string_buffer_view())
-      self.predicate_steps.push({ type_: String, value_id: query_id })
+      let query_id = self.predicate_values.insert_name(
+        self.string_buffer_view(),
+      )
+      self.predicate_steps.push({ type_: String, value_id: query_id, })
     } else if stream.is_ident_start() {
       // Parse a bare symbol
       let symbol_start = stream.input
@@ -268,7 +270,7 @@ fn Query::parse_predicate(self : Query, stream : Stream) -> Int {
       let query_id = self.predicate_values.insert_name(
         stream.source[symbol_start:stream.input],
       )
-      self.predicate_steps.push({ type_: String, value_id: query_id })
+      self.predicate_steps.push({ type_: String, value_id: query_id, })
     } else {
       return err_syntax
     }
@@ -287,12 +289,12 @@ fn Query::parse_predicate(self : Query, stream : Stream) -> Int {
 fn Query::parse_pattern(
   self : Query,
   stream : Stream,
-  depth : Int,
-  nesting_depth : Int,
+  depth : Int32,
+  nesting_depth : Int32,
   is_immediate : Bool,
   is_inside_alternation : Bool,
   capture_quantifiers : Array[Quantifier],
-) -> Int {
+) -> Int32 {
   if stream.next == 0 {
     return err_syntax
   }
@@ -317,7 +319,7 @@ fn Query::parse_pattern(
     ignore(stream.advance())
     stream.skip_whitespace()
     // Parse each branch, and add a placeholder step in between the branches.
-    let branch_step_indices : Array[Int] = []
+    let branch_step_indices : Array[Int32] = []
     let branch_capture_quantifiers : Array[Quantifier] = []
     for ;; {
       let start_index = self.steps.length()
@@ -341,13 +343,11 @@ fn Query::parse_pattern(
       }
       if start_index == starting_step_index {
         capture_quantifiers_replace(
-          capture_quantifiers,
-          branch_capture_quantifiers,
+          capture_quantifiers, branch_capture_quantifiers,
         )
       } else {
         capture_quantifiers_join_all(
-          capture_quantifiers,
-          branch_capture_quantifiers,
+          capture_quantifiers, branch_capture_quantifiers,
         )
       }
       branch_step_indices.push(start_index)
@@ -411,8 +411,7 @@ fn Query::parse_pattern(
           return e
         }
         capture_quantifiers_add_all(
-          capture_quantifiers,
-          child_capture_quantifiers,
+          capture_quantifiers, child_capture_quantifiers,
         )
         child_capture_quantifiers.clear()
         child_is_immediate = false
@@ -431,7 +430,7 @@ fn Query::parse_pattern(
         stream.scan_identifier()
         let length = stream.input - node_name
         let name = stream.source[node_name:stream.input]
-        if length == 1 && name[0] == '_' {
+        if length == 1 && name[0] == b'_' {
           // Parse the wildcard symbol
           symbol = wildcard_symbol
         } else if length == 7 && c_strncmp(name, b"MISSING", length) == 0 {
@@ -544,7 +543,7 @@ fn Query::parse_pattern(
       // Parse the child patterns
       let mut child_is_immediate = false
       let mut last_child_step_index = 0
-      let negated_field_ids : Array[Int] = []
+      let negated_field_ids : Array[Int32] = []
       let child_capture_quantifiers : Array[Quantifier] = []
       for ;; {
         // Parse a negated field assertion
@@ -626,8 +625,7 @@ fn Query::parse_pattern(
           return e
         }
         capture_quantifiers_add_all(
-          capture_quantifiers,
-          child_capture_quantifiers,
+          capture_quantifiers, child_capture_quantifiers,
         )
         last_child_step_index = step_index
         child_is_immediate = false
@@ -648,7 +646,11 @@ fn Query::parse_pattern(
       return e
     }
     // Add a step for the node
-    let symbol = symbol_for_name(self.language, self.string_buffer_view(), false)
+    let symbol = symbol_for_name(
+      self.language,
+      self.string_buffer_view(),
+      false,
+    )
     if symbol == 0 {
       stream.reset(string_start + 1)
       return err_node_type
@@ -798,7 +800,7 @@ fn Query::parse_pattern(
 }
 
 ///|
-fn query_error_kind(code : Int) -> QueryErrorKind {
+fn query_error_kind(code : Int32) -> QueryErrorKind {
   match code {
     1 => Syntax
     2 => NodeType
@@ -842,8 +844,8 @@ pub fn Query::new(
     let mut start_step_index = self.steps.length()
     let start_predicate_step_index = self.predicate_steps.length()
     self.patterns.push({
-      steps: { offset: start_step_index, length: 0 },
-      predicate_steps: { offset: start_predicate_step_index, length: 0 },
+      steps: { offset: start_step_index, length: 0, },
+      predicate_steps: { offset: start_predicate_step_index, length: 0, },
       start_byte: stream.offset().reinterpret_as_uint(),
       end_byte: 0,
       is_non_local: false,
@@ -856,7 +858,10 @@ pub fn Query::new(
     let pattern = self.patterns[self.patterns.length() - 1]
     self.patterns[self.patterns.length() - 1] = {
       ..pattern,
-      steps: { offset: start_step_index, length: self.steps.length() - start_step_index },
+      steps: {
+        offset: start_step_index,
+        length: self.steps.length() - start_step_index,
+      },
       predicate_steps: {
         offset: start_predicate_step_index,
         length: self.predicate_steps.length() - start_predicate_step_index,
@@ -917,8 +922,9 @@ pub fn Query::new(
         is_rooted,
       })
       if step.symbol == wildcard_symbol {
-        self.wildcard_root_pattern_count = (self.wildcard_root_pattern_count +
-          1) &
+        self.wildcard_root_pattern_count = (
+            self.wildcard_root_pattern_count + 1
+          ) &
           0xFFFF
       }
       // If there are alternatives or options at the root of the pattern, then

@@ -4,38 +4,42 @@
 ///|
 /// `prepare_grammar::LexicalToken`: a token extracted from the input grammar
 /// but not yet expanded into the lexical NFA.
+#derive(Debug)
 pub(all) struct LexicalToken {
   /// Generated for anonymous tokens, the rule name for absorbed variables.
   name : StrId
   kind : VariableType
   /// Pool root defining this token.
   root : RuleId
-} derive(Debug)
+}
 
 ///|
 /// `node_types::ChildQuantity`.
+#derive(Eq, Debug)
 pub(all) struct ChildQuantity {
   mut exists : Bool
   mut required : Bool
   mut multiple : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 /// `node_types::FieldInfo`.
+#derive(Eq, Debug)
 pub(all) struct FieldInfo {
   mut quantity : ChildQuantity
   mut types : Array[ChildType]
-} derive(Eq, Debug)
+}
 
 ///|
 /// `node_types::VariableInfo`. Upstream's `fields` is an `FxHashMap`; its
 /// iteration order must never influence output.
+#derive(Eq, Debug)
 pub(all) struct VariableInfo {
   mut fields : Map[StrId, FieldInfo]
   mut children : FieldInfo
   mut children_without_fields : FieldInfo
   mut has_multi_step_production : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 /// `build_tables::Tables`.
@@ -48,17 +52,18 @@ pub(all) struct Tables {
 
 ///|
 /// `generate::Diagnostic`.
+#derive(Eq, Debug)
 pub(all) enum Diagnostic {
   UnnecessaryConflicts(Array[Array[String]])
   UnaryChoice(name~ : String?)
   UnarySeq(name~ : String?)
   UnsupportedRegexFlag(flag~ : Char, pattern~ : String)
   SupertypeInlined(name~ : String)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Upstream's `Display` text for a diagnostic.
-pub impl Show for Diagnostic with output(self, logger) {
+pub impl Show for Diagnostic with fn output(self, logger) {
   match self {
     UnnecessaryConflicts(conflicts) => {
       logger.write_string("unnecessary conflicts:\n")
@@ -96,12 +101,13 @@ pub impl Show for Diagnostic with output(self, logger) {
 
 ///|
 /// `generate::OptLevel`; upstream's only flag is `MergeStates`.
+#derive(Eq, Debug)
 pub(all) struct OptLevel {
   merge_states : Bool
-} derive(Eq, Debug)
+}
 
 ///|
-pub let default_opt_level : OptLevel = { merge_states: true }
+pub let default_opt_level : OptLevel = { merge_states: true, }
 
 ///|
 /// `prepare_grammar::PreparedGrammar`.
@@ -112,4 +118,3 @@ pub(all) struct PreparedGrammar {
   default_aliases : AliasMap
   str_pool : StrPool
 }
-

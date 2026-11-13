@@ -6,12 +6,13 @@
 
 ///|
 /// `std::path::Component` (Unix: no `Prefix`).
+#derive(Eq, Debug)
 pub(all) enum PathComponent {
   RootDir
   CurDir
   ParentDir
   Normal(String)
-} derive(Eq, Debug)
+}
 
 ///|
 /// `Component::as_os_str`.

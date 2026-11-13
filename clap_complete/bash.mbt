@@ -248,6 +248,6 @@ fn bash_all_options_for_path(cmd : @clap.Command, path : String) -> String {
   if opts.is_empty() {
     opts
   } else {
-    opts.view(end_offset=opts.length() - 1).to_owned()
+    opts.clamped_view(end=opts.length() - 1).to_owned()
   }
 }

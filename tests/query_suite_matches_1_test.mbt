@@ -914,7 +914,9 @@ async test "query_matches_optional_capture_before_uncaptured_required_sibling" {
 ///|
 async test "query_matches_with_optional_nodes_inside_of_repetitions" {
   guard get_parsing_language("javascript") is Some(language) else { return }
-  let query = @treesitter.Query::new(language, "(array (\",\"? (number) @num)+)")
+  let query = @treesitter.Query::new(
+    language, "(array (\",\"? (number) @num)+)",
+  )
 
   assert_query_matches(
     language,

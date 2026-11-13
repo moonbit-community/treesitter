@@ -12,12 +12,13 @@ pub let language_version_with_primary_states : Int32 = 14
 ///|
 /// `TableEntry`: the actions for a state/symbol pair are
 /// `parse_actions[actions_start:actions_start + action_count]`.
+#derive(Eq, Debug)
 #valtype
 pub(all) struct TableEntry {
   actions_start : Int32
   action_count : Int32
   is_reusable : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn Language::actions_of(
@@ -115,6 +116,7 @@ pub fn Language::has_actions(
 }
 
 ///|
+#derive(Eq)
 priv enum LookaheadPhase {
   /// No `next()` yet.
   Fresh
@@ -122,7 +124,7 @@ priv enum LookaheadPhase {
   Positioned
   /// Last `next()` returned false.
   Done
-} derive(Eq)
+}
 
 ///|
 /// Iterate over all of the symbols that are valid in the given state
@@ -370,16 +372,16 @@ pub fn Language::alias_sequence(
 ///|
 pub fn Language::alias_at(
   self : Language,
-  production_id : Int,
-  child_index : Int,
-) -> Int {
+  production_id : Int32,
+  child_index : Int32,
+) -> Int32 {
   if production_id != 0 {
     // Upstream indexes the flat array without checking the row bounds, so an
     // index past the row reads the next production's row. Past the end of
     // the array (undefined behavior in C) this returns 0.
-    self.alias_sequences.get(
-      production_id * self.max_alias_sequence_length + child_index,
-    ).unwrap_or(0)
+    self.alias_sequences
+    .get(production_id * self.max_alias_sequence_length + child_index)
+    .unwrap_or(0)
   } else {
     0
   }
@@ -574,7 +576,9 @@ pub fn Language::symbol_for_name(
   is_named : Bool,
 ) -> Int32 {
   let string_bytes = @utf8.encode(string)
-  if is_named && string_bytes.length() == 5 && c_name_equals(b"ERROR", string_bytes) {
+  if is_named &&
+    string_bytes.length() == 5 &&
+    c_name_equals(b"ERROR", string_bytes) {
     return ts_builtin_sym_error
   }
   let count = self.symbol_count_with_aliases() & 0xFFFF
@@ -591,12 +595,13 @@ pub fn Language::symbol_for_name(
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum SymbolType {
   Regular
   Anonymous
   Supertype
   Auxiliary
-} derive(Eq, Debug)
+}
 
 ///|
 /// `ts_language_symbol_type`.
@@ -654,7 +659,7 @@ pub fn Language::field_id_for_name(self : Language, name : StringView) -> Int32 
 /// first NUL.
 fn c_string(s : String) -> String {
   match s.find("\u{0}") {
-    Some(end) => s.view(end_offset=end).to_owned()
+    Some(end) => s.clamped_view(end~).to_owned()
     None => s
   }
 }
@@ -690,7 +695,7 @@ fn strncmp(a : Bytes, b : Bytes, n : Int32) -> Int32 {
 ///|
 /// `alias_sequences[index]` with C's flat-array semantics: indexes past a
 /// row read the next row; past the end of the array this returns 0.
-pub fn Language::alias_sequence_value(self : Language, index : Int) -> Int {
+pub fn Language::alias_sequence_value(self : Language, index : Int32) -> Int32 {
   self.alias_sequences.get(index).unwrap_or(0)
 }
 
@@ -699,7 +704,9 @@ pub fn Language::alias_sequence_value(self : Language, index : Int) -> Int {
 /// union (`uint8_t` counts and child counts, `int16_t` dynamic precedence,
 /// `uint16_t` states, symbols and production ids), as compiling `parser.c`
 /// does.
-pub fn ParseActionEntry::normalized(self : ParseActionEntry) -> ParseActionEntry {
+pub fn ParseActionEntry::normalized(
+  self : ParseActionEntry,
+) -> ParseActionEntry {
   match self {
     Entry(count~, reusable~) => Entry(count=count & 0xFF, reusable~)
     Shift(state~, extra~, repetition~) =>

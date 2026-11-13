@@ -8,10 +8,11 @@ pub type Logger = (LogType, String) -> Unit
 ///|
 /// The result of a progress callback: whether to continue or to stop the
 /// operation (Rust's `ControlFlow<()>`).
+#derive(Eq, Debug)
 pub(all) enum ControlFlow {
   Continue
   Break
-} derive(Eq, Debug)
+}
 
 ///|
 /// The state of the parser that is passed to a parse progress callback.
@@ -67,9 +68,10 @@ fn parse_options_to_ts(options : ParseOptions?) -> @runtime.ParseOptions {
 ///|
 /// An error that occurred in [`Parser::set_included_ranges`]: the index of
 /// the first incorrect range.
+#derive(Eq, Debug)
 pub(all) suberror IncludedRangesError {
   IncludedRangesError(Int32)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for IncludedRangesError with fn output(self, logger) {

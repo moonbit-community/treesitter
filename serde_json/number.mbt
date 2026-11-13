@@ -5,11 +5,12 @@
 /// `ParserNumber`: a JSON number as serde_json classifies it. A `-` integer
 /// is `I64` when it is negative and fits, and otherwise (`-0` among them) an
 /// `F64`; a positive one is `U64` when it fits, and otherwise an `F64`.
+#derive(Eq, Debug)
 pub(all) enum ParserNumber {
   F64(Double)
   U64(UInt64)
   I64(Int64)
-} derive(Eq, Debug)
+}
 
 ///|
 fn[T] ParserNumber::visit(
@@ -29,9 +30,9 @@ fn ParserNumber::invalid_type(
   expected : String,
 ) -> JsonError {
   match self {
-    F64(x) => invalid_type(Unexpected::Float(x), expected)
-    U64(x) => invalid_type(Unexpected::Unsigned(x), expected)
-    I64(x) => invalid_type(Unexpected::Signed(x), expected)
+    F64(x) => invalid_type(Float(x), expected)
+    U64(x) => invalid_type(Unsigned(x), expected)
+    I64(x) => invalid_type(Signed(x), expected)
   }
 }
 

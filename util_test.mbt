@@ -90,7 +90,10 @@ test "Point, Range and errors" {
   inspect(@treesitter.Point::new(1, 2), content="(1, 2)")
   assert_true(@treesitter.Point::new(1, 2) < @treesitter.Point::new(2, 0))
   assert_true(@treesitter.Point::new(1, 2) < @treesitter.Point::new(1, 3))
-  inspect(@treesitter.IncludedRangesError(3), content="Incorrect range by index: 3")
+  inspect(
+    @treesitter.IncludedRangesError(3),
+    content="Incorrect range by index: 3",
+  )
   inspect(
     @treesitter.LanguageError::Version(16),
     content="Incompatible language version 16. Expected minimum 13, maximum 15",

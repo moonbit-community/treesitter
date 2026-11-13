@@ -2,11 +2,12 @@
 
 ///|
 /// `TSPoint`. Rows and columns are unsigned 32-bit values, as in C.
+#derive(Eq, Hash, Debug)
 #valtype
 pub(all) struct Point {
   row : UInt32
   column : UInt32
-} derive(Eq, Hash, Debug)
+}
 
 ///|
 pub let point_zero : Point = { row: 0, column: 0, }
@@ -65,11 +66,12 @@ pub fn point_eq(a : Point, b : Point) -> Bool {
 }
 
 ///|
+#derive(Eq, Hash, Debug)
 #valtype
 pub(all) struct Length {
   bytes : UInt32
   extent : Point
-} derive(Eq, Hash, Debug)
+}
 
 ///|
 pub let length_undefined : Length = {

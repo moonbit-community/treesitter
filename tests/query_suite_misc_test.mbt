@@ -139,7 +139,9 @@ async test "query_with_first_child_in_group_is_anchor" {
 async test "query_compiler_oob_access" {
   guard get_language("java") is Some(language) else { return }
   // UBSAN should not report any OOB access
-  ignore(@treesitter.Query::new(language, "(package_declaration _ (_) @name _)"))
+  ignore(
+    @treesitter.Query::new(language, "(package_declaration _ (_) @name _)"),
+  )
 }
 
 ///|
@@ -169,7 +171,9 @@ async test "query_execution_with_timeout" {
   let count = 10_000
   let source_code = "function foo() { while (true) { } }\n".repeat(count)
   let tree = parse(parser, source_code)
-  let query = @treesitter.Query::new(language, "(function_declaration) @function")
+  let query = @treesitter.Query::new(
+    language, "(function_declaration) @function",
+  )
   // Upstream measures `Instant::elapsed().as_micros() > 1000`; the only clock
   // available here, `@env.now()`, counts milliseconds, so "more than 1000
   // microseconds" becomes "more than 1 millisecond".
@@ -178,7 +182,7 @@ async test "query_execution_with_timeout" {
     if @env.now() - start_time > 1 {
       @treesitter.ControlFlow::Break
     } else {
-      @treesitter.ControlFlow::Continue
+      Continue
     }
   }
   let cursor = @treesitter.QueryCursor::new()
@@ -203,7 +207,9 @@ async test "query_progress_callback_lives_as_long_as_matches" {
   let parser = parser_for(language)
   let source_code = "function foo() {}\n".repeat(1000)
   let tree = parse(parser, source_code)
-  let query = @treesitter.Query::new(language, "(function_declaration) @function")
+  let query = @treesitter.Query::new(
+    language, "(function_declaration) @function",
+  )
   let cursor = @treesitter.QueryCursor::new()
   let mut callback_was_called = false
   let progress_callback = (_ : @treesitter.QueryCursorState) => {
@@ -280,7 +286,7 @@ async test "query_captures_progress_callback_discards_in_progress_matches" {
       if calls.val >= cancel_at {
         @treesitter.ControlFlow::Break
       } else {
-        @treesitter.ControlFlow::Continue
+        Continue
       }
     }
     let cursor = @treesitter.QueryCursor::new()
@@ -309,13 +315,15 @@ async test "query_progress_callback_halts_for_good" {
   let parser = parser_for(language)
   let source_code = "function foo() {}\n".repeat(1000)
   let tree = parse(parser, source_code)
-  let query = @treesitter.Query::new(language, "(function_declaration) @function")
+  let query = @treesitter.Query::new(
+    language, "(function_declaration) @function",
+  )
   let stop = Ref(true)
   let progress_callback = (_ : @treesitter.QueryCursorState) => {
     if stop.val {
       @treesitter.ControlFlow::Break
     } else {
-      @treesitter.ControlFlow::Continue
+      Continue
     }
   }
   let cursor = @treesitter.QueryCursor::new()
@@ -419,7 +427,9 @@ async test "wildcard_behavior_before_anchor" {
     #|    
 
   //  In this query, we're targeting any *named* node immediately before a closing parenthesis.
-  let query = @treesitter.Query::new(language, "(tuple (_) @last . \")\" .) @match")
+  let query = @treesitter.Query::new(
+    language, "(tuple (_) @last . \")\" .) @match",
+  )
   assert_query_matches(language, query, source, [
     (0, [("match", "(a, b)"), ("last", "b")]),
     (0, [("match", "(c, d,)"), ("last", "d")]),
@@ -427,7 +437,9 @@ async test "wildcard_behavior_before_anchor" {
 
   // In this query, we're targeting *any* node immediately before a closing
   // parenthesis.
-  let query = @treesitter.Query::new(language, "(tuple _ @last . \")\" .) @match")
+  let query = @treesitter.Query::new(
+    language, "(tuple _ @last . \")\" .) @match",
+  )
   assert_query_matches(language, query, source, [
     (0, [("match", "(a, b)"), ("last", "b")]),
     (0, [("match", "(c, d,)"), ("last", ",")]),
@@ -581,7 +593,9 @@ async test "query_allows_error_nodes_with_children" {
   let parser = parser_for(language)
   let tree = parse(parser, code)
   let root = tree.root_node()
-  let query = @treesitter.Query::new(language, "(initializer_list (ERROR) @error)")
+  let query = @treesitter.Query::new(
+    language, "(initializer_list (ERROR) @error)",
+  )
   let cursor = @treesitter.QueryCursor::new()
   let matches = cursor.matches(query, root, utf8(code))
   let matches = collect_matches(matches, query, code)

@@ -39,12 +39,11 @@ fn outcome(args : Array[String]) -> String {
     let m = demo().try_get_matches_from(args)
     match m.subcommand() {
       Some((name, sub)) =>
-        "\{name} quiet=\{sub.get_flag("quiet")} level=\{to_repr(sub.get_one("level"))} files=\{to_repr(sub.get_many("files"))}"
+        "\{name} quiet=\{sub.get_flag("quiet")} level=\{Repr(sub.get_one("level"))} files=\{Repr(sub.get_many("files"))}"
       None => "none"
     }
   } catch {
-    @clap.ClapError(_) as e => "exit \{e.exit_code()}:\n\{e.message()}"
-    e => "\{e}"
+    ClapError(_) as e => "exit \{e.exit_code()}:\n\{e.message()}"
   }
 }
 
@@ -118,7 +117,7 @@ test "arguments that are not valid UTF-8" {
         None => "none"
       }
     } catch {
-      @clap.ClapError(_) as e => "exit \{e.exit_code()}:\n\{e.message()}"
+      ClapError(_) as e => "exit \{e.exit_code()}:\n\{e.message()}"
     }
   }
   // `String` values must be `str`s.

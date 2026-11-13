@@ -17,11 +17,12 @@ pub struct TreeCursor {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum TreeCursorStep {
   StepNone
   StepHidden
   StepVisible
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct CursorChildIterator {

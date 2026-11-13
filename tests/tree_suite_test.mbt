@@ -6,7 +6,10 @@
 ///|
 /// A clone of `tree` edited with `edit` (the `{ let mut tree = tree.clone();
 /// tree.edit(...); ... }` blocks of `test_tree_edit`).
-fn edited_clone(tree : @treesitter.Tree, edit : @treesitter.InputEdit) -> @treesitter.Tree {
+fn edited_clone(
+  tree : @treesitter.Tree,
+  edit : @treesitter.InputEdit,
+) -> @treesitter.Tree {
   let tree = tree.clone()
   tree.edit(edit)
   tree
@@ -453,7 +456,10 @@ async test "tree_cursor_child_for_point" {
     ("identifier", @treesitter.Point::new(1, 8)),
   )
   assert_true(c.goto_parent())
-  assert_eq(c.goto_first_child_for_point(@treesitter.Point::new(1, 10)), Some(1))
+  assert_eq(
+    c.goto_first_child_for_point(@treesitter.Point::new(1, 10)),
+    Some(1),
+  )
   assert_eq(
     (c.node().kind(), c.node().start_position()),
     ("identifier", @treesitter.Point::new(1, 8)),
@@ -461,7 +467,10 @@ async test "tree_cursor_child_for_point" {
   assert_true(c.goto_parent())
 
   // step into first ',' and back up
-  assert_eq(c.goto_first_child_for_point(@treesitter.Point::new(1, 11)), Some(2))
+  assert_eq(
+    c.goto_first_child_for_point(@treesitter.Point::new(1, 11)),
+    Some(2),
+  )
   assert_eq(
     (c.node().kind(), c.node().start_position()),
     (",", @treesitter.Point::new(1, 11)),
@@ -483,13 +492,19 @@ async test "tree_cursor_child_for_point" {
   assert_true(c.goto_parent())
 
   // step into ']' and back up
-  assert_eq(c.goto_first_child_for_point(@treesitter.Point::new(6, 0)), Some(10))
+  assert_eq(
+    c.goto_first_child_for_point(@treesitter.Point::new(6, 0)),
+    Some(10),
+  )
   assert_eq(
     (c.node().kind(), c.node().start_position()),
     ("]", @treesitter.Point::new(6, 4)),
   )
   assert_true(c.goto_parent())
-  assert_eq(c.goto_first_child_for_point(@treesitter.Point::new(6, 0)), Some(10))
+  assert_eq(
+    c.goto_first_child_for_point(@treesitter.Point::new(6, 0)),
+    Some(10),
+  )
   assert_eq(
     (c.node().kind(), c.node().start_position()),
     ("]", @treesitter.Point::new(6, 4)),

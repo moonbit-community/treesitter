@@ -16,6 +16,7 @@
 
 ///|
 /// An error building a [`Regex`].
+#derive(Eq, Debug)
 pub(all) suberror RegexError {
   /// The pattern failed to parse or translate; the payload is the
   /// `Display` text of the regex-syntax error (as in `regex::Error::Syntax`).
@@ -23,7 +24,7 @@ pub(all) suberror RegexError {
   /// The compiled program exceeded the size limit (`regex` uses an NFA size
   /// limit of 10 MiB by default).
   CompiledTooBig(Int32)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for RegexError with fn output(self, logger) {

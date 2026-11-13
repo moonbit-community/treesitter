@@ -3,6 +3,7 @@
 
 ///|
 /// `Eq`/`Debug` are used by the white-box tests only.
+#derive(Eq, Debug)
 #warnings("-unused_value")
 priv struct NodeInfoJSON {
   kind : StrId
@@ -12,20 +13,22 @@ priv struct NodeInfoJSON {
   fields : NodeFields?
   mut children : FieldInfoJSON?
   mut subtypes : Array[NodeTypeRef]?
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Hash, Compare, Debug)
 priv struct NodeTypeRef {
   kind : StrId
   named : Bool
-} derive(Eq, Hash, Compare, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv struct FieldInfoJSON {
   mut multiple : Bool
   mut required : Bool
   types : Array[NodeTypeRef]
-} derive(Eq, Debug)
+}
 
 ///|
 /// Upstream `impl Default for FieldInfoJSON`.
@@ -39,9 +42,10 @@ type NodeFields = @sorted_map.SortedMap[StrId, FieldInfoJSON]
 
 ///|
 /// `node_types::SuperTypeCycleError`.
+#derive(Eq, Debug)
 pub(all) suberror SuperTypeCycleError {
   SuperTypeCycleError(items~ : Array[String])
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for SuperTypeCycleError with fn output(self, logger) {
@@ -87,7 +91,7 @@ fn generate_node_types(
   let extra_node_types = collect_extra_node_types(
     syntax_grammar, lexical_grammar, aliases_by_symbol,
   )
-  let node_types_json : @sorted_map.SortedMap[NodeTypeRef, NodeInfoJSON] = @sorted_map.SortedMap([],
+  let node_types_json : @sorted_map.SortedMap[NodeTypeRef, NodeInfoJSON] = SortedMap([],
   )
   let subtype_map = build_supertype_entries(
     node_types_json, syntax_grammar, lexical_grammar, default_aliases, variable_info,
@@ -326,7 +330,7 @@ fn build_regular_entries(
           named: is_named,
           root: i == 0,
           extra: extra_node_types.contains(node_type),
-          fields: Some(@sorted_map.SortedMap([])),
+          fields: Some(SortedMap([])),
           children: None,
           subtypes: None,
         }

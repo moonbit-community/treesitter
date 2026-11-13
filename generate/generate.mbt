@@ -2,7 +2,7 @@
 
 ///|
 /// `LANGUAGE_VERSION`: must match `TREE_SITTER_LANGUAGE_VERSION`.
-pub let language_version : Int = @language.language_version
+pub let language_version : Int32 = @language.language_version
 
 ///|
 /// The products of preparing a grammar (`JSONOutput`).
@@ -30,7 +30,7 @@ pub(all) struct GeneratedParser {
 /// returning the grammar name and the `parser.c` text.
 pub fn generate_parser_for_grammar(
   grammar_json : String,
-  semantic_version : (Int, Int, Int)?,
+  semantic_version : (Int32, Int32, Int32)?,
   optimizations : OptLevel,
   diagnostics : Array[Diagnostic],
 ) -> (String, String) raise {
@@ -108,8 +108,8 @@ pub fn generate_node_types_for_input_grammar(
 /// `Language` from the same tables as the C code.
 pub fn generate_parser_for_grammar_with_opts(
   input_grammar : InputGrammar,
-  abi_version : Int,
-  semantic_version : (Int, Int, Int)?,
+  abi_version : Int32,
+  semantic_version : (Int32, Int32, Int32)?,
   report_symbol_name : String?,
   optimizations : OptLevel,
   diagnostics : Array[Diagnostic],
@@ -148,18 +148,18 @@ pub fn generate_parser_for_grammar_with_opts(
   ).generate()
   let c_code = rendered.print_c()
   let language = rendered.to_language()
-  { c_code, node_types_json: output.node_types_json, language }
+  { c_code, node_types_json: output.node_types_json, language, }
 }
 
 ///|
 /// Generate everything from `grammar.json` text at the current ABI.
 pub fn generate_from_grammar_json(
   grammar_json : String,
-  semantic_version? : (Int, Int, Int),
-  abi_version? : Int = language_version,
+  semantic_version? : (Int32, Int32, Int32),
+  abi_version~ : Int32 = language_version,
   report_symbol_name? : String,
-  optimizations? : OptLevel = default_opt_level,
-  diagnostics? : Array[Diagnostic] = [],
+  optimizations~ : OptLevel = default_opt_level,
+  diagnostics~ : Array[Diagnostic] = [],
 ) -> GeneratedParser raise {
   let input_grammar = parse_grammar(grammar_json, diagnostics)
   generate_parser_for_grammar_with_opts(

@@ -8,7 +8,7 @@ fn tree_sitter_json(text : String) -> String {
   } noraise {
     config =>
       config.grammars
-      .map(g => "\{g.name}:\{g.scope}:\{to_repr(g.highlights)}")
+      .map(g => "\{g.name}:\{g.scope}:\{Repr(g.highlights)}")
       .join(",")
   }
 }

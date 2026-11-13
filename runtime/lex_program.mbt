@@ -180,55 +180,56 @@ pub fn run_lex_program(
 priv struct CompiledLexProgram {
   /// Indexed by state: whether `ACCEPT_TOKEN` is emitted, and its symbol.
   has_accept : FixedArray[Bool]
-  accept : FixedArray[Int]
+  accept : FixedArray[Int32]
   /// Indexed by state: whether `if (eof) ADVANCE(s)` is emitted, and `s`.
   has_eof_advance : FixedArray[Bool]
-  eof_advance : FixedArray[Int]
+  eof_advance : FixedArray[Int32]
   /// `advance_map` pairs of state `s` are
   /// `map[2 * map_start[s]:2 * map_start[s + 1]]`, as `(char, state)`.
-  map_start : FixedArray[Int]
-  map : FixedArray[Int]
+  map_start : FixedArray[Int32]
+  map : FixedArray[Int32]
   /// Transitions of state `s` are `trans_start[s]..<trans_start[s + 1]`;
   /// each takes `transition_width` ints of `trans`: the next state, skip
   /// (0/1), the large set index (-1: none), whether the large set test is
   /// guarded by `!eof` (0/1), and the asserted and negated range condition
   /// indices (-1: none).
-  trans_start : FixedArray[Int]
-  trans : FixedArray[Int]
+  trans_start : FixedArray[Int32]
+  trans : FixedArray[Int32]
   /// Ranges of range condition `c` are
   /// `rc_ranges[2 * rc_start[c]:2 * rc_start[c + 1]]`, as `(start, end)`.
-  rc_start : FixedArray[Int]
+  rc_start : FixedArray[Int32]
   rc_included : FixedArray[Bool]
-  rc_ranges : FixedArray[Int]
+  rc_ranges : FixedArray[Int32]
   /// Ranges of large character set `i` are
   /// `set_ranges[2 * set_start[i]:2 * set_start[i + 1]]`.
-  set_start : FixedArray[Int]
-  set_ranges : FixedArray[Int]
+  set_start : FixedArray[Int32]
+  set_ranges : FixedArray[Int32]
   /// The outcome of `ADVANCE_MAP` and the transitions of state `s` for an
   /// ASCII `lookahead` `c` when not at EOF, at `ascii[s * 128 + c]`:
   /// `2 * next_state + skip`, `ascii_end` for `END_STATE()`, or
   /// `ascii_unknown` until the state is first entered. The conditions have
   /// no side effects, so this caches exactly what evaluating them yields.
-  ascii : FixedArray[Int]
+  ascii : FixedArray[Int32]
 }
 
 ///|
-let ascii_unknown : Int = -1
+let ascii_unknown : Int32 = -1
 
 ///|
-let ascii_end : Int = -2
+let ascii_end : Int32 = -2
 
 ///|
-let transition_width : Int = 6
+let transition_width : Int32 = 6
 
 ///|
+
 ///|
 /// Whether `compile` can represent `program`: every target state is
 /// non-negative and below 2^29 (so that `ascii` can encode it), and every
 /// large character set index is valid. Tables produced by the generator
 /// always qualify; others are run by `run_lex_program`.
 fn compilable(program : @language.LexProgram) -> Bool {
-  let valid_state = (state : Int) => state >= 0 && state < 0x20000000
+  let valid_state = (state : Int32) => state >= 0 && state < 0x20000000
   for code in program.states {
     if code.eof_advance is Some(next) && !valid_state(next) {
       return false
@@ -265,12 +266,12 @@ fn CompiledLexProgram::compile(
   let has_eof_advance = FixedArray::make(n, false)
   let eof_advance = FixedArray::make(n, 0)
   let map_start = FixedArray::make(n + 1, 0)
-  let map : Array[Int] = []
+  let map : Array[Int32] = []
   let trans_start = FixedArray::make(n + 1, 0)
-  let trans : Array[Int] = []
-  let rc_start : Array[Int] = [0]
+  let trans : Array[Int32] = []
+  let rc_start : Array[Int32] = [0]
   let rc_included : Array[Bool] = []
-  let rc_ranges : Array[Int] = []
+  let rc_ranges : Array[Int32] = []
   let add_range_condition = (condition : @language.RangeCondition?) => {
     match condition {
       Some(condition) => {
@@ -320,8 +321,8 @@ fn CompiledLexProgram::compile(
   }
   map_start[n] = map.length() / 2
   trans_start[n] = trans.length() / transition_width
-  let set_start : Array[Int] = [0]
-  let set_ranges : Array[Int] = []
+  let set_start : Array[Int32] = [0]
+  let set_ranges : Array[Int32] = []
   for set in program.large_character_sets {
     for range in set {
       set_ranges.push(range.start)
@@ -352,10 +353,10 @@ fn CompiledLexProgram::compile(
 /// encoded in `ascii`.
 fn CompiledLexProgram::advance_outcome(
   self : CompiledLexProgram,
-  state : Int,
+  state : Int32,
   lookahead : Int32,
   eof : Bool,
-) -> Int {
+) -> Int32 {
   let map = self.map
   for k in self.map_start[state]..<self.map_start[state + 1] {
     if map[2 * k] == lookahead {
@@ -376,7 +377,7 @@ fn CompiledLexProgram::advance_outcome(
 /// Fill the `ascii` row of `state`.
 fn CompiledLexProgram::fill_ascii(
   self : CompiledLexProgram,
-  state : Int,
+  state : Int32,
 ) -> Unit {
   for c in 0..<128 {
     self.ascii[state * 128 + c] = self.advance_outcome(state, c, false)
@@ -387,7 +388,7 @@ fn CompiledLexProgram::fill_ascii(
 /// `set_contains` over large character set `set`.
 fn CompiledLexProgram::set_contains(
   self : CompiledLexProgram,
-  set : Int,
+  set : Int32,
   lookahead : Int32,
 ) -> Bool {
   let ranges = self.set_ranges
@@ -416,7 +417,7 @@ fn CompiledLexProgram::set_contains(
 /// `range_condition` for range condition `c`.
 fn CompiledLexProgram::range_condition(
   self : CompiledLexProgram,
-  c : Int,
+  c : Int32,
   lookahead : Int32,
   eof : Bool,
 ) -> Bool {
@@ -466,7 +467,7 @@ fn CompiledLexProgram::range_condition(
 /// `lex_condition` for the transition starting at `trans[t]`.
 fn CompiledLexProgram::lex_condition(
   self : CompiledLexProgram,
-  t : Int,
+  t : Int32,
   lookahead : Int32,
   eof : Bool,
 ) -> Bool {

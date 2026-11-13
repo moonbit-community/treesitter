@@ -46,7 +46,7 @@ fn field(json : Json, name : String) -> Json raise LoadError {
 
 ///|
 fn str_id(json : Json) -> @generate.StrId raise LoadError {
-  @generate.StrId(as_int(json))
+  StrId(as_int(json))
 }
 
 ///|
@@ -113,7 +113,7 @@ pub fn load_inputs(text : String) -> BuildTablesInputs raise {
     let precedence : @generate.Precedence = match as_int(a[2]) {
       0 => NoPrecedence
       1 => Integer(prec_value)
-      _ => Name(@generate.StrId(prec_value))
+      _ => Name(StrId(prec_value))
     }
     let associativity : @generate.Associativity? = match as_int(a[4]) {
       0 => None
@@ -124,7 +124,7 @@ pub fn load_inputs(text : String) -> BuildTablesInputs raise {
     let step_alias : @generate.Alias? = if alias_value == 0 {
       None
     } else {
-      Some({ value: @generate.StrId(alias_value), is_named: as_int(a[6]) != 0, })
+      Some({ value: StrId(alias_value), is_named: as_int(a[6]) != 0, })
     }
     let field_value = as_int(a[7])
     let field = if field_value == 0 {
@@ -166,9 +166,9 @@ pub fn load_inputs(text : String) -> BuildTablesInputs raise {
         let a = as_array(entry)
         let id = str_id(a[1])
         if as_int(a[0]) == 0 {
-          @generate.PrecedenceEntry::Name(id)
+          Name(id)
         } else {
-          @generate.PrecedenceEntry::Symbol(id)
+          Symbol(id)
         }
       })
     }),
@@ -197,18 +197,14 @@ pub fn load_inputs(text : String) -> BuildTablesInputs raise {
         let a = as_array(s)
         match as_int(a[0]) {
           0 =>
-            @generate.NfaState::Advance(
+            Advance(
               chars=char_set(a[1]),
               state_id=as_int(a[2]),
               is_sep=as_int(a[3]) != 0,
               precedence=as_int(a[4]),
             )
-          1 => @generate.NfaState::Split(as_int(a[1]), as_int(a[2]))
-          _ =>
-            @generate.NfaState::Accept(
-              variable_index=as_int(a[1]),
-              precedence=as_int(a[2]),
-            )
+          1 => Split(as_int(a[1]), as_int(a[2]))
+          _ => Accept(variable_index=as_int(a[1]), precedence=as_int(a[2]))
         }
       }),
     },
@@ -227,7 +223,7 @@ pub fn load_inputs(text : String) -> BuildTablesInputs raise {
     let a = as_array(entry)
     inlines.map[(as_int(a[0]), as_int(a[1]))] = as_array(a[2]).map(as_int)
   }
-  let simple_aliases : @generate.AliasMap = @sorted_map.SortedMap([])
+  let simple_aliases : @generate.AliasMap = SortedMap([])
   for entry in as_array(field(json, "aliases")) {
     let a = as_array(entry)
     simple_aliases[symbol(a[0])] = {

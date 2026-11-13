@@ -43,8 +43,8 @@ async fn main {
           println("  differs: \{key}")
         }
       }
-      println("  expected: \{expected.stringify().view(end_offset=600)}")
-      println("  actual:   \{actual.stringify().view(end_offset=600)}")
+      println("  expected: \{expected.stringify().clamped_view(end=600)}")
+      println("  actual:   \{actual.stringify().clamped_view(end=600)}")
     }
     if ref_dir is Some(ref_dir) {
       let ref_path = "\{ref_dir}/\{base}/src/node-types.json"

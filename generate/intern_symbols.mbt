@@ -1,13 +1,14 @@
 // Port of tree-sitter crates/generate/src/prepare_grammar/intern_symbols.rs.
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror InternSymbolsError {
   HiddenStartRule
   Undefined(String)
   UndefinedSupertype(String)
   UndefinedConflict(String)
   UndefinedWordToken(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for InternSymbolsError with fn output(self, logger) {
@@ -40,7 +41,7 @@ priv struct InternedGrammarMeta {
   conflicts : Array[Array[Symbol]]
   inline : Array[Symbol]
   word : Symbol?
-} derive(Debug)
+}
 
 ///|
 fn intern_symbols(

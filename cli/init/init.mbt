@@ -7,9 +7,10 @@
 ///|
 /// An `anyhow::Error` raised by `generate_grammar_files` or `run_init`: the
 /// message and its causes, outermost first (as `cli`'s `CliError`).
+#derive(Debug)
 pub(all) suberror InitError {
   InitError(Array[String])
-} derive(Debug)
+}
 
 ///|
 pub impl Show for InitError with fn output(self, logger) {
@@ -172,6 +173,7 @@ const RUST_BINDING_VERSION_PLACEHOLDER : String = "RUST_BINDING_VERSION"
 pub let tree_sitter_json_schema : String = "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json"
 
 ///|
+#derive(Debug)
 pub(all) struct JsonConfigOpts {
   mut name : String
   mut camelcase : String
@@ -188,7 +190,7 @@ pub(all) struct JsonConfigOpts {
   mut url : String?
   mut namespace : String?
   mut bindings : @loader.Bindings
-} derive(Debug)
+}
 
 ///|
 /// `Serialize for JsonConfigOpts` (field order and `skip_serializing_if`
@@ -344,7 +346,7 @@ fn parse_tree_sitter_json(
   text : String,
 ) -> @loader.TreeSitterJSON raise InitError {
   @loader.TreeSitterJSON::parse(text) catch {
-    @loader.JsonError(e) => raise anyhow(e)
+    JsonError(e) => raise anyhow(e)
   }
 }
 
@@ -495,7 +497,7 @@ async fn generate_common_files(ctx : InitContext, opts : GenerateOpts) -> Unit {
       join(ctx.repo_path, ".gitignore"),
       ctx.allow_update,
       path => generate_file(path, gitignore_template, ctx.language_name, opts),
-      update_gitignore,
+      path => update_gitignore(path),
     ),
   )
 
@@ -1124,7 +1126,7 @@ async fn update_grammar_js(path : String) -> Unit {
 }
 
 ///|
-async fn update_gitignore(path : String) -> Unit {
+fn update_gitignore(path : String) -> Unit raise {
   // NOTE: this modifies `contents` but never calls `write_file` (pre-existing bug)
   let contents = read_file(path)
   if !contents.contains("Zig artifacts") {
@@ -1647,14 +1649,17 @@ pub async fn get_root_path(path : String) -> String {
             found
           })
         }) catch {
-          e => raise with_context(Show::to_string(e), "Failed to parse \{filename}")
+          e =>
+            raise with_context(
+              Show::to_string(e),
+              "Failed to parse \{filename}",
+            )
         }
         Some(has_tree_sitter)
       } else {
         ignore(
           @loader.TreeSitterJSON::parse(contents) catch {
-            @loader.JsonError(e) =>
-              raise with_context(e, "Failed to parse \{filename}")
+            JsonError(e) => raise with_context(e, "Failed to parse \{filename}")
           },
         )
         Some(true)
@@ -1938,12 +1943,12 @@ fn remove_block(
   skip : Int32,
 ) -> String {
   guard replacement.find(block) is Some(start_idx) else { return replacement }
-  guard replacement.view(start_offset=start_idx).find(end) is Some(i) else {
+  guard replacement.clamped_view(start=start_idx).find(end) is Some(i) else {
     return replacement
   }
   let end_idx = i + start_idx + skip
-  replacement.view(end_offset=start_idx).to_owned() +
-  replacement.view(start_offset=end_idx).to_owned()
+  replacement.clamped_view(end=start_idx).to_owned() +
+  replacement.clamped_view(start=end_idx).to_owned()
 }
 
 ///|
