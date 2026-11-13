@@ -40,7 +40,7 @@ pub fn generate_error_json(e : Error) -> Json? {
       )
     ValidatePrecedenceError::ConflictingPrecedenceOrderingError(
       precedence_1~,
-      precedence_2~,
+      precedence_2~
     ) =>
       Some(
         prepare(

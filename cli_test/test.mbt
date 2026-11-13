@@ -74,7 +74,7 @@ pub(all) enum TestEntry {
     has_fields~ : Bool,
     attributes_str~ : String,
     attributes~ : TestAttributes,
-    file_name~ : String?,
+    file_name~ : String?
   )
 }
 

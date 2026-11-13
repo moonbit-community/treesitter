@@ -39,7 +39,7 @@ pub(all) enum ParseActionEntry {
     symbol~ : Int32,
     child_count~ : Int32,
     dynamic_precedence~ : Int32,
-    production_id~ : Int32,
+    production_id~ : Int32
   )
   Accept
   Recover
