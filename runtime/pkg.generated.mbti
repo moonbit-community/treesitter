@@ -114,6 +114,7 @@ pub(all) struct Input {
   decode : ((BytesView) -> (UInt32, Int32))?
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) struct InputEdit {
   start_byte : UInt32
   old_end_byte : UInt32
@@ -121,19 +122,21 @@ pub(all) struct InputEdit {
   start_point : Point
   old_end_point : Point
   new_end_point : Point
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum InputEncoding {
   UTF8
   UTF16LE
   UTF16BE
   Custom
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, Hash, @debug.Debug)
 pub(all) struct Length {
   bytes : UInt32
   extent : Point
-} derive(Eq, Hash, @debug.Debug)
+}
 
 pub(all) struct Lexer {
   mut lookahead : Int32
@@ -160,10 +163,11 @@ pub fn Lexer::start(Self) -> Unit
 pub fn Lexer::token_end_position(Self) -> Length
 pub fn Lexer::token_start_position(Self) -> Length
 
+#derive(Eq, @debug.Debug)
 pub(all) enum LogType {
   Parse
   Lex
-} derive(Eq, @debug.Debug)
+}
 
 pub struct Node {
   // private fields
@@ -222,10 +226,11 @@ pub(all) struct ParseOptions {
   progress_callback : ((ParseState) -> Bool)?
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ParseState {
   current_byte_offset : UInt32
   has_error : Bool
-} derive(Eq, @debug.Debug)
+}
 
 pub struct Parser {
   // private fields
@@ -245,17 +250,19 @@ pub fn Parser::set_included_ranges(Self, Array[Range]) -> Bool
 pub fn Parser::set_language(Self, @language.Language?, scanner? : () -> ExternalScanner) -> Bool
 pub fn Parser::set_logger(Self, ((LogType, String) -> Unit)?) -> Unit
 
+#derive(Eq, Hash, @debug.Debug)
 pub(all) struct Point {
   row : UInt32
   column : UInt32
-} derive(Eq, Hash, @debug.Debug)
+}
 
+#derive(Eq, Hash, @debug.Debug)
 pub(all) struct Range {
   start_point : Point
   end_point : Point
   start_byte : UInt32
   end_byte : UInt32
-} derive(Eq, Hash, @debug.Debug)
+}
 pub fn Range::edit(Self, InputEdit) -> Self
 
 pub struct Stack {
@@ -299,11 +306,12 @@ pub(all) struct StackSlice {
   version : Int32
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) struct StackSummaryEntry {
   position : Length
   depth : Int32
   state : Int32
-} derive(Eq, @debug.Debug)
+}
 
 #alias(MutableSubtree)
 pub(all) struct Subtree {
@@ -405,9 +413,10 @@ pub(all) struct SubtreeHeapData {
   address : Int32
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) struct SubtreeInlineData {
   bits : UInt64
-} derive(Eq, @debug.Debug)
+}
 pub fn SubtreeInlineData::depends_on_column(Self) -> Bool
 pub fn SubtreeInlineData::extra(Self) -> Bool
 pub fn SubtreeInlineData::has_changes(Self) -> Bool
@@ -487,11 +496,12 @@ pub(all) struct TreeCursorEntry {
   descendant_index : UInt32
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) enum TreeCursorStep {
   StepNone
   StepHidden
   StepVisible
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 pub type DecodeFunction = (BytesView) -> (UInt32, Int32)

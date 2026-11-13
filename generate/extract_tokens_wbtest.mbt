@@ -278,7 +278,7 @@ test "non_terminal word token error text" {
     conflicting_symbol_name: Some("b"),
   })
   inspect(
-    err.to_string(),
+    Show::to_string(err),
     content=(
       #|Non-terminal symbol 'a' cannot be used as the word token, because its rule is duplicated in 'b'
       #|
@@ -289,7 +289,7 @@ test "non_terminal word token error text" {
     conflicting_symbol_name: None,
   })
   inspect(
-    err.to_string(),
+    Show::to_string(err),
     content=(
       #|Non-terminal symbol 'a' cannot be used as the word token
       #|

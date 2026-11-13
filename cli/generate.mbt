@@ -73,7 +73,7 @@ fn parse_version_error(e : @loader.ParseVersionError) -> GenerateError {
     JSONError(s) => variant("JSON", Json::string(s))
     IOError(e, path) => variant("IO", io_error_json(e, Some(path)))
   }
-  GenerateError(json=variant("ParseVersion", payload), message=e.to_string())
+  GenerateError(json=variant("ParseVersion", payload), message=Show::to_string(e))
 }
 
 ///|
@@ -243,7 +243,7 @@ pub async fn generate_parser_in_directory(
   )
   write_file(
     @support.path_join(src_path, "language.json"),
-    generated.language.to_json().stringify(),
+    ToJson::to_json(generated.language).stringify(),
   )
   @support.create_dir_all(header_path) catch {
     e => raise io_error(e, Some(header_path))

@@ -276,7 +276,7 @@ fn ItemContent::step_cmp(
   a : ProductionStep,
   b : ProductionStep,
 ) -> Int32 {
-  let c = a.symbol.compare(b.symbol)
+  let c = Compare::compare(a.symbol, b.symbol)
   if c != 0 {
     return c
   }
@@ -306,7 +306,7 @@ fn assoc_cmp(a : Associativity?, b : Associativity?) -> Int32 {
     (None, None) => 0
     (None, Some(_)) => -1
     (Some(_), None) => 1
-    (Some(x), Some(y)) => x.compare(y)
+    (Some(x), Some(y)) => Compare::compare(x, y)
   }
 }
 

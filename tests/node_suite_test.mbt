@@ -217,10 +217,10 @@ async test "parent_of_zero_width_node" {
   let function_definition = root.child(0).unwrap()
   let block = function_definition.child(4).unwrap()
   let block_parent = block.parent().unwrap()
-  assert_eq(block.to_string(), "(block)")
+  assert_eq(Show::to_string(block), "(block)")
   assert_eq(block_parent.kind(), "function_definition")
   assert_eq(
-    block_parent.to_string(),
+    Show::to_string(block_parent),
     "(function_definition name: (identifier) parameters: (parameters (identifier)) body: (block))",
   )
   assert_eq(root.child_with_descendant(block).unwrap(), function_definition)

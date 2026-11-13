@@ -98,7 +98,7 @@ async test "test_iteration_errors" {
     content="Permission denied (os error 13)",
   )
   inspect(
-    err.to_string().replace(old=dir, new="<tmp>"),
+    Show::to_string(err).replace(old=dir, new="<tmp>"),
     content="attempting to read `<tmp>/root` resulted in an error: Permission denied (os error 13)",
   )
 }
@@ -399,7 +399,7 @@ async fn glob_in(dir : String, pattern : String) -> String {
   while paths.next() is Some(r) {
     match r {
       Ok(p) => out.push(p.replace(old=dir + "/", new=""))
-      Err(e) => out.push("ERR " + e.to_string().replace(old=dir + "/", new=""))
+      Err(e) => out.push("ERR " + Show::to_string(e).replace(old=dir + "/", new=""))
     }
   }
   out.join(" ")

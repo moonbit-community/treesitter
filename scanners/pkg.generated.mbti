@@ -14,11 +14,12 @@ pub fn yaml_scanner_with_schema(YamlSchema) -> () -> @runtime.ExternalScanner
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum YamlSchema {
   Core
   Json
   Legacy
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

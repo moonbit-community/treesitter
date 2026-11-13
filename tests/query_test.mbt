@@ -204,7 +204,7 @@ async test "query predicate validation errors" {
     let e = query_error(language, "\n(identifier) @a\n((identifier) @id \{s})")
     assert_eq(e.kind(), Predicate)
     assert_eq((e.row(), e.column(), e.offset()), (2, 0, 0))
-    e.to_string()
+    Show::to_string(e)
   }
   inspect(
     predicate("(#eq? @id)"),

@@ -114,7 +114,7 @@ pub async fn Config::load(path : String?) -> Config {
     e => raise IO(@support.io_error_with_path(e, Some(location)))
   }
   let config = @support.from_str(content) catch {
-    e => raise ConfigRead(location, e.to_string())
+    e => raise ConfigRead(location, Show::to_string(e))
   }
   { location, config, }
 }

@@ -196,7 +196,7 @@ async fn main {
       }
       @fs.write_file(out + "/parser.c", generated.c_code, create_mode=CreateOrTruncate)
       @fs.write_file(out + "/node-types.json", generated.node_types_json, create_mode=CreateOrTruncate)
-      @fs.write_file(out + "/language.json", generated.language.to_json().stringify(), create_mode=CreateOrTruncate)
+      @fs.write_file(out + "/language.json", ToJson::to_json(generated.language).stringify(), create_mode=CreateOrTruncate)
       for d in diagnostics {
         println("warning: \{d}")
       }

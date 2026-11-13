@@ -2,7 +2,7 @@
 /// The `Display` text of the error for `pattern`.
 fn error_text(pattern : String) -> String raise {
   try @regex.Regex::new(pattern) catch {
-    e => e.to_string()
+    e => Show::to_string(e)
   } noraise {
     _ => fail("expected \{pattern} to be rejected")
   }

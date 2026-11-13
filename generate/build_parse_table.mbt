@@ -555,7 +555,7 @@ pub impl Show for ConflictError with fn output(self, f) {
   f.write_string("  •  \{self.conflicting_lookahead}  …\n\n")
   f.write_string("Possible interpretations:\n\n")
   let interpretations = self.possible_interpretations.map(i => {
-    let line = i.to_string()
+    let line = Show::to_string(i)
     let annotations = []
     match (i.precedence, i.associativity) {
       (Some(precedence), Some(associativity)) =>

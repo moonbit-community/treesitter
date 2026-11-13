@@ -24,7 +24,7 @@ fn load(
     return language
   }
   let raw = @language.Language::from_compact_base64(tables) catch {
-    e => abort(e.to_string())
+    e => abort(Show::to_string(e))
   }
   let language = @treesitter.Language::new(raw)
   cache.val = Some(language)

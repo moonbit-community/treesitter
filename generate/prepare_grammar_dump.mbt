@@ -204,7 +204,7 @@ pub fn dump_grammar_json(json : String) -> String {
   }
   o.write_string("diagnostics:\n")
   for d in diagnostics {
-    o.write_string("  \{dump_esc(d.to_string())}\n")
+    o.write_string("  \{dump_esc(Show::to_string(d))}\n")
   }
   match result {
     Err(e) => o.write_string("error: \{dump_esc(e)}\n")

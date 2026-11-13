@@ -4,7 +4,7 @@
 ///|
 fn value_error(input : String) -> String {
   try @serde_json.from_str(input, de => de.deserialize_value()) catch {
-    e => e.to_string()
+    e => Show::to_string(e)
   } noraise {
     _ => "ok"
   }

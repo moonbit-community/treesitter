@@ -20,7 +20,7 @@ fn class_ranges(hir : @hir.Hir) -> Array[(Int32, Int32)] {
 ///|
 fn pattern_error(pattern : String) -> String {
   try pattern_parse(pattern, false) |> ignore catch {
-    e => e.to_string()
+    e => Show::to_string(e)
   } noraise {
     _ => "no error"
   }

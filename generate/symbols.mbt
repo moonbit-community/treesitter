@@ -359,19 +359,19 @@ pub impl Eq for TokenSet with equal(self, other) {
 
 ///|
 pub impl Hash for TokenSet with hash_combine(self, hasher) {
-  self.terminal_bits.hash_combine(hasher)
-  self.external_bits.hash_combine(hasher)
+  Hash::hash_combine(self.terminal_bits, hasher)
+  Hash::hash_combine(self.external_bits, hasher)
   hasher.combine_bool(self.eof)
   hasher.combine_bool(self.end_of_nonterminal_extra)
 }
 
 ///|
 pub impl Compare for TokenSet with compare(self, other) {
-  let c = self.terminal_bits.compare(other.terminal_bits)
+  let c = Compare::compare(self.terminal_bits, other.terminal_bits)
   if c != 0 {
     return c
   }
-  let c = self.external_bits.compare(other.external_bits)
+  let c = Compare::compare(self.external_bits, other.external_bits)
   if c != 0 {
     return c
   }

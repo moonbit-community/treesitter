@@ -11,7 +11,7 @@ license = "MIT"
 description = "An experimental pure MoonBit port of Tree-sitter, with mbtx grammar definitions."
 
 import {
-  "moonbitlang/async@0.20.2",
+  "moonbitlang/async@0.22.9",
 }
 
 options(

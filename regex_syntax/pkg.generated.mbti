@@ -10,10 +10,11 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror SyntaxError {
   Parse(@ast.AstError)
   Translate(@hir.HirError)
-} derive(Eq, @debug.Debug)
+}
 pub fn SyntaxError::from_ast(@ast.AstError) -> Self
 pub fn SyntaxError::from_hir(@hir.HirError) -> Self
 

@@ -314,6 +314,6 @@ test "Language is a hash key consistent with equality" {
   assert_eq(map.get(other), Some(2))
   assert_eq(map.length(), 2)
   let copy = @treesitter.Language::new(language.raw())
-  assert_eq(copy.hash(), language.hash())
+  assert_eq(Hash::hash(copy), Hash::hash(language))
   assert_eq(map.get(copy), Some(1))
 }

@@ -4,7 +4,7 @@
 ///|
 fn version_result(contents : String) -> String {
   try tree_sitter_json_version(contents) catch {
-    e => e.to_string()
+    e => Show::to_string(e)
   } noraise {
     _ => "OK"
   }

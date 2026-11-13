@@ -11,21 +11,24 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror TagsError {
   Query(@treesitter.QueryError)
   Regex(@regex.RegexError)
   Cancelled
   InvalidLanguage(@treesitter.LanguageError)
   InvalidCapture(String)
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for TagsError
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct NamedCapture {
   syntax_type_id : Int32
   is_definition : Bool
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Tag {
   range : (Int32, Int32)
   name_range : (Int32, Int32)
@@ -35,7 +38,7 @@ pub(all) struct Tag {
   docs : String?
   is_definition : Bool
   syntax_type_id : Int32
-} derive(Eq, @debug.Debug)
+}
 
 pub struct TagsConfiguration {
   language : @treesitter.Language

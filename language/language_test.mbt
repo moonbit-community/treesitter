@@ -105,13 +105,13 @@ fn sample_language() -> @language.Language {
 ///|
 test "Language round-trips through JSON" {
   let language = sample_language()
-  let text = language.to_json().stringify()
+  let text = ToJson::to_json(language).stringify()
   let decoded : @language.Language = @json.from_json(@json.parse(text))
   assert_eq(decoded, language)
   // Without a keyword lexer.
   let language = { ..language, keyword_lex_fn: None, keyword_capture_token: 0, }
   let decoded : @language.Language = @json.from_json(
-    @json.parse(language.to_json().stringify()),
+    @json.parse(ToJson::to_json(language).stringify()),
   )
   assert_eq(decoded, language)
 }

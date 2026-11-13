@@ -359,7 +359,7 @@ async fn Version::update_treesitter_json(
   self : Version,
 ) -> Result[Unit, UpdateError] {
   let json_path = @support.path_join(self.current_dir, "tree-sitter.json")
-  let version = self.version.unwrap().to_string()
+  let version = Show::to_string(self.version.unwrap())
   update_file_with(json_path, content => {
     map_lines(content, line => {
       if line.contains("\"version\":") {
@@ -379,7 +379,7 @@ async fn Version::update_cargo_toml(
   if !path_exists(cargo_toml_path) {
     return Ok(())
   }
-  let version = self.version.unwrap().to_string()
+  let version = Show::to_string(self.version.unwrap())
   update_file_with(cargo_toml_path, content => {
     map_lines(content, line => {
       if line.has_prefix("version =") {
@@ -421,7 +421,7 @@ async fn Version::update_package_json(
   if !path_exists(package_json_path) {
     return Ok(())
   }
-  let version = self.version.unwrap().to_string()
+  let version = Show::to_string(self.version.unwrap())
   update_file_with(package_json_path, content => {
     map_lines(content, line => {
       if line.contains("\"version\":") {
@@ -471,7 +471,7 @@ async fn Version::update_makefile(
   if !path_exists(makefile_path) {
     return Ok(())
   }
-  let version = self.version.unwrap().to_string()
+  let version = Show::to_string(self.version.unwrap())
   update_file_with(makefile_path, content => {
     map_lines(content, line => {
       if line.has_prefix("VERSION") {
@@ -491,7 +491,7 @@ async fn Version::update_cmakelists_txt(
   if !path_exists(cmake_lists_path) {
     return Ok(())
   }
-  let version = self.version.unwrap().to_string()
+  let version = Show::to_string(self.version.unwrap())
   update_file_with(cmake_lists_path, content => {
     replace_cmake_version(content, version)
   })
@@ -578,7 +578,7 @@ async fn Version::update_pyproject_toml(
   if !path_exists(pyproject_toml_path) {
     return Ok(())
   }
-  let version = self.version.unwrap().to_string()
+  let version = Show::to_string(self.version.unwrap())
   update_file_with(pyproject_toml_path, content => {
     map_lines(content, line => {
       if line.has_prefix("version =") {
@@ -596,7 +596,7 @@ async fn Version::update_zig_zon(self : Version) -> Result[Unit, UpdateError] {
   if !path_exists(zig_zon_path) {
     return Ok(())
   }
-  let version = self.version.unwrap().to_string()
+  let version = Show::to_string(self.version.unwrap())
   update_file_with(zig_zon_path, content => {
     let zig_version_prefix = ".version ="
     map_lines(content, line => {

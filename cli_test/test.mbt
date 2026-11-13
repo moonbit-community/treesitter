@@ -132,7 +132,7 @@ pub impl Show for DiffKey with fn output(_self, logger) {
 ///|
 /// Writes [`DiffKey`] to stdout
 pub fn DiffKey::print() -> Unit {
-  @support.print_out(DiffKey::{ }.to_string() + "\n")
+  @support.print_out(Show::to_string(DiffKey::{ }) + "\n")
 }
 
 ///|

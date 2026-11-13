@@ -457,7 +457,7 @@ fn compare_lex_states(a : LexState, b : LexState) -> Int32 {
     (None, None) => 0
     (None, Some(_)) => -1
     (Some(_), None) => 1
-    (Some(x), Some(y)) => x.compare(y)
+    (Some(x), Some(y)) => Compare::compare(x, y)
   }
   if c != 0 {
     return c
@@ -466,7 +466,7 @@ fn compare_lex_states(a : LexState, b : LexState) -> Int32 {
     (None, None) => 0
     (None, Some(_)) => -1
     (Some(_), None) => 1
-    (Some(x), Some(y)) => x.compare(y)
+    (Some(x), Some(y)) => Compare::compare(x, y)
   }
   if c != 0 {
     return c
@@ -479,11 +479,11 @@ fn compare_lex_states(a : LexState, b : LexState) -> Int32 {
   for i in 0..<n {
     let (ca, aa) = a.advance_actions[i]
     let (cb, ab) = b.advance_actions[i]
-    let c = ca.compare(cb)
+    let c = Compare::compare(ca, cb)
     if c != 0 {
       return c
     }
-    let c = aa.compare(ab)
+    let c = Compare::compare(aa, ab)
     if c != 0 {
       return c
     }

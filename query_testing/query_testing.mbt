@@ -113,8 +113,8 @@ pub impl Show for QueryTestError with fn output(self, logger) {
       )
       write_actual(logger, actual_tags)
     }
-    Highlight(e) => logger.write_string(e.to_string())
-    Tags(e) => logger.write_string(e.to_string())
+    Highlight(e) => logger.write_string(Show::to_string(e))
+    Tags(e) => logger.write_string(Show::to_string(e))
   }
 }
 
