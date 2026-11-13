@@ -73,7 +73,10 @@ fn parse_version_error(e : @loader.ParseVersionError) -> GenerateError {
     JSONError(s) => variant("JSON", Json::string(s))
     IOError(e, path) => variant("IO", io_error_json(e, Some(path)))
   }
-  GenerateError(json=variant("ParseVersion", payload), message=Show::to_string(e))
+  GenerateError(
+    json=variant("ParseVersion", payload),
+    message=Show::to_string(e),
+  )
 }
 
 ///|
@@ -94,8 +97,7 @@ async fn try_exists(path : String) -> Bool {
 ///|
 /// `Path::is_dir` (errors are `false`).
 async fn path_is_dir(path : String) -> Bool {
-  (@fs.kind(path, follow_symlink=true) catch { _ => @fs.FileKind::Unknown })
-  is Directory
+  (@fs.kind(path, follow_symlink=true) catch { _ => Unknown }) is Directory
 }
 
 ///|

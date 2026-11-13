@@ -5,13 +5,14 @@
 
 ///|
 /// A quantifier for captures.
+#derive(Eq, Debug)
 pub(all) enum CaptureQuantifier {
   Zero
   ZeroOrOne
   ZeroOrMore
   One
   OneOrMore
-} derive(Eq, Debug)
+}
 
 ///|
 fn CaptureQuantifier::from_ts(q : @query.Quantifier) -> CaptureQuantifier {
@@ -26,11 +27,12 @@ fn CaptureQuantifier::from_ts(q : @query.Quantifier) -> CaptureQuantifier {
 
 ///|
 /// A key-value pair associated with a particular pattern in a [`Query`].
+#derive(Eq)
 pub(all) struct QueryProperty {
   key : String
   value : String?
   capture_id : Int32?
-} derive(Eq)
+}
 
 ///|
 /// Rust's derived `Debug`: `QueryProperty { key: "k", value: Some("v"),
@@ -61,10 +63,11 @@ pub fn QueryProperty::new(
 
 ///|
 /// An argument of a [`QueryPredicate`]: a capture index or a string.
+#derive(Eq)
 pub(all) enum QueryPredicateArg {
   Capture(Int32)
   String(String)
-} derive(Eq)
+}
 
 ///|
 /// Rust's derived `Debug`: `Capture(0)` or `String("text")`.
@@ -83,10 +86,11 @@ fn QueryPredicateArg::debug_text(self : QueryPredicateArg) -> String {
 ///|
 /// A predicate with a user-defined operator associated with a particular
 /// pattern in a [`Query`].
+#derive(Eq)
 pub(all) struct QueryPredicate {
   operator : String
   args : Array[QueryPredicateArg]
-} derive(Eq)
+}
 
 ///|
 /// Rust's derived `Debug`: `QueryPredicate { operator: "op?", args:
@@ -100,6 +104,7 @@ pub impl Debug for QueryPredicate with fn to_repr(self) {
 
 ///|
 /// The kind of a [`QueryError`].
+#derive(Eq, Debug)
 pub(all) enum QueryErrorKind {
   Syntax
   NodeType
@@ -108,19 +113,20 @@ pub(all) enum QueryErrorKind {
   Predicate
   Structure
   Language
-} derive(Eq, Debug)
+}
 
 ///|
 /// An error that occurred when trying to create a [`Query`].
+#derive(Eq)
 pub(all) suberror QueryError {
   QueryError(
     row~ : Int32,
     column~ : Int32,
     offset~ : Int32,
     message~ : String,
-    kind~ : QueryErrorKind
+    kind~ : QueryErrorKind,
   )
-} derive(Eq)
+}
 
 ///|
 /// Rust's derived `Debug` of the `QueryError` struct: `QueryError { row: 0,
@@ -589,7 +595,7 @@ fn Query::from_raw_parts(
               if a.type_ is Capture {
                 QueryPredicateArg::Capture(a.value_id)
               } else {
-                QueryPredicateArg::String(string_values[a.value_id])
+                String(string_values[a.value_id])
               }
             })
             .to_array(),

@@ -3,11 +3,12 @@
 
 ///|
 /// An `anstyle::Color`.
+#derive(Eq, Debug)
 pub(all) enum Color {
   Ansi(Int32)
   Ansi256(Int32)
   Rgb(Int32, Int32, Int32)
-} derive(Eq, Debug)
+}
 
 ///|
 pub let black : Color = Ansi(0)
@@ -69,6 +70,7 @@ fn Color::render_fg(self : Color) -> String {
 
 ///|
 /// An `anstyle::Style` (the subset the CLI uses).
+#derive(Eq, Debug)
 pub(all) struct Style {
   fg : Color?
   bg : Color?
@@ -76,7 +78,7 @@ pub(all) struct Style {
   italic : Bool
   underline : Bool
   dimmed : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn Style::new() -> Style {

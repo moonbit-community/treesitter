@@ -12,7 +12,7 @@ fn pattern(s : String) -> @glob.Pattern {
 ///|
 fn pattern_err_pos(s : String) -> Int32 {
   try @glob.Pattern::new(s) catch {
-    @glob.PatternError(pos~, ..) => pos
+    PatternError(pos~, ..) => pos
   } noraise {
     _ => abort("Pattern::new(\{s}) succeeded")
   }
@@ -80,7 +80,11 @@ async test "test_iteration_errors" {
   let root = dir + "/root"
   @fs.mkdir(root)
   @fs.chmod(root, 0)
-  defer (@fs.chmod(root, 0o755) catch { _ => () })
+  defer @async.protect_from_cancel(() => {
+    @fs.chmod(root, 0o755) catch {
+      _ => ()
+    }
+  })
   if @fs.can_read(root) {
     // running as root: nothing to test
     return
@@ -399,7 +403,8 @@ async fn glob_in(dir : String, pattern : String) -> String {
   while paths.next() is Some(r) {
     match r {
       Ok(p) => out.push(p.replace(old=dir + "/", new=""))
-      Err(e) => out.push("ERR " + Show::to_string(e).replace(old=dir + "/", new=""))
+      Err(e) =>
+        out.push("ERR " + Show::to_string(e).replace(old=dir + "/", new=""))
     }
   }
   out.join(" ")
@@ -507,7 +512,11 @@ async test "glob unreadable directory" {
   let dir = make_tree()
   defer (@fs.rmdir(dir, recursive=true) catch { _ => () })
   @fs.chmod(dir + "/p/locked", 0)
-  defer (@fs.chmod(dir + "/p/locked", 0o755) catch { _ => () })
+  defer @async.protect_from_cancel(() => {
+    @fs.chmod(dir + "/p/locked", 0o755) catch {
+      _ => ()
+    }
+  })
   if @fs.can_read(dir + "/p/locked") {
     // running as root: nothing to test
     return

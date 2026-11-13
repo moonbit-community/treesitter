@@ -82,7 +82,7 @@ pub fn is_word_byte(c : Byte) -> Bool {
 
 ///|
 /// Whether `c` is in one of the sorted, disjoint inclusive `ranges`.
-fn ranges_contain(ranges : FixedArray[(Int, Int)], c : Char) -> Bool {
+fn ranges_contain(ranges : FixedArray[(Int32, Int32)], c : Char) -> Bool {
   let cp = c.to_int()
   let mut lo = 0
   let mut hi = ranges.length()

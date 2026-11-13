@@ -5,6 +5,7 @@
 
 ///|
 /// This error type encompasses any error that can be returned by this crate.
+#derive(Eq, Debug)
 pub(all) suberror SyntaxError {
   /// An error that occurred while translating concrete syntax into abstract
   /// syntax (AST).
@@ -12,7 +13,7 @@ pub(all) suberror SyntaxError {
   /// An error that occurred while translating abstract syntax into a high
   /// level intermediate representation (HIR).
   Translate(@hir.HirError)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Upstream `From<ast::Error> for Error`.

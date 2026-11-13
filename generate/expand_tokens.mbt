@@ -8,11 +8,12 @@ priv struct NfaBuilder {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ExpandTokensError {
   EmptyString(String)
   Processing(ExpandTokensProcessingError)
   ExpandRule(ExpandRuleError)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ExpandTokensError with fn output(self, f) {
@@ -32,10 +33,11 @@ pub impl Show for ExpandTokensError with fn output(self, f) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct ExpandTokensProcessingError {
   rule : String
   error : ExpandRuleError
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ExpandTokensProcessingError with fn output(self, f) {
@@ -162,13 +164,14 @@ fn build_separator(
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ExpandRuleError {
   UnexpectedSymbol(Symbol)
   UnexpectedReserved(String)
   UnexpectedEof
   Parse(RegexError)
   ExpandRegex(ExpandRegexError)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ExpandRuleError with fn output(self, f) {
@@ -201,11 +204,12 @@ fn symbol_type_debug(kind : SymbolType) -> String {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ExpandRegexError {
   Utf8(String)
   Assertion
   NonAsciiByteClass(NonAsciiByteClassError)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ExpandRegexError with fn output(self, f) {
@@ -217,10 +221,11 @@ pub impl Show for ExpandRegexError with fn output(self, f) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct NonAsciiByteClassError {
   start : Byte
   end : Byte
-} derive(Eq, Debug)
+}
 
 ///|
 fn hex2(b : Byte) -> String {

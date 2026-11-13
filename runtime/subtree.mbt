@@ -32,10 +32,11 @@ let ts_max_inline_tree_length : UInt32 = 255
 ///
 /// Callers keep values within these widths (`subtree_can_inline` and the
 /// `symbol <= 255` check), as upstream does.
+#derive(Eq, Debug)
 #valtype
 pub(all) struct SubtreeInlineData {
   bits : UInt64
-} derive(Eq, Debug)
+}
 
 ///|
 fn inline_flag(value : Bool, bit : Int32) -> UInt64 {

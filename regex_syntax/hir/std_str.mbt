@@ -48,9 +48,10 @@ pub fn len_utf8(cp : Int32) -> Int32 {
 
 ///|
 /// Rust `core::str::Utf8Error`.
+#derive(Eq, Debug)
 pub(all) suberror Utf8Error {
   Utf8Error(valid_up_to~ : Int32, error_len~ : Int32?)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Rust's `Display` for `Utf8Error`.

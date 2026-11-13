@@ -7,20 +7,22 @@
 pub type DecodeFunction = (BytesView) -> (UInt32, Int32)
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum InputEncoding {
   UTF8
   UTF16LE
   UTF16BE
   Custom
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Hash, Debug)
 pub(all) struct Range {
   start_point : Point
   end_point : Point
   start_byte : UInt32
   end_byte : UInt32
-} derive(Eq, Hash, Debug)
+}
 
 ///|
 /// `TSInput`. `read(byte_index, position)` returns the chunk of text starting
@@ -33,11 +35,12 @@ pub(all) struct Input {
 
 ///|
 /// `TSParseState`: what a progress callback can observe.
+#derive(Eq, Debug)
 #valtype
 pub(all) struct ParseState {
   current_byte_offset : UInt32
   has_error : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 /// `TSParseOptions`.
@@ -46,16 +49,18 @@ pub(all) struct ParseOptions {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum LogType {
   Parse
   Lex
-} derive(Eq, Debug)
+}
 
 ///|
 /// `TSLogger`.
 pub type Logger = (LogType, String) -> Unit
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct InputEdit {
   start_byte : UInt32
   old_end_byte : UInt32
@@ -63,4 +68,4 @@ pub(all) struct InputEdit {
   start_point : Point
   old_end_point : Point
   new_end_point : Point
-} derive(Eq, Debug)
+}

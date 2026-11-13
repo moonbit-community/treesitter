@@ -12,10 +12,10 @@ test "serde_json::Error display and custom positions" {
   )
   // `make_error` takes a trailing position out of a custom message.
   let e = @support.SerdeJsonError::custom("bad at line 3 column 14")
-  inspect((e.line(), e.column()), content="(3, 14)")
+  inspect(Repr((e.line(), e.column())), content="(3, 14)")
   inspect(e, content="bad at line 3 column 14")
   let e = @support.SerdeJsonError::custom("bad at line 3 column 14x")
-  inspect((e.line(), e.column()), content="(0, 0)")
+  inspect(Repr((e.line(), e.column())), content="(0, 0)")
   inspect(
     @support.SerdeJsonError::invalid_type(Float(1.0), "u8"),
     content="invalid type: floating point `1.0`, expected u8",
@@ -226,10 +226,10 @@ test "str::from_utf8 and u8::from_str_radix" {
     content="true",
   )
   let radix = (s : String) => @support.u8_from_str_radix(@support.utf8(s), 16)
-  inspect(radix("ff"), content="Some(255)")
-  inspect(radix("+f"), content="Some(15)")
-  inspect(radix("-1"), content="None")
-  inspect(radix("+"), content="None")
-  inspect(radix("g0"), content="None")
-  inspect(radix("é"), content="None")
+  debug_inspect(radix("ff"), content="Some(255)")
+  debug_inspect(radix("+f"), content="Some(15)")
+  debug_inspect(radix("-1"), content="None")
+  debug_inspect(radix("+"), content="None")
+  debug_inspect(radix("g0"), content="None")
+  debug_inspect(radix("é"), content="None")
 }

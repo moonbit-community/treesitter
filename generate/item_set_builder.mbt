@@ -11,13 +11,14 @@ priv struct TransitiveClosureAddition {
 
 ///|
 /// `FollowSetInfo` with an interned lookahead set and word-token membership precomputed.
+#derive(Eq, Hash)
 #valtype
 priv struct AdditionInfo {
   lookaheads : Int32
   reserved_lookaheads : Int32
   propagates_lookaheads : Bool
   contains_word : Bool
-} derive(Eq, Hash)
+}
 
 ///|
 /// the mutable accumulator for a non-terminal's follow set. `lookaheads` is a
@@ -70,11 +71,12 @@ fn push_unique(
 /// Everything that `ParseItem`'s `Eq` and `Ord` compare between items at their first step,
 /// which have nothing before their dot. The fields are in the order that `Ord`
 /// compares them, so the derived `Ord` orders keys the way it orders their items.
+#derive(Eq, Compare, Hash)
 priv struct FirstStepKey {
   variable_index : Int32
   /// `keys[0].cmp`.
   cmp : Int32
-} derive(Eq, Compare, Hash)
+}
 
 ///|
 fn FirstStepKey::new(item : ParseItem) -> FirstStepKey {
@@ -178,7 +180,10 @@ fn ClosureEntries::addition_entry(
 
 ///|
 /// The slot of `item`'s entry, from the closure's kernel, added if it's new.
-fn ClosureEntries::kernel_entry(self : ClosureEntries, item : ParseItem) -> Int32 {
+fn ClosureEntries::kernel_entry(
+  self : ClosureEntries,
+  item : ParseItem,
+) -> Int32 {
   // A kernel's items are past their first step, except for the start item.
   if item.step_index == 0 {
     let rank = self.ranks.rank(item)
@@ -207,7 +212,10 @@ fn ClosureEntries::first_step_entry(
 
 ///|
 /// The slot of `item`'s entry, which is past its first step, added if it's new.
-fn ClosureEntries::later_entry(self : ClosureEntries, item : ParseItem) -> Int32 {
+fn ClosureEntries::later_entry(
+  self : ClosureEntries,
+  item : ParseItem,
+) -> Int32 {
   let index = match self.later_indices.get(item) {
     Some(index) => index
     None => {
@@ -504,7 +512,7 @@ fn ParseItemSetBuilder::new(
     follow_set_info_by_non_terminal.clear()
     while stack.pop()
           is Some(
-            (sym_ix, lookaheads, reserved_word_set_id, propagates_lookaheads)
+            (sym_ix, lookaheads, reserved_word_set_id, propagates_lookaheads),
           ) {
       let mut did_add = false
       let info = follow_set_info_by_non_terminal.get_or_init(sym_ix, () => {

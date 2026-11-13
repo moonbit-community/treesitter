@@ -60,7 +60,7 @@ fn str(json : Json) -> String raise LoadError {
 
 ///|
 fn str_id(json : Json) -> @generate.StrId raise LoadError {
-  @generate.StrId(int(json))
+  StrId(int(json))
 }
 
 ///|
@@ -237,7 +237,7 @@ fn parse_table(json : Json) -> @generate.ParseTable raise LoadError {
         }),
       )
     }
-    @generate.ProductionInfo::{
+    {
       alias_sequence: arr(field(info, "alias_sequence")).map(opt_alias),
       field_map,
     }
@@ -265,16 +265,13 @@ fn load_render_input(text : String) -> RenderInput raise {
   let syntax_grammar : @generate.SyntaxGrammar = {
     variables: arr(field(syntax, "variables")).map(v => {
       let v = arr(v)
-      @generate.SyntaxVariable::{
-        name: str_id(v[0]),
-        kind: variable_type(v[1]),
-      }
+      { name: str_id(v[0]), kind: variable_type(v[1]), }
     }),
     extra_symbols: symbols(field(syntax, "extra_symbols")),
     expected_conflicts: [],
     external_tokens: arr(field(syntax, "external_tokens")).map(t => {
       let t = arr(t)
-      @generate.ExternalToken::{
+      {
         name: str_id(t[0]),
         kind: variable_type(t[1]),
         corresponding_internal_token: opt_symbol(t[2]),
@@ -303,7 +300,7 @@ fn load_render_input(text : String) -> RenderInput raise {
     nfa: @generate.Nfa::new(),
     variables: arr(field(field(json, "lexical"), "variables")).map(v => {
       let v = arr(v)
-      @generate.LexicalVariable::{
+      {
         name: str_id(v[0]),
         kind: variable_type(v[1]),
         implicit_precedence: int(v[2]),

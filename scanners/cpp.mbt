@@ -152,8 +152,7 @@ fn CppScanner::deserialize(self : CppScanner, buffer : BytesView) -> Unit {
   guard length % CPP_SIZEOF_WCHAR_T == 0 else {
     c_assert_fail(
       "length % sizeof(wchar_t) == 0 && \"Can't decode serialized delimiter!\"",
-      "tree_sitter_cpp_external_scanner_deserialize",
-      136,
+      "tree_sitter_cpp_external_scanner_deserialize", 136,
     )
   }
   // `uint8_t` truncation of `length / sizeof(wchar_t)`.

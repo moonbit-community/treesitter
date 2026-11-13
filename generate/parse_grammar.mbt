@@ -53,13 +53,14 @@ priv struct GrammarJSON {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ParseGrammarError {
   Serialization(String)
   InvalidExtra
   Unexpected
   InvalidReservedWordSet
   UnexpectedRule(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ParseGrammarError with fn output(self, logger) {
@@ -514,7 +515,7 @@ pub fn parse_grammar(
       ordering.push(
         match entry {
           STRING(value~) => PrecedenceEntry::Name(pool.intern(value))
-          SYMBOL(name~) => PrecedenceEntry::Symbol(pool.intern(name))
+          SYMBOL(name~) => Symbol(pool.intern(name))
           _ => raise Unexpected
         },
       )

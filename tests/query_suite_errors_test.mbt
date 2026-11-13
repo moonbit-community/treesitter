@@ -115,7 +115,7 @@ async test "query_errors_on_invalid_syntax" {
   )
   assert_eq(
     query_error(language, "(statement / export_statement)"),
-    @treesitter.QueryError(
+    QueryError(
       row=0,
       offset=11,
       column=11,
@@ -149,7 +149,7 @@ async test "query_errors_on_anchor_at_group_edge" {
   // anchor to.
   assert_eq(
     query_error(language, "((_) .)"),
-    @treesitter.QueryError(
+    QueryError(
       row=0,
       offset=5,
       column=5,
@@ -159,7 +159,7 @@ async test "query_errors_on_anchor_at_group_edge" {
   )
   assert_eq(
     query_error(language, "(program ((_)+ .)? (_))"),
-    @treesitter.QueryError(
+    QueryError(
       row=0,
       offset=15,
       column=15,
@@ -174,47 +174,23 @@ async test "query_errors_on_invalid_symbols" {
   guard get_language("javascript") is Some(language) else { return }
   assert_eq(
     query_error(language, "\">>>>\""),
-    @treesitter.QueryError(
-      row=0,
-      offset=1,
-      column=1,
-      kind=NodeType,
-      message="\">>>>\"",
-    ),
+    QueryError(row=0, offset=1, column=1, kind=NodeType, message="\">>>>\""),
   )
   assert_eq(
     query_error(language, "\"te\\\"st\""),
-    @treesitter.QueryError(
-      row=0,
-      offset=1,
-      column=1,
-      kind=NodeType,
-      message="\"te\\\"st\"",
-    ),
+    QueryError(row=0, offset=1, column=1, kind=NodeType, message="\"te\\\"st\""),
   )
   assert_eq(
     query_error(language, "\"\\\\\" @cap"),
-    @treesitter.QueryError(
-      row=0,
-      offset=1,
-      column=1,
-      kind=NodeType,
-      message="\"\\\\\"",
-    ),
+    QueryError(row=0, offset=1, column=1, kind=NodeType, message="\"\\\\\""),
   )
   assert_eq(
     query_error(language, "(clas)"),
-    @treesitter.QueryError(
-      row=0,
-      offset=1,
-      column=1,
-      kind=NodeType,
-      message="\"clas\"",
-    ),
+    QueryError(row=0, offset=1, column=1, kind=NodeType, message="\"clas\""),
   )
   assert_eq(
     query_error(language, "(if_statement (arrayyyyy))"),
-    @treesitter.QueryError(
+    QueryError(
       row=0,
       offset=15,
       column=15,
@@ -224,7 +200,7 @@ async test "query_errors_on_invalid_symbols" {
   )
   assert_eq(
     query_error(language, "(if_statement condition: (non_existent3))"),
-    @treesitter.QueryError(
+    QueryError(
       row=0,
       offset=26,
       column=26,
@@ -234,17 +210,11 @@ async test "query_errors_on_invalid_symbols" {
   )
   assert_eq(
     query_error(language, "(if_statement condit: (identifier))"),
-    @treesitter.QueryError(
-      row=0,
-      offset=14,
-      column=14,
-      kind=Field,
-      message="\"condit\"",
-    ),
+    QueryError(row=0, offset=14, column=14, kind=Field, message="\"condit\""),
   )
   assert_eq(
     query_error(language, "(if_statement conditioning: (identifier))"),
-    @treesitter.QueryError(
+    QueryError(
       row=0,
       offset=14,
       column=14,
@@ -254,7 +224,7 @@ async test "query_errors_on_invalid_symbols" {
   )
   assert_eq(
     query_error(language, "(if_statement !alternativ)"),
-    @treesitter.QueryError(
+    QueryError(
       row=0,
       offset=15,
       column=15,
@@ -264,7 +234,7 @@ async test "query_errors_on_invalid_symbols" {
   )
   assert_eq(
     query_error(language, "(if_statement !alternatives)"),
-    @treesitter.QueryError(
+    QueryError(
       row=0,
       offset=15,
       column=15,
@@ -274,27 +244,15 @@ async test "query_errors_on_invalid_symbols" {
   )
   assert_eq(
     query_error(language, "fakefield: (identifier)"),
-    @treesitter.QueryError(
-      row=0,
-      offset=0,
-      column=0,
-      kind=Field,
-      message="\"fakefield\"",
-    ),
+    QueryError(row=0, offset=0, column=0, kind=Field, message="\"fakefield\""),
   )
   assert_eq(
     query_error(language, "(ERR)"),
-    @treesitter.QueryError(row=0, offset=1, column=1, kind=NodeType, message="\"ERR\""),
+    QueryError(row=0, offset=1, column=1, kind=NodeType, message="\"ERR\""),
   )
   assert_eq(
     query_error(language, "(MISS)"),
-    @treesitter.QueryError(
-      row=0,
-      offset=1,
-      column=1,
-      kind=NodeType,
-      message="\"MISS\"",
-    ),
+    QueryError(row=0, offset=1, column=1, kind=NodeType, message="\"MISS\""),
   )
 }
 
@@ -303,7 +261,7 @@ async test "query_errors_on_invalid_predicates" {
   guard get_language("javascript") is Some(language) else { return }
   assert_eq(
     query_error(language, "((identifier) @id (@id))"),
-    @treesitter.QueryError(
+    QueryError(
       kind=Syntax,
       row=0,
       column=19,
@@ -313,7 +271,7 @@ async test "query_errors_on_invalid_predicates" {
   )
   assert_eq(
     query_error(language, "((identifier) @id (#eq? @id))"),
-    @treesitter.QueryError(
+    QueryError(
       kind=Predicate,
       row=0,
       column=0,
@@ -323,7 +281,7 @@ async test "query_errors_on_invalid_predicates" {
   )
   assert_eq(
     query_error(language, "((identifier) @id (#eq? @id @ok))"),
-    @treesitter.QueryError(kind=Capture, row=0, column=29, offset=29, message="\"ok\""),
+    QueryError(kind=Capture, row=0, column=29, offset=29, message="\"ok\""),
   )
 }
 
@@ -335,7 +293,7 @@ async test "query_errors_on_impossible_patterns" {
     query_error(
       js_lang, "(binary_expression left: (expression (identifier)) left: (expression (identifier)))",
     ),
-    @treesitter.QueryError(
+    QueryError(
       kind=Structure,
       row=0,
       offset=37,
@@ -353,7 +311,7 @@ async test "query_errors_on_impossible_patterns" {
   )
   assert_eq(
     query_error(js_lang, "(function_declaration name: (statement_block))"),
-    @treesitter.QueryError(
+    QueryError(
       kind=Structure,
       row=0,
       offset=22,
@@ -366,7 +324,7 @@ async test "query_errors_on_impossible_patterns" {
   ignore(@treesitter.Query::new(rb_lang, "(call receiver:(call))"))
   assert_eq(
     query_error(rb_lang, "(call receiver:(binary))"),
-    @treesitter.QueryError(
+    QueryError(
       kind=Structure,
       row=0,
       offset=6,
@@ -397,7 +355,7 @@ async test "query_errors_on_impossible_patterns" {
         #|                ]
       ),
     ),
-    @treesitter.QueryError(
+    QueryError(
       kind=Structure,
       row=2,
       offset=99,
@@ -409,7 +367,7 @@ async test "query_errors_on_impossible_patterns" {
   )
   assert_eq(
     query_error(js_lang, "(identifier (identifier))"),
-    @treesitter.QueryError(
+    QueryError(
       kind=Structure,
       row=0,
       offset=12,
@@ -419,7 +377,7 @@ async test "query_errors_on_impossible_patterns" {
   )
   assert_eq(
     query_error(js_lang, "(true (true))"),
-    @treesitter.QueryError(
+    QueryError(
       kind=Structure,
       row=0,
       offset=6,
@@ -438,7 +396,7 @@ async test "query_errors_on_impossible_patterns" {
   )
   assert_eq(
     query_error(js_lang, "(if_statement condition: (expression))"),
-    @treesitter.QueryError(
+    QueryError(
       kind=Structure,
       row=0,
       offset=14,
@@ -450,7 +408,7 @@ async test "query_errors_on_impossible_patterns" {
   )
   assert_eq(
     query_error(js_lang, "(identifier/identifier)"),
-    @treesitter.QueryError(
+    QueryError(
       row=0,
       offset=0,
       column=0,
@@ -461,7 +419,7 @@ async test "query_errors_on_impossible_patterns" {
   if js_lang.abi_version() >= 15 {
     assert_eq(
       query_error(js_lang, "(statement/identifier)"),
-      @treesitter.QueryError(
+      QueryError(
         row=0,
         offset=0,
         column=0,
@@ -471,7 +429,7 @@ async test "query_errors_on_impossible_patterns" {
     )
     assert_eq(
       query_error(js_lang, "(statement/pattern)"),
-      @treesitter.QueryError(
+      QueryError(
         row=0,
         offset=0,
         column=0,
@@ -485,10 +443,12 @@ async test "query_errors_on_impossible_patterns" {
 ///|
 async test "query_verifies_possible_patterns_with_aliased_parent_nodes" {
   guard get_language("ruby") is Some(language) else { return }
-  ignore(@treesitter.Query::new(language, "(destructured_parameter (identifier))"))
+  ignore(
+    @treesitter.Query::new(language, "(destructured_parameter (identifier))"),
+  )
   assert_eq(
     query_error(language, "(destructured_parameter (string))"),
-    @treesitter.QueryError(
+    QueryError(
       kind=Structure,
       row=0,
       offset=24,

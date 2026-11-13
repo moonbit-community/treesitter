@@ -255,7 +255,10 @@ fn ConflictPass::new(
   let builder = StateListsBuilder::new(states.length())
   for state in states {
     for k in 0..<state.terminal_entries.len() {
-      builder.push(minimizer.indexer.index(state.terminal_entries.symbol_at(k)), state.terminal_entries.value_at(k).index)
+      builder.push(
+        minimizer.indexer.index(state.terminal_entries.symbol_at(k)),
+        state.terminal_entries.value_at(k).index,
+      )
     }
     builder.end_list()
   }
@@ -718,7 +721,10 @@ fn Minimizer::remove_unit_reductions(self : Minimizer) -> Unit {
     let mut only_unit_reductions = true
     let mut unit_reduction_symbol : Symbol? = None
     for k in 0..<state.terminal_entries.len() {
-      for action in self.parse_table.action_lists.get(state.terminal_entries.value_at(k)) {
+      for
+        action in self.parse_table.action_lists.get(
+          state.terminal_entries.value_at(k),
+        ) {
         match action {
           ShiftExtra => continue
           Reduce(child_count=1, production_id=0, symbol~, ..) if !self.simple_aliases.contains(
@@ -833,7 +839,9 @@ fn Minimizer::merge_compatible_states(self : Minimizer) -> Unit {
   let builder = StateListsBuilder::new(self.parse_table.states.length())
   for state in self.parse_table.states {
     for k in 0..<state.terminal_entries.len() {
-      if self.parse_table.action_lists.get(state.terminal_entries.value_at(k)).last()
+      if self.parse_table.action_lists
+        .get(state.terminal_entries.value_at(k))
+        .last()
         is Some(Shift(state=s, ..)) {
         builder.push(self.indexer.index(state.terminal_entries.symbol_at(k)), s)
       }
@@ -927,7 +935,11 @@ fn Minimizer::merge_compatible_states(self : Minimizer) -> Unit {
         parse_state.reserved_words.insert_all(other_parse_state.reserved_words),
       )
       for k in 0..<parse_state.terminal_entries.len() {
-        ignore(parse_state.reserved_words.remove(parse_state.terminal_entries.symbol_at(k)))
+        ignore(
+          parse_state.reserved_words.remove(
+            parse_state.terminal_entries.symbol_at(k),
+          ),
+        )
       }
     }
     for k in 0..<parse_state.terminal_entries.len() {

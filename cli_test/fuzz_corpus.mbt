@@ -211,7 +211,7 @@ pub async fn get_parser(
   if log_enabled() {
     parser.set_logger(
       Some((log_type, msg) => {
-        if log_type == @treesitter.LogType::Lex {
+        if log_type == Lex {
           @support.print_err("  \{msg}\n")
         } else {
           @support.print_err("\{msg}\n")

@@ -7,10 +7,11 @@ let capture_name_regex : @regex.Regex = try! @regex.Regex::new(
 )
 
 ///|
+#derive(Default, Eq, Hash, Compare, Debug)
 pub(all) struct Utf8Point {
   row : Int32
   column : Int32
-} derive(Default, Eq, Hash, Compare, Debug)
+}
 
 ///|
 pub impl Show for Utf8Point with fn output(self, logger) {
@@ -25,7 +26,10 @@ pub fn Utf8Point::new(row : Int32, column : Int32) -> Utf8Point {
 ///|
 /// Convert a point whose column is a byte offset into one whose column counts
 /// grapheme clusters.
-pub fn to_utf8_point(point : @treesitter.Point, source : BytesView) -> Utf8Point {
+pub fn to_utf8_point(
+  point : @treesitter.Point,
+  source : BytesView,
+) -> Utf8Point {
   if point.column == 0 {
     return Utf8Point::new(point.row, 0)
   }
@@ -43,19 +47,21 @@ pub fn to_utf8_point(point : @treesitter.Point, source : BytesView) -> Utf8Point
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct CaptureInfo {
   name : String
   start : Utf8Point
   end : Utf8Point
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct Assertion {
   position : Utf8Point
   length : Int32
   negative : Bool
   expected_capture_name : String
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn Assertion::new(
@@ -76,6 +82,7 @@ pub fn Assertion::new(
 ///|
 /// The errors of the assertion-based query tests (upstream: `anyhow::Error`
 /// values and the `Failure` types of test_highlight.rs and test_tags.rs).
+#derive(Eq, Debug)
 pub(all) suberror QueryTestError {
   /// An `anyhow!` error with this message.
   Message(String)
@@ -84,18 +91,18 @@ pub(all) suberror QueryTestError {
     row~ : Int32,
     column~ : Int32,
     expected_highlight~ : String,
-    actual_highlights~ : Array[String]
+    actual_highlights~ : Array[String],
   )
   /// test_tags.rs's `Failure`.
   TagsFailure(
     row~ : Int32,
     column~ : Int32,
     expected_tag~ : String,
-    actual_tags~ : Array[String]
+    actual_tags~ : Array[String],
   )
   Highlight(@highlight.HighlightError)
   Tags(@tags.TagsError)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for QueryTestError with fn output(self, logger) {
@@ -329,7 +336,7 @@ pub fn parse_position_comments(
 /// `column + length - 1` in `usize` arithmetic, which wraps in the release
 /// CLI: a zero-length assertion at column 0 ends at `usize::MAX`
 /// (`0x7FFFFFFF` here).
-fn assertion_end_column(column : Int, length : Int) -> Int {
+fn assertion_end_column(column : Int32, length : Int32) -> Int32 {
   let end = column + length
   if end == 0 {
     0x7FFFFFFF

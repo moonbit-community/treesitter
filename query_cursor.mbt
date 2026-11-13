@@ -107,7 +107,7 @@ fn QueryMatch::new(
   cursor : @query.QueryCursor,
   captures : ArrayView[QueryCapture],
 ) -> QueryMatch {
-  { cursor, id: m.id, pattern_index: m.pattern_index, captures }
+  { cursor, id: m.id, pattern_index: m.pattern_index, captures, }
 }
 
 ///|
@@ -115,7 +115,7 @@ fn QueryCapture::convert(
   c : @query.QueryCapture,
   language : Language,
 ) -> QueryCapture {
-  { node: { raw: c.node, language }, index: c.index }
+  { node: { raw: c.node, language, }, index: c.index, }
 }
 
 ///|
@@ -368,7 +368,6 @@ pub fn[T] QueryCursor::captures(
     cursor: self.raw,
     query,
     text_provider,
-    language: node.language,
     converted: @query.CaptureConversionCache::new(c => {
       QueryCapture::convert(c, node.language)
     }),
@@ -390,7 +389,6 @@ pub fn[T] QueryCursor::captures_with_options(
     cursor: self.raw,
     query,
     text_provider,
-    language: node.language,
     converted: @query.CaptureConversionCache::new(c => {
       QueryCapture::convert(c, node.language)
     }),
@@ -540,7 +538,6 @@ pub struct QueryCaptures[T] {
   priv cursor : @query.QueryCursor
   priv query : Query
   priv text_provider : T
-  priv language : Language
   // The converted captures of the pending matches, shared by the captures of
   // a match (upstream's `QueryMatch` borrows the C capture list).
   priv converted : @query.CaptureConversionCache[QueryCapture]

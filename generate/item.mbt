@@ -637,7 +637,7 @@ priv struct ParseItemSetEntry {
 
 ///|
 fn ParseItemSet::new() -> ParseItemSet {
-  { items: [], lookaheads: [], following_reserved_word_sets: [] }
+  { items: [], lookaheads: [], following_reserved_word_sets: [], }
 }
 
 ///|
@@ -853,7 +853,7 @@ fn ParseItem::with_preceding_inherited_fields(self : ParseItem) -> ParseItem {
   if self.has_preceding_inherited_fields {
     return self
   }
-  { ..self, has_preceding_inherited_fields: true }
+  { ..self, has_preceding_inherited_fields: true, }
 }
 
 ///|
@@ -1230,5 +1230,3 @@ impl Hash for ParseItemSet with fn hash(self) {
   }
   hash_finish(acc)
 }
-
-

@@ -1,4 +1,5 @@
 import {
+  "moonbitlang/async",
   "moonbit-community/treesitter",
   "moonbit-community/treesitter/clap",
   "moonbit-community/treesitter/clap_complete",

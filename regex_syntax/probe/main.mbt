@@ -189,7 +189,7 @@ async fn main {
       println("GRAMMAR \{path}")
       let dump = nfa_run(@fs.read_file(path).text())
       if dump.length() > 0 {
-        println(dump.view(end_offset=dump.length() - 1))
+        println(dump.clamped_view(end=dump.length() - 1))
       }
     }
     return

@@ -1,7 +1,7 @@
 ///|
 /// A stable merge sort, matching Rust's `sort_by`/`sort_by_key` semantics for
 /// equal elements (MoonBit's `Array::sort_by` is unstable).
-pub fn[T] stable_sort_by(array : Array[T], cmp : (T, T) -> Int) -> Unit {
+pub fn[T] stable_sort_by(array : Array[T], cmp : (T, T) -> Int32) -> Unit {
   let n = array.length()
   if n < 2 {
     return
@@ -46,7 +46,10 @@ pub fn[T] stable_sort_by(array : Array[T], cmp : (T, T) -> Int) -> Unit {
 }
 
 ///|
-pub fn[T, K : Compare] stable_sort_by_key(array : Array[T], key : (T) -> K) -> Unit {
+pub fn[T, K : Compare] stable_sort_by_key(
+  array : Array[T],
+  key : (T) -> K,
+) -> Unit {
   stable_sort_by(array, (a, b) => key(a).compare(key(b)))
 }
 
@@ -68,20 +71,20 @@ pub fn[T : Eq] dedup(array : Array[T]) -> Unit {
 
 ///|
 /// Starting value for `hash_mix`.
-const HASH_SEED : UInt = 0x165667B1
+const HASH_SEED : UInt32 = 0x165667B1
 
 ///|
 /// Mixes `input` into a hash accumulator without `Hasher`'s allocation, for
 /// hot `Hash::hash` overrides. Hash values never reach the output: MoonBit's
 /// `Map` iterates in insertion order whatever the hashes are.
-fn hash_mix(acc : UInt, input : Int) -> UInt {
+fn hash_mix(acc : UInt32, input : Int32) -> UInt32 {
   let x = acc + input.reinterpret_as_uint() * 0xC2B2AE3DU
   ((x << 17) | (x >> 15)) * 0x27D4EB2FU
 }
 
 ///|
 /// Finishes a `hash_mix` accumulator.
-fn hash_finish(acc : UInt) -> Int {
+fn hash_finish(acc : UInt32) -> Int32 {
   let mut acc = acc
   acc = acc ^ (acc >> 15)
   acc *= 0x85EBCA77U

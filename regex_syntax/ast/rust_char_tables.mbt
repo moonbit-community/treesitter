@@ -3,7 +3,7 @@
 
 ///|
 /// Inclusive code point ranges of `char::is_alphabetic`.
-let rust_alphabetic_ranges : FixedArray[(Int, Int)] = [
+let rust_alphabetic_ranges : FixedArray[(Int32, Int32)] = [
   (65, 90),
   (97, 122),
   (170, 170),
@@ -769,7 +769,7 @@ let rust_alphabetic_ranges : FixedArray[(Int, Int)] = [
 
 ///|
 /// Inclusive code point ranges of `char::is_numeric`.
-let rust_numeric_ranges : FixedArray[(Int, Int)] = [
+let rust_numeric_ranges : FixedArray[(Int32, Int32)] = [
   (48, 57),
   (178, 179),
   (185, 185),
@@ -920,7 +920,7 @@ let rust_numeric_ranges : FixedArray[(Int, Int)] = [
 
 ///|
 /// Inclusive code point ranges of `char::is_whitespace`.
-let rust_whitespace_ranges : FixedArray[(Int, Int)] = [
+let rust_whitespace_ranges : FixedArray[(Int32, Int32)] = [
   (9, 13),
   (32, 32),
   (133, 133),
@@ -932,4 +932,3 @@ let rust_whitespace_ranges : FixedArray[(Int, Int)] = [
   (8287, 8287),
   (12288, 12288),
 ]
-

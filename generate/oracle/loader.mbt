@@ -56,7 +56,7 @@ fn field(json : Json, name : String) -> Json raise OracleError {
 
 ///|
 fn str_id(json : Json) -> @generate.StrId raise OracleError {
-  @generate.StrId(as_int(json))
+  StrId(as_int(json))
 }
 
 ///|
@@ -196,7 +196,7 @@ pub fn load_prepared_inputs(text : String) -> PreparedInputs raise {
       start_state: 0,
     })
   }
-  let default_aliases : @generate.AliasMap = @sorted_map.SortedMap([])
+  let default_aliases : @generate.AliasMap = SortedMap([])
   for v in as_array(field(json, "default_aliases")) {
     let parts = as_array(v)
     default_aliases[symbol(parts[0])] = {

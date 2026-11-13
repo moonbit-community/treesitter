@@ -12,7 +12,7 @@ priv struct HashIndex {
 
 ///|
 fn HashIndex::new() -> HashIndex {
-  { ids: FixedArray::make(16, -1), hashes: FixedArray::make(16, 0), len: 0 }
+  { ids: FixedArray::make(16, -1), hashes: FixedArray::make(16, 0), len: 0, }
 }
 
 ///|

@@ -150,21 +150,21 @@ fn Deserializer::peek_invalid_type(
       self.parse_ident(b"ull") catch {
         err => return err
       }
-      invalid_type(Unexpected::Unit, expected)
+      invalid_type(Unit, expected)
     }
     b't' => {
       self.eat_char()
       self.parse_ident(b"rue") catch {
         err => return err
       }
-      invalid_type(Unexpected::Bool(true), expected)
+      invalid_type(Bool(true), expected)
     }
     b'f' => {
       self.eat_char()
       self.parse_ident(b"alse") catch {
         err => return err
       }
-      invalid_type(Unexpected::Bool(false), expected)
+      invalid_type(Bool(false), expected)
     }
     b'-' => {
       self.eat_char()
@@ -178,10 +178,10 @@ fn Deserializer::peek_invalid_type(
     b'"' => {
       self.eat_char()
       let s = self.parse_str() catch { err => return err }
-      invalid_type(Unexpected::Str(s), expected)
+      invalid_type(Str(s), expected)
     }
-    b'[' => invalid_type(Unexpected::Seq, expected)
-    b'{' => invalid_type(Unexpected::Map, expected)
+    b'[' => invalid_type(Seq, expected)
+    b'{' => invalid_type(Map, expected)
     _ => self.peek_error(ExpectedSomeValue)
   }
   self.fix_position(err)

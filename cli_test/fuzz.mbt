@@ -265,8 +265,7 @@ pub async fn fuzz_language_corpus(
       @support.log_info("  \{k}")
     }
     @support.rust_panic(
-      "Non matchable skip definitions need to be removed",
-      "crates/cli/src/fuzz.rs:294:9",
+      "Non matchable skip definitions need to be removed", "crates/cli/src/fuzz.rs:294:9",
     )
   }
 }
@@ -292,7 +291,7 @@ async fn fuzz_trial(
   let rand = Rand::new(seed)
   let log_session = Ref(None)
   // (the session is dropped when the trial ends)
-  defer end_log_session(log_session.val)
+  defer @async.protect_from_cancel(() => end_log_session(log_session.val))
   let parser = get_parser(log_session, "log.html")
   parser.set_language(language)
   let tree = tree.clone()
@@ -444,7 +443,7 @@ pub async fn FlattenedTest::check_initial_parse(
 ) -> Bool {
   let log_session = Ref(None)
   // (the session is dropped when this function returns)
-  defer end_log_session(log_session.val)
+  defer @async.protect_from_cancel(() => end_log_session(log_session.val))
   self.check_initial_parse_with(
     log_session, language, display_name, check_output,
   )

@@ -13,9 +13,10 @@
 /// an AST is constructed without error for `\p{Quux}`, but `Quux` is not a
 /// valid Unicode property name. That particular error is reported when
 /// translating an AST to the high-level intermediate representation (`HIR`).
+#derive(Eq, Debug)
 pub(all) suberror AstError {
   AstError(kind~ : ErrorKind, pattern~ : String, span~ : Span)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Return the type of this error.
@@ -55,6 +56,7 @@ pub fn AstError::auxiliary_span(self : AstError) -> Span? {
 
 ///|
 /// The type of an error that occurred while building an AST.
+#derive(Eq, Debug)
 pub(all) enum ErrorKind {
   /// The capturing group limit was exceeded.
   CaptureLimitExceeded
@@ -132,7 +134,7 @@ pub(all) enum ErrorKind {
   /// When syntax similar to PCRE's look-around is used, this error is
   /// returned.
   UnsupportedLookAround
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ErrorKind with fn output(self, f) {
@@ -190,15 +192,17 @@ pub impl Show for ErrorKind with fn output(self, f) {
 ///
 /// All span positions are absolute byte offsets that can be used on the
 /// original regular expression that was parsed.
+#derive(Eq, Debug)
 pub(all) struct Span {
   /// The start byte offset.
   start : Position
   /// The end byte offset.
   end : Position
-} derive(Eq, Debug)
+}
 
 ///|
 /// A single position in a regular expression.
+#derive(Eq, Debug)
 pub(all) struct Position {
   /// The absolute offset of this position, starting at `0` from the
   /// beginning of the regular expression pattern string.
@@ -207,7 +211,7 @@ pub(all) struct Position {
   line : Int32
   /// The approximate column number, starting at `1`.
   column : Int32
-} derive(Eq, Debug)
+}
 
 ///|
 /// Spans are ordered by `(start, end)`; positions by offset.
@@ -272,24 +276,27 @@ pub fn Position::new(offset : Int32, line : Int32, column : Int32) -> Position {
 ///|
 /// An abstract syntax tree for a singular expression along with comments
 /// found.
+#derive(Eq, Debug)
 pub(all) struct WithComments {
   /// The actual ast.
   ast : Ast
   /// All comments found in the original regular expression.
   comments : Array[Comment]
-} derive(Eq, Debug)
+}
 
 ///|
 /// A comment from a regular expression with an associated span.
+#derive(Eq, Debug)
 pub(all) struct Comment {
   /// The span of this comment, including the beginning `#` and ending `\n`.
   span : Span
   /// The comment text.
   comment : String
-} derive(Eq, Debug)
+}
 
 ///|
 /// An abstract syntax tree for a single regular expression.
+#derive(Eq, Debug)
 pub(all) enum Ast {
   /// An empty regex that matches everything.
   Empty(Span)
@@ -315,7 +322,7 @@ pub(all) enum Ast {
   Alternation(Alternation)
   /// A concatenation of regular expressions.
   Concat(Concat)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Return the span of this abstract syntax tree.
@@ -344,12 +351,13 @@ pub fn Ast::is_empty(self : Ast) -> Bool {
 
 ///|
 /// An alternation of regular expressions.
+#derive(Eq, Debug)
 pub(all) struct Alternation {
   /// The span of this alternation.
   mut span : Span
   /// The alternate regular expressions.
   asts : Array[Ast]
-} derive(Eq, Debug)
+}
 
 ///|
 /// Return this alternation as an AST.
@@ -367,12 +375,13 @@ pub fn Alternation::into_ast(self : Alternation) -> Ast {
 
 ///|
 /// A concatenation of regular expressions.
+#derive(Eq, Debug)
 pub(all) struct Concat {
   /// The span of this concatenation.
   mut span : Span
   /// The concatenation regular expressions.
   asts : Array[Ast]
-} derive(Eq, Debug)
+}
 
 ///|
 /// Return this concatenation as an AST.
@@ -386,6 +395,7 @@ pub fn Concat::into_ast(self : Concat) -> Ast {
 
 ///|
 /// A single literal expression.
+#derive(Eq, Debug)
 pub(all) struct Literal {
   /// The span of this literal.
   mut span : Span
@@ -393,7 +403,7 @@ pub(all) struct Literal {
   kind : LiteralKind
   /// The Unicode scalar value corresponding to this literal.
   c : Char
-} derive(Eq, Debug)
+}
 
 ///|
 /// If this literal was written as a `\x` hex escape, then this returns
@@ -407,6 +417,7 @@ pub fn Literal::byte(self : Literal) -> Byte? {
 
 ///|
 /// The kind of a single literal expression.
+#derive(Eq, Debug)
 pub(all) enum LiteralKind {
   /// The literal is written verbatim, e.g., `a` or `☃`.
   Verbatim
@@ -428,10 +439,11 @@ pub(all) enum LiteralKind {
   /// The literal is written as a specially recognized escape, e.g., `\f`
   /// or `\n`.
   Special(SpecialLiteralKind)
-} derive(Eq, Debug)
+}
 
 ///|
 /// The type of a special literal.
+#derive(Eq, Debug)
 pub(all) enum SpecialLiteralKind {
   /// Bell, spelled `\a` (`\x07`).
   Bell
@@ -448,10 +460,11 @@ pub(all) enum SpecialLiteralKind {
   /// Space, spelled `\ ` (`\x20`). Note that this can only appear when
   /// parsing in verbose mode.
   Space
-} derive(Eq, Debug)
+}
 
 ///|
 /// The type of a Unicode hex literal.
+#derive(Eq, Debug)
 pub(all) enum HexLiteralKind {
   /// A `\x` prefix. When used without brackets, this form is limited to
   /// two digits.
@@ -462,7 +475,7 @@ pub(all) enum HexLiteralKind {
   /// A `\U` prefix. When used without brackets, this form is limited to
   /// eight digits.
   UnicodeLong
-} derive(Eq, Debug)
+}
 
 ///|
 /// The number of digits that must be used with this literal form when
@@ -477,6 +490,7 @@ pub fn HexLiteralKind::digits(self : HexLiteralKind) -> Int32 {
 
 ///|
 /// A Perl character class.
+#derive(Eq, Debug)
 pub(all) struct ClassPerl {
   /// The span of this class.
   mut span : Span
@@ -485,10 +499,11 @@ pub(all) struct ClassPerl {
   /// Whether the class is negated or not. e.g., `\d` is not negated but
   /// `\D` is.
   negated : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 /// The available Perl character classes.
+#derive(Eq, Debug)
 pub(all) enum ClassPerlKind {
   /// Decimal numbers.
   Digit
@@ -496,10 +511,11 @@ pub(all) enum ClassPerlKind {
   Space
   /// Word characters.
   Word
-} derive(Eq, Debug)
+}
 
 ///|
 /// An ASCII character class.
+#derive(Eq, Debug)
 pub(all) struct ClassAscii {
   /// The span of this class.
   span : Span
@@ -508,10 +524,11 @@ pub(all) struct ClassAscii {
   /// Whether the class is negated or not. e.g., `[[:alpha:]]` is not negated
   /// but `[[:^alpha:]]` is.
   negated : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 /// The available ASCII character classes.
+#derive(Eq, Debug)
 pub(all) enum ClassAsciiKind {
   /// `[0-9A-Za-z]`
   Alnum
@@ -541,7 +558,7 @@ pub(all) enum ClassAsciiKind {
   Word
   /// `[0-9A-Fa-f]`
   Xdigit
-} derive(Eq, Debug)
+}
 
 ///|
 /// Return the corresponding ClassAsciiKind variant for the given name.
@@ -567,6 +584,7 @@ pub fn ClassAsciiKind::from_name(name : String) -> ClassAsciiKind? {
 
 ///|
 /// A Unicode character class.
+#derive(Eq, Debug)
 pub(all) struct ClassUnicode {
   /// The span of this class.
   mut span : Span
@@ -575,7 +593,7 @@ pub(all) struct ClassUnicode {
   negated : Bool
   /// The kind of Unicode class.
   kind : ClassUnicodeKind
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns true if this class has been negated.
@@ -591,6 +609,7 @@ pub fn ClassUnicode::is_negated(self : ClassUnicode) -> Bool {
 
 ///|
 /// The available forms of Unicode character classes.
+#derive(Eq, Debug)
 pub(all) enum ClassUnicodeKind {
   /// A one letter abbreviated class, e.g., `\pN`.
   OneLetter(Char)
@@ -599,10 +618,11 @@ pub(all) enum ClassUnicodeKind {
   Named(String)
   /// A property name and an associated value.
   NamedValue(op~ : ClassUnicodeOpKind, name~ : String, value~ : String)
-} derive(Eq, Debug)
+}
 
 ///|
 /// The type of op used in a Unicode character class.
+#derive(Eq, Debug)
 pub(all) enum ClassUnicodeOpKind {
   /// A property set to a specific value, e.g., `\p{scx=Katakana}`.
   Equal
@@ -611,7 +631,7 @@ pub(all) enum ClassUnicodeOpKind {
   Colon
   /// A property that isn't a particular value, e.g., `\p{scx!=Katakana}`.
   NotEqual
-} derive(Eq, Debug)
+}
 
 ///|
 /// Whether the op is an equality op or not.
@@ -621,6 +641,7 @@ pub fn ClassUnicodeOpKind::is_equal(self : ClassUnicodeOpKind) -> Bool {
 
 ///|
 /// A bracketed character class, e.g., `[a-z0-9]`.
+#derive(Eq, Debug)
 pub(all) struct ClassBracketed {
   /// The span of this class.
   mut span : Span
@@ -630,17 +651,18 @@ pub(all) struct ClassBracketed {
   /// The type of this set. A set is either a normal union of things, e.g.,
   /// `[abc]` or a result of applying set operations, e.g., `[\pL--c]`.
   mut kind : ClassSet
-} derive(Eq, Debug)
+}
 
 ///|
 /// A character class set.
+#derive(Eq, Debug)
 pub(all) enum ClassSet {
   /// An item, which can be a single literal, range, nested character class
   /// or a union of items.
   Item(ClassSetItem)
   /// A single binary operation (i.e., &&, -- or ~~).
   BinaryOp(ClassSetBinaryOp)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Build a set from a union.
@@ -659,6 +681,7 @@ pub fn ClassSet::span(self : ClassSet) -> Span {
 
 ///|
 /// A single component of a character class set.
+#derive(Eq, Debug)
 pub(all) enum ClassSetItem {
   /// An empty item.
   Empty(Span)
@@ -676,7 +699,7 @@ pub(all) enum ClassSetItem {
   Bracketed(ClassBracketed)
   /// A union of items.
   Union(ClassSetUnion)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Return the span of this character class set item.
@@ -695,6 +718,7 @@ pub fn ClassSetItem::span(self : ClassSetItem) -> Span {
 
 ///|
 /// A single character class range in a set.
+#derive(Eq, Debug)
 pub(all) struct ClassSetRange {
   /// The span of this range.
   span : Span
@@ -702,7 +726,7 @@ pub(all) struct ClassSetRange {
   start : Literal
   /// The end of this range.
   end : Literal
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns true if and only if this character class range is valid.
@@ -712,12 +736,13 @@ pub fn ClassSetRange::is_valid(self : ClassSetRange) -> Bool {
 
 ///|
 /// A union of items inside a character class set.
+#derive(Eq, Debug)
 pub(all) struct ClassSetUnion {
   /// The span of the items in this operation.
   mut span : Span
   /// The sequence of items that make up this union.
   items : Array[ClassSetItem]
-} derive(Eq, Debug)
+}
 
 ///|
 /// Push a new item in this union.
@@ -746,6 +771,7 @@ pub fn ClassSetUnion::into_item(self : ClassSetUnion) -> ClassSetItem {
 
 ///|
 /// A Unicode character class set operation.
+#derive(Eq, Debug)
 pub(all) struct ClassSetBinaryOp {
   /// The span of this operation.
   span : Span
@@ -755,10 +781,11 @@ pub(all) struct ClassSetBinaryOp {
   mut lhs : ClassSet
   /// The right hand side of the operation.
   mut rhs : ClassSet
-} derive(Eq, Debug)
+}
 
 ///|
 /// The type of a Unicode character class set operation.
+#derive(Eq, Debug)
 pub(all) enum ClassSetBinaryOpKind {
   /// The intersection of two sets, e.g., `\pN&&[a-z]`.
   Intersection
@@ -766,19 +793,21 @@ pub(all) enum ClassSetBinaryOpKind {
   Difference
   /// The symmetric difference of two sets.
   SymmetricDifference
-} derive(Eq, Debug)
+}
 
 ///|
 /// A single zero-width assertion.
+#derive(Eq, Debug)
 pub(all) struct Assertion {
   /// The span of this assertion.
   mut span : Span
   /// The assertion kind, e.g., `\b` or `^`.
   mut kind : AssertionKind
-} derive(Eq, Debug)
+}
 
 ///|
 /// An assertion kind.
+#derive(Eq, Debug)
 pub(all) enum AssertionKind {
   /// `^`
   StartLine
@@ -804,10 +833,11 @@ pub(all) enum AssertionKind {
   WordBoundaryStartHalf
   /// `\b{end-half}`
   WordBoundaryEndHalf
-} derive(Eq, Debug)
+}
 
 ///|
 /// A repetition operation applied to a regular expression.
+#derive(Eq, Debug)
 pub(all) struct Repetition {
   /// The span of this operation.
   span : Span
@@ -817,20 +847,22 @@ pub(all) struct Repetition {
   greedy : Bool
   /// The regular expression under repetition.
   mut ast : Ast
-} derive(Eq, Debug)
+}
 
 ///|
 /// The repetition operator itself.
+#derive(Eq, Debug)
 pub(all) struct RepetitionOp {
   /// The span of this operator. This includes things like `+`, `*?` and
   /// `{m,n}`.
   span : Span
   /// The type of operation.
   kind : RepetitionKind
-} derive(Eq, Debug)
+}
 
 ///|
 /// The kind of a repetition operator.
+#derive(Eq, Debug)
 pub(all) enum RepetitionKind {
   /// `?`
   ZeroOrOne
@@ -840,10 +872,11 @@ pub(all) enum RepetitionKind {
   OneOrMore
   /// `{m,n}`
   Range(RepetitionRange)
-} derive(Eq, Debug)
+}
 
 ///|
 /// A range repetition operator.
+#derive(Eq, Debug)
 pub(all) enum RepetitionRange {
   /// `{m}`
   Exactly(UInt32)
@@ -851,7 +884,7 @@ pub(all) enum RepetitionRange {
   AtLeast(UInt32)
   /// `{m,n}`
   Bounded(UInt32, UInt32)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns true if and only if this repetition range is valid.
@@ -864,6 +897,7 @@ pub fn RepetitionRange::is_valid(self : RepetitionRange) -> Bool {
 
 ///|
 /// A grouped regular expression.
+#derive(Eq, Debug)
 pub(all) struct Group {
   /// The span of this group.
   mut span : Span
@@ -871,7 +905,7 @@ pub(all) struct Group {
   kind : GroupKind
   /// The regular expression in this group.
   mut ast : Ast
-} derive(Eq, Debug)
+}
 
 ///|
 /// If this group is non-capturing, then this returns the (possibly empty)
@@ -901,6 +935,7 @@ pub fn Group::capture_index(self : Group) -> UInt32? {
 
 ///|
 /// The kind of a group.
+#derive(Eq, Debug)
 pub(all) enum GroupKind {
   /// `(a)`
   CaptureIndex(UInt32)
@@ -908,10 +943,11 @@ pub(all) enum GroupKind {
   CaptureName(starts_with_p~ : Bool, name~ : CaptureName)
   /// `(?:a)` and `(?i:a)`
   NonCapturing(Flags)
-} derive(Eq, Debug)
+}
 
 ///|
 /// A capture name.
+#derive(Eq, Debug)
 pub(all) struct CaptureName {
   /// The span of this capture name.
   span : Span
@@ -919,26 +955,28 @@ pub(all) struct CaptureName {
   name : String
   /// The capture index.
   index : UInt32
-} derive(Eq, Debug)
+}
 
 ///|
 /// A group of flags that is not applied to a particular regular expression.
+#derive(Eq, Debug)
 pub(all) struct SetFlags {
   /// The span of these flags, including the grouping parentheses.
   span : Span
   /// The actual sequence of flags.
   flags : Flags
-} derive(Eq, Debug)
+}
 
 ///|
 /// A group of flags.
+#derive(Eq, Debug)
 pub(all) struct Flags {
   /// The span of this group of flags.
   mut span : Span
   /// A sequence of flag items. Each item is either a flag or a negation
   /// operator.
   items : Array[FlagsItem]
-} derive(Eq, Debug)
+}
 
 ///|
 /// Add the given item to this sequence of flags.
@@ -972,22 +1010,24 @@ pub fn Flags::flag_state(self : Flags, flag : Flag) -> Bool? {
 
 ///|
 /// A single item in a group of flags.
+#derive(Eq, Debug)
 pub(all) struct FlagsItem {
   /// The span of this item.
   span : Span
   /// The kind of this item.
   kind : FlagsItemKind
-} derive(Eq, Debug)
+}
 
 ///|
 /// The kind of an item in a group of flags.
+#derive(Eq, Debug)
 pub(all) enum FlagsItemKind {
   /// A negation operator applied to all subsequent flags in the enclosing
   /// group.
   Negation
   /// A single flag in a group.
   Flag(Flag)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns true if and only if this item is a negation operator.
@@ -997,6 +1037,7 @@ pub fn FlagsItemKind::is_negation(self : FlagsItemKind) -> Bool {
 
 ///|
 /// A single flag.
+#derive(Eq, Debug)
 pub(all) enum Flag {
   /// `i`
   CaseInsensitive
@@ -1012,4 +1053,4 @@ pub(all) enum Flag {
   CRLF
   /// `x`
   IgnoreWhitespace
-} derive(Eq, Debug)
+}

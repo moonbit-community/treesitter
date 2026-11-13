@@ -1,12 +1,14 @@
 ///|
 /// Precedence values retain the distinction between numeric and named precedence.
+#derive(Debug, Eq)
 pub(all) enum Precedence {
   Integer(Int32)
   Name(String)
-} derive(Debug, Eq)
+}
 
 ///|
 /// The Tree-sitter grammar rule language. Use these constructors from mbtx.
+#derive(Debug, Eq)
 pub(all) enum Rule {
   Blank
   Literal(String)
@@ -26,7 +28,7 @@ pub(all) enum Rule {
   Alias(Rule, String, named~ : Bool)
   Reserved(String, Rule)
   Eof
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn pattern(value : String, flags~ : String = "") -> Rule {

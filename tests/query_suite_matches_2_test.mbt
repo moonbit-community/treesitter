@@ -818,7 +818,10 @@ async test "query_matches_within_range_of_long_repetition" {
   parser.set_language(language)
   let tree = parse(parser, source)
   let matches = cursor
-    .set_point_range(@treesitter.Point::new(8, 0), @treesitter.Point::new(20, 0))
+    .set_point_range(
+      @treesitter.Point::new(8, 0),
+      @treesitter.Point::new(20, 0),
+    )
     .matches(query, tree.root_node(), utf8(source))
   assert_eq(collect_matches(matches, query, source), [
     (0, [("fn-name", "eight")]),
@@ -871,7 +874,10 @@ async test "query_matches_contained_within_range" {
   {
     let cursor = @treesitter.QueryCursor::new()
     let matches = cursor
-      .set_containing_point_range(@treesitter.Point::new(5, 0), @treesitter.Point::new(7, 0))
+      .set_containing_point_range(
+        @treesitter.Point::new(5, 0),
+        @treesitter.Point::new(7, 0),
+      )
       .matches(query, tree.root_node(), utf8(source))
     assert_eq(collect_matches(matches, query, source), expected_matches)
   }

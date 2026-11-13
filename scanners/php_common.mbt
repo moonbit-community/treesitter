@@ -108,14 +108,14 @@ fn PhpScanner::serialize(self : PhpScanner, buffer : FixedArray[Byte]) -> Int32 
 ///|
 /// `heredoc->word.size * sizeof(heredoc->word.contents[0])` stored in an
 /// `unsigned`: it wraps modulo 2^32.
-fn php_word_size(word_length : Int32) -> UInt {
+fn php_word_size(word_length : Int32) -> UInt32 {
   word_length.reinterpret_as_uint() * 4
 }
 
 ///|
 /// `size + 5 + word_size >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE` in
 /// `unsigned` arithmetic.
-fn php_heredoc_overflows(size : Int32, word_size : UInt) -> Bool {
+fn php_heredoc_overflows(size : Int32, word_size : UInt32) -> Bool {
   size.reinterpret_as_uint() + 5 + word_size >=
   SERIALIZATION_BUFFER_SIZE.reinterpret_as_uint()
 }

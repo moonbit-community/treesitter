@@ -4,7 +4,7 @@
 ///|
 /// Inclusive code point ranges of the characters that `<str as Debug>::fmt`
 /// writes as `\u{...}`.
-let rust_debug_escaped_ranges : FixedArray[(Int, Int)] = [
+let rust_debug_escaped_ranges : FixedArray[(Int32, Int32)] = [
   (1, 8),
   (11, 12),
   (14, 31),

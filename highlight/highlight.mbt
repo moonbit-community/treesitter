@@ -42,15 +42,17 @@ pub let input_encoding_utf16be : UInt32 = 2
 
 ///|
 /// Indicates which highlight should be applied to a region of source code.
-pub(all) struct Highlight(Int32) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub(all) struct Highlight(Int32)
 
 ///|
 /// Represents the reason why syntax highlighting failed.
+#derive(Eq, Debug)
 pub(all) suberror HighlightError {
   Cancelled
   InvalidLanguage(@treesitter.LanguageError)
   Unknown
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for HighlightError with fn output(self, logger) {
@@ -63,11 +65,12 @@ pub impl Show for HighlightError with fn output(self, logger) {
 
 ///|
 /// Represents a single step in rendering a syntax-highlighted document.
+#derive(Eq, Debug)
 pub(all) enum HighlightEvent {
   Source(start~ : Int32, end~ : Int32)
   HighlightStart(Highlight)
   HighlightEnd
-} derive(Eq, Debug)
+}
 
 ///|
 /// Contains the data needed to highlight code written in a particular
@@ -312,7 +315,9 @@ pub fn HighlightConfiguration::new(
 
   // Construct a separate query just for dealing with the 'combined injections'.
   // Disable the combined injection patterns in the main query.
-  let combined_injections_query = @treesitter.Query::new(language, injection_query)
+  let combined_injections_query = @treesitter.Query::new(
+    language, injection_query,
+  )
   let mut has_combined_queries = false
   for pattern_index in 0..<locals_pattern_index {
     let settings = query.property_settings(pattern_index)
@@ -490,10 +495,10 @@ fn HighlightIterLayer::new(
           if cancellation_flag.val != 0 {
             @treesitter.ControlFlow::Break
           } else {
-            @treesitter.ControlFlow::Continue
+            Continue
           }
         } else {
-          @treesitter.ControlFlow::Continue
+          Continue
         }
       }
       let parse_opts = @treesitter.ParseOptions::new(progress_callback~)

@@ -4,12 +4,12 @@
 ///|
 /// AnalysisStateEntry. `field_id` is a 15-bit field upstream.
 priv struct AnalysisStateEntry {
-  parse_state : Int
-  parent_symbol : Int
-  child_index : Int
-  field_id : Int
+  parse_state : Int32
+  parent_symbol : Int32
+  child_index : Int32
+  field_id : Int32
   done : Bool
-} derive(Eq)
+}
 
 ///|
 let empty_analysis_entry : AnalysisStateEntry = {
@@ -26,30 +26,30 @@ let empty_analysis_entry : AnalysisStateEntry = {
 /// fail to match.
 priv struct AnalysisState {
   stack : FixedArray[AnalysisStateEntry]
-  mut depth : Int
-  mut step_index : Int
-  root_symbol : Int
+  mut depth : Int32
+  mut step_index : Int32
+  root_symbol : Int32
 }
 
 ///|
 fn AnalysisState::new(
-  step_index : Int,
+  step_index : Int32,
   entry : AnalysisStateEntry,
-  root_symbol : Int,
+  root_symbol : Int32,
 ) -> AnalysisState {
   let stack = FixedArray::make(max_analysis_state_depth, empty_analysis_entry)
   stack[0] = entry
-  { stack, depth: 1, step_index, root_symbol }
+  { stack, depth: 1, step_index, root_symbol, }
 }
 
 ///|
 /// A value copy (`AnalysisState next_state = *state`).
 fn AnalysisState::copy(self : AnalysisState) -> AnalysisState {
-  { ..self, stack: self.stack.copy() }
+  { ..self, stack: self.stack.copy(), }
 }
 
 ///|
-fn AnalysisState::recursion_depth(self : AnalysisState) -> Int {
+fn AnalysisState::recursion_depth(self : AnalysisState) -> Int32 {
   let mut result = 0
   for i in 0..<self.depth {
     let symbol = self.stack[i].parent_symbol
@@ -64,7 +64,7 @@ fn AnalysisState::recursion_depth(self : AnalysisState) -> Int {
 }
 
 ///|
-fn analysis_state_compare(left : AnalysisState, other : AnalysisState) -> Int {
+fn analysis_state_compare(left : AnalysisState, other : AnalysisState) -> Int32 {
   if left.depth < other.depth {
     return 1
   }
@@ -110,7 +110,7 @@ fn analysis_state_compare(left : AnalysisState, other : AnalysisState) -> Int {
 
 ///|
 /// The index of `analysis_state__top`.
-fn AnalysisState::top_index(self : AnalysisState) -> Int {
+fn AnalysisState::top_index(self : AnalysisState) -> Int32 {
   if self.depth == 0 {
     0
   } else {
@@ -124,7 +124,7 @@ fn AnalysisState::top(self : AnalysisState) -> AnalysisStateEntry {
 }
 
 ///|
-fn AnalysisState::has_supertype(self : AnalysisState, symbol : Int) -> Bool {
+fn AnalysisState::has_supertype(self : AnalysisState, symbol : Int32) -> Bool {
   for i in 0..<self.depth {
     if self.stack[i].parent_symbol == symbol {
       return true
@@ -162,8 +162,8 @@ priv struct QueryAnalysis {
   mut states : Array[AnalysisState]
   mut next_states : Array[AnalysisState]
   mut deeper_states : Array[AnalysisState]
-  final_step_indices : Array[Int]
-  finished_parent_symbols : Array[Int]
+  final_step_indices : Array[Int32]
+  finished_parent_symbols : Array[Int32]
   mut did_abort : Bool
 }
 
@@ -183,27 +183,27 @@ fn QueryAnalysis::new() -> QueryAnalysis {
 /// AnalysisSubgraphNode. `child_index` is a 7-bit field upstream, so it is
 /// kept truncated to 7 bits.
 priv struct AnalysisSubgraphNode {
-  state : Int
-  production_id : Int
-  child_index : Int
+  state : Int32
+  production_id : Int32
+  child_index : Int32
   done : Bool
 }
 
 ///|
 fn subgraph_node(
-  state : Int,
-  production_id : Int,
-  child_index : Int,
+  state : Int32,
+  production_id : Int32,
+  child_index : Int32,
   done : Bool,
 ) -> AnalysisSubgraphNode {
-  { state, production_id, child_index: child_index & 0x7F, done }
+  { state, production_id, child_index: child_index & 0x7F, done, }
 }
 
 ///|
 fn analysis_subgraph_node_compare(
   left : AnalysisSubgraphNode,
   other : AnalysisSubgraphNode,
-) -> Int {
+) -> Int32 {
   if left.state < other.state {
     return -1
   }
@@ -235,8 +235,8 @@ fn analysis_subgraph_node_compare(
 /// AnalysisSubgraph - A subset of the states in the parse table that are used
 /// in constructing nodes with a certain symbol.
 priv struct AnalysisSubgraph {
-  symbol : Int
-  start_states : Array[Int]
+  symbol : Int32
+  start_states : Array[Int32]
   nodes : Array[AnalysisSubgraphNode]
 }
 
@@ -387,7 +387,11 @@ fn Query::perform_analysis(
             ..next_state.stack[top_index],
             child_index: successor.child_index,
             parse_state: successor.state,
-            done: if node.done { true } else { next_state.stack[top_index].done },
+            done: if node.done {
+              true
+            } else {
+              next_state.stack[top_index].done
+            },
           }
           // Determine if this hypothetical child node would match the current
           // step of the query pattern.
@@ -399,7 +403,8 @@ fn Query::perform_analysis(
           } else if visible_symbol != 0 {
             does_match = true
             if step.symbol == wildcard_symbol {
-              if step.is_named && !language.symbol_metadata[visible_symbol].named {
+              if step.is_named &&
+                !language.symbol_metadata[visible_symbol].named {
                 does_match = false
               }
             } else if step.symbol != visible_symbol {
@@ -433,7 +438,10 @@ fn Query::perform_analysis(
               done: false,
             }
             if next_state.recursion_depth() > recursion_depth_limit {
-              analysis_state_set_insert_sorted(analysis.deeper_states, next_state)
+              analysis_state_set_insert_sorted(
+                analysis.deeper_states,
+                next_state,
+              )
               continue
             }
           }
@@ -494,7 +502,10 @@ fn Query::perform_analysis(
                   next_state.step_index,
                 )
               } else {
-                analysis_state_set_insert_sorted(analysis.next_states, next_state)
+                analysis_state_set_insert_sorted(
+                  analysis.next_states,
+                  next_state,
+                )
               }
             }
             // If the state has advanced to a step with an alternative step,
@@ -525,9 +536,9 @@ fn Query::perform_analysis(
 ///|
 /// `ts_query__analyze_patterns`: returns `None` if all patterns are valid,
 /// or the byte offset of an impossible pattern step.
-fn Query::analyze_patterns(self : Query) -> UInt? {
+fn Query::analyze_patterns(self : Query) -> UInt32? {
   let language = self.language
-  let non_rooted_pattern_start_steps : Array[Int] = []
+  let non_rooted_pattern_start_steps : Array[Int32] = []
   for i, pattern in self.pattern_map {
     if !pattern.is_rooted {
       let step = self.steps[pattern.step_index]
@@ -540,7 +551,7 @@ fn Query::analyze_patterns(self : Query) -> UInt? {
   // Walk forward through all of the steps in the query, computing some basic
   // information about each step. Mark all of the steps that contain captures,
   // and record the indices of all of the steps that have child steps.
-  let parent_step_indices : Array[Int] = []
+  let parent_step_indices : Array[Int32] = []
   for i in 0..<self.steps.length() {
     let step = self.steps[i]
     if step.depth == pattern_done_marker {
@@ -581,7 +592,9 @@ fn Query::analyze_patterns(self : Query) -> UInt? {
           }
           if child_step.depth == step.depth + 1 &&
             child_step.symbol != wildcard_symbol {
-            let is_valid_subtype = subtypes.iter().any(s => s == child_step.symbol)
+            let is_valid_subtype = subtypes
+              .iter()
+              .any(s => s == child_step.symbol)
             if !is_valid_subtype {
               for step_offset in self.step_offsets {
                 if step_offset.step_index >= j {
@@ -603,10 +616,10 @@ fn Query::analyze_patterns(self : Query) -> UInt? {
   // within one of the parent nodes, such that their children appear to belong
   // to the parent.
   let subgraphs : Array[AnalysisSubgraph] = []
-  let insert_subgraph = (symbol : Int) => {
+  let insert_subgraph = (symbol : Int32) => {
     let (index, exists) = search_sorted_by(subgraphs, s => s.symbol, symbol)
     if !exists {
-      subgraphs.insert(index, { symbol, start_states: [], nodes: [] })
+      subgraphs.insert(index, { symbol, start_states: [], nodes: [], })
     }
   }
   for parent_step_index in parent_step_indices {
@@ -658,9 +671,10 @@ fn Query::analyze_patterns(self : Query) -> UInt? {
           predecessor_map.add(lookahead_iterator.next_state(), state)
         }
         if language.state_is_primary(state) {
-          for alias in language.aliases_for_symbol(
-            lookahead_iterator.current_symbol(),
-          ) {
+          for
+            alias in language.aliases_for_symbol(
+              lookahead_iterator.current_symbol(),
+            ) {
             let (subgraph_index, exists) = search_sorted_by(
               subgraphs,
               s => s.symbol,
@@ -748,7 +762,13 @@ fn Query::analyze_patterns(self : Query) -> UInt? {
         analysis.states,
         AnalysisState::new(
           (parent_step_index + 1) & 0xFFFF,
-          { parse_state, parent_symbol, child_index: 0, field_id: 0, done: false },
+          {
+            parse_state,
+            parent_symbol,
+            child_index: 0,
+            field_id: 0,
+            done: false,
+          },
           parent_symbol,
         ),
       )
@@ -805,7 +825,7 @@ fn Query::analyze_patterns(self : Query) -> UInt? {
     }
   }
   // Mark as indefinite any step with captures that are used in predicates.
-  let predicate_capture_ids : Array[Int] = []
+  let predicate_capture_ids : Array[Int32] = []
   for pattern in self.patterns {
     // Gather all of the captures that are used in predicates for this
     // pattern.
@@ -827,7 +847,11 @@ fn Query::analyze_patterns(self : Query) -> UInt? {
         if capture_id == none {
           break
         }
-        let (_, exists) = search_sorted_by(predicate_capture_ids, x => x, capture_id)
+        let (_, exists) = search_sorted_by(
+          predicate_capture_ids,
+          x => x,
+          capture_id,
+        )
         if exists {
           step.root_pattern_guaranteed = false
           break

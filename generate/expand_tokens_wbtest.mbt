@@ -114,7 +114,10 @@ test "rule expansion: regexes" {
   // regex with perl character classes
   check(one("\\w\\d\\s", ""), [("_0  ", Some((0, "_0 ")))])
   // string
-  check(p => ([et_str(p, "abc")], []), [("abcd", Some((0, "abc"))), ("ab", None)])
+  check(p => ([et_str(p, "abc")], []), [
+    ("abcd", Some((0, "abc"))),
+    ("ab", None),
+  ])
   // complex rule containing strings and regexes
   check(
     p => {
@@ -128,14 +131,19 @@ test "rule expansion: regexes" {
     [("{a}{", Some((0, "{a}"))), ("{a}{d", Some((0, "{a}"))), ("ab", None)],
   )
   // longest match rule
-  check(p => ([et_pat(p, "a|bc", ""), et_pat(p, "aa", ""), et_pat(p, "bcd", "")], []), [
-    ("a.", Some((0, "a"))),
-    ("bc.", Some((0, "bc"))),
-    ("aa.", Some((1, "aa"))),
-    ("bcd?", Some((2, "bcd"))),
-    ("b.", None),
-    ("c.", None),
-  ])
+  check(
+    p => {
+      ([et_pat(p, "a|bc", ""), et_pat(p, "aa", ""), et_pat(p, "bcd", "")], [])
+    },
+    [
+      ("a.", Some((0, "a"))),
+      ("bc.", Some((0, "bc"))),
+      ("aa.", Some((1, "aa"))),
+      ("bcd?", Some((2, "bcd"))),
+      ("b.", None),
+      ("c.", None),
+    ],
+  )
   // regex with an alternative including the empty string
   check(one("a(b|)+c", ""), [
     ("ac.", Some((0, "ac"))),
@@ -415,13 +423,16 @@ test "rule expansion: case insensitivity" {
     ("aB", None),
   ])
   // Case-insensitivity does not leak from one token to the next.
-  check(p => ([et_pat(p, "ab", "i"), et_pat(p, "cd", ""), et_str(p, "ef")], []), [
-    ("AB", Some((0, "AB"))),
-    ("cd", Some((1, "cd"))),
-    ("CD", None),
-    ("ef", Some((2, "ef"))),
-    ("EF", None),
-  ])
+  check(
+    p => ([et_pat(p, "ab", "i"), et_pat(p, "cd", ""), et_str(p, "ef")], []),
+    [
+      ("AB", Some((0, "AB"))),
+      ("cd", Some((1, "cd"))),
+      ("CD", None),
+      ("ef", Some((2, "ef"))),
+      ("EF", None),
+    ],
+  )
   check(one("\\$\\{[a-z0-9_\\.]*[^a-z0-9_\\.\\}]", "i"), [
     ("${a}", None),
     ("${A}", None),

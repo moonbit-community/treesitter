@@ -1,4 +1,5 @@
 import {
+  "moonbitlang/async",
   "moonbit-community/treesitter",
   "moonbit-community/treesitter/cli/support",
   "moonbit-community/treesitter/regex",

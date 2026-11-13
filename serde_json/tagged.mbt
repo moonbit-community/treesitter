@@ -24,7 +24,7 @@ fn variant_by_index(
     index.to_int()
   } else {
     raise invalid_value(
-      Unexpected::Unsigned(index),
+      Unsigned(index),
       "variant index 0 <= i < \{variants.length()}",
     )
   }
@@ -64,7 +64,7 @@ pub fn Deserializer::deserialize_internally_tagged(
         while seq.next_element(de => de.deserialize_content()) is Some(e) {
           rest.push(e)
         }
-        (variant, Content::Seq(rest))
+        (variant, Seq(rest))
       },
       visit_map=map => {
         let mut variant : Int32? = None
@@ -87,7 +87,7 @@ pub fn Deserializer::deserialize_internally_tagged(
           }
         }
         match variant {
-          Some(variant) => (variant, Content::Map(pairs))
+          Some(variant) => (variant, Map(pairs))
           None => raise missing_field(tag)
         }
       },
@@ -180,17 +180,14 @@ pub fn Value::deserialize_internally_tagged(
         }
       }
       match variant {
-        Some(variant) => (variant, Content::Map(rest))
+        Some(variant) => (variant, Map(rest))
         None => raise missing_field(tag)
       }
     }
     Array(values) => {
       guard values.get(0) is Some(first) else { raise missing_field(tag) }
       let variant = first.deserialize_variant(variants)
-      (
-        variant,
-        Content::Seq(values[1:].iter().map(Value::to_content).collect()),
-      )
+      (variant, Seq(values[1:].iter().map(Value::to_content).collect()))
     }
     _ => raise invalid_type(self.unexpected(), expecting)
   }

@@ -390,6 +390,7 @@ priv enum YamlResultSchema {
 /// compiled, `-DYAML_SCHEMA=core|json|legacy` (`YAML_SCHEMA` in the Makefile
 /// and CMakeLists.txt, core by default), which picks the
 /// `schema.<name>.c` that `scanner.c` includes.
+#derive(Eq, Debug)
 pub(all) enum YamlSchema {
   /// The YAML 1.2 core schema (schema.core.c, the default).
   Core
@@ -397,7 +398,7 @@ pub(all) enum YamlSchema {
   Json
   /// The YAML 1.1 types (schema.legacy.c), including timestamps.
   Legacy
-} derive(Eq, Debug)
+}
 
 ///|
 /// `HAS_TIMESTAMP` of the included schema.

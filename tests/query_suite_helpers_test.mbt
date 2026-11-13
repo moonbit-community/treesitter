@@ -77,7 +77,7 @@ fn unindent_lines(s : String) -> Array[StringView] {
   for i in 0..<s.length() {
     if s.unsafe_get(i) == '\n' {
       let end = if i > start && s.unsafe_get(i - 1) == '\r' { i - 1 } else { i }
-      lines.push(s.view(start_offset=start, end_offset=end))
+      lines.push(s.clamped_view(start~, end~))
       start = i + 1
     }
   }
@@ -87,7 +87,7 @@ fn unindent_lines(s : String) -> Array[StringView] {
     } else {
       s.length()
     }
-    lines.push(s.view(start_offset=start, end_offset=end))
+    lines.push(s.clamped_view(start~, end~))
   }
   lines
 }
@@ -122,7 +122,7 @@ fn unindent(s : String) -> String {
     if i == 0 {
       result.write_view(line)
     } else if line.length() > spaces {
-      result.write_view(line.view(start_offset=spaces))
+      result.write_view(line.clamped_view(start=spaces))
     }
   }
   if s.has_suffix("\n") {

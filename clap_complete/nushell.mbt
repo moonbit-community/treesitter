@@ -23,22 +23,22 @@ fn nushell_last_line(s : StringBuilder) -> String? {
   }
   let s = if s.has_suffix("\n") {
     // `lines()` does not yield an empty last line.
-    let t = s.view(end_offset=s.length() - 1)
+    let t = s.clamped_view(end=s.length() - 1)
     let t = if t.has_suffix("\r") {
-      t.view(end_offset=t.length() - 1)
+      t.clamped_view(end=t.length() - 1)
     } else {
       t
     }
     t
   } else {
-    s.view()
+    s.clamped_view()
   }
   let line = match s.rev_find("\n") {
-    Some(i) => s.view(start_offset=i + 1)
+    Some(i) => s.clamped_view(start=i + 1)
     None => s
   }
   let line = if line.has_suffix("\r") {
-    line.view(end_offset=line.length() - 1)
+    line.clamped_view(end=line.length() - 1)
   } else {
     line
   }

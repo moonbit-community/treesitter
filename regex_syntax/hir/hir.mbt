@@ -11,9 +11,10 @@
 ///|
 /// An error that can occur while translating an `Ast` to a `Hir`
 /// (upstream `hir::Error`).
+#derive(Eq, Debug)
 pub(all) suberror HirError {
   HirError(kind~ : ErrorKind, pattern~ : String, span~ : @ast.Span)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Return the type of this error.
@@ -38,6 +39,7 @@ pub fn HirError::span(self : HirError) -> @ast.Span {
 
 ///|
 /// The type of an error that occurred while building an `Hir`.
+#derive(Eq, Debug)
 pub(all) enum ErrorKind {
   /// This error occurs when a Unicode feature is used when Unicode
   /// support is disabled. For example `(?-u:\pL)` would trigger this error.
@@ -61,7 +63,7 @@ pub(all) enum ErrorKind {
   /// available, and the regular expression required Unicode aware case
   /// insensitivity.
   UnicodeCaseUnavailable
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ErrorKind with fn output(self, f) {
@@ -86,12 +88,13 @@ pub impl Show for ErrorKind with fn output(self, f) {
 /// An `HirKind` indicates what kind of regular expression it is (a literal,
 /// a repetition, a look-around assertion, etc.), where as a `Properties`
 /// describes various facts about the regular expression.
+#derive(Eq, Debug)
 pub struct Hir {
   /// The underlying HIR kind.
   priv kind : HirKind
   /// Analysis info about this HIR, computed bottom-up.
   priv props : Properties
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns a reference to the underlying HIR kind.
@@ -432,6 +435,7 @@ pub fn Hir::dot(dot : Dot) -> Hir {
 
 ///|
 /// The underlying kind of an arbitrary [`Hir`] expression.
+#derive(Eq, Debug)
 pub(all) enum HirKind {
   /// The empty regular expression, which matches everything, including the
   /// empty string.
@@ -452,7 +456,7 @@ pub(all) enum HirKind {
   Concat(Array[Hir])
   /// An alternation of expressions.
   Alternation(Array[Hir])
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns a slice of this kind's sub-expressions, if any.
@@ -468,17 +472,19 @@ pub fn HirKind::subs(self : HirKind) -> Array[Hir] {
 
 ///|
 /// The high-level intermediate representation of a literal.
-pub(all) struct Literal(Bytes) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub(all) struct Literal(Bytes)
 
 ///|
 /// The high-level intermediate representation of a character class.
+#derive(Eq, Debug)
 pub(all) enum Class {
   /// A set of characters represented by Unicode scalar values.
   Unicode(ClassUnicode)
   /// A set of characters represented by arbitrary bytes (one byte per
   /// character).
   Bytes(ClassBytes)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Apply Unicode simple case folding to this character class, in place.
@@ -559,9 +565,10 @@ pub fn Class::literal(self : Class) -> Bytes? {
 
 ///|
 /// A set of characters represented by Unicode scalar values.
+#derive(Eq, Debug)
 pub struct ClassUnicode {
   priv set : IntervalSet[ClassUnicodeRange]
-} derive(Eq, Debug)
+}
 
 ///|
 /// Create a new class from a sequence of ranges.
@@ -738,10 +745,11 @@ pub fn ClassUnicode::to_byte_class(self : ClassUnicode) -> ClassBytes? {
 ///
 /// The range is closed. That is, the start and end of the range are included
 /// in the range.
+#derive(Eq, Compare, Debug)
 pub(all) struct ClassUnicodeRange {
   start : Int32
   end : Int32
-} derive(Eq, Compare, Debug)
+}
 
 ///|
 pub impl Interval for ClassUnicodeRange with fn lower(self) {
@@ -835,9 +843,10 @@ pub fn ClassUnicodeRange::len(self : ClassUnicodeRange) -> Int32 {
 /// A set of characters represented by arbitrary bytes.
 ///
 /// Each byte corresponds to one character.
+#derive(Eq, Debug)
 pub struct ClassBytes {
   priv set : IntervalSet[ClassBytesRange]
-} derive(Eq, Debug)
+}
 
 ///|
 /// Create a new class from a sequence of ranges.
@@ -996,10 +1005,11 @@ pub fn ClassBytes::to_unicode_class(self : ClassBytes) -> ClassUnicode? {
 ///
 /// The range is closed. That is, the start and end of the range are included
 /// in the range.
+#derive(Eq, Compare, Debug)
 pub(all) struct ClassBytesRange {
   start : Byte
   end : Byte
-} derive(Eq, Compare, Debug)
+}
 
 ///|
 pub impl Interval for ClassBytesRange with fn lower(self) {
@@ -1090,6 +1100,7 @@ pub fn ClassBytesRange::len(self : ClassBytesRange) -> Int32 {
 /// The high-level intermediate representation for a look-around assertion.
 ///
 /// An assertion match is always zero-length. Also called an "empty match."
+#derive(Eq, Debug)
 pub(all) enum Look {
   /// Match the beginning of text.
   Start
@@ -1127,7 +1138,7 @@ pub(all) enum Look {
   WordStartHalfUnicode
   /// Match the end half of a Unicode word boundary.
   WordEndHalfUnicode
-} derive(Eq, Debug)
+}
 
 ///|
 /// Flip the look-around assertion to its equivalent for reverse searches.
@@ -1244,6 +1255,7 @@ pub fn Look::as_char(self : Look) -> Char {
 
 ///|
 /// The high-level intermediate representation for a capturing group.
+#derive(Eq, Debug)
 pub(all) struct Capture {
   /// The capture index of the capture.
   index : UInt32
@@ -1251,10 +1263,11 @@ pub(all) struct Capture {
   name : String?
   /// The expression inside the capturing group, which may be empty.
   sub : Hir
-} derive(Eq, Debug)
+}
 
 ///|
 /// The high-level intermediate representation of a repetition operator.
+#derive(Eq, Debug)
 pub(all) struct Repetition {
   /// The minimum range of the repetition.
   min : UInt32
@@ -1269,7 +1282,7 @@ pub(all) struct Repetition {
   greedy : Bool
   /// The expression being repeated.
   sub : Hir
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns a new repetition with the same `min`, `max` and `greedy`
@@ -1280,6 +1293,7 @@ pub fn Repetition::with_sub(self : Repetition, sub : Hir) -> Repetition {
 
 ///|
 /// A type describing the different flavors of `.`.
+#derive(Eq, Debug)
 pub(all) enum Dot {
   /// Matches the UTF-8 encoding of any Unicode scalar value.
   AnyChar
@@ -1299,7 +1313,7 @@ pub(all) enum Dot {
   AnyByteExceptLF
   /// Matches any byte value except for `\r` and `\n`.
   AnyByteExceptCRLF
-} derive(Eq, Debug)
+}
 
 ///|
 /// A type that collects various properties of an HIR value.
@@ -1307,6 +1321,7 @@ pub(all) enum Dot {
 /// Properties are always scalar values and represent meta data that is
 /// computed inductively on an HIR value. Properties are defined for all
 /// HIR values.
+#derive(Eq, Debug)
 pub struct Properties {
   priv minimum_len : UInt64?
   priv maximum_len : UInt64?
@@ -1320,7 +1335,7 @@ pub struct Properties {
   priv static_explicit_captures_len : UInt64?
   priv literal : Bool
   priv alternation_literal : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns the length (in bytes) of the smallest string matched by this
@@ -1841,13 +1856,14 @@ fn Properties::alternation(alts : Array[Hir]) -> Properties {
 ///
 /// This is useful for efficiently tracking look-around assertions. For
 /// example, an [`Hir`] provides properties that return `LookSet`s.
+#derive(Eq, Debug)
 pub(all) struct LookSet {
   /// The underlying representation this set is exposed to make it possible
   /// to store it somewhere efficiently. The representation is that
   /// of a bitset, where each assertion occupies bit `i` where
   /// `i = Look::as_repr()`.
   bits : UInt32
-} derive(Eq, Debug)
+}
 
 ///|
 /// Create an empty set of look-around assertions.

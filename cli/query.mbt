@@ -149,7 +149,7 @@ pub fn query_file_at_path(
           }
         }
         if should_test {
-          results.push(@query_testing.CaptureInfo::{
+          results.push({
             name: capture_name,
             start: @query_testing.to_utf8_point(
               capture.node.start_position(),

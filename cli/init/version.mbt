@@ -1,11 +1,12 @@
 // Port of tree-sitter crates/cli/src/version.rs.
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum BumpLevel {
   Patch
   Minor
   Major
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn BumpLevel::default() -> BumpLevel {
@@ -21,10 +22,11 @@ pub struct Version {
 
 ///|
 /// `UpdateError`.
+#derive(Debug)
 pub(all) enum UpdateError {
   Io(String, String)
   Command(String, String)
-} derive(Debug)
+}
 
 ///|
 pub impl Show for UpdateError with fn output(self, logger) {
@@ -41,11 +43,12 @@ pub impl Show for UpdateError with fn output(self, logger) {
 ///|
 /// `VersionError`. `Json` and `Io` carry the display text of the
 /// `serde_json::Error` and `std::io::Error` they wrap (`#[error(transparent)]`).
+#derive(Debug)
 pub(all) suberror VersionError {
   Json(String)
   Io(String)
   Update(Array[UpdateError])
-} derive(Debug)
+}
 
 ///|
 pub impl Show for VersionError with fn output(self, logger) {
@@ -81,7 +84,7 @@ pub async fn Version::run(self : Version) -> Unit {
     IoError(e) => raise VersionError::Io(e)
   }
   let tree_sitter_json = @loader.TreeSitterJSON::parse(text) catch {
-    @loader.JsonError(e) => raise VersionError::Json(e)
+    JsonError(e) => raise VersionError::Json(e)
   }
   let current_version = tree_sitter_json.metadata.version
   self.version = match (self.version is Some(_), self.bump) {
@@ -259,11 +262,11 @@ async fn update_file_with(
   update_fn : (String) -> String,
 ) -> Result[Unit, UpdateError] {
   let content = read_to_string(path) catch {
-    IoError(e) => return Err(UpdateError::Io(e, path))
+    IoError(e) => return Err(Io(e, path))
   }
   let updated_content = update_fn(content)
   fs_write(path, updated_content) catch {
-    IoError(e) => return Err(UpdateError::Io(e, path))
+    IoError(e) => return Err(Io(e, path))
   }
   Ok(())
 }
@@ -306,7 +309,7 @@ fn replace_quoted_after(
   // `prefix` is ASCII and found (the caller checked), so `prefix_index` is a
   // character boundary.
   let prefix_index = @support.utf8_len(
-      line.view(end_offset=line.find(prefix).unwrap()).to_owned(),
+      line.clamped_view(end=line.find(prefix).unwrap()).to_owned(),
     ) +
     @support.utf8_len(prefix)
   let start_quote = match find_quote(prefix_index) {
@@ -407,7 +410,7 @@ async fn Version::update_cargo_lock(
     }
     if code != Some(0) {
       let stderr = @support.utf8_lossy(stderr)
-      return Err(UpdateError::Command("cargo generate-lockfile", stderr))
+      return Err(Command("cargo generate-lockfile", stderr))
     }
   }
   Ok(())
@@ -449,7 +452,7 @@ async fn Version::update_package_lock_json(
     }
     if code != Some(0) {
       let stderr = @support.utf8_lossy(stderr)
-      return Err(UpdateError::Command("npm install", stderr))
+      return Err(Command("npm install", stderr))
     }
   }
   Ok(())

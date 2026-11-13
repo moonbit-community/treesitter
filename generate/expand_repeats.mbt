@@ -18,9 +18,10 @@ priv enum ExpandTask {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ExpandRepeatsError {
   ExpandRepeatsError(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ExpandRepeatsError with fn output(self, logger) {
@@ -107,10 +108,11 @@ fn Expander::expand_root(
 
 ///|
 /// Whether a rule can match zero characters, with and without crossing an `eof()`.
+#derive(Eq)
 priv struct Width {
   nullable : Bool
   eof_nullable : Bool
-} derive(Eq)
+}
 
 ///|
 let width_default : Width = { nullable: false, eof_nullable: false, }

@@ -52,13 +52,14 @@
 
 ///|
 /// The version of the compact format written by `Language::to_compact`.
-pub let compact_format_version : Int = 1
+pub let compact_format_version : Int32 = 1
 
 ///|
 /// A malformed or unsupported compact language.
+#derive(Debug)
 pub(all) suberror CompactError {
   CompactError(String)
-} derive(Debug)
+}
 
 ///|
 pub impl Show for CompactError with fn output(self, logger) {
@@ -75,7 +76,7 @@ priv struct CompactWriter {
 }
 
 ///|
-fn CompactWriter::uint(self : CompactWriter, value : Int) -> Unit raise {
+fn CompactWriter::uint(self : CompactWriter, value : Int32) -> Unit raise {
   if value < 0 {
     raise CompactError("negative value \{value} in an unsigned field")
   }
@@ -88,7 +89,7 @@ fn CompactWriter::uint(self : CompactWriter, value : Int) -> Unit raise {
 }
 
 ///|
-fn CompactWriter::sint(self : CompactWriter, value : Int) -> Unit {
+fn CompactWriter::sint(self : CompactWriter, value : Int32) -> Unit {
   // Zigzag, computed in 64 bits so that every Int is representable.
   let v = value.to_int64()
   let mut z = ((v << 1) ^ (v >> 63)).reinterpret_as_uint64()
@@ -100,7 +101,7 @@ fn CompactWriter::sint(self : CompactWriter, value : Int) -> Unit {
 }
 
 ///|
-fn CompactWriter::byte(self : CompactWriter, value : Int) -> Unit {
+fn CompactWriter::byte(self : CompactWriter, value : Int32) -> Unit {
   self.buf.write_byte(value.to_byte())
 }
 
@@ -112,7 +113,7 @@ fn CompactWriter::bool(self : CompactWriter, value : Bool) -> Unit {
 ///|
 fn CompactWriter::ints(
   self : CompactWriter,
-  values : Array[Int],
+  values : Array[Int32],
 ) -> Unit raise {
   self.uint(values.length())
   for v in values {
@@ -123,7 +124,7 @@ fn CompactWriter::ints(
 ///|
 fn CompactWriter::sparse(
   self : CompactWriter,
-  values : Array[Int],
+  values : Array[Int32],
 ) -> Unit raise {
   self.uint(values.length())
   let mut nonzero = 0
@@ -146,7 +147,7 @@ fn CompactWriter::sparse(
 ///|
 fn CompactWriter::deltas(
   self : CompactWriter,
-  values : Array[Int],
+  values : Array[Int32],
 ) -> Unit raise {
   self.uint(values.length())
   let mut previous = 0
@@ -159,7 +160,7 @@ fn CompactWriter::deltas(
 ///|
 fn CompactWriter::index_deltas(
   self : CompactWriter,
-  values : Array[Int],
+  values : Array[Int32],
 ) -> Unit raise {
   self.uint(values.length())
   for i, v in values {
@@ -317,7 +318,7 @@ fn CompactWriter::parse_action(
 ///|
 /// The raw stream (layer 3) of a language.
 fn write_raw(language : Language) -> Bytes raise {
-  let w = CompactWriter::{ buf: @buffer.Buffer(size_hint=1 << 16), }
+  let w = CompactWriter::{ buf: Buffer(size_hint=1 << 16), }
   let l = language
   w.uint(l.abi_version)
   w.uint(l.symbol_count)
@@ -400,7 +401,7 @@ pub fn Language::to_compact(self : Language) -> Bytes raise CompactError {
     CompactError(_) as e => raise e
     e => raise CompactError(e.to_string())
   }
-  let w = CompactWriter::{ buf: @buffer.Buffer(size_hint=raw.length() / 4), }
+  let w = CompactWriter::{ buf: Buffer(size_hint=raw.length() / 4), }
   w.byte(compact_format_version)
   w.uint(raw.length()) catch {
     _ => ()
@@ -423,11 +424,11 @@ pub fn Language::to_compact_base64(
 ///|
 priv struct CompactReader {
   data : FixedArray[Byte]
-  mut pos : Int
+  mut pos : Int32
 }
 
 ///|
-fn CompactReader::byte(self : CompactReader) -> Int raise CompactError {
+fn CompactReader::byte(self : CompactReader) -> Int32 raise CompactError {
   if self.pos >= self.data.length() {
     raise CompactError("unexpected end of data")
   }
@@ -437,7 +438,7 @@ fn CompactReader::byte(self : CompactReader) -> Int raise CompactError {
 }
 
 ///|
-fn CompactReader::uint(self : CompactReader) -> Int raise CompactError {
+fn CompactReader::uint(self : CompactReader) -> Int32 raise CompactError {
   let mut result = 0
   let mut shift = 0
   for ;; {
@@ -455,7 +456,7 @@ fn CompactReader::uint(self : CompactReader) -> Int raise CompactError {
 }
 
 ///|
-fn CompactReader::sint(self : CompactReader) -> Int raise CompactError {
+fn CompactReader::sint(self : CompactReader) -> Int32 raise CompactError {
   // The zigzag encoding of an `Int` has at most 32 bits; anything longer
   // (whose high bits would otherwise be dropped) is rejected.
   let mut z = 0UL
@@ -489,8 +490,8 @@ fn CompactReader::bool(self : CompactReader) -> Bool raise CompactError {
 /// request a huge allocation: each element takes at least `min_bytes` bytes.
 fn CompactReader::length(
   self : CompactReader,
-  min_bytes~ : Int = 1,
-) -> Int raise CompactError {
+  min_bytes~ : Int32 = 1,
+) -> Int32 raise CompactError {
   let n = self.uint()
   if min_bytes > 0 && n > (self.data.length() - self.pos) / min_bytes {
     raise CompactError("length \{n} exceeds the data")
@@ -499,7 +500,7 @@ fn CompactReader::length(
 }
 
 ///|
-fn CompactReader::ints(self : CompactReader) -> Array[Int] raise CompactError {
+fn CompactReader::ints(self : CompactReader) -> Array[Int32] raise CompactError {
   let n = self.length()
   let result = Array::make(n, 0)
   for i in 0..<n {
@@ -511,7 +512,7 @@ fn CompactReader::ints(self : CompactReader) -> Array[Int] raise CompactError {
 ///|
 fn CompactReader::sparse(
   self : CompactReader,
-) -> Array[Int] raise CompactError {
+) -> Array[Int32] raise CompactError {
   // A sparse array may be much longer than its encoding, so its length is
   // bounded by the declared size limit below instead of the data length.
   let n = self.length(min_bytes=0)
@@ -536,7 +537,7 @@ fn CompactReader::sparse(
 ///|
 fn CompactReader::deltas(
   self : CompactReader,
-) -> Array[Int] raise CompactError {
+) -> Array[Int32] raise CompactError {
   let n = self.length()
   let result = Array::make(n, 0)
   let mut previous = 0
@@ -550,7 +551,7 @@ fn CompactReader::deltas(
 ///|
 fn CompactReader::index_deltas(
   self : CompactReader,
-) -> Array[Int] raise CompactError {
+) -> Array[Int32] raise CompactError {
   let n = self.length()
   let result = Array::make(n, 0)
   for i in 0..<n {
@@ -602,7 +603,7 @@ fn CompactReader::map_slices(
 ///|
 fn CompactReader::range_list(
   self : CompactReader,
-  n : Int,
+  n : Int32,
 ) -> Array[CharacterRange] raise CompactError {
   let mut previous = 0
   Array::makei(n, _ => {
@@ -840,5 +841,5 @@ fn read_container(header : CompactReader) -> Language raise CompactError {
 pub fn Language::from_compact_base64(
   text : StringView,
 ) -> Language raise CompactError {
-  read_container(CompactReader::{ data: base64_decode(text), pos: 0, })
+  read_container({ data: base64_decode(text), pos: 0, })
 }

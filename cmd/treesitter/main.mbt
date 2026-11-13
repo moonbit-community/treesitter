@@ -19,7 +19,7 @@ async fn main {
 /// Whether the file name of `path` is the name moon gives this executable.
 fn is_default_executable_name(path : String) -> Bool {
   let name = match path.rev_find("/") {
-    Some(i) => path.view(start_offset=i + 1)
+    Some(i) => path.clamped_view(start=i + 1)
     None => path[:]
   }
   name is ("treesitter" | "treesitter.exe")

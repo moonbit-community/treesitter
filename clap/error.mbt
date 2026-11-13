@@ -3,6 +3,7 @@
 
 ///|
 /// `clap::error::ErrorKind`.
+#derive(Eq, Debug)
 pub(all) enum ErrorKind {
   InvalidValue
   UnknownArgument
@@ -19,7 +20,7 @@ pub(all) enum ErrorKind {
   DisplayHelp
   DisplayHelpOnMissingArgumentOrSubcommand
   DisplayVersion
-} derive(Eq, Debug)
+}
 
 ///|
 /// A parse outcome that ends the program: help or version output, or a usage

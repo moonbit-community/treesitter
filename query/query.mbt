@@ -4,8 +4,8 @@
 ///|
 /// A `[offset, offset + length)` slice of one of the query's arrays.
 priv struct Slice {
-  offset : Int
-  length : Int
+  offset : Int32
+  length : Int32
 }
 
 ///|
@@ -14,8 +14,8 @@ priv struct Slice {
 /// array that makes it possible to efficiently lookup patterns based on the
 /// symbol for their first step.
 priv struct PatternEntry {
-  step_index : Int
-  pattern_index : Int
+  step_index : Int32
+  pattern_index : Int32
   is_rooted : Bool
 }
 
@@ -23,34 +23,37 @@ priv struct PatternEntry {
 priv struct QueryPattern {
   steps : Slice
   predicate_steps : Slice
-  start_byte : UInt
-  end_byte : UInt
+  start_byte : UInt32
+  end_byte : UInt32
   mut is_non_local : Bool
 }
 
 ///|
 priv struct StepOffset {
-  byte_offset : UInt
-  step_index : Int
+  byte_offset : UInt32
+  step_index : Int32
 }
 
 ///|
 /// `TSQueryPredicateStepType`.
+#derive(Eq, Debug)
 pub(all) enum QueryPredicateStepType {
   Done
   Capture
   String
-} derive(Eq, Debug)
+}
 
 ///|
 /// `TSQueryPredicateStep`.
+#derive(Eq, Debug)
 pub(all) struct QueryPredicateStep {
   type_ : QueryPredicateStepType
-  value_id : Int
-} derive(Eq, Debug)
+  value_id : Int32
+}
 
 ///|
 /// `TSQueryError`.
+#derive(Eq, Debug)
 pub(all) enum QueryErrorKind {
   Syntax
   NodeType
@@ -58,13 +61,14 @@ pub(all) enum QueryErrorKind {
   Capture
   Structure
   Language
-} derive(Eq, Debug)
+}
 
 ///|
 /// A query compilation error: its kind and the byte offset in the source.
+#derive(Debug)
 pub suberror QueryError {
-  QueryError(kind~ : QueryErrorKind, offset~ : UInt)
-} derive(Debug)
+  QueryError(kind~ : QueryErrorKind, offset~ : UInt32)
+}
 
 ///|
 /// TSQuery - A tree query, compiled from a string of S-expressions. The query
@@ -79,11 +83,11 @@ pub struct Query {
   priv predicate_steps : Array[QueryPredicateStep]
   priv patterns : Array[QueryPattern]
   priv step_offsets : Array[StepOffset]
-  priv negated_fields : Array[Int]
+  priv negated_fields : Array[Int32]
   priv mut string_buffer : Array[Byte]
-  priv repeat_symbols_with_rootless_patterns : Array[Int]
+  priv repeat_symbols_with_rootless_patterns : Array[Int32]
   priv language : @language.Language
-  priv mut wildcard_root_pattern_count : Int
+  priv mut wildcard_root_pattern_count : Int32
 }
 
 ///|
@@ -95,7 +99,7 @@ pub struct Query {
 /// The entries are sorted by the patterns' root symbols, and lookups use a
 /// binary search. Returns whether the symbol is present, and the index where
 /// it is or should be inserted.
-fn Query::pattern_map_search(self : Query, needle : Int) -> (Bool, Int) {
+fn Query::pattern_map_search(self : Query, needle : Int32) -> (Bool, Int32) {
   let mut base_index = self.wildcard_root_pattern_count
   let mut size = self.pattern_map.length() - base_index
   if size == 0 {
@@ -125,7 +129,7 @@ fn Query::pattern_map_search(self : Query, needle : Int) -> (Bool, Int) {
 /// pattern map's ordering invariant.
 fn Query::pattern_map_insert(
   self : Query,
-  symbol : Int,
+  symbol : Int32,
   new_entry : PatternEntry,
 ) -> Unit {
   let (_, found_index) = self.pattern_map_search(symbol)
@@ -150,15 +154,18 @@ fn Query::pattern_map_insert(
 /// `_array__search_sorted` with an integer key.
 fn[T] search_sorted_by(
   array : Array[T],
-  key : (T) -> Int,
-  needle : Int,
-) -> (Int, Bool) {
+  key : (T) -> Int32,
+  needle : Int32,
+) -> (Int32, Bool) {
   search_sorted_with(array, item => key(item) - needle)
 }
 
 ///|
 /// `_array__search_sorted`: `compare(item)` compares an item with the needle.
-fn[T] search_sorted_with(array : Array[T], compare : (T) -> Int) -> (Int, Bool) {
+fn[T] search_sorted_with(
+  array : Array[T],
+  compare : (T) -> Int32,
+) -> (Int32, Bool) {
   let mut index = 0
   let mut size = array.length()
   if size == 0 {
@@ -184,7 +191,7 @@ fn[T] search_sorted_with(array : Array[T], compare : (T) -> Int) -> (Int, Bool) 
 
 ///|
 /// `array_insert_sorted_by` for an array of integers.
-fn insert_sorted_int(array : Array[Int], value : Int) -> Unit {
+fn insert_sorted_int(array : Array[Int32], value : Int32) -> Unit {
   let (index, exists) = search_sorted_by(array, x => x, value)
   if !exists {
     array.insert(index, value)

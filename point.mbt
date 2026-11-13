@@ -31,10 +31,11 @@ fn from_u32(x : UInt32) -> Int32 {
 /// A position in a multi-line text document, in terms of rows and columns.
 ///
 /// Rows and columns are zero-based.
+#derive(Eq, Hash, Compare, Default)
 pub(all) struct Point {
   row : Int32
   column : Int32
-} derive(Eq, Hash, Compare, Default)
+}
 
 ///|
 /// Create a point.
@@ -72,12 +73,13 @@ fn Point::from_ts(point : @runtime.Point) -> Point {
 ///|
 /// A range of positions in a multi-line text document, both in terms of bytes
 /// and of rows and columns.
+#derive(Eq, Hash)
 pub(all) struct Range {
   start_byte : Int32
   end_byte : Int32
   start_point : Point
   end_point : Point
-} derive(Eq, Hash)
+}
 
 ///|
 /// Rust's derived `Debug`: `Range { start_byte: 0, end_byte: 1, start_point:
@@ -110,6 +112,7 @@ fn Range::from_ts(range : @runtime.Range) -> Range {
 
 ///|
 /// A summary of a change to a text document.
+#derive(Eq)
 pub(all) struct InputEdit {
   start_byte : Int32
   old_end_byte : Int32
@@ -117,7 +120,7 @@ pub(all) struct InputEdit {
   start_position : Point
   old_end_position : Point
   new_end_position : Point
-} derive(Eq)
+}
 
 ///|
 /// Rust's derived `Debug`: `InputEdit { start_byte: .., old_end_byte: ..,
@@ -169,7 +172,8 @@ pub fn InputEdit::edit_range(self : InputEdit, range : Range) -> Range {
 
 ///|
 /// A type of log message.
+#derive(Eq, Debug)
 pub(all) enum LogType {
   Parse
   Lex
-} derive(Eq, Debug)
+}

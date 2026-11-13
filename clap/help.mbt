@@ -77,8 +77,8 @@ fn HelpTemplate::write_templated_help(
   self.writer.write_view(parts[0])
   for part in parts[1:] {
     guard part.find("}") is Some(close) else { continue }
-    let tag = part.view(end_offset=close).to_owned()
-    let rest = part.view(start_offset=close + 1)
+    let tag = part.clamped_view(end=close).to_owned()
+    let rest = part.clamped_view(start=close + 1)
     match tag {
       "name" =>
         self.writer.write_string(self.cmd.display_name.unwrap_or(self.cmd.name))

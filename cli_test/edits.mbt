@@ -1,11 +1,12 @@
 // Port of tree-sitter crates/cli/src/fuzz/edits.rs.
 
 ///|
+#derive(Debug)
 pub(all) struct Edit {
   position : Int32
   deleted_length : Int32
   inserted_text : Array[Byte]
-} derive(Debug)
+}
 
 ///|
 pub fn invert_edit(input : ArrayView[Byte], edit : Edit) -> Edit {

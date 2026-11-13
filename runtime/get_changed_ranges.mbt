@@ -235,11 +235,12 @@ fn ChangeIterator::advance(self : ChangeIterator) -> Unit {
 }
 
 ///|
+#derive(Eq)
 priv enum IteratorComparison {
   Differs
   MayDiffer
   Matches
-} derive(Eq)
+}
 
 ///|
 fn iterator_compare(

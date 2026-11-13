@@ -8,24 +8,24 @@
 // ends when the output has the declared raw length, after a literal run.
 
 ///|
-let lz_min_match : Int = 4
+let lz_min_match : Int32 = 4
 
 ///|
-let lz_hash_bits : Int = 16
+let lz_hash_bits : Int32 = 16
 
 ///|
 /// Maximum number of earlier positions tried per position. Fixed, so the
 /// output is a deterministic function of the input.
-let lz_max_chain : Int = 32
+let lz_max_chain : Int32 = 32
 
 ///|
-let lz_max_distance : Int = 1 << 22
+let lz_max_distance : Int32 = 1 << 22
 
 ///|
-let lz_max_match : Int = 1 << 16
+let lz_max_match : Int32 = 1 << 16
 
 ///|
-fn lz_write_uint(buf : @buffer.Buffer, value : Int) -> Unit {
+fn lz_write_uint(buf : @buffer.Buffer, value : Int32) -> Unit {
   let mut v = value
   while v >= 0x80 {
     buf.write_byte(((v & 0x7f) | 0x80).to_byte())
@@ -35,7 +35,7 @@ fn lz_write_uint(buf : @buffer.Buffer, value : Int) -> Unit {
 }
 
 ///|
-fn lz_hash(data : Bytes, i : Int) -> Int {
+fn lz_hash(data : Bytes, i : Int32) -> Int32 {
   let v = data[i].to_uint() |
     (data[i + 1].to_uint() << 8) |
     (data[i + 2].to_uint() << 16) |
@@ -50,7 +50,7 @@ fn lz_compress(data : Bytes) -> Bytes {
   let out = @buffer.Buffer(size_hint=n / 4 + 16)
   let head = FixedArray::make(1 << lz_hash_bits, -1)
   let prev = FixedArray::make(n, -1)
-  fn insert(p : Int) {
+  fn insert(p : Int32) {
     if p + lz_min_match <= n {
       let h = lz_hash(data, p)
       prev[p] = head[h]
@@ -110,8 +110,8 @@ fn lz_compress(data : Bytes) -> Bytes {
 /// bytes.
 fn lz_decompress(
   data : FixedArray[Byte],
-  start : Int,
-  raw_length : Int,
+  start : Int32,
+  raw_length : Int32,
 ) -> FixedArray[Byte] raise CompactError {
   let out : FixedArray[Byte] = FixedArray::make(raw_length, 0)
   let r = CompactReader::{ data, pos: start, }
@@ -189,7 +189,7 @@ fn base64_encode(data : Bytes) -> String {
 }
 
 ///|
-fn base64_digit(c : UInt16) -> Int {
+fn base64_digit(c : UInt16) -> Int32 {
   match c {
     'A'..<='Z' => c.to_int() - 'A'.to_int()
     'a'..<='z' => c.to_int() - 'a'.to_int() + 26

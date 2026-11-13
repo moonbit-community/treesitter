@@ -58,11 +58,7 @@ const SERIALIZATION_BUFFER_SIZE : Int32 = 1024
 /// A failed C `assert(expression)` as the pinned platform's libc reports it
 /// (macOS `__assert_rtn`): the diagnostic on stderr, then `abort()` (a panic
 /// here).
-fn[T] c_assert_fail(
-  expression : String,
-  function : String,
-  line : Int32,
-) -> T {
+fn[T] c_assert_fail(expression : String, function : String, line : Int32) -> T {
   eprintln(
     "Assertion failed: (\{expression}), function \{function}, file scanner.c, line \{line}.",
   )

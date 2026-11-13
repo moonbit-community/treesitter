@@ -192,9 +192,21 @@ async test "tags_javascript" {
       )
     }),
     [
-      ("Customer", (@treesitter.Point::new(5, 10), @treesitter.Point::new(5, 18)), "class"),
-      ("getAge", (@treesitter.Point::new(9, 8), @treesitter.Point::new(9, 14)), "method"),
-      ("Agent", (@treesitter.Point::new(15, 10), @treesitter.Point::new(15, 15)), "class"),
+      (
+        "Customer",
+        (@treesitter.Point::new(5, 10), @treesitter.Point::new(5, 18)),
+        "class",
+      ),
+      (
+        "getAge",
+        (@treesitter.Point::new(9, 8), @treesitter.Point::new(9, 14)),
+        "method",
+      ),
+      (
+        "Agent",
+        (@treesitter.Point::new(15, 10), @treesitter.Point::new(15, 15)),
+        "class",
+      ),
     ],
   )
   assert_eq(tags[0].docs, Some("Data about a customer.\nbla bla bla"))
@@ -212,7 +224,10 @@ async test "tags_columns_measured_in_utf16_code_units" {
     fail("expected a tag")
   }
   assert_eq(substr(source, tag.name_range), "hello_α_ω")
-  assert_eq(tag.span, (@treesitter.Point::new(0, 21), @treesitter.Point::new(0, 32)))
+  assert_eq(
+    tag.span,
+    (@treesitter.Point::new(0, 21), @treesitter.Point::new(0, 32)),
+  )
   assert_eq(tag.utf16_column_range, (9, 18))
 }
 
@@ -292,7 +307,7 @@ async test "tags_cancellation" {
     i += 1
     match tag {
       Ok(_) => ()
-      Err(@tags.Cancelled) => {
+      Err(Cancelled) => {
         found_cancellation_error = true
         break
       }

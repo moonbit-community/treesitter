@@ -32,10 +32,11 @@ pub struct TagsConfiguration {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct NamedCapture {
   syntax_type_id : Int32
   is_definition : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 pub struct TagsContext {
@@ -45,6 +46,7 @@ pub struct TagsContext {
 
 ///|
 /// A tag. Ranges are `(start, end)` pairs (upstream: `Range<usize>`).
+#derive(Eq, Debug)
 pub(all) struct Tag {
   range : (Int32, Int32)
   name_range : (Int32, Int32)
@@ -54,16 +56,17 @@ pub(all) struct Tag {
   docs : String?
   is_definition : Bool
   syntax_type_id : Int32
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror TagsError {
   Query(@treesitter.QueryError)
   Regex(@regex.RegexError)
   Cancelled
   InvalidLanguage(@treesitter.LanguageError)
   InvalidCapture(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for TagsError with fn output(self, logger) {

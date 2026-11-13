@@ -4,14 +4,16 @@
 
 ///|
 /// `serde_json::Number`.
+#derive(Eq, Debug)
 pub(all) enum Number {
   PosInt(UInt64)
   NegInt(Int64)
   Float(Double)
-} derive(Eq, Debug)
+}
 
 ///|
 /// `serde_json::Value`.
+#derive(Eq, Debug)
 pub(all) enum Value {
   Null
   Bool(Bool)
@@ -19,7 +21,7 @@ pub(all) enum Value {
   String(String)
   Array(Array[Value])
   Object(Map[String, Value])
-} derive(Eq, Debug)
+}
 
 ///|
 /// `ValueVisitor`.
@@ -88,14 +90,14 @@ pub fn Deserializer::deserialize_value_map(
 /// `Value::unexpected`.
 pub fn Value::unexpected(self : Value) -> Unexpected {
   match self {
-    Null => Unexpected::Unit
-    Bool(b) => Unexpected::Bool(b)
-    Number(PosInt(u)) => Unexpected::Unsigned(u)
-    Number(NegInt(i)) => Unexpected::Signed(i)
-    Number(Float(f)) => Unexpected::Float(f)
-    String(s) => Unexpected::Str(s)
-    Array(_) => Unexpected::Seq
-    Object(_) => Unexpected::Map
+    Null => Unit
+    Bool(b) => Bool(b)
+    Number(PosInt(u)) => Unsigned(u)
+    Number(NegInt(i)) => Signed(i)
+    Number(Float(f)) => Float(f)
+    String(s) => Str(s)
+    Array(_) => Seq
+    Object(_) => Map
   }
 }
 

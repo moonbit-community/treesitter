@@ -62,6 +62,7 @@ fn normalize_sexp_output(raw : StringView) -> (String, Bool) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum TestEntry {
   Group(name~ : String, children~ : Array[TestEntry], file_path~ : String?)
   Example(
@@ -73,25 +74,27 @@ pub(all) enum TestEntry {
     has_fields~ : Bool,
     attributes_str~ : String,
     attributes~ : TestAttributes,
-    file_name~ : String?
+    file_name~ : String?,
   )
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct TestAttributes {
   platform : Bool
   fail_fast : Bool
   expectation : TestExpectation
   cst : Bool
   languages : Array[String]
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum TestExpectation {
   Pass
   Error
   Skip
-} derive(Eq, Debug)
+}
 
 ///|
 #warnings("-unused_value")
@@ -160,9 +163,9 @@ pub impl Show for TestDiff with fn output(self, f) {
   for change in diff_lines(self.actual, self.expected) {
     let (tag, line) = change
     let symbol = match tag {
-      ChangeTag::Equal => ' '
-      ChangeTag::Insert => '+'
-      ChangeTag::Delete => '-'
+      Equal => ' '
+      Insert => '+'
+      Delete => '-'
     }
     f.write_char(symbol)
     f.write_view(line)

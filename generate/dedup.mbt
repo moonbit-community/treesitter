@@ -10,22 +10,22 @@
 pub(all) struct SplitCriterion[S] {
   /// Whether `left` and `right`, from the same group, must be in different
   /// groups. This must be symmetric.
-  should_split : (S, S, Array[Int]) -> Bool
+  should_split : (S, S, Array[Int32]) -> Bool
   /// A hash of what `equivalent` compares, if this criterion sorts states
   /// into classes.
-  signature : (S, Array[Int]) -> Int?
+  signature : (S, Array[Int32]) -> Int32?
   /// Whether two states with the same signature are equivalent.
-  equivalent : (S, S, Array[Int]) -> Bool
+  equivalent : (S, S, Array[Int32]) -> Bool
   /// Called before a group's states are compared.
   start_group : () -> Unit
   /// Whether `state` can stay in its group with all of `kept`. `false` is
   /// always correct.
-  compatible_with_all : (S, ArrayView[Int], Array[Int]) -> Bool
+  compatible_with_all : (S, ArrayView[Int32], Array[Int32]) -> Bool
 }
 
 ///|
 pub fn[S] SplitCriterion::simple(
-  should_split : (S, S, Array[Int]) -> Bool,
+  should_split : (S, S, Array[Int32]) -> Bool,
 ) -> SplitCriterion[S] {
   {
     should_split,
@@ -47,13 +47,17 @@ pub fn[S] SplitCriterion::simple(
 /// position.
 pub fn[S] split_state_id_groups(
   states : Array[S],
-  state_ids_by_group_id : Array[Array[Int]],
-  group_ids_by_state_id : Array[Int],
-  start_group_id : Int,
+  state_ids_by_group_id : Array[Array[Int32]],
+  group_ids_by_state_id : Array[Int32],
+  start_group_id : Int32,
   criterion : SplitCriterion[S],
 ) -> Bool {
   split_state_id_groups_tracked(
-    states, state_ids_by_group_id, group_ids_by_state_id, start_group_id, criterion,
+    states,
+    state_ids_by_group_id,
+    group_ids_by_state_id,
+    start_group_id,
+    criterion,
     None,
   )
 }
@@ -68,15 +72,15 @@ priv struct ChangedGroups {
   dirty : Array[Bool]
   /// The states that have each state as a successor, by state id: state `i`'s
   /// are `predecessors[predecessor_starts[i]..predecessor_starts[i + 1]]`.
-  predecessor_starts : FixedArray[Int]
-  predecessors : FixedArray[Int]
+  predecessor_starts : FixedArray[Int32]
+  predecessors : FixedArray[Int32]
 }
 
 ///|
 /// `successors(i)` lists the successors of state `i` (repeats are fine).
 fn ChangedGroups::new(
-  state_count : Int,
-  successors : (Int, (Int) -> Unit) -> Unit,
+  state_count : Int32,
+  successors : (Int32, (Int32) -> Unit) -> Unit,
 ) -> ChangedGroups {
   let counts = FixedArray::make(state_count + 1, 0)
   for i in 0..<state_count {
@@ -93,16 +97,20 @@ fn ChangedGroups::new(
       next[s] += 1
     })
   }
-  { dirty: [], predecessor_starts: counts, predecessors }
+  { dirty: [], predecessor_starts: counts, predecessors, }
 }
 
 ///|
-fn ChangedGroups::is_dirty(self : ChangedGroups, group_id : Int) -> Bool {
+fn ChangedGroups::is_dirty(self : ChangedGroups, group_id : Int32) -> Bool {
   group_id >= self.dirty.length() || self.dirty[group_id]
 }
 
 ///|
-fn ChangedGroups::set(self : ChangedGroups, group_id : Int, dirty : Bool) -> Unit {
+fn ChangedGroups::set(
+  self : ChangedGroups,
+  group_id : Int32,
+  dirty : Bool,
+) -> Unit {
   while self.dirty.length() <= group_id {
     self.dirty.push(true)
   }
@@ -113,11 +121,12 @@ fn ChangedGroups::set(self : ChangedGroups, group_id : Int, dirty : Bool) -> Uni
 /// Records that `state_id` moved to another group.
 fn ChangedGroups::moved(
   self : ChangedGroups,
-  state_id : Int,
-  group_ids_by_state_id : Array[Int],
+  state_id : Int32,
+  group_ids_by_state_id : Array[Int32],
 ) -> Unit {
   for
-    i in self.predecessor_starts[state_id]..<self.predecessor_starts[state_id + 1] {
+    i in self.predecessor_starts[state_id]..<self.predecessor_starts[state_id +
+    1] {
     self.set(group_ids_by_state_id[self.predecessors[i]], true)
   }
 }
@@ -126,17 +135,17 @@ fn ChangedGroups::moved(
 /// `split_state_id_groups`, skipping the groups that `changed` knows can't split.
 fn[S] split_state_id_groups_tracked(
   states : Array[S],
-  state_ids_by_group_id : Array[Array[Int]],
-  group_ids_by_state_id : Array[Int],
-  start_group_id : Int,
+  state_ids_by_group_id : Array[Array[Int32]],
+  group_ids_by_state_id : Array[Int32],
+  start_group_id : Int32,
   criterion : SplitCriterion[S],
   changed : ChangedGroups?,
 ) -> Bool {
   let mut result = false
   let classes = GroupClasses::new()
-  let kept : Array[Int] = []
-  let split_from : Array[Int?] = []
-  let moved : Array[(Int, Int)] = []
+  let kept : Array[Int32] = []
+  let split_from : Array[Int32?] = []
+  let moved : Array[(Int32, Int32)] = []
   let mut group_id = start_group_id
   while group_id < state_ids_by_group_id.length() {
     let state_ids = state_ids_by_group_id[group_id]
@@ -227,24 +236,24 @@ fn[S] split_state_id_groups_tracked(
 /// The states of a group, sorted into classes of equivalent states.
 priv struct GroupClasses {
   /// The class of each of the group's states, by position.
-  class_ids : Array[Int]
+  class_ids : Array[Int32]
   /// The first state of each class, in order.
-  first_states : Array[Int]
+  first_states : Array[Int32]
   /// The first class found with each signature.
-  class_ids_by_signature : Map[Int, Int]
+  class_ids_by_signature : Map[Int32, Int32]
 }
 
 ///|
 fn GroupClasses::new() -> GroupClasses {
-  { class_ids: [], first_states: [], class_ids_by_signature: Map([]) }
+  { class_ids: [], first_states: [], class_ids_by_signature: Map([]), }
 }
 
 ///|
 fn[S] GroupClasses::classify(
   self : GroupClasses,
   states : Array[S],
-  state_ids : Array[Int],
-  group_ids_by_state_id : Array[Int],
+  state_ids : Array[Int32],
+  group_ids_by_state_id : Array[Int32],
   criterion : SplitCriterion[S],
 ) -> Unit {
   self.class_ids.clear()

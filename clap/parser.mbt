@@ -5,11 +5,12 @@
 
 ///|
 /// `clap::parser::ValueSource`.
+#derive(Eq, Debug)
 pub(all) enum ValueSource {
   DefaultValue
   EnvVariable
   CommandLine
-} derive(Eq, Debug)
+}
 
 ///|
 fn ValueSource::is_explicit(self : ValueSource) -> Bool {
@@ -162,12 +163,11 @@ priv struct PendingArg {
 priv enum ParseState {
   ValuesDone
   Opt(String)
-  Pos(String)
+  Pos
 }
 
 ///|
 priv enum ParseResult {
-  FlagSubCommand(String)
   Opt(String)
   ValuesDone
   AttachedValueNotConsumed
@@ -389,7 +389,7 @@ fn Parser::parse(
       self.invalid_values.push(arg_os)
     }
     if !trailing_values {
-      if !(parse_state is (Opt(_) | Pos(_))) {
+      if !(parse_state is (Opt(_) | Pos)) {
         if self.possible_subcommand(arg_os, valid_arg_found) is Some(sc_name) {
           subcmd_name = Some(sc_name)
           break
@@ -413,10 +413,6 @@ fn Parser::parse(
             valid_arg_found = true
             parse_state = Opt(id)
             continue
-          }
-          FlagSubCommand(name) => {
-            subcmd_name = Some(name)
-            break
           }
           EqualsNotProvided(arg) => {
             self.resolve_pending() catch {
@@ -458,10 +454,6 @@ fn Parser::parse(
             valid_arg_found = true
             parse_state = Opt(id)
             continue
-          }
-          FlagSubCommand(name) => {
-            subcmd_name = Some(name)
-            break
           }
           EqualsNotProvided(arg) => {
             self.resolve_pending() catch {
@@ -531,7 +523,7 @@ fn Parser::parse(
           pos_counter += 1
           parse_state = ValuesDone
         } else {
-          parse_state = Pos(arg.id)
+          parse_state = Pos
         }
         valid_arg_found = true
       }
@@ -999,7 +991,10 @@ fn Parser::react(
       ValuesDone
     }
     Help => {
-      let use_long = !(ident is Some(Short))
+      let use_long = match ident {
+        Some(Short) => false
+        Some(Long | Index) | None => true
+      }
       raise ClapError(kind=DisplayHelp, message=self.cmd.render_help(use_long))
     }
     HelpShort =>

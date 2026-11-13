@@ -9,27 +9,33 @@ test "Debug formats match Rust's derive(Debug)" {
     content="Point { row: 1, column: 2 }",
   )
   debug_inspect(
-    ({
-      start_byte: 0,
-      end_byte: 12,
-      start_point: @treesitter.Point::new(0, 0),
-      end_point: @treesitter.Point::new(3, 4),
-    } : @treesitter.Range),
+    (
+      {
+        start_byte: 0,
+        end_byte: 12,
+        start_point: @treesitter.Point::new(0, 0),
+        end_point: @treesitter.Point::new(3, 4),
+      } : @treesitter.Range),
     content="Range { start_byte: 0, end_byte: 12, start_point: Point { row: 0, column: 0 }, end_point: Point { row: 3, column: 4 } }",
   )
   debug_inspect(
-    ({
-      start_byte: 1,
-      old_end_byte: 2,
-      new_end_byte: 3,
-      start_position: @treesitter.Point::new(4, 5),
-      old_end_position: @treesitter.Point::new(6, 7),
-      new_end_position: @treesitter.Point::new(8, 9),
-    } : @treesitter.InputEdit),
+    (
+      {
+        start_byte: 1,
+        old_end_byte: 2,
+        new_end_byte: 3,
+        start_position: @treesitter.Point::new(4, 5),
+        old_end_position: @treesitter.Point::new(6, 7),
+        new_end_position: @treesitter.Point::new(8, 9),
+      } : @treesitter.InputEdit),
     content="InputEdit { start_byte: 1, old_end_byte: 2, new_end_byte: 3, start_position: Point { row: 4, column: 5 }, old_end_position: Point { row: 6, column: 7 }, new_end_position: Point { row: 8, column: 9 } }",
   )
   debug_inspect(
-    @treesitter.QueryProperty::new("key\"\\\n", Some("v\u{0}é\u{301}\u{7f}"), None),
+    @treesitter.QueryProperty::new(
+      "key\"\\\n",
+      Some("v\u{0}é\u{301}\u{7f}"),
+      None,
+    ),
     content=(
       #|QueryProperty { key: "key\"\\\n", value: Some("v\0é\u{301}\u{7f}"), capture_id: None }
     ),
@@ -41,13 +47,15 @@ test "Debug formats match Rust's derive(Debug)" {
     ),
   )
   debug_inspect(
-    ({ operator: "is-not?", args: [Capture(0), String("it's\t")] } : @treesitter.QueryPredicate),
+    (
+      { operator: "is-not?", args: [Capture(0), String("it's\t")], } :
+      @treesitter.QueryPredicate),
     content=(
       #|QueryPredicate { operator: "is-not?", args: [Capture(0), String("it's\t")] }
     ),
   )
   debug_inspect(
-    ({ operator: "x", args: [] } : @treesitter.QueryPredicate),
+    ({ operator: "x", args: [], } : @treesitter.QueryPredicate),
     content=(
       #|QueryPredicate { operator: "x", args: [] }
     ),
@@ -86,7 +94,7 @@ test "Language::name is a C string" {
     ),
   )
   // `CStr::from_ptr(ts_language_name(..))` stops at the NUL.
-  let raw = { ..generated.language, name: "json\u{0}suffix" }
+  let raw = { ..generated.language, name: "json\u{0}suffix", }
   let language = @treesitter.Language::new(raw)
   debug_inspect(language.name(), content="Some(\"json\")")
   // The stored value is unchanged.

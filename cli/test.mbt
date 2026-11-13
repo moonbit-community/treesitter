@@ -4,11 +4,12 @@
 // normalization are in cli_test.
 
 ///|
+#derive(Eq)
 pub(all) enum TestStats {
   All
   OutliersAndTotal
   TotalOnly
-} derive(Eq)
+}
 
 ///|
 pub struct TestOptions {
@@ -44,7 +45,7 @@ pub(all) enum TestInfo {
   ParseTest(
     outcome~ : TestOutcome,
     parse_rate~ : (Double, Double)?,
-    test_num~ : Int32
+    test_num~ : Int32,
   )
   AssertionTest(outcome~ : TestOutcome, test_num~ : Int32)
 }
@@ -502,7 +503,11 @@ pub async fn run_tests_at_path(
   }
   // `Drop for LogSession` at the end of the function, also when an error
   // is returned.
-  defer (if log_session is Some(session) { session.close() })
+  defer @async.protect_from_cancel(() => {
+    if log_session is Some(session) {
+      session.close()
+    }
+  })
   if opts.debug {
     parser.set_logger(
       Some((log_type, message) => {

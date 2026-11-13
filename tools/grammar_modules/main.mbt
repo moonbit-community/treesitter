@@ -20,10 +20,10 @@
 ///|
 /// Characters of base64 per line of the multi-line string literal (a multiple
 /// of 4, so that every line decodes on its own).
-let line_width : Int = 96
+let line_width : Int32 = 96
 
 ///|
-fn parse_version(text : String) -> (Int, Int, Int)? raise {
+fn parse_version(text : String) -> (Int32, Int32, Int32)? raise {
   if text == "-" {
     return None
   }

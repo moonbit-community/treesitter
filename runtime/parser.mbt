@@ -1587,7 +1587,7 @@ fn Parser::advance(
   let mut lookahead = Subtree::null()
   let out = self.advance_out
   out.state = state
-  out.table_entry = { actions_start: 0, action_count: 0, is_reusable: false }
+  out.table_entry = { actions_start: 0, action_count: 0, is_reusable: false, }
   // If possible, reuse a node from the previous syntax tree.
   if allow_node_reuse {
     lookahead = self.reuse_node(version, out, position, last_external_token)
@@ -1597,9 +1597,7 @@ fn Parser::advance(
   // reuse the token previously returned by the lexer.
   if lookahead.is_null() {
     did_reuse = false
-    lookahead = self.get_cached_token(
-      state, position, last_external_token, out,
-    )
+    lookahead = self.get_cached_token(state, position, last_external_token, out)
   }
   let mut table_entry = out.table_entry
   let mut needs_lex = lookahead.is_null()
@@ -1983,7 +1981,7 @@ pub fn Parser::new() -> Parser {
     keyword_lex_program: None,
     advance_out: {
       state: 0,
-      table_entry: { actions_start: 0, action_count: 0, is_reusable: false },
+      table_entry: { actions_start: 0, action_count: 0, is_reusable: false, },
     },
   }
   self.set_cached_token(0, Subtree::null(), Subtree::null())

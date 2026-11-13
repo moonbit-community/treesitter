@@ -6,6 +6,7 @@
 
 ///|
 /// `serde::__private::de::Content`, for JSON input.
+#derive(Eq, Debug)
 pub(all) enum Content {
   Bool(Bool)
   U64(UInt64)
@@ -15,20 +16,20 @@ pub(all) enum Content {
   Unit
   Seq(Array[Content])
   Map(Array[(Content, Content)])
-} derive(Eq, Debug)
+}
 
 ///|
 /// `content_unexpected`.
 pub fn Content::unexpected(self : Content) -> Unexpected {
   match self {
-    Bool(b) => Unexpected::Bool(b)
-    U64(n) => Unexpected::Unsigned(n)
-    I64(n) => Unexpected::Signed(n)
-    F64(f) => Unexpected::Float(f)
-    String(s) => Unexpected::Str(s)
-    Unit => Unexpected::Unit
-    Seq(_) => Unexpected::Seq
-    Map(_) => Unexpected::Map
+    Bool(b) => Bool(b)
+    U64(n) => Unsigned(n)
+    I64(n) => Signed(n)
+    F64(f) => Float(f)
+    String(s) => Str(s)
+    Unit => Unit
+    Seq(_) => Seq
+    Map(_) => Map
   }
 }
 

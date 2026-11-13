@@ -5,16 +5,18 @@
 
 ///|
 /// `serde_json::Number`.
+#derive(Eq, Debug)
 pub(all) enum Number {
   PosInt(UInt64)
   /// Always less than zero.
   NegInt(Int64)
   /// Always finite.
   Float(Double)
-} derive(Eq, Debug)
+}
 
 ///|
 /// `serde_json::Value`.
+#derive(Eq, Debug)
 pub(all) enum Value {
   Null
   Bool(Bool)
@@ -22,7 +24,7 @@ pub(all) enum Value {
   String(String)
   Array(Array[Value])
   Object(Map[String, Value])
-} derive(Eq, Debug)
+}
 
 ///|
 /// `Number::as_u64`.

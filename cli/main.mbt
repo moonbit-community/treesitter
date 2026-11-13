@@ -571,18 +571,12 @@ async fn check_test(
   json_summary : Bool,
   f : async () -> Unit,
 ) -> Unit {
-  f() catch {
-    e => {
-      if json_summary {
-        @support.print_out(
-          @support.to_string_pretty(test_summary.to_json()) + "\n",
-        )
-      } else {
-        @support.print_out("\{test_summary}\n")
-      }
-      raise e
-    }
-  }
+  errdefer (if json_summary {
+    @support.print_out(@support.to_string_pretty(test_summary.to_json()) + "\n")
+  } else {
+    @support.print_out("\{test_summary}\n")
+  })
+  f()
 }
 
 ///|
@@ -754,8 +748,7 @@ fn move_parser(
 
 ///|
 async fn is_dir(path : String) -> Bool {
-  (@fs.kind(path, follow_symlink=true) catch { _ => @fs.FileKind::Unknown })
-  is Directory
+  (@fs.kind(path, follow_symlink=true) catch { _ => Unknown }) is Directory
 }
 
 ///|
@@ -901,11 +894,11 @@ async fn query_run(
 }
 
 ///|
-async fn first_language_in_current_path(
+fn first_language_in_current_path(
   loader : @loader.Loader,
   languages : Array[(@treesitter.Language, String)],
   language_names : Array[String]?,
-) -> (@treesitter.Language, @loader.LanguageConfiguration) {
+) -> (@treesitter.Language, @loader.LanguageConfiguration) raise {
   let language = match language_names {
     Some(names) => {
       let mut found = None
@@ -1211,10 +1204,10 @@ fn complete_run(m : @clap.ArgMatches) -> Unit {
     (Fish, Some(i)) => {
       let split = i + helpers_end.length()
       write(
-        script.view(end_offset=split),
+        script.clamped_view(end=split),
         "clap_complete-4.6.11/src/aot/shells/fish.rs:277:11",
       )
-      write(script.view(start_offset=split), location)
+      write(script.clamped_view(start=split), location)
     }
     _ => write(script, location)
   }
@@ -1251,7 +1244,7 @@ pub async fn run(
 ) -> Int32 {
   let cli = make_cli()
   let matches = cli.try_get_matches_from(args, invalid_utf8~) catch {
-    @clap.ClapError(_) as e => {
+    ClapError(_) as e => {
       // `Error::exit`: `let _ = self.print();`
       if e.use_stderr() {
         @support.write_stderr_bytes(@support.utf8(e.message()))

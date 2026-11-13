@@ -2,7 +2,9 @@
 // (text_provider_suite_test.mbt), and further text provider checks.
 
 ///|
-async fn parse_text(text : BytesView) -> (@treesitter.Tree, @treesitter.Language)? {
+async fn parse_text(
+  text : BytesView,
+) -> (@treesitter.Tree, @treesitter.Language)? {
   guard get_parsing_language("c") is Some(language) else { return None }
   let parser = parser_for(language)
   Some((parser.parse(text).unwrap(), language))

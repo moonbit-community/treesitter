@@ -8,7 +8,7 @@ fn whole_source_events(
   let events : Array[
     Result[@highlight.HighlightEvent, @highlight.HighlightError],
   ] = [
-    Ok(HighlightStart(@highlight.Highlight(0))),
+    Ok(HighlightStart(Highlight(0))),
     Ok(Source(start=0, end=source.length())),
     Ok(HighlightEnd),
   ]

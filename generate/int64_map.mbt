@@ -12,7 +12,7 @@ priv struct Int64Map {
 
 ///|
 fn Int64Map::new() -> Int64Map {
-  { keys: FixedArray::make(16, -1L), values: FixedArray::make(16, 0), len: 0 }
+  { keys: FixedArray::make(16, -1L), values: FixedArray::make(16, 0), len: 0, }
 }
 
 ///|

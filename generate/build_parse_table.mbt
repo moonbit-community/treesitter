@@ -485,14 +485,16 @@ pub(all) suberror ParseTableBuilderError {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct ConflictError {
   symbol_sequence : Array[String]
   conflicting_lookahead : String
   possible_interpretations : Array[Interpretation]
   possible_resolutions : Array[Resolution]
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct Interpretation {
   preceding_symbols : Array[String]
   variable_name : String
@@ -503,19 +505,21 @@ pub(all) struct Interpretation {
   precedence : String?
   associativity : String?
   requires_eof_lookahead : Bool
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum Resolution {
   Precedence(symbols~ : Array[String])
   Associativity(symbols~ : Array[String])
   AddConflict(symbols~ : Array[String])
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct AmbiguousExtraError {
   parent_symbols : Array[String]
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ParseTableBuilderError with fn output(self, logger) {
@@ -735,7 +739,7 @@ fn ParseTableBuilder::build(
   // Ensure that the empty alias sequence has index 0.
   self.parse_table.production_infos.push({
     alias_sequence: [],
-    field_map: @sorted_map.SortedMap([]),
+    field_map: SortedMap([]),
   })
 
   // Add the error state at index 0.
@@ -759,7 +763,7 @@ fn ParseTableBuilder::build(
   let non_terminal_extra_item_sets_by_first_terminal : @sorted_map.SortedMap[
     Symbol,
     ParseItemSet,
-  ] = @sorted_map.SortedMap([])
+  ] = SortedMap([])
   for extra in self.syntax_grammar.extra_symbols {
     guard extra.non_terminal_index() is Some(extra_index) else { continue }
     let (start, end) = self.syntax_grammar.variable_prod_ids(extra_index)
@@ -1113,7 +1117,9 @@ fn ParseTableBuilder::add_actions(
       }
       let precedence = item.precedence(self.syntax_grammar)
       let associativity = item.associativity(self.syntax_grammar)
-      let requires_eof_lookahead = item.requires_eof_lookahead(self.syntax_grammar)
+      let requires_eof_lookahead = item.requires_eof_lookahead(
+        self.syntax_grammar,
+      )
       if requires_eof_lookahead {
         self.parse_table.states[state_id].has_eof_gated_reduce = true
       }
@@ -1682,17 +1688,15 @@ fn ParseTableBuilder::handle_conflict(
     }
     for item in reduce_items {
       let name = self.symbol_name(Symbol::non_terminal(item.variable_index))
-      possible_resolutions.push(Resolution::Precedence(symbols=[name]))
+      possible_resolutions.push(Precedence(symbols=[name]))
     }
   }
   if considered_associativity {
     let names = get_rule_names(reduce_items)
-    possible_resolutions.push(Resolution::Associativity(symbols=names))
+    possible_resolutions.push(Associativity(symbols=names))
   }
   possible_resolutions.push(
-    Resolution::AddConflict(
-      symbols=actual_conflict.map(s => self.symbol_name(s)),
-    ),
+    AddConflict(symbols=actual_conflict.map(s => self.symbol_name(s))),
   )
   self.actual_conflicts[actual_conflict] = ()
   raise Conflict({
@@ -1780,7 +1784,7 @@ fn ParseTableBuilder::get_production_id(
   }
   let production_info : ProductionInfo = {
     alias_sequence: [],
-    field_map: @sorted_map.SortedMap([]),
+    field_map: SortedMap([]),
   }
   let steps = item.production(self.syntax_grammar).steps
   for i, step in steps {

@@ -695,7 +695,7 @@ async fn Loader::load_language_tables(
     match LockFile::create(lock_path) {
       Some(lock) => {
         // We won the race, so generate with the lock.
-        defer lock.drop()
+        defer @async.protect_from_cancel(() => lock.drop())
         return generate_language_tables(src_path, output_path)
       }
       // Another process is generating (or a previous run crashed and left a
@@ -1267,7 +1267,7 @@ pub async fn LanguageConfiguration::tags_config(
   } else {
     Some(
       @tags.TagsConfiguration::new(language, tags_query, locals_query) catch {
-        @tags.TagsError::Query(error) =>
+        Query(error) =>
           if error.offset() < utf8_len(locals_query) {
             raise include_path_in_query_error(
               error, locals_ranges, locals_query, 0,
