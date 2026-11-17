@@ -47,7 +47,7 @@ fn lz_hash(data : Bytes, i : Int32) -> Int32 {
 /// Compress `data` with a greedy LZ77 over hash chains.
 fn lz_compress(data : Bytes) -> Bytes {
   let n = data.length()
-  let out = @buffer.Buffer(size_hint=n / 4 + 16)
+  let out = @buffer.Buffer(capacity=n / 4 + 16)
   let head = FixedArray::make(1 << lz_hash_bits, -1)
   let prev = FixedArray::make(n, -1)
   fn insert(p : Int32) {
@@ -160,7 +160,7 @@ let base64_alphabet : String = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuv
 ///|
 fn base64_encode(data : Bytes) -> String {
   let n = data.length()
-  let sb = StringBuilder(size_hint=(n + 2) / 3 * 4)
+  let sb = StringBuilder(capacity=(n + 2) / 3 * 4)
   let mut i = 0
   while i + 3 <= n {
     let v = (data[i].to_int() << 16) |
@@ -204,7 +204,7 @@ fn base64_digit(c : UInt16) -> Int32 {
 
 ///|
 fn base64_decode(text : StringView) -> FixedArray[Byte] raise CompactError {
-  let out = @buffer.Buffer(size_hint=text.length() / 4 * 3)
+  let out = @buffer.Buffer(capacity=text.length() / 4 * 3)
   let mut acc = 0
   let mut count = 0
   let mut padding = 0

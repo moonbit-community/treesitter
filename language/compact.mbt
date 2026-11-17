@@ -318,7 +318,7 @@ fn CompactWriter::parse_action(
 ///|
 /// The raw stream (layer 3) of a language.
 fn write_raw(language : Language) -> Bytes raise {
-  let w = CompactWriter::{ buf: Buffer(size_hint=1 << 16), }
+  let w = CompactWriter::{ buf: Buffer(capacity=1 << 16), }
   let l = language
   w.uint(l.abi_version)
   w.uint(l.symbol_count)
@@ -401,7 +401,7 @@ pub fn Language::to_compact(self : Language) -> Bytes raise CompactError {
     CompactError(_) as e => raise e
     e => raise CompactError(e.to_string())
   }
-  let w = CompactWriter::{ buf: Buffer(size_hint=raw.length() / 4), }
+  let w = CompactWriter::{ buf: Buffer(capacity=raw.length() / 4), }
   w.byte(compact_format_version)
   w.uint(raw.length()) catch {
     _ => ()
@@ -563,7 +563,7 @@ fn CompactReader::index_deltas(
 ///|
 fn CompactReader::string(self : CompactReader) -> String raise CompactError {
   let n = self.length()
-  let sb = StringBuilder(size_hint=n)
+  let sb = StringBuilder(capacity=n)
   for _ in 0..<n {
     let code = self.uint()
     if code > 0x10FFFF {

@@ -249,7 +249,7 @@ fn c_lex_program(program : @language.LexProgram) -> @language.LexProgram {
 /// does); `\u`/`\U` name a code point, also below U+00A0 (as in C23). Bytes
 /// that are not UTF-8 decode to U+FFFD.
 fn c_string_literal_value(literal : String) -> String {
-  let bytes = Buffer(size_hint=literal.length())
+  let bytes = Buffer(capacity=literal.length())
   let chars = literal.to_array()
   let n = chars.length()
   let mut i = 0
