@@ -3,6 +3,8 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+env:
+  MOON_SEPARATE_COMPILATION: "1"
 permissions:
   contents: read
 concurrency:
